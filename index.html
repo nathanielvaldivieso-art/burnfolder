@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>burnpile.com</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>burnpile.com</h1>
+
+  <!-- Intro text -->
+  <p id="intro">burnpile, burnpile burnpile burnpile.</p>
+
+  <!-- Entries -->
+  <ul id="entries"></ul>
+
+  <script>
+  // 🔹 Entry list
+  const entries = ["8.25", "9.20"]; // Only 8.25 and 9.20 now
+
+  // Fill entry list
+  const container = document.getElementById("entries");
+  entries.forEach(entry => {
+    const li = document.createElement("li");
+    const link = document.createElement("a");
+    link.href = `${entry}.html`;
+    link.textContent = entry;
+    li.appendChild(link);
+    container.appendChild(li);
+  });
+  </script>
+</body>
+</html>
