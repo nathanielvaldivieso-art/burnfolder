@@ -1,0 +1,379 @@
+body {
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  margin: 40px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Dark mode toggle */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 20px;
+  height: 20px;
+  background: #000;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+/* Dark mode styles */
+body.dark-mode {
+  background: #000;
+  color: #fff;
+}
+
+body.dark-mode .theme-toggle {
+  background: #fff;
+}
+
+body.dark-mode a {
+  color: #0000ff;
+}
+
+body.dark-mode .play-pause-btn,
+body.dark-mode .bottom-play-pause-btn {
+  background: #000;
+  color: #fff;
+  border-color: #fff;
+}
+
+body.dark-mode .progress-bar-area,
+body.dark-mode .volume-bar-area {
+  background: #000;
+  border-color: #fff;
+}
+
+body.dark-mode .progress,
+body.dark-mode .volume-progress {
+  background: #fff;
+}
+
+body.dark-mode .bottom-progress-bar {
+  background: #000;
+  border-color: #fff;
+}
+
+body.dark-mode .close-btn {
+  background: #000;
+  border-color: #d00;
+}
+
+body.dark-mode .song-title,
+body.dark-mode .time-info {
+  color: #fff;
+}
+
+body.dark-mode .speaker-icon {
+  background: #000;
+  border-color: #fff;
+  color: #fff;
+}
+
+body.dark-mode .volume-fader {
+  background: #000;
+  border-color: #fff;
+}
+
+body.dark-mode .volume-track {
+  background: transparent;
+  border-color: #fff;
+}
+
+body.dark-mode .volume-fill {
+  background: #fff;
+}
+
+body.dark-mode .page-song-title {
+  color: #fff;
+  border-color: #fff;
+}
+
+body.dark-mode .page-song-title.active {
+  color: #0000ff;
+  border-color: #0000ff;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+a {
+  color: #0000ff;
+  text-decoration: underline;
+  font-family: monospace;
+  display: inline-block;
+  margin-top: 20px;
+}
+
+.mux-audio-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.play-pause-btn, .bottom-play-pause-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #000;
+  background: transparent;
+  color: #000;
+  font-size: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.play-pause-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #000;
+  background: transparent;
+  color: #000;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.page-song-title {
+  font-size: 16px;
+  font-family: monospace;
+  color: #222;
+  margin-left: 0;
+  vertical-align: middle;
+  border-radius: 0;
+  border: 2px solid #000;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  display: inline-block;
+}
+
+.page-song-title.active {
+  color: #0000ff;
+  border-color: #0000ff;
+}
+
+.mux-audio-container.active {
+  background: none !important;
+  border: none !important;
+}
+
+/* Bottom progress bar popup */
+.bottom-progress-bar {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 120px;
+  background: #fff;
+  z-index: 100;
+  display: none;
+  box-sizing: border-box;
+  border: 2px solid #000;
+  border-radius: 0;
+  padding: 0;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: #fff;
+  color: #d00;
+  border: 2px solid #d00;
+  font-size: 32px;
+  font-weight: bold;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 0;
+  z-index: 101;
+}
+
+.bottom-progress-bar:hover .close-btn {
+  display: flex;
+}
+
+.bottom-bar-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.song-title {
+  text-align: center;
+  font-size: 16px;
+  font-family: monospace;
+  color: #222;
+  border-radius: 0;
+}
+
+.bottom-bar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 32px;
+  width: 100%;
+}
+
+.bottom-bar-controls .bottom-play-pause-btn {
+  border: 1px solid #000;
+}
+
+/* Volume control styles */
+.volume-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+
+.speaker-icon {
+  width: 32px;
+  height: 32px;
+  background: #fff;
+  border: 1px solid #222;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #222;
+  font-family: monospace;
+  user-select: none;
+}
+
+.volume-fader {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 80px;
+  background: #fff;
+  border: 1px solid #222;
+  border-radius: 0;
+  padding: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  z-index: 1001;
+}
+
+.volume-control:hover .volume-fader,
+.volume-fader.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.volume-track {
+  position: relative;
+  width: 10px;
+  height: 100%;
+  background: transparent;
+  border: 1px solid #222;
+  margin: 0 auto;
+  cursor: pointer;
+}
+
+.volume-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #222;
+  pointer-events: none;
+}
+
+.bottom-play-pause-btn {
+  width: 32px;
+  height: 32px;
+  background: #fff;
+  border: 2px solid #222;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: none;
+  outline: none;
+  padding: 0;
+}
+
+.progress-bar-area {
+  width: 320px; /* elongated bar for minimal look */
+  height: 32px;
+  background: #fff;
+  border: 2px solid #222;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.progress {
+  height: 100%;
+  background: #222;
+  border-radius: 0;
+  transition: width 0.2s;
+}
+
+.loading-spinner {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ccc;
+  border-top: 4px solid #0000ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.time-info {
+  font-size: 14px;
+  font-family: monospace;
+  color: #444;
+  margin-left: 12px;
+}
+
+@media (max-width: 600px) {
+  .bottom-bar-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .progress-bar-area {
+    max-width: 90vw;
+  }
+}
