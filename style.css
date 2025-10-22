@@ -72,8 +72,9 @@ body.dark-mode .bottom-progress-bar {
 }
 
 body.dark-mode .close-btn {
-  background: #000;
-  border-color: #d00;
+  background: transparent;
+  color: #fff;
+  border: none;
 }
 
 body.dark-mode .song-title,
@@ -207,17 +208,19 @@ a {
   position: absolute;
   top: 8px;
   right: 16px;
-  width: 32px;
-  height: 32px;
-  background: #fff;
-  color: #d00;
-  border: 2px solid #d00;
-  font-size: 32px;
-  font-weight: bold;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  color: #000;
+  border: none;
+  font-size: 18px;
+  font-weight: normal;
+  font-family: monospace;
   display: none;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  z-index: 102;
   border-radius: 0;
   z-index: 101;
 }
@@ -232,6 +235,8 @@ a {
   align-items: center;
   justify-content: center;
   height: 100%;
+  gap: 8px;
+  padding: 8px;
 }
 
 .song-title {
@@ -240,6 +245,8 @@ a {
   font-family: monospace;
   color: #222;
   border-radius: 0;
+  margin: 0;
+  order: -1; /* Ensure title appears first */
 }
 
 .bottom-bar-controls {
@@ -488,9 +495,8 @@ a {
   .song-title {
     font-size: 14px;
     text-align: center;
-    margin: 0;
-    flex: 1;
-    min-width: 80px;
+    margin: 0 0 8px 0;
+    order: -1;
   }
   
   .speaker-icon {
