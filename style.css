@@ -207,14 +207,15 @@ a {
 .bottom-progress-bar {
   position: fixed;
   left: 0;
-  bottom: max(20px, env(safe-area-inset-bottom)); /* Safe area support for mobile */
+  bottom: max(60px, env(safe-area-inset-bottom, 60px)); /* Much more spacing on mobile */
   width: 100vw;
   height: 120px;
   background: #fff;
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border: none; /* Remove border for smooth appearance */
+  border: 2px solid #000; /* Full border including top */
+  border-top: 4px solid #000; /* Thicker top border for visibility */
   border-radius: 0;
   padding: 0;
 }
