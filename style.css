@@ -16,7 +16,7 @@ body {
   display: none;
   box-sizing: border-box;
   border: 2px solid #000; /* Full border including top */
-  border-top: 2px solid #000; /* Explicitly ensure top border */
+  border-top: 4px solid #000; /* Thicker top border for visibility */
   border-radius: 0;
   padding: 0;
 }just: 100%;
@@ -83,7 +83,7 @@ body.dark-mode .volume-progress {
 body.dark-mode .bottom-progress-bar {
   background: #000;
   border-color: #fff; /* Restore original border color */
-  border-top: 2px solid #fff; /* Explicitly ensure top border in dark mode */
+  border-top: 4px solid #fff; /* Thicker top border for visibility in dark mode */
 }
 
 body.dark-mode .close-btn {
