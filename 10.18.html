@@ -3,34 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>burnfolder.com</title>
+  <title>10.18</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-  <h1>burnfolder.com</h1>
+  <a href="index.html">home</a>
+  <h1>10.18</h1>
 
-  <!-- Intro text -->
-  <p id="intro"> burnfolderburnfolderburnfolderburnfolderburnfolder.</p>
-
-  <!-- Entries -->
-  <ul id="entries"></ul>
+  <p>Hi</p>
 
   <script>
-  // 🔹 Entry list
-  const entries = ["8.25", "9.20", "10.18"]; // Only 8.25, 9.20, and 10.18 now
-
-  // Fill entry list
-  const container = document.getElementById("entries");
-  entries.forEach(entry => {
-    const li = document.createElement("li");
-    const link = document.createElement("a");
-    link.href = `${entry}.html`;
-    link.textContent = entry;
-    li.appendChild(link);
-    container.appendChild(li);
-  });
-
   // Dark mode toggle
   const themeToggle = document.getElementById('themeToggle');
   const body = document.body;

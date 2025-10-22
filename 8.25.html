@@ -1,20 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>8.25</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8.25 Minimal Audio</title>
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>8.25</h1>
-
-  <audio controls>
-    <source src="too late.mp3" type="audio/mpeg">
-  </audio>
-
-  <p>maybe i dont like art at all.. this entire process has been very slow at times yet filled with so much joy that i feel i am in the right place</p>
-
-  <a href="index.html">home</a>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+<a href="index.html">home</a>
+<h1>8.25</h1>
+<p>burnpileburnpileburnpile</p>
+<div id="audioList"></div>
+<!-- Bottom progress bar (hidden by default) -->
+<div class="bottom-progress-bar" id="bottomBar">
+  <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
+  <div class="bottom-bar-content">
+    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <div class="bottom-bar-controls">
+      <div class="volume-control" id="volumeControl">
+        <div class="speaker-icon" id="speakerIcon">♪</div>
+        <div class="volume-fader" id="volumeFader">
+          <div class="volume-track">
+            <div class="volume-fill" id="volumeFill"></div>
+          </div>
+        </div>
+      </div>
+      <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>
+      <div class="progress-bar-area" id="progressBarArea">
+        <div class="progress" id="progress"></div>
+      </div>
+      <span class="song-title" id="songTitle">Too Late</span>
+    </div>
+    <div class="loading-spinner" id="loadingSpinner"></div>
+  </div>
+</div>
+<script src="scripts.js"></script>
 </body>
 </html>
