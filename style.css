@@ -17,7 +17,7 @@ body {
   box-sizing: border-box;
   border-left: none;
   border-right: none;
-  border-top: 1px solid #000; /* Thin top border for subtle separation */
+  border-top: 2px solid #000; /* 2px top border for consistency */
   border-bottom: none; /* Remove bottom border */
   border-radius: 0;
   padding: 0;
@@ -86,7 +86,7 @@ body.dark-mode .bottom-progress-bar {
   background: #000;
   border-left: none;
   border-right: none;
-  border-top: 1px solid #fff; /* Thin top border for subtle separation in dark mode */
+  border-top: 2px solid #fff; /* 2px top border for consistency in dark mode */
   border-bottom: none; /* Remove bottom border */
 }
 
@@ -154,7 +154,7 @@ a {
 .play-pause-btn, .bottom-play-pause-btn {
   width: 40px;
   height: 40px;
-  border: 1px solid #000;
+  border: 2px solid #000;
   background: transparent;
   color: #000;
   font-size: 32px;
@@ -170,7 +170,7 @@ a {
 .play-pause-btn {
   width: 28px;
   height: 28px;
-  border: 1px solid #000;
+  border: 2px solid #000;
   background: transparent;
   color: #000;
   font-size: 20px;
@@ -220,7 +220,7 @@ a {
   box-sizing: border-box;
   border-left: none;
   border-right: none;
-  border-top: 1px solid #000; /* Thin top border for subtle separation */
+  border-top: 2px solid #000; /* 2px top border for consistency */
   border-bottom: none; /* Remove bottom border */
   border-radius: 0;
   padding: 0;
@@ -281,7 +281,7 @@ a {
 }
 
 .bottom-bar-controls .bottom-play-pause-btn {
-  border: 1px solid #000;
+  border: 2px solid #000;
 }
 
 /* Volume control styles */
@@ -296,7 +296,7 @@ a {
   width: 32px;
   height: 32px;
   background: #fff;
-  border: 1px solid #222;
+  border: 2px solid #222;
   border-radius: 0;
   display: flex;
   align-items: center;
@@ -316,7 +316,7 @@ a {
   width: 20px;
   height: 80px;
   background: #fff;
-  border: 1px solid #222;
+  border: 2px solid #222;
   border-radius: 0;
   padding: 4px;
   opacity: 0;
@@ -336,7 +336,7 @@ a {
   width: 10px;
   height: 100%;
   background: transparent;
-  border: 1px solid #222;
+  border: 2px solid #222;
   margin: 0 auto;
   cursor: pointer;
 }
