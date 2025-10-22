@@ -205,6 +205,19 @@ progressBarArea.addEventListener('click', (e) => {
   }
 });
 
+// Add touch support for progress bar
+progressBarArea.addEventListener('touchstart', (e) => {
+  if (activeIdx !== null) {
+    e.preventDefault();
+    const rect = progressBarArea.getBoundingClientRect();
+    const x = e.touches[0].clientX - rect.left;
+    const percent = x / rect.width;
+    if (activeMuxPlayer.duration) {
+      activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
+    }
+  }
+});
+
 // Volume control functionality
 let currentVolume = 0.75; // Default volume at 75%
 
@@ -217,7 +230,29 @@ function initializeVolumeControl() {
   if (volumeControl && activeMuxPlayer) {
     // Set initial volume display and player volume
     updateVolumeDisplay();
-    activeMuxPlayer.volume = currentVolume;
+    
+    // Set initial volume more aggressively for mobile compatibility
+    try {
+      activeMuxPlayer.volume = currentVolume;
+      // Force volume change event
+      activeMuxPlayer.dispatchEvent(new Event('volumechange'));
+    } catch (error) {
+      console.log('Initial volume setting error:', error);
+    }
+    
+    // Also set volume on any other audio elements
+    setTimeout(() => {
+      const audioElements = document.querySelectorAll('audio, video, mux-player');
+      audioElements.forEach(element => {
+        try {
+          if (element.volume !== undefined) {
+            element.volume = currentVolume;
+          }
+        } catch (error) {
+          console.log('Initial audio element volume error:', error);
+        }
+      });
+    }, 500); // Delay to ensure elements are loaded
     
     // Keep fader visible while interacting
     let faderTimeout;
@@ -247,9 +282,28 @@ function initializeVolumeControl() {
         currentVolume = percent;
         updateVolumeDisplay();
         
+        // Try multiple ways to set volume for better mobile compatibility
         if (activeMuxPlayer) {
-          activeMuxPlayer.volume = percent;
+          try {
+            activeMuxPlayer.volume = percent;
+            // Force a volume update event
+            activeMuxPlayer.dispatchEvent(new Event('volumechange'));
+          } catch (error) {
+            console.log('Volume setting error:', error);
+          }
         }
+        
+        // Also try to find any audio elements and set their volume
+        const audioElements = document.querySelectorAll('audio, video, mux-player');
+        audioElements.forEach(element => {
+          try {
+            if (element.volume !== undefined) {
+              element.volume = percent;
+            }
+          } catch (error) {
+            console.log('Audio element volume error:', error);
+          }
+        });
       };
       
       // Mouse events
@@ -274,17 +328,27 @@ function initializeVolumeControl() {
         isDragging = true;
         updateVolumeFromEvent(e);
         e.preventDefault();
+        e.stopPropagation();
       });
       
       volumeTrack.addEventListener('touchmove', (e) => {
         if (isDragging) {
           updateVolumeFromEvent(e);
-          e.preventDefault(); // Prevent scrolling
+          e.preventDefault();
+          e.stopPropagation();
         }
       });
       
-      volumeTrack.addEventListener('touchend', () => {
+      volumeTrack.addEventListener('touchend', (e) => {
         isDragging = false;
+        e.preventDefault();
+      });
+      
+      // Fallback click event for volume track
+      volumeTrack.addEventListener('click', (e) => {
+        if (!isDragging) {
+          updateVolumeFromEvent(e);
+        }
       });
       
       // Show volume fader on touch devices
