@@ -218,8 +218,10 @@ a {
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border: 2px solid #000; /* Full border including top */
-  border-top: 4px solid #000; /* Thicker top border for visibility */
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid #000; /* Thin top border for subtle separation */
+  border-bottom: none; /* Remove bottom border */
   border-radius: 0;
   padding: 0;
 }
