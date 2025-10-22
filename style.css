@@ -15,9 +15,9 @@ body {
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border-left: 2px solid #000;
-  border-right: 2px solid #000;
-  border-top: 2px solid #000; /* Thinner top border for separation */
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid #000; /* Thin top border for subtle separation */
   border-bottom: none; /* Remove bottom border */
   border-radius: 0;
   padding: 0;
@@ -84,9 +84,9 @@ body.dark-mode .volume-progress {
 
 body.dark-mode .bottom-progress-bar {
   background: #000;
-  border-left: 2px solid #fff;
-  border-right: 2px solid #fff;
-  border-top: 2px solid #fff; /* Thinner top border for separation in dark mode */
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid #fff; /* Thin top border for subtle separation in dark mode */
   border-bottom: none; /* Remove bottom border */
 }
 
