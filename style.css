@@ -5,7 +5,20 @@ body {
   margin: 40px;
   transition: background-color 0.3s, color 0.3s;
   /* Prevent text selection and zoom on mobile */
-  -webkit-text-size-adjust: 100%;
+  -webki.bottom-progress-bar {
+  position: fixed;
+  left: 0;
+  bottom: max(60px, env(safe-area-inset-bottom, 60px)); /* Much more spacing on mobile */
+  width: 100vw;
+  height: 120px;
+  background: #fff;
+  z-index: 100;
+  display: none;
+  box-sizing: border-box;
+  border: 2px solid #000; /* Restore original border */
+  border-radius: 0;
+  padding: 0;
+}just: 100%;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -52,13 +65,13 @@ body.dark-mode .play-pause-btn,
 body.dark-mode .bottom-play-pause-btn {
   background: #000;
   color: #fff;
-  border: none; /* Remove border for smooth appearance */
+  border-color: #fff; /* Restore original border color */
 }
 
 body.dark-mode .progress-bar-area,
 body.dark-mode .volume-bar-area {
   background: #000;
-  border: none; /* Remove border for smooth appearance */
+  border-color: #fff; /* Restore original border color */
 }
 
 body.dark-mode .progress,
@@ -68,7 +81,7 @@ body.dark-mode .volume-progress {
 
 body.dark-mode .bottom-progress-bar {
   background: #000;
-  border: none; /* Remove border for smooth appearance */
+  border-color: #fff; /* Restore original border color */
 }
 
 body.dark-mode .close-btn {
@@ -332,7 +345,7 @@ a {
   width: 32px;
   height: 32px;
   background: #fff;
-  border: none; /* Remove border for smooth appearance */
+  border: 2px solid #222; /* Restore original border */
   border-radius: 0;
   display: flex;
   align-items: center;
@@ -348,7 +361,7 @@ a {
   width: 320px; /* elongated bar for minimal look */
   height: 32px;
   background: #fff;
-  border: none; /* Remove border for smooth appearance */
+  border: 2px solid #222; /* Restore original border */
   border-radius: 0;
   display: flex;
   align-items: center;
