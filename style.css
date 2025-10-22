@@ -15,8 +15,10 @@ body {
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border: 2px solid #000; /* Full border including top */
-  border-top: 8px solid #000; /* Much thicker top border for clear separation */
+  border-left: 2px solid #000;
+  border-right: 2px solid #000;
+  border-top: 2px solid #000; /* Thinner top border for separation */
+  border-bottom: none; /* Remove bottom border */
   border-radius: 0;
   padding: 0;
 }just: 100%;
@@ -82,8 +84,10 @@ body.dark-mode .volume-progress {
 
 body.dark-mode .bottom-progress-bar {
   background: #000;
-  border-color: #fff; /* Restore original border color */
-  border-top: 8px solid #fff; /* Much thicker top border for clear separation in dark mode */
+  border-left: 2px solid #fff;
+  border-right: 2px solid #fff;
+  border-top: 2px solid #fff; /* Thinner top border for separation in dark mode */
+  border-bottom: none; /* Remove bottom border */
 }
 
 body.dark-mode .close-btn {
