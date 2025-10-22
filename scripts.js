@@ -208,24 +208,46 @@ progressBarArea.addEventListener('click', (e) => {
 // Enhanced progress bar interaction with dragging support
 let isProgressDragging = false;
 let pendingProgressUpdate = null;
+let cachedProgressRect = null;
+let lastUpdateTime = 0;
+const UPDATE_THROTTLE = 16; // ~60fps, update every 16ms
 
 const updateProgressFromEvent = (e) => {
   if (activeIdx !== null && activeMuxPlayer.duration) {
-    const rect = progressBarArea.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const x = clientX - rect.left;
-    const percent = Math.max(0, Math.min(1, x / rect.width));
+    const now = performance.now();
     
-    // Cancel any pending update
-    if (pendingProgressUpdate) {
-      cancelAnimationFrame(pendingProgressUpdate);
+    // Cache rect when dragging starts, don't recalculate every time
+    if (!cachedProgressRect) {
+      cachedProgressRect = progressBarArea.getBoundingClientRect();
     }
     
-    // Use requestAnimationFrame for ultra-smooth updates
-    pendingProgressUpdate = requestAnimationFrame(() => {
-      activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
-      pendingProgressUpdate = null;
-    });
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = clientX - cachedProgressRect.left;
+    const percent = Math.max(0, Math.min(1, x / cachedProgressRect.width));
+    
+    // Throttle updates for better performance during fast dragging
+    if (now - lastUpdateTime >= UPDATE_THROTTLE) {
+      // Cancel any pending update
+      if (pendingProgressUpdate) {
+        cancelAnimationFrame(pendingProgressUpdate);
+      }
+      
+      // Use requestAnimationFrame for smooth updates
+      pendingProgressUpdate = requestAnimationFrame(() => {
+        try {
+          // Batch the audio update to reduce audio engine overhead
+          const newTime = percent * activeMuxPlayer.duration;
+          if (Math.abs(activeMuxPlayer.currentTime - newTime) > 0.1) {
+            activeMuxPlayer.currentTime = newTime;
+          }
+        } catch (error) {
+          // Ignore errors during rapid seeking
+        }
+        pendingProgressUpdate = null;
+      });
+      
+      lastUpdateTime = now;
+    }
   }
 };
 
@@ -233,6 +255,7 @@ const updateProgressFromEvent = (e) => {
 progressBarArea.addEventListener('mousedown', (e) => {
   if (activeIdx !== null) {
     isProgressDragging = true;
+    cachedProgressRect = null; // Reset cache
     updateProgressFromEvent(e);
     e.preventDefault();
   }
@@ -247,11 +270,15 @@ document.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('mouseup', () => {
-  isProgressDragging = false;
-  // Cancel any pending updates when dragging stops
-  if (pendingProgressUpdate) {
-    cancelAnimationFrame(pendingProgressUpdate);
-    pendingProgressUpdate = null;
+  if (isProgressDragging) {
+    isProgressDragging = false;
+    cachedProgressRect = null; // Clear cache
+    lastUpdateTime = 0; // Reset throttle
+    // Cancel any pending updates when dragging stops
+    if (pendingProgressUpdate) {
+      cancelAnimationFrame(pendingProgressUpdate);
+      pendingProgressUpdate = null;
+    }
   }
 });
 
@@ -259,6 +286,7 @@ document.addEventListener('mouseup', () => {
 progressBarArea.addEventListener('touchstart', (e) => {
   if (activeIdx !== null) {
     isProgressDragging = true;
+    cachedProgressRect = null; // Reset cache
     updateProgressFromEvent(e);
     e.preventDefault();
   }
@@ -273,11 +301,15 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: false }); // Important: non-passive for preventDefault
 
 document.addEventListener('touchend', () => {
-  isProgressDragging = false;
-  // Cancel any pending updates when dragging stops
-  if (pendingProgressUpdate) {
-    cancelAnimationFrame(pendingProgressUpdate);
-    pendingProgressUpdate = null;
+  if (isProgressDragging) {
+    isProgressDragging = false;
+    cachedProgressRect = null; // Clear cache
+    lastUpdateTime = 0; // Reset throttle
+    // Cancel any pending updates when dragging stops
+    if (pendingProgressUpdate) {
+      cancelAnimationFrame(pendingProgressUpdate);
+      pendingProgressUpdate = null;
+    }
   }
 });
 
