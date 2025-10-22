@@ -460,19 +460,22 @@ a {
   
   /* Bottom bar mobile optimization */
   .bottom-progress-bar {
-    height: 140px;
+    height: 100px;
     padding: 10px;
   }
   
   .bottom-bar-controls {
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
     align-items: center;
   }
   
   .progress-bar-area {
-    width: 90%;
-    max-width: 300px;
+    width: 60%;
+    min-width: 150px;
+    max-width: 250px;
     height: 28px;
   }
   
@@ -485,12 +488,9 @@ a {
   .song-title {
     font-size: 14px;
     text-align: center;
-    margin: 5px 0;
-  }
-  
-  /* Volume control mobile optimization */
-  .volume-control {
-    order: -1; /* Move volume to top on mobile */
+    margin: 0;
+    flex: 1;
+    min-width: 80px;
   }
   
   .speaker-icon {
