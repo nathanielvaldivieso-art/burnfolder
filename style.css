@@ -525,15 +525,7 @@ a {
 /* Touch-friendly interactions */
 @media (hover: none) and (pointer: coarse) {
   /* This targets touch devices */
-  .volume-fader {
-    opacity: 1;
-    visibility: visible;
-  }
-  
-  .volume-control:hover .volume-fader {
-    opacity: 1;
-    visibility: visible;
-  }
+  /* Remove permanent visibility - let JavaScript handle it */
   
   /* Larger touch targets */
   .page-song-title {

@@ -323,9 +323,11 @@ function initializeVolumeControl() {
         isDragging = false;
       });
       
-      // Touch events for mobile
+      // Touch events for mobile - show fader only when touching
       volumeTrack.addEventListener('touchstart', (e) => {
         isDragging = true;
+        clearTimeout(faderTimeout);
+        volumeFader.classList.add('active');
         updateVolumeFromEvent(e);
         e.preventDefault();
         e.stopPropagation();
@@ -342,34 +344,34 @@ function initializeVolumeControl() {
       volumeTrack.addEventListener('touchend', (e) => {
         isDragging = false;
         e.preventDefault();
+        // Hide fader after touch ends
+        faderTimeout = setTimeout(() => {
+          volumeFader.classList.remove('active');
+        }, 1000);
       });
       
-      // Fallback click event for volume track
-      volumeTrack.addEventListener('click', (e) => {
-        if (!isDragging) {
-          updateVolumeFromEvent(e);
-        }
-      });
-      
-      // Show volume fader on touch devices
-      if ('ontouchstart' in window) {
-        volumeControl.addEventListener('touchstart', () => {
+      // Speaker icon touch events to show/hide fader
+      const speakerIcon = document.getElementById('speakerIcon');
+      if (speakerIcon && 'ontouchstart' in window) {
+        speakerIcon.addEventListener('touchstart', (e) => {
           clearTimeout(faderTimeout);
           volumeFader.classList.add('active');
+          e.stopPropagation();
         });
         
-        // Hide after touch interaction ends
-        volumeControl.addEventListener('touchend', () => {
+        speakerIcon.addEventListener('touchend', (e) => {
+          e.stopPropagation();
+          // Don't hide immediately, let user interact with fader
           faderTimeout = setTimeout(() => {
             volumeFader.classList.remove('active');
-          }, 1500); // Longer timeout for touch
+          }, 2000);
         });
       }
       
-      // Click for immediate set
+      // Fallback click event for volume track (for non-touch devices)
       volumeTrack.addEventListener('click', (e) => {
         if (!isDragging) {
-          updateVolumeFromMouse(e);
+          updateVolumeFromEvent(e);
         }
       });
     }
