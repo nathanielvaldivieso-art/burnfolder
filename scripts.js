@@ -207,6 +207,7 @@ progressBarArea.addEventListener('click', (e) => {
 
 // Enhanced progress bar interaction with dragging support
 let isProgressDragging = false;
+let pendingProgressUpdate = null;
 
 const updateProgressFromEvent = (e) => {
   if (activeIdx !== null && activeMuxPlayer.duration) {
@@ -214,7 +215,17 @@ const updateProgressFromEvent = (e) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const x = clientX - rect.left;
     const percent = Math.max(0, Math.min(1, x / rect.width));
-    activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
+    
+    // Cancel any pending update
+    if (pendingProgressUpdate) {
+      cancelAnimationFrame(pendingProgressUpdate);
+    }
+    
+    // Use requestAnimationFrame for ultra-smooth updates
+    pendingProgressUpdate = requestAnimationFrame(() => {
+      activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
+      pendingProgressUpdate = null;
+    });
   }
 };
 
@@ -229,12 +240,19 @@ progressBarArea.addEventListener('mousedown', (e) => {
 
 document.addEventListener('mousemove', (e) => {
   if (isProgressDragging) {
+    // Immediate update for responsiveness
     updateProgressFromEvent(e);
+    e.preventDefault();
   }
 });
 
 document.addEventListener('mouseup', () => {
   isProgressDragging = false;
+  // Cancel any pending updates when dragging stops
+  if (pendingProgressUpdate) {
+    cancelAnimationFrame(pendingProgressUpdate);
+    pendingProgressUpdate = null;
+  }
 });
 
 // Touch events for progress bar dragging
@@ -248,13 +266,19 @@ progressBarArea.addEventListener('touchstart', (e) => {
 
 document.addEventListener('touchmove', (e) => {
   if (isProgressDragging) {
+    // Immediate update for responsiveness
     updateProgressFromEvent(e);
     e.preventDefault(); // Prevent scrolling
   }
-});
+}, { passive: false }); // Important: non-passive for preventDefault
 
 document.addEventListener('touchend', () => {
   isProgressDragging = false;
+  // Cancel any pending updates when dragging stops
+  if (pendingProgressUpdate) {
+    cancelAnimationFrame(pendingProgressUpdate);
+    pendingProgressUpdate = null;
+  }
 });
 
 // Volume control functionality
