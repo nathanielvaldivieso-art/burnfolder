@@ -326,23 +326,25 @@ function initializeVolumeControl() {
     // Set initial volume display and player volume
     updateVolumeDisplay();
     
-    // Set initial volume more aggressively for mobile compatibility
+    // Set initial volume - access the underlying media element for mux-player
     try {
-      activeMuxPlayer.volume = currentVolume;
-      // Force volume change event
-      activeMuxPlayer.dispatchEvent(new Event('volumechange'));
+      const mediaElement = activeMuxPlayer.media || activeMuxPlayer;
+      if (mediaElement) {
+        mediaElement.volume = currentVolume;
+        mediaElement.muted = false;
+        console.log('Initial volume set to:', currentVolume);
+      }
     } catch (error) {
       console.log('Initial volume setting error:', error);
     }
     
-    // Also set volume on any other audio elements
+    // Also set volume on any other audio elements after a delay
     setTimeout(() => {
-      const audioElements = document.querySelectorAll('audio, video, mux-player');
+      const audioElements = document.querySelectorAll('audio, video');
       audioElements.forEach(element => {
         try {
-          if (element.volume !== undefined) {
-            element.volume = currentVolume;
-          }
+          element.volume = currentVolume;
+          element.muted = false;
         } catch (error) {
           console.log('Initial audio element volume error:', error);
         }
@@ -377,24 +379,27 @@ function initializeVolumeControl() {
         currentVolume = percent;
         updateVolumeDisplay();
         
-        // Try multiple ways to set volume for better mobile compatibility
+        // Set volume on the active Mux player
         if (activeMuxPlayer) {
           try {
-            activeMuxPlayer.volume = percent;
-            // Force a volume update event
-            activeMuxPlayer.dispatchEvent(new Event('volumechange'));
+            // For mux-player-audio, we need to access the underlying media element
+            const mediaElement = activeMuxPlayer.media || activeMuxPlayer;
+            if (mediaElement) {
+              mediaElement.volume = percent;
+              mediaElement.muted = false; // Ensure not muted
+              console.log('Volume set to:', percent);
+            }
           } catch (error) {
             console.log('Volume setting error:', error);
           }
         }
         
-        // Also try to find any audio elements and set their volume
-        const audioElements = document.querySelectorAll('audio, video, mux-player');
+        // Also try to find any audio/video elements and set their volume
+        const audioElements = document.querySelectorAll('audio, video');
         audioElements.forEach(element => {
           try {
-            if (element.volume !== undefined) {
-              element.volume = percent;
-            }
+            element.volume = percent;
+            element.muted = false;
           } catch (error) {
             console.log('Audio element volume error:', error);
           }
