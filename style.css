@@ -4,6 +4,21 @@ body {
   font-family: monospace;
   margin: 40px;
   transition: background-color 0.3s, color 0.3s;
+  /* Prevent text selection and zoom on mobile */
+  -webkit-text-size-adjust: 100%;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection for content */
+p, h1, .song-title {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }
 
 /* Dark mode toggle */
@@ -368,12 +383,174 @@ a {
   margin-left: 12px;
 }
 
-@media (max-width: 600px) {
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* General mobile adjustments */
+  body {
+    margin: 20px 15px;
+    font-size: 16px;
+  }
+  
+  h1 {
+    font-size: 24px;
+    margin-bottom: 15px;
+  }
+  
+  /* Theme toggle positioning for mobile */
+  .theme-toggle {
+    top: 15px;
+    right: 15px;
+    width: 24px;
+    height: 24px;
+  }
+  
+  /* Entry links styling for mobile */
+  #entries li {
+    margin: 10px 0;
+  }
+  
+  a {
+    font-size: 18px;
+    display: block;
+    margin-top: 15px;
+    text-align: left;
+  }
+  
+  /* Song titles for mobile */
+  .page-song-title {
+    font-size: 18px;
+    padding: 12px 20px;
+    margin: 15px 0;
+    display: block;
+    text-align: center;
+    width: calc(100% - 40px);
+    box-sizing: border-box;
+  }
+  
+  .mux-audio-container {
+    margin-top: 15px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Small mobile phones */
+  body {
+    margin: 15px 10px;
+    font-size: 14px;
+  }
+  
+  h1 {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+  
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+  }
+  
+  .page-song-title {
+    font-size: 16px;
+    padding: 10px 15px;
+    width: calc(100% - 30px);
+  }
+  
+  /* Bottom bar mobile optimization */
+  .bottom-progress-bar {
+    height: 140px;
+    padding: 10px;
+  }
+  
   .bottom-bar-controls {
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    align-items: center;
   }
+  
   .progress-bar-area {
-    max-width: 90vw;
+    width: 90%;
+    max-width: 300px;
+    height: 28px;
+  }
+  
+  .bottom-play-pause-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+  
+  .song-title {
+    font-size: 14px;
+    text-align: center;
+    margin: 5px 0;
+  }
+  
+  /* Volume control mobile optimization */
+  .volume-control {
+    order: -1; /* Move volume to top on mobile */
+  }
+  
+  .speaker-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .volume-fader {
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 100px;
+    padding: 6px;
+  }
+  
+  .volume-track {
+    width: 12px;
+  }
+  
+  /* Close button mobile */
+  .close-btn {
+    top: 5px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+  }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  /* This targets touch devices */
+  .volume-fader {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .volume-control:hover .volume-fader {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  /* Larger touch targets */
+  .page-song-title {
+    min-height: 44px; /* iOS recommended touch target */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .bottom-play-pause-btn,
+  .speaker-icon {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .progress-bar-area,
+  .volume-track {
+    min-height: 44px;
   }
 }

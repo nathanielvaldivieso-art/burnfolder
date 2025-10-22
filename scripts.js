@@ -233,13 +233,15 @@ function initializeVolumeControl() {
       }, 300);
     });
     
-    // Handle volume track interactions
+    // Handle volume track interactions (mouse and touch)
     if (volumeTrack) {
       let isDragging = false;
       
-      const updateVolumeFromMouse = (e) => {
+      const updateVolumeFromEvent = (e) => {
         const rect = volumeTrack.getBoundingClientRect();
-        const y = e.clientY - rect.top;
+        // Handle both mouse and touch events
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const y = clientY - rect.top;
         const percent = Math.max(0, Math.min(1, 1 - (y / rect.height))); // Invert y for bottom-up
         
         currentVolume = percent;
@@ -250,24 +252,55 @@ function initializeVolumeControl() {
         }
       };
       
-      // Mouse down to start dragging
+      // Mouse events
       volumeTrack.addEventListener('mousedown', (e) => {
         isDragging = true;
-        updateVolumeFromMouse(e);
+        updateVolumeFromEvent(e);
         e.preventDefault();
       });
       
-      // Mouse move for real-time updates
       volumeTrack.addEventListener('mousemove', (e) => {
         if (isDragging) {
-          updateVolumeFromMouse(e);
+          updateVolumeFromEvent(e);
         }
       });
       
-      // Mouse up to stop dragging
       document.addEventListener('mouseup', () => {
         isDragging = false;
       });
+      
+      // Touch events for mobile
+      volumeTrack.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        updateVolumeFromEvent(e);
+        e.preventDefault();
+      });
+      
+      volumeTrack.addEventListener('touchmove', (e) => {
+        if (isDragging) {
+          updateVolumeFromEvent(e);
+          e.preventDefault(); // Prevent scrolling
+        }
+      });
+      
+      volumeTrack.addEventListener('touchend', () => {
+        isDragging = false;
+      });
+      
+      // Show volume fader on touch devices
+      if ('ontouchstart' in window) {
+        volumeControl.addEventListener('touchstart', () => {
+          clearTimeout(faderTimeout);
+          volumeFader.classList.add('active');
+        });
+        
+        // Hide after touch interaction ends
+        volumeControl.addEventListener('touchend', () => {
+          faderTimeout = setTimeout(() => {
+            volumeFader.classList.remove('active');
+          }, 1500); // Longer timeout for touch
+        });
+      }
       
       // Click for immediate set
       volumeTrack.addEventListener('click', (e) => {
