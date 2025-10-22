@@ -205,17 +205,56 @@ progressBarArea.addEventListener('click', (e) => {
   }
 });
 
-// Add touch support for progress bar
+// Enhanced progress bar interaction with dragging support
+let isProgressDragging = false;
+
+const updateProgressFromEvent = (e) => {
+  if (activeIdx !== null && activeMuxPlayer.duration) {
+    const rect = progressBarArea.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = clientX - rect.left;
+    const percent = Math.max(0, Math.min(1, x / rect.width));
+    activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
+  }
+};
+
+// Mouse events for progress bar dragging
+progressBarArea.addEventListener('mousedown', (e) => {
+  if (activeIdx !== null) {
+    isProgressDragging = true;
+    updateProgressFromEvent(e);
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (isProgressDragging) {
+    updateProgressFromEvent(e);
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  isProgressDragging = false;
+});
+
+// Touch events for progress bar dragging
 progressBarArea.addEventListener('touchstart', (e) => {
   if (activeIdx !== null) {
+    isProgressDragging = true;
+    updateProgressFromEvent(e);
     e.preventDefault();
-    const rect = progressBarArea.getBoundingClientRect();
-    const x = e.touches[0].clientX - rect.left;
-    const percent = x / rect.width;
-    if (activeMuxPlayer.duration) {
-      activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
-    }
   }
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (isProgressDragging) {
+    updateProgressFromEvent(e);
+    e.preventDefault(); // Prevent scrolling
+  }
+});
+
+document.addEventListener('touchend', () => {
+  isProgressDragging = false;
 });
 
 // Volume control functionality
@@ -350,21 +389,55 @@ function initializeVolumeControl() {
         }, 1000);
       });
       
-      // Speaker icon touch events to show/hide fader
+      // Speaker icon events to toggle fader
       const speakerIcon = document.getElementById('speakerIcon');
-      if (speakerIcon && 'ontouchstart' in window) {
-        speakerIcon.addEventListener('touchstart', (e) => {
-          clearTimeout(faderTimeout);
-          volumeFader.classList.add('active');
+      if (speakerIcon) {
+        // Click event for desktop (toggle on/off)
+        speakerIcon.addEventListener('click', (e) => {
           e.stopPropagation();
+          clearTimeout(faderTimeout);
+          
+          if (volumeFader.classList.contains('active')) {
+            // Hide fader
+            volumeFader.classList.remove('active');
+          } else {
+            // Show fader
+            volumeFader.classList.add('active');
+          }
         });
         
-        speakerIcon.addEventListener('touchend', (e) => {
-          e.stopPropagation();
-          // Don't hide immediately, let user interact with fader
-          faderTimeout = setTimeout(() => {
+        // Touch events for mobile (toggle on/off)
+        if ('ontouchstart' in window) {
+          speakerIcon.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            clearTimeout(faderTimeout);
+            
+            if (volumeFader.classList.contains('active')) {
+              // Hide fader
+              volumeFader.classList.remove('active');
+            } else {
+              // Show fader
+              volumeFader.classList.add('active');
+            }
+          });
+        }
+      }
+      
+      // Close volume fader when clicking/touching outside
+      document.addEventListener('click', (e) => {
+        if (!volumeControl.contains(e.target)) {
+          volumeFader.classList.remove('active');
+          clearTimeout(faderTimeout);
+        }
+      });
+      
+      if ('ontouchstart' in window) {
+        document.addEventListener('touchstart', (e) => {
+          if (!volumeControl.contains(e.target)) {
             volumeFader.classList.remove('active');
-          }, 2000);
+            clearTimeout(faderTimeout);
+          }
         });
       }
       
