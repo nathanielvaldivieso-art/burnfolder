@@ -192,7 +192,7 @@ a {
 .bottom-progress-bar {
   position: fixed;
   left: 0;
-  bottom: 0;
+  bottom: max(20px, env(safe-area-inset-bottom)); /* Safe area support for mobile */
   width: 100vw;
   height: 120px;
   background: #fff;
@@ -468,6 +468,7 @@ a {
   /* Bottom bar mobile optimization */
   .bottom-progress-bar {
     height: 100px;
+    bottom: max(60px, env(safe-area-inset-bottom, 60px)); /* Much more spacing on mobile */
     padding: 10px;
   }
   
