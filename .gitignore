@@ -15,6 +15,9 @@ Thumbs.db
 
 # Node modules (if you ever add them)
 node_modules/
+.netlify/
+.env
+*.log
 
 # IDE files
 .vscode/

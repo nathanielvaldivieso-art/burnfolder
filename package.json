@@ -1,0 +1,8 @@
+{
+  "name": "burnfolder-newsletter",
+  "version": "1.0.0",
+  "description": "Newsletter automation for burnfolder.com",
+  "dependencies": {
+    "@octokit/rest": "^20.0.2"
+  }
+}
