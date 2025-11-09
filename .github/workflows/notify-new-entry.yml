@@ -1,0 +1,61 @@
+name: Notify Subscribers of New Entry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '[0-9]*.html'
+
+jobs:
+  check-and-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Check for new HTML files
+        id: check
+        run: |
+          # Get list of new .html files (dated entries only, exclude index.html)
+          NEW_FILES=$(git diff --name-only HEAD^ HEAD | grep -E '^[0-9]+\.[0-9]+\.html$' || true)
+          
+          if [ -n "$NEW_FILES" ]; then
+            # Extract the date from filename (e.g., "10.22" from "10.22.html")
+            ENTRY_DATE=$(echo "$NEW_FILES" | head -1 | sed 's/\.html$//')
+            echo "new_entry=$ENTRY_DATE" >> $GITHUB_OUTPUT
+            echo "has_new=true" >> $GITHUB_OUTPUT
+            echo "Found new entry: $ENTRY_DATE"
+          else
+            echo "has_new=false" >> $GITHUB_OUTPUT
+            echo "No new entries found"
+          fi
+
+      - name: Get subscriber list
+        if: steps.check.outputs.has_new == 'true'
+        id: subscribers
+        run: |
+          # Read subscribers from JSON file
+          EMAILS=$(cat subscribers.json | jq -r '.subscribers[]' | tr '\n' ',' | sed 's/,$//')
+          echo "emails=$EMAILS" >> $GITHUB_OUTPUT
+          echo "Subscribers: $EMAILS"
+
+      - name: Send notification emails
+        if: steps.check.outputs.has_new == 'true' && steps.subscribers.outputs.emails != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: apikey
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          to: ${{ steps.subscribers.outputs.emails }}
+          from: nathaniel.valdivieso@gmail.com
+          subject: "new burnfolder entry: ${{ steps.check.outputs.new_entry }}"
+          body: |
+            new entry posted: ${{ steps.check.outputs.new_entry }}
+            
+            check it out at https://burnfolder.netlify.app
+            
+            ---
+            burnfolder

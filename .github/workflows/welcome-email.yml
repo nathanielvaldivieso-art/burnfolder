@@ -1,0 +1,34 @@
+name: Send Welcome Email
+
+on:
+  repository_dispatch:
+    types: [send_welcome_email]
+
+jobs:
+  send-welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send welcome email via SendGrid
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: apikey
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          to: ${{ github.event.client_payload.email }}
+          from: nathaniel.valdivieso@gmail.com
+          subject: welcome to burnfolder
+          body: |
+            thanks for subscribing to burnfolder.
+            
+            you'll get an email whenever a new entry is posted.
+            
+            latest entries:
+            - 8.25
+            - 9.20
+            - 10.22
+            
+            visit: https://burnfolder.netlify.app
+            
+            ---
+            burnfolder
