@@ -21,6 +21,6 @@ jobs:
               "subject": "welcome to burnfolder",
               "content": [{
                 "type": "text/plain",
-                "value": "thanks for subscribing to burnfolder.\n\nyou'\''ll receive notifications whenever a new audio entry is posted.\n\nrecent entries:\n• 8.25\n• 9.20\n• 10.22\n\nlisten at https://burnfolder.netlify.app\n\nto unsubscribe, reply to this email.\n\n– burnfolder"
+                "value": "thanks for subscribing to burnfolder.\n\nyou'\''ll receive notifications whenever a new audio entry is posted.\n\nrecent entries:\n• 8.25\n• 9.20\n• 10.22\n\nlisten at https://burnfolder.com\n\nto unsubscribe, reply to this email.\n\n– burnfolder"
               }]
             }'

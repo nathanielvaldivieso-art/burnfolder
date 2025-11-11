@@ -59,7 +59,7 @@ jobs:
                 \"subject\": \"new burnfolder entry: ${{ steps.check.outputs.new_entry }}\",
                 \"content\": [{
                   \"type\": \"text/plain\",
-                  \"value\": \"new audio entry: ${{ steps.check.outputs.new_entry }}\n\nlisten now at https://burnfolder.netlify.app\n\nto unsubscribe, reply to this email.\n\n– burnfolder\"
+                  \"value\": \"new audio entry: ${{ steps.check.outputs.new_entry }}\n\nlisten now at https://burnfolder.com\n\nto unsubscribe, reply to this email.\n\n– burnfolder\"
                 }]
               }"
           done
