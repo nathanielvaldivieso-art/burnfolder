@@ -8,27 +8,19 @@ jobs:
   send-welcome:
     runs-on: ubuntu-latest
     steps:
-      - name: Send welcome email via SendGrid
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.sendgrid.net
-          server_port: 587
-          username: apikey
-          password: ${{ secrets.SENDGRID_API_KEY }}
-          to: ${{ github.event.client_payload.email }}
-          from: nathaniel.valdivieso@gmail.com
-          subject: welcome to burnfolder
-          body: |
-            thanks for subscribing to burnfolder.
-            
-            you'll get an email whenever a new entry is posted.
-            
-            latest entries:
-            - 8.25
-            - 9.20
-            - 10.22
-            
-            visit: https://burnfolder.netlify.app
-            
-            ---
-            burnfolder
+      - name: Send welcome email via SendGrid API
+        run: |
+          curl -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "personalizations": [{
+                "to": [{"email": "${{ github.event.client_payload.email }}"}]
+              }],
+              "from": {"email": "nathaniel.valdivieso@gmail.com", "name": "burnfolder"},
+              "subject": "welcome to burnfolder",
+              "content": [{
+                "type": "text/plain",
+                "value": "thanks for subscribing to burnfolder.\n\nyou'\''ll get an email whenever a new entry is posted.\n\nlatest entries:\n- 8.25\n- 9.20\n- 10.22\n\nvisit: https://burnfolder.netlify.app\n\n---\nburnfolder"
+              }]
+            }'

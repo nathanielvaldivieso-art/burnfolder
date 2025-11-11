@@ -43,19 +43,23 @@ jobs:
 
       - name: Send notification emails
         if: steps.check.outputs.has_new == 'true' && steps.subscribers.outputs.emails != ''
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.sendgrid.net
-          server_port: 587
-          username: apikey
-          password: ${{ secrets.SENDGRID_API_KEY }}
-          to: ${{ steps.subscribers.outputs.emails }}
-          from: nathaniel.valdivieso@gmail.com
-          subject: "new burnfolder entry: ${{ steps.check.outputs.new_entry }}"
-          body: |
-            new entry posted: ${{ steps.check.outputs.new_entry }}
-            
-            check it out at https://burnfolder.netlify.app
-            
-            ---
-            burnfolder
+        run: |
+          # Convert comma-separated emails to JSON array
+          IFS=',' read -ra EMAIL_ARRAY <<< "${{ steps.subscribers.outputs.emails }}"
+          
+          for email in "${EMAIL_ARRAY[@]}"; do
+            curl -X POST https://api.sendgrid.com/v3/mail/send \
+              -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"personalizations\": [{
+                  \"to\": [{\"email\": \"$email\"}]
+                }],
+                \"from\": {\"email\": \"nathaniel.valdivieso@gmail.com\", \"name\": \"burnfolder\"},
+                \"subject\": \"new burnfolder entry: ${{ steps.check.outputs.new_entry }}\",
+                \"content\": [{
+                  \"type\": \"text/plain\",
+                  \"value\": \"new entry posted: ${{ steps.check.outputs.new_entry }}\n\ncheck it out at https://burnfolder.netlify.app\n\n---\nburnfolder\"
+                }]
+              }"
+          done
