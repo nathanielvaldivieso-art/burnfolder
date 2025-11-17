@@ -44,22 +44,23 @@ jobs:
       - name: Send notification emails
         if: steps.check.outputs.has_new == 'true' && steps.subscribers.outputs.emails != ''
         run: |
-          # Convert comma-separated emails to JSON array
           IFS=',' read -ra EMAIL_ARRAY <<< "${{ steps.subscribers.outputs.emails }}"
           
           for email in "${EMAIL_ARRAY[@]}"; do
             curl -X POST https://api.sendgrid.com/v3/mail/send \
               -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
               -H "Content-Type: application/json" \
-              -d "{
-                \"personalizations\": [{
-                  \"to\": [{\"email\": \"$email\"}]
-                }],
-                \"from\": {\"email\": \"nathaniel@burnfolder.com\", \"name\": \"burnfolder\"},
-                \"subject\": \"new burnfolder entry: ${{ steps.check.outputs.new_entry }}\",
-                \"content\": [{
-                  \"type\": \"text/html\",
-                  \"value\": \"<!DOCTYPE html><html><head><style>body{font-family:monospace;background:#fff;color:#000;padding:40px;line-height:1.6;margin:0}a{color:#000;text-decoration:none;border-bottom:2px solid #000;padding-bottom:2px;font-size:20px}.header{font-size:24px;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px}.entry-title{font-size:32px;margin:30px 0;font-weight:bold}.cta{margin:30px 0}.footer{margin-top:40px;padding-top:20px;border-top:2px solid #000;font-size:12px;opacity:0.6}</style></head><body><div class='header'>burnfolder</div><p>new audio entry:</p><div class='entry-title'>${{ steps.check.outputs.new_entry }}</div><div class='cta'><a href='https://burnfolder.com/${{ steps.check.outputs.new_entry }}.html'>listen now →</a></div><div class='footer'>to unsubscribe, reply to this email</div></body></html>\"
-                }]
-              }"
+              -d @- <<EOF
+          {
+            "personalizations": [{
+              "to": [{"email": "$email"}]
+            }],
+            "from": {"email": "nathaniel@burnfolder.com", "name": "burnfolder"},
+            "subject": "new burnfolder entry: ${{ steps.check.outputs.new_entry }}",
+            "content": [{
+              "type": "text/html",
+              "value": "<!DOCTYPE html><html><head><style>body{font-family:'Courier New',Courier,monospace;background:#fff;color:#000;padding:40px;line-height:1.6;margin:0}a{color:#000;text-decoration:none;border-bottom:2px solid #000;padding-bottom:2px;font-size:20px}.header{font-size:24px;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px}.entry-title{font-size:32px;margin:30px 0;font-weight:bold}.cta{margin:30px 0}.footer{margin-top:40px;padding-top:20px;border-top:2px solid #000;font-size:12px;opacity:0.6}</style></head><body><div class=\"header\">burnfolder</div><p>new audio entry:</p><div class=\"entry-title\">${{ steps.check.outputs.new_entry }}</div><div class=\"cta\"><a href=\"https://burnfolder.com/${{ steps.check.outputs.new_entry }}.html\">listen now →</a></div><div class=\"footer\">to unsubscribe, reply to this email</div></body></html>"
+            }]
+          }
+          EOF
           done
