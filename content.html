@@ -3,22 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>10.18</title>
+  <title>content - burnfolder.com</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-  <a href="index.html">home</a>
-  <h1>10.18</h1>
-
-  <p>Hi</p>
+  
+  <nav style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 100px;">
+    <a href="index.html">home</a>
+    <a href="music.html">music</a>
+  </nav>
+  
+  <h1>content</h1>
 
   <script>
   // Dark mode toggle
   const themeToggle = document.getElementById('themeToggle');
   const body = document.body;
 
-  // Check for saved theme preference or default to light mode
   const currentTheme = localStorage.getItem('theme') || 'light';
   if (currentTheme === 'dark') {
     body.classList.add('dark-mode');

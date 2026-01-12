@@ -133,6 +133,7 @@ body.dark-mode .page-song-title.active {
 
 h1 {
   margin-bottom: 20px;
+  display: none;
 }
 
 a {
@@ -221,6 +222,7 @@ body.dark-mode .newsletter-signup button:hover {
   justify-content: flex-start;
   margin-top: 20px;
   gap: 10px;
+  height: 40px;
 }
 
 .play-pause-btn, .bottom-play-pause-btn {
@@ -240,8 +242,8 @@ body.dark-mode .newsletter-signup button:hover {
 }
 
 .play-pause-btn {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   border: 2px solid #000;
   background: transparent;
   color: #000;
@@ -253,25 +255,39 @@ body.dark-mode .newsletter-signup button:hover {
   user-select: none;
   border-radius: 0;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .page-song-title {
   font-size: 16px;
   font-family: monospace;
-  color: #222;
-  margin-left: 0;
-  vertical-align: middle;
-  border-radius: 0;
+  color: #000;
+  line-height: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   border: 2px solid #000;
-  padding: 6px 16px;
+  padding: 0 16px;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
-  display: inline-block;
+  transition: background-color 0.2s;
+  width: 500px;
+  max-width: 100%;
+}
+
+.page-song-title:hover {
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 .page-song-title.active {
-  color: #0000ff;
+  background-color: rgba(0, 0, 255, 0.05);
   border-color: #0000ff;
+}
+
+.song-duration {
+  font-size: 14px;
+  color: #666;
+  margin-left: 20px;
 }
 
 .mux-audio-container.active {

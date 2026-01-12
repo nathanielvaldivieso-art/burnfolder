@@ -22,17 +22,32 @@ function initializeDarkMode() {
 document.addEventListener('DOMContentLoaded', initializeDarkMode);
 
 // --- Spotify-like Streaming Service Audio Logic ---
-const songs = [
+const allSongs = [
   {
-    title: 'Too Late',
-    playbackId: 'oKGswvba36ypOwUherXTTeF008NmQb1t9ypJH2AdVmZM'
+    title: 'fire escape',
+    playbackId: 'ph01iN9TPgERZhYIUPQpQqk6ZXNQEXaMxzK01n7Yb9JhE',
+    page: '11.29.25'
   },
   {
     title: 'sometimes',
-    playbackId: 'b1WrV600XLm8GHFoe3yiPiD2CvotHD5LH8pvkXSJl00LM'
+    playbackId: 'b1WrV600XLm8GHFoe3yiPiD2CvotHD5LH8pvkXSJl00LM',
+    page: '11.28.25'
   }
   // Add more songs here
 ];
+
+// Filter songs based on current page
+const currentPage = document.title;
+let songs = allSongs;
+
+// If on a dated entry page (e.g., 11.28.25), show only that page's song
+if (currentPage.match(/^\d+\.\d+\.\d+$/)) {
+  songs = allSongs.filter(song => song.page === currentPage);
+  // Clear playback state to avoid wrong song playing
+  sessionStorage.removeItem('playbackState');
+}
+// If on music page, show all songs
+// Otherwise (index, content, etc.), show all songs
 
 const audioList = document.getElementById('audioList');
 const progressEl = document.getElementById('progress');
@@ -46,12 +61,96 @@ const activeMuxPlayer = document.getElementById('activeMuxPlayer');
 
 let activeIdx = null;
 
+// Store reference to active player globally
+if (!window.globalMuxPlayer) {
+  window.globalMuxPlayer = activeMuxPlayer;
+}
+
+// Restore playback state from previous page
+const savedState = sessionStorage.getItem('playbackState');
+if (savedState && audioList) {
+  try {
+    const state = JSON.parse(savedState);
+    // Find the song in the current filtered list
+    const songIndex = songs.findIndex(s => s.playbackId === state.playbackId);
+    if (songIndex !== -1) {
+      activeIdx = songIndex;
+      
+      // Check if player already has this track loaded
+      const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id');
+      if (currentPlaybackId === state.playbackId) {
+        // Same track, just update UI - don't reload
+        bottomBar.style.display = 'block';
+        updateUI();
+        initializeVolumeControl();
+      } else {
+        // Different track or first load
+        setTimeout(() => {
+          activeMuxPlayer.setAttribute('playback-id', state.playbackId);
+          activeMuxPlayer.setAttribute('metadata-video-title', state.title);
+          activeMuxPlayer.load();
+          
+          activeMuxPlayer.addEventListener('loadedmetadata', () => {
+            activeMuxPlayer.currentTime = state.currentTime || 0;
+            
+            if (state.isPlaying) {
+              activeMuxPlayer.play().catch(() => {
+                // Auto-play blocked
+                console.log('Auto-play prevented');
+              });
+            }
+            updateUI();
+            initializeVolumeControl();
+          }, { once: true });
+        }, 50);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to restore playback state:', e);
+  }
+}
+
+// Save playback state before page unload
+window.addEventListener('beforeunload', () => {
+  if (activeIdx !== null && activeMuxPlayer) {
+    const state = {
+      playbackId: songs[activeIdx].playbackId,
+      title: songs[activeIdx].title,
+      currentTime: activeMuxPlayer.currentTime || 0,
+      isPlaying: !activeMuxPlayer.paused
+    };
+    sessionStorage.setItem('playbackState', JSON.stringify(state));
+  }
+});
+
+// Update playback state periodically
+setInterval(() => {
+  if (activeIdx !== null && activeMuxPlayer) {
+    const state = {
+      playbackId: songs[activeIdx].playbackId,
+      title: songs[activeIdx].title,
+      currentTime: activeMuxPlayer.currentTime || 0,
+      isPlaying: !activeMuxPlayer.paused
+    };
+    sessionStorage.setItem('playbackState', JSON.stringify(state));
+  }
+}, 1000);
+
 // Render song list
+
 songs.forEach((song, idx) => {
   const titleSpan = document.createElement('span');
   titleSpan.className = 'page-song-title';
   titleSpan.id = `pageSongTitle${idx+1}`;
-  titleSpan.textContent = song.title;
+  // Create song name element
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = song.title;
+  // Create duration element
+  const durationSpan = document.createElement('span');
+  durationSpan.className = 'song-duration';
+  durationSpan.textContent = '--:--';
+  titleSpan.appendChild(nameSpan);
+  titleSpan.appendChild(durationSpan);
   titleSpan.setAttribute('tabindex', '0');
   titleSpan.setAttribute('role', 'button');
   titleSpan.setAttribute('aria-label', `Play ${song.title}`);
@@ -73,6 +172,31 @@ songs.forEach((song, idx) => {
   if (idx > 0) container.style.marginTop = '32px';
   container.appendChild(titleSpan);
   audioList.appendChild(container);
+});
+
+// Preload all track durations
+songs.forEach((song, idx) => {
+  const tempPlayer = document.createElement('mux-player');
+  tempPlayer.setAttribute('playback-id', song.playbackId);
+  tempPlayer.setAttribute('metadata-video-title', song.title);
+  tempPlayer.style.display = 'none';
+  tempPlayer.muted = true;
+  document.body.appendChild(tempPlayer);
+  
+  tempPlayer.addEventListener('loadedmetadata', () => {
+    const duration = tempPlayer.duration;
+    if (duration && !isNaN(duration)) {
+      const minutes = Math.floor(duration / 60);
+      const seconds = Math.floor(duration % 60);
+      const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      const durationEl = document.querySelector(`#pageSongTitle${idx + 1} .song-duration`);
+      if (durationEl) {
+        durationEl.textContent = formattedDuration;
+      }
+    }
+    // Remove temp player after getting duration
+    tempPlayer.remove();
+  }, { once: true });
 });
 
 function updateUI() {
@@ -155,6 +279,7 @@ closeBtn.addEventListener('click', () => {
   if (activeIdx !== null) {
     activeMuxPlayer.pause();
     activeIdx = null;
+    sessionStorage.removeItem('playbackState');
     updateUI();
   }
 });
