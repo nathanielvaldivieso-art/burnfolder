@@ -22,29 +22,24 @@ function initializeDarkMode() {
 document.addEventListener('DOMContentLoaded', initializeDarkMode);
 
 // --- Spotify-like Streaming Service Audio Logic ---
-const allSongs = [
-  {
-    title: 'fire escape',
-    playbackId: 'ph01iN9TPgERZhYIUPQpQqk6ZXNQEXaMxzK01n7Yb9JhE',
-    page: '11.29.25'
-  },
-  {
-    title: 'sometimes',
-    playbackId: 'b1WrV600XLm8GHFoe3yiPiD2CvotHD5LH8pvkXSJl00LM',
-    page: '11.28.25'
-  }
-  // Add more songs here
-];
+// Load allSongs from songs.js (must be included in HTML before scripts.js)
+let allSongs = window.allSongs || [];
 
-// Filter songs based on current page
-const currentPage = document.title;
+// Filter songs based on current filename (without extension)
+const pathParts = window.location.pathname.split('/');
+const fileName = pathParts[pathParts.length - 1].replace('.html', '');
 let songs = allSongs;
 
 // If on a dated entry page (e.g., 11.28.25), show only that page's song
-if (currentPage.match(/^\d+\.\d+\.\d+$/)) {
-  songs = allSongs.filter(song => song.page === currentPage);
-  // Clear playback state to avoid wrong song playing
+if (fileName.match(/^\d+\.\d+\.\d+$/)) {
+  // Always clear playback state on entry pages to prevent out-of-sync
   sessionStorage.removeItem('playbackState');
+  songs = allSongs.filter(song => song.page === fileName);
+  if (window.globalMuxPlayer) {
+    window.globalMuxPlayer.pause();
+    window.globalMuxPlayer.removeAttribute('playback-id');
+    window.globalMuxPlayer.load();
+  }
 }
 // If on music page, show all songs
 // Otherwise (index, content, etc.), show all songs
@@ -71,11 +66,10 @@ const savedState = sessionStorage.getItem('playbackState');
 if (savedState && audioList) {
   try {
     const state = JSON.parse(savedState);
-    // Find the song in the current filtered list
+    // Only restore if the song is valid for the current page
     const songIndex = songs.findIndex(s => s.playbackId === state.playbackId);
     if (songIndex !== -1) {
       activeIdx = songIndex;
-      
       // Check if player already has this track loaded
       const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id');
       if (currentPlaybackId === state.playbackId) {
@@ -89,10 +83,8 @@ if (savedState && audioList) {
           activeMuxPlayer.setAttribute('playback-id', state.playbackId);
           activeMuxPlayer.setAttribute('metadata-video-title', state.title);
           activeMuxPlayer.load();
-          
           activeMuxPlayer.addEventListener('loadedmetadata', () => {
             activeMuxPlayer.currentTime = state.currentTime || 0;
-            
             if (state.isPlaying) {
               activeMuxPlayer.play().catch(() => {
                 // Auto-play blocked
@@ -104,6 +96,15 @@ if (savedState && audioList) {
           }, { once: true });
         }, 50);
       }
+    } else {
+      // If the saved song is not valid for this page, reset player state
+      activeIdx = null;
+      if (window.globalMuxPlayer) {
+        window.globalMuxPlayer.pause();
+        window.globalMuxPlayer.removeAttribute('playback-id');
+        window.globalMuxPlayer.load();
+      }
+      updateUI();
     }
   } catch (e) {
     console.error('Failed to restore playback state:', e);

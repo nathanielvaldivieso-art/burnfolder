@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Add Song</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { max-width: 600px; margin: 40px auto; font-family: monospace; }
+    label { display: block; margin-top: 20px; }
+    input, button { font-size: 1rem; padding: 6px; margin-top: 4px; }
+    .success { color: green; margin-top: 20px; }
+    .error { color: red; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Admin: Add New Song</h1>
+  <form id="addSongForm">
+    <label>Song Title
+      <input type="text" id="title" required />
+    </label>
+    <label>Mux Playback ID
+      <input type="text" id="playbackId" required />
+    </label>
+    <label>Page Slug (e.g. 1.21.26)
+      <input type="text" id="page" required />
+    </label>
+    <label>Date (YYYY-MM-DD)
+      <input type="date" id="date" required />
+    </label>
+    <button type="submit">Add Song</button>
+  </form>
+  <div id="result"></div>
+  <script>
+    // Loads and updates songs.js (requires serverless or local API endpoint)
+    document.getElementById('addSongForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const title = document.getElementById('title').value.trim();
+      const playbackId = document.getElementById('playbackId').value.trim();
+      const page = document.getElementById('page').value.trim();
+      const date = document.getElementById('date').value;
+      const song = { title, playbackId, page, date };
+      // Example: POST to /.netlify/functions/add-song (to be implemented)
+      try {
+        const res = await fetch('/.netlify/functions/add-song', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(song)
+        });
+        if (res.ok) {
+          document.getElementById('result').innerHTML = '<div class="success">Song added!</div>';
+          document.getElementById('addSongForm').reset();
+        } else {
+          const data = await res.json();
+          document.getElementById('result').innerHTML = '<div class="error">' + (data.message || 'Error adding song') + '</div>';
+        }
+      } catch (err) {
+        document.getElementById('result').innerHTML = '<div class="error">Network error</div>';
+      }
+    };
+  </script>
+</body>
+</html>
