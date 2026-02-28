@@ -25,24 +25,20 @@ document.addEventListener('DOMContentLoaded', initializeDarkMode);
 // Load allSongs from songs.js (must be included in HTML before scripts.js)
 let allSongs = window.allSongs || [];
 
-// Filter songs based on current filename (without extension)
+// Determine which songs to show on this page
 const pathParts = window.location.pathname.split('/');
 const fileName = pathParts[pathParts.length - 1].replace('.html', '');
 let songs = allSongs;
 
-// If on a dated entry page (e.g., 11.28.25), show only that page's song
-if (fileName.match(/^\d+\.\d+\.\d+$/)) {
-  // Always clear playback state on entry pages to prevent out-of-sync
+// Entry pages: pull directly from the keyed catalog — no string matching needed
+if (fileName.match(/^\d+\.\d+\.\d+$/) && window.songsByPage) {
   sessionStorage.removeItem('playbackState');
-  songs = allSongs.filter(song => song.page === fileName);
+  songs = window.songsByPage[fileName] || [];
   if (window.globalMuxPlayer) {
     window.globalMuxPlayer.pause();
     window.globalMuxPlayer.removeAttribute('playback-id');
-    window.globalMuxPlayer.load();
   }
 }
-// If on music page, show all songs
-// Otherwise (index, content, etc.), show all songs
 
 const audioList = document.getElementById('audioList');
 const progressEl = document.getElementById('progress');
@@ -82,7 +78,7 @@ if (savedState && audioList) {
         setTimeout(() => {
           activeMuxPlayer.setAttribute('playback-id', state.playbackId);
           activeMuxPlayer.setAttribute('metadata-video-title', state.title);
-          activeMuxPlayer.load();
+          // mux-player reacts to playback-id changes automatically — no .load() needed
           activeMuxPlayer.addEventListener('loadedmetadata', () => {
             activeMuxPlayer.currentTime = state.currentTime || 0;
             if (state.isPlaying) {
@@ -220,13 +216,12 @@ function updateUI() {
 }
 
 function playTrack(idx) {
-  // Pause and reset current player
   activeMuxPlayer.pause();
   activeMuxPlayer.currentTime = 0;
-  // Set new playback-id and play
+  // Set playback-id — mux-player reacts to attribute changes automatically.
+  // Do NOT call .load() after this; it resets the player to the previous src.
   activeMuxPlayer.setAttribute('playback-id', songs[idx].playbackId);
   activeMuxPlayer.setAttribute('metadata-video-title', songs[idx].title);
-  activeMuxPlayer.load();
   activeIdx = idx;
   updateUI();
   

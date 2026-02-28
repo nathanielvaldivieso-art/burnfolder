@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2.25.26</title>
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ── 2.25.26 page ── archival / cold minimalism ── */
+
+  body {
+    background: #fff;
+    color: #000;
+    font-family: monospace;
+    margin: 0;
+    padding: 0;
+  }
+
+  .theme-toggle { display: none; }
+
+  .page-wrap {
+    max-width: 480px;
+    margin: 0 0 0 60px;
+    padding: 28px 0 120px 0;
+  }
+
+  .page-nav {
+    font-size: 0.85em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #000;
+    text-decoration: none;
+    opacity: 0.4;
+  }
+  .page-nav:hover { opacity: 1; }
+
+  .page-id {
+    margin-top: 48px;
+    font-size: 0.85em;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.35;
+  }
+
+  .page-img {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    margin-top: 12px;
+    filter: contrast(1.04) saturate(0.92);
+  }
+
+  .page-annotation {
+    margin-top: 20px;
+    font-size: 0.88em;
+    line-height: 1.9;
+    max-width: 360px;
+    color: #000;
+    opacity: 0.45;
+    letter-spacing: 0.01em;
+  }
+
+  /* song listing */
+  .mux-audio-container { border: none; margin-top: 0; height: auto; }
+
+  .page-song-title {
+    border: none;
+    border-left: 2px solid #000;
+    border-bottom: 1px solid #e0e0e0;
+    width: 360px;
+    max-width: 100%;
+    height: auto;
+    padding: 10px 0 10px 14px;
+    font-size: 0.88em;
+    font-family: monospace;
+    font-weight: normal;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.4;
+    background: transparent !important;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .page-song-title:hover { opacity: 0.4; }
+  .page-song-title.active { border-left-color: #000; opacity: 1; }
+  .song-duration { font-size: 0.9em; opacity: 0.4; letter-spacing: 0.06em; }
+
+  /* now playing bar */
+  .bottom-progress-bar {
+    background: #fff;
+    border-top: 1px solid #000 !important;
+    border-bottom: none !important;
+    height: 56px !important;
+    bottom: 20px !important;
+    padding: 0 60px 0 60px;
+    box-sizing: border-box;
+  }
+  .bottom-bar-content {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 100%;
+  }
+  .song-title {
+    font-family: monospace;
+    font-size: 0.9em;
+    font-weight: normal;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    flex: 1;
+    opacity: 0.85;
+  }
+  .bottom-play-pause-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+    border: none !important;
+    background: transparent;
+    padding: 0;
+    color: #000;
+    opacity: 0.7;
+    cursor: pointer;
+  }
+  .bottom-play-pause-btn:hover { opacity: 1; }
+  .progress-bar-area {
+    height: 1px !important;
+    background: #d0d0d0;
+    flex: 1;
+    max-width: 240px;
+    cursor: pointer;
+  }
+  .progress { height: 1px !important; background: #000; }
+  .close-btn {
+    font-size: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 20px;
+    opacity: 0.3;
+    letter-spacing: 0.05em;
+  }
+  .close-btn:hover { opacity: 1; }
+  .speaker-icon { display: none; }
+  .volume-control { display: none !important; }
+  .volume-fader { display: none; }
+  .loading-spinner { width: 8px; height: 8px; opacity: 0.4; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+
+<div class="page-wrap">
+  <a href="index.html" class="page-nav">home</a>
+
+  <p class="page-id">2.25.26</p>
+
+  <img src="CLASSIC NEGATIVE.jpg" alt="2.25.26" class="page-img">
+
+  <p class="page-annotation">photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative photo negative</p>
+
+  <div id="audioList" style="margin-top: 48px;"></div>
+</div>
+
+<div style="position: fixed; bottom: 8px; right: 16px; font-size: 9px; font-family: monospace; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.2;">2.25.26</div>
+
+<!-- Bottom progress bar -->
+<div class="bottom-progress-bar" id="bottomBar">
+  <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
+  <div class="bottom-bar-content">
+    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <span class="song-title" id="songTitle">Track Title</span>
+    <div class="bottom-bar-controls">
+      <div class="volume-control" id="volumeControl">
+        <div class="speaker-icon" id="speakerIcon">♪</div>
+        <div class="volume-fader" id="volumeFader">
+          <div class="volume-track">
+            <div class="volume-fill" id="volumeFill"></div>
+          </div>
+        </div>
+      </div>
+      <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>
+      <div class="progress-bar-area" id="progressBarArea">
+        <div class="progress" id="progress"></div>
+      </div>
+    </div>
+    <div class="loading-spinner" id="loadingSpinner"></div>
+  </div>
+</div>
+<script src="songs.js"></script>
+<script src="spa-router.js"></script>
+<script src="scripts.js"></script>
+</body>
+</html>

@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>music - burnfolder.com</title>
+  <title>music — burnfolder.com</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-  
-  <nav style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 100px;">
-    <a href="index.html">home</a>
-    <a href="content.html">content</a>
-  </nav>
-  
-  <h1>music</h1>
 
-  <div id="audioList"></div>
+  <div class="page-wrap">
+    <a href="index.html" class="page-nav">home</a>
+    <a href="content.html" class="page-nav">content</a>
 
+    <p class="page-id">music</p>
 
+    <div id="audioList" style="margin-top: 48px;"></div>
+  </div>
 
-  <!-- Bottom progress bar (hidden by default) -->
+  <div class="page-watermark">music</div>
+
+  <!-- Bottom progress bar -->
   <div class="bottom-progress-bar" id="bottomBar">
     <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
     <div class="bottom-bar-content">
@@ -50,3 +50,4 @@
   <script src="scripts.js"></script>
 </body>
 </html>
+

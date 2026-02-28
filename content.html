@@ -3,34 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>content - burnfolder.com</title>
+  <title>content — burnfolder.com</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-  
-  <nav style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 100px;">
-    <a href="index.html">home</a>
-    <a href="music.html">music</a>
-  </nav>
-  
-  <h1>content</h1>
 
-  <script>
-  // Dark mode toggle
-  const themeToggle = document.getElementById('themeToggle');
-  const body = document.body;
+  <div class="page-wrap">
+    <a href="index.html" class="page-nav">home</a>
+    <a href="music.html" class="page-nav">music</a>
 
-  const currentTheme = localStorage.getItem('theme') || 'light';
-  if (currentTheme === 'dark') {
-    body.classList.add('dark-mode');
-  }
+    <p class="page-id">content</p>
+  </div>
 
-  themeToggle.addEventListener('click', () => {
-    body.classList.toggle('dark-mode');
-    const theme = body.classList.contains('dark-mode') ? 'dark' : 'light';
-    localStorage.setItem('theme', theme);
-  });
-  </script>
+  <div class="page-watermark">content</div>
 </body>
 </html>
+

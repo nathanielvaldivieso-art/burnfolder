@@ -3,21 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1.21.26</title>
+<title>M.DD.YY</title><!-- ① page date as title -->
 <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-<a href="index.html">home</a>
-<h1>1.21.26</h1>
 
-<p>new version of the same song</p>
+<div class="page-wrap">
 
-<div style="position: fixed; bottom: 20px; right: 20px; font-size: 10px; font-weight: normal; opacity: 0.5;">1.21.26</div>
+  <!-- ── navigation ── always link back to home; add others if needed -->
+  <a href="index.html" class="page-nav">home</a>
 
-<div id="audioList"></div>
-<!-- Bottom progress bar (hidden by default) -->
+  <!-- ② page date stamp -->
+  <p class="page-id">M.DD.YY</p>
+
+  <!-- ③ optional image — remove block if not used -->
+  <img src="YOUR-IMAGE.jpg" alt="M.DD.YY" class="page-img">
+
+  <!-- ④ annotation / caption text — remove block if not used -->
+  <p class="page-annotation">
+    your text here.
+  </p>
+
+  <!-- ⑤ song list — scripts.js renders this automatically from songs.js -->
+  <div id="audioList" style="margin-top: 48px;"></div>
+
+</div>
+
+<!-- ⑥ watermark — matches page date -->
+<div class="page-watermark">M.DD.YY</div>
+
+<!-- bottom player — do not modify -->
 <div class="bottom-progress-bar" id="bottomBar">
   <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
   <div class="bottom-bar-content">

@@ -9,15 +9,20 @@
 </head>
 <body>
 <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-<a href="index.html">home</a>
-<h1>11.29.25</h1>
 
-<p>this is another song i made.</p>
+<div class="page-wrap">
+  <a href="index.html" class="page-nav">home</a>
 
-<div style="position: fixed; bottom: 20px; right: 20px; font-size: 10px; font-weight: normal; opacity: 0.5;">11.29.25</div>
+  <p class="page-id">11.29.25</p>
 
-<div id="audioList"></div>
-<!-- Bottom progress bar (hidden by default) -->
+  <p class="page-annotation">this is another song i made.</p>
+
+  <div id="audioList" style="margin-top: 48px;"></div>
+</div>
+
+<div class="page-watermark">11.29.25</div>
+
+<!-- Bottom progress bar -->
 <div class="bottom-progress-bar" id="bottomBar">
   <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
   <div class="bottom-bar-content">
@@ -45,3 +50,4 @@
 <script src="scripts.js"></script>
 </body>
 </html>
+

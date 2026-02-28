@@ -9,34 +9,35 @@
 </head>
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-  
-  <nav style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 100px;">
-    <a href="music.html">music</a>
-    <a href="content.html">content</a>
-  </nav>
-  
-  <h1>burnfolder.com</h1>
 
-  <!-- Intro text -->
-  <p id="intro">burnfolderburnfolderburnfolderburnfolderburnfolder.</p>
+  <div class="page-wrap">
+    <a href="music.html" class="page-nav">music</a>
+    <a href="content.html" class="page-nav">content</a>
 
-  <!-- Newsletter signup -->
-  <div class="newsletter-signup">
-    <p>get notified of new entries</p>
-    <form id="subscribeForm">
-      <input type="email" id="emailInput" name="email" placeholder="your@email.com" required>
-      <button type="submit">subscribe</button>
-    </form>
-    <p id="statusMessage"></p>
+    <p class="page-id">burnfolder.com</p>
+
+    <p class="page-annotation">burnfolderburnfolderburnfolderburnfolderburnfolder.</p>
+
+    <!-- Entries -->
+    <ul id="entries"></ul>
+
+    <!-- Newsletter signup -->
+    <div class="newsletter-signup">
+      <p>get notified of new entries</p>
+      <form id="subscribeForm">
+        <input type="email" id="emailInput" name="email" placeholder="your@email.com" required>
+        <button type="submit">subscribe</button>
+      </form>
+      <p id="statusMessage"></p>
+    </div>
   </div>
-
-  <!-- Entries -->
-  <ul id="entries"></ul>
 
   <!-- Hidden audio list div for playback restoration -->
   <div id="audioList" style="display: none;"></div>
 
-  <!-- Bottom progress bar (hidden by default) -->
+  <div class="page-watermark">burnfolder.com</div>
+
+  <!-- Bottom progress bar -->
   <div class="bottom-progress-bar" id="bottomBar">
     <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
     <div class="bottom-bar-content">
@@ -64,10 +65,7 @@
   <script src="spa-router.js"></script>
   <script src="scripts.js"></script>
   <script>
-  // 🔹 Entry list
-  const entries = ["1.21.26", "11.29.25", "11.28.25"];
-
-  // Fill entry list
+  const entries = ["2.25.26", "11.29.25", "11.28.25"];
   const container = document.getElementById("entries");
   entries.forEach(entry => {
     const li = document.createElement("li");
@@ -78,38 +76,26 @@
     container.appendChild(li);
   });
 
-  // Newsletter signup
   document.getElementById('subscribeForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('emailInput').value;
     const statusMsg = document.getElementById('statusMessage');
-    
     statusMsg.textContent = 'subscribing...';
-    statusMsg.style.color = '#666';
-    
     try {
-      // Call Netlify function
       const response = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email: email })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
       });
-      
       const data = await response.json();
-      
       if (response.ok) {
-        statusMsg.textContent = '✓ subscribed! check your email';
-        statusMsg.style.color = '#000';
+        statusMsg.textContent = '✓ subscribed';
         document.getElementById('emailInput').value = '';
       } else {
-        statusMsg.textContent = data.message || 'error - try again';
-        statusMsg.style.color = '#000';
+        statusMsg.textContent = data.message || 'error — try again';
       }
-    } catch (error) {
-      statusMsg.textContent = 'error - try again';
-      statusMsg.style.color = '#000';
+    } catch {
+      statusMsg.textContent = 'error — try again';
     }
   });
   </script>

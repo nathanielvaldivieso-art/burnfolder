@@ -112,7 +112,7 @@
     // Re-run entry list population for index page
     const entriesContainer = document.getElementById('entries');
     if (entriesContainer && entriesContainer.children.length === 0) {
-      const entries = ["11.29.25", "11.28.25"];
+      const entries = ["2.25.26", "11.29.25", "11.28.25"];
       entries.forEach(entry => {
         const li = document.createElement("li");
         const link = document.createElement("a");
