@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>music — burnfolder.com</title>
+  <title>audio archive — burnfolder.com</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -12,15 +12,37 @@
 
   <div class="page-wrap">
     <a href="index.html" class="page-nav">home</a>
+    <a href="music.html" class="page-nav">music</a>
     <a href="content.html" class="page-nav">content</a>
-    <a href="archive.html" class="page-nav">audio archive</a>
 
-    <p class="page-id">music</p>
+    <p class="page-id">audio archive</p>
 
-    <div id="audioList" style="margin-top: 48px;"></div>
+    <p class="page-annotation">unreleased, unmarketed.</p>
+
+    <div class="archive-grid">
+      <div class="archive-section" data-section="fight">
+        <p class="archive-label">fight</p>
+        <div class="archive-track-list"></div>
+      </div>
+
+      <div class="archive-section" data-section="fuck">
+        <p class="archive-label">fuck</p>
+        <div class="archive-track-list"></div>
+      </div>
+
+      <div class="archive-section" data-section="dance">
+        <p class="archive-label">dance</p>
+        <div class="archive-track-list"></div>
+      </div>
+
+      <div class="archive-section" data-section="cry">
+        <p class="archive-label">cry</p>
+        <div class="archive-track-list"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="page-watermark">music</div>
+  <div class="page-watermark">audio archive</div>
 
   <!-- Bottom progress bar -->
   <div class="bottom-progress-bar" id="bottomBar">
@@ -52,4 +74,3 @@
   <script src="scripts.js"></script>
 </body>
 </html>
-

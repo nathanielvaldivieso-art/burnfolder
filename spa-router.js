@@ -26,6 +26,9 @@
 
     // Handle browser back/forward
     window.addEventListener('popstate', handlePopState);
+
+    // Render songs for the initial page load
+    updateAudioListForPage();
   }
 
   function handleLinkClick(e) {
@@ -163,75 +166,92 @@
   }
 
   function updateAudioListForPage() {
-    const audioListEl = document.getElementById('audioList');
-    if (!audioListEl) return;
+    // Determine the current page key from the URL (not document.title)
+    const pathParts = window.location.pathname.split('/');
+    const pageKey = pathParts[pathParts.length - 1].replace('.html', '') || 'index';
 
-    // Clear existing track list if visible
-    if (audioListEl.style.display !== 'none') {
-      audioListEl.innerHTML = '';
-      
-      // Re-render songs based on current page
-      const currentPage = document.title;
-      let filteredSongs = allSongs;
-      
-      if (currentPage.match(/^\d+\.\d+\.\d+$/)) {
-        filteredSongs = allSongs.filter(song => song.page === currentPage);
-      }
-      
-      // Re-render song list
-      filteredSongs.forEach((song, idx) => {
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'page-song-title';
-        titleSpan.id = `pageSongTitle${idx+1}`;
-        
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = song.title;
-        
-        const durationSpan = document.createElement('span');
-        durationSpan.className = 'song-duration';
-        durationSpan.textContent = '--:--';
-        
-        titleSpan.appendChild(nameSpan);
-        titleSpan.appendChild(durationSpan);
-        
-        titleSpan.setAttribute('tabindex', '0');
-        titleSpan.setAttribute('role', 'button');
-        titleSpan.setAttribute('aria-label', `Play ${song.title}`);
-        titleSpan.addEventListener('click', () => {
-          playTrack(idx);
-        });
-        
-        const container = document.createElement('div');
-        container.className = 'mux-audio-container';
-        if (idx > 0) container.style.marginTop = '32px';
-        container.appendChild(titleSpan);
-        audioListEl.appendChild(container);
-      });
-
-      // Preload durations
-      filteredSongs.forEach((song, idx) => {
-        const tempPlayer = document.createElement('mux-player');
-        tempPlayer.setAttribute('playback-id', song.playbackId);
-        tempPlayer.setAttribute('metadata-video-title', song.title);
-        tempPlayer.style.display = 'none';
-        tempPlayer.muted = true;
-        document.body.appendChild(tempPlayer);
-        
-        tempPlayer.addEventListener('loadedmetadata', () => {
-          const duration = tempPlayer.duration;
-          if (duration && !isNaN(duration)) {
-            const minutes = Math.floor(duration / 60);
-            const seconds = Math.floor(duration % 60);
-            const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            const durationEl = document.querySelector(`#pageSongTitle${idx + 1} .song-duration`);
-            if (durationEl) {
-              durationEl.textContent = formattedDuration;
-            }
-          }
-          tempPlayer.remove();
-        }, { once: true });
-      });
+    // Update window.currentSongs so playTrack() always reads the right array
+    if (window.songsByPage && window.songsByPage[pageKey]) {
+      window.currentSongs = window.songsByPage[pageKey];
+    } else {
+      window.currentSongs = window.allSongs || [];
     }
+
+    const songs = window.currentSongs;
+
+    // Helper: build a page-song-title row and wire it up
+    function makeSongRow(song, idx, idPrefix) {
+      const wrap = document.createElement('div');
+      wrap.className = 'mux-audio-container';
+
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'page-song-title';
+      if (idPrefix) titleSpan.id = idPrefix + (idx + 1);
+      titleSpan.setAttribute('tabindex', '0');
+      titleSpan.setAttribute('role', 'button');
+      titleSpan.setAttribute('aria-label', 'Play ' + song.title);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = song.title;
+
+      const durSpan = document.createElement('span');
+      durSpan.className = 'song-duration';
+      durSpan.textContent = '--:--';
+
+      titleSpan.appendChild(nameSpan);
+      titleSpan.appendChild(durSpan);
+
+      titleSpan.addEventListener('click', function() { playTrack(idx); });
+      titleSpan.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          playTrack(idx);
+        }
+      });
+
+      // Preload duration
+      const tmp = document.createElement('mux-player');
+      tmp.setAttribute('playback-id', song.playbackId);
+      tmp.style.display = 'none';
+      tmp.muted = true;
+      document.body.appendChild(tmp);
+      tmp.addEventListener('loadedmetadata', function() {
+        const d = tmp.duration;
+        if (d && !isNaN(d)) {
+          const m = Math.floor(d / 60);
+          const s = Math.floor(d % 60);
+          durSpan.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+        }
+        tmp.remove();
+      }, { once: true });
+
+      wrap.appendChild(titleSpan);
+      return wrap;
+    }
+
+    // ── Archive page: populate section columns ─────────────────────────────
+    if (pageKey === 'archive') {
+      songs.forEach(function(song, idx) {
+        const section = song.section || 'misc';
+        const trackList = document.querySelector(
+          '.archive-section[data-section="' + section + '"] .archive-track-list'
+        );
+        if (!trackList) return;
+        trackList.appendChild(makeSongRow(song, idx, null));
+      });
+      return;
+    }
+
+    // ── Regular audioList pages ────────────────────────────────────────────
+    const audioListEl = document.getElementById('audioList');
+    if (!audioListEl || audioListEl.style.display === 'none') return;
+
+    audioListEl.innerHTML = '';
+    songs.forEach(function(song, idx) {
+      const row = makeSongRow(song, idx, 'pageSongTitle');
+      if (idx > 0) row.style.marginTop = '32px';
+      audioListEl.appendChild(row);
+    });
   }
 
   // Initialize when DOM is ready

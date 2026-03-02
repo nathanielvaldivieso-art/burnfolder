@@ -231,7 +231,7 @@ p, h1, .song-title, .page-annotation {
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border-top: 1px solid #000;
+  border-top: none;
   border-bottom: none;
   border-left: none;
   border-right: none;
@@ -269,23 +269,57 @@ p, h1, .song-title, .page-annotation {
   opacity: 0.7;
   cursor: pointer;
   flex-shrink: 0;
+  outline: none;
 }
 .bottom-play-pause-btn:hover { opacity: 1; }
+.bottom-play-pause-btn:focus { outline: none; }
 
 .progress-bar-area {
-  height: 1px;
-  background: #d0d0d0;
-  flex: 1;
-  max-width: 240px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
   cursor: pointer;
-  border: none;
-  border-radius: 0;
+  z-index: 1;
+}
+
+.progress-bar-area::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: #d0d0d0;
+  pointer-events: none;
 }
 
 .progress {
-  height: 1px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 2px;
   background: #000;
-  border-radius: 0;
+  pointer-events: none;
+}
+
+.progress-playhead {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: #000;
+  border-radius: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.progress-bar-area:hover .progress-playhead,
+.progress-bar-area.dragging .progress-playhead {
+  opacity: 1;
 }
 
 .close-btn {
@@ -328,6 +362,43 @@ p, h1, .song-title, .page-annotation {
   100% { transform: rotate(360deg); }
 }
 
+/* ── audio archive ── */
+
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 220px);
+  gap: 0;
+  margin-top: 40px;
+  max-width: calc(100vw - 120px);
+}
+
+.archive-section {
+  padding-right: 40px;
+  border-right: 1px solid #e0e0e0;
+}
+
+.archive-section:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.archive-label {
+  font-size: 0.75em;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.35;
+  margin: 0 0 12px 0;
+}
+
+.archive-track-list .mux-audio-container {
+  margin-top: 0 !important;
+}
+
+.archive-track-list .page-song-title {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* ── generic links (fallback) ── */
 
 a {
@@ -353,9 +424,38 @@ h1 { display: none; }
     bottom: 12px;
   }
 
+  .close-btn {
+    display: block;
+    right: 12px;
+    opacity: 0.25;
+  }
+
   .page-song-title,
   #entries li a {
     width: calc(100vw - 40px);
+  }
+
+  .archive-grid {
+    grid-template-columns: 1fr;
+    max-width: calc(100vw - 40px);
+  }
+
+  .archive-section {
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 0 0 20px 0;
+    margin-bottom: 20px;
+  }
+
+  .archive-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .archive-track-list .page-song-title {
+    width: 100%;
+    max-width: calc(100vw - 40px);
   }
 
   .newsletter-signup {

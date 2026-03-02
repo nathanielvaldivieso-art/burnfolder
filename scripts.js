@@ -28,12 +28,12 @@ let allSongs = window.allSongs || [];
 // Determine which songs to show on this page
 const pathParts = window.location.pathname.split('/');
 const fileName = pathParts[pathParts.length - 1].replace('.html', '');
-let songs = allSongs;
+window.currentSongs = allSongs;
 
-// Entry pages: pull directly from the keyed catalog — no string matching needed
-if (fileName.match(/^\d+\.\d+\.\d+$/) && window.songsByPage) {
-  sessionStorage.removeItem('playbackState');
-  songs = window.songsByPage[fileName] || [];
+// Entry pages + archive: pull directly from the keyed catalog — no string matching needed
+if ((fileName.match(/^\d+\.\d+\.\d+$/) || fileName === 'archive') && window.songsByPage) {
+  if (fileName !== 'archive') sessionStorage.removeItem('playbackState');
+  window.currentSongs = window.songsByPage[fileName] || [];
   if (window.globalMuxPlayer) {
     window.globalMuxPlayer.pause();
     window.globalMuxPlayer.removeAttribute('playback-id');
@@ -63,7 +63,7 @@ if (savedState && audioList) {
   try {
     const state = JSON.parse(savedState);
     // Only restore if the song is valid for the current page
-    const songIndex = songs.findIndex(s => s.playbackId === state.playbackId);
+    const songIndex = window.currentSongs.findIndex(s => s.playbackId === state.playbackId);
     if (songIndex !== -1) {
       activeIdx = songIndex;
       // Check if player already has this track loaded
@@ -111,8 +111,8 @@ if (savedState && audioList) {
 window.addEventListener('beforeunload', () => {
   if (activeIdx !== null && activeMuxPlayer) {
     const state = {
-      playbackId: songs[activeIdx].playbackId,
-      title: songs[activeIdx].title,
+      playbackId: window.currentSongs[activeIdx].playbackId,
+      title: window.currentSongs[activeIdx].title,
       currentTime: activeMuxPlayer.currentTime || 0,
       isPlaying: !activeMuxPlayer.paused
     };
@@ -124,8 +124,8 @@ window.addEventListener('beforeunload', () => {
 setInterval(() => {
   if (activeIdx !== null && activeMuxPlayer) {
     const state = {
-      playbackId: songs[activeIdx].playbackId,
-      title: songs[activeIdx].title,
+      playbackId: window.currentSongs[activeIdx].playbackId,
+      title: window.currentSongs[activeIdx].title,
       currentTime: activeMuxPlayer.currentTime || 0,
       isPlaying: !activeMuxPlayer.paused
     };
@@ -133,46 +133,44 @@ setInterval(() => {
   }
 }, 1000);
 
-// Render song list
+// Render song list — only when spa-router hasn't already populated it
+// (spa-router.js runs before scripts.js and calls updateAudioListForPage on load;
+//  if audioList already has children, skip to avoid duplicates)
+const didRenderInitially = !audioList || audioList.children.length > 0;
 
-songs.forEach((song, idx) => {
-  const titleSpan = document.createElement('span');
-  titleSpan.className = 'page-song-title';
-  titleSpan.id = `pageSongTitle${idx+1}`;
-  // Create song name element
-  const nameSpan = document.createElement('span');
-  nameSpan.textContent = song.title;
-  // Create duration element
-  const durationSpan = document.createElement('span');
-  durationSpan.className = 'song-duration';
-  durationSpan.textContent = '--:--';
-  titleSpan.appendChild(nameSpan);
-  titleSpan.appendChild(durationSpan);
-  titleSpan.setAttribute('tabindex', '0');
-  titleSpan.setAttribute('role', 'button');
-  titleSpan.setAttribute('aria-label', `Play ${song.title}`);
-  titleSpan.addEventListener('click', () => {
-    playTrack(idx);
-  });
-  titleSpan.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      if (activeIdx === idx) {
-        togglePlayPause();
-      } else {
-        playTrack(idx);
+if (audioList && !didRenderInitially) {
+  window.currentSongs.forEach((song, idx) => {
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'page-song-title';
+    titleSpan.id = `pageSongTitle${idx+1}`;
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = song.title;
+    const durationSpan = document.createElement('span');
+    durationSpan.className = 'song-duration';
+    durationSpan.textContent = '--:--';
+    titleSpan.appendChild(nameSpan);
+    titleSpan.appendChild(durationSpan);
+    titleSpan.setAttribute('tabindex', '0');
+    titleSpan.setAttribute('role', 'button');
+    titleSpan.setAttribute('aria-label', `Play ${song.title}`);
+    titleSpan.addEventListener('click', () => { playTrack(idx); });
+    titleSpan.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (activeIdx === idx) { togglePlayPause(); } else { playTrack(idx); }
       }
-    }
+    });
+    const container = document.createElement('div');
+    container.className = 'mux-audio-container';
+    if (idx > 0) container.style.marginTop = '32px';
+    container.appendChild(titleSpan);
+    audioList.appendChild(container);
   });
-  const container = document.createElement('div');
-  container.className = 'mux-audio-container';
-  if (idx > 0) container.style.marginTop = '32px';
-  container.appendChild(titleSpan);
-  audioList.appendChild(container);
-});
+}
 
-// Preload all track durations
-songs.forEach((song, idx) => {
+// Preload all track durations — skip if spa-router already did it via makeSongRow()
+if (!didRenderInitially) {
+window.currentSongs.forEach((song, idx) => {
   const tempPlayer = document.createElement('mux-player');
   tempPlayer.setAttribute('playback-id', song.playbackId);
   tempPlayer.setAttribute('metadata-video-title', song.title);
@@ -195,6 +193,7 @@ songs.forEach((song, idx) => {
     tempPlayer.remove();
   }, { once: true });
 });
+}
 
 function updateUI() {
   document.querySelectorAll('.page-song-title').forEach((el, i) => {
@@ -206,7 +205,7 @@ function updateUI() {
     } else {
       bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
     }
-    songTitleEl.textContent = songs[activeIdx].title;
+    songTitleEl.textContent = window.currentSongs[activeIdx].title;
     bottomBar.style.display = 'block';
     bottomPlayBtn.focus();
   } else {
@@ -220,8 +219,8 @@ function playTrack(idx) {
   activeMuxPlayer.currentTime = 0;
   // Set playback-id — mux-player reacts to attribute changes automatically.
   // Do NOT call .load() after this; it resets the player to the previous src.
-  activeMuxPlayer.setAttribute('playback-id', songs[idx].playbackId);
-  activeMuxPlayer.setAttribute('metadata-video-title', songs[idx].title);
+  activeMuxPlayer.setAttribute('playback-id', window.currentSongs[idx].playbackId);
+  activeMuxPlayer.setAttribute('metadata-video-title', window.currentSongs[idx].title);
   activeIdx = idx;
   updateUI();
   
@@ -289,6 +288,8 @@ function updateProgress() {
     if (activeMuxPlayer.duration) {
       const percent = (activeMuxPlayer.currentTime / activeMuxPlayer.duration) * 100;
       progressEl.style.width = percent + '%';
+      const playhead = document.getElementById('progressPlayhead');
+      if (playhead) playhead.style.left = percent + '%';
     } else {
       progressEl.style.width = '0%';
     }
@@ -310,7 +311,7 @@ activeMuxPlayer.addEventListener('pause', () => {
   updateUI();
 });
 activeMuxPlayer.addEventListener('error', () => {
-  alert(`Failed to load "${songs[activeIdx].title}". Please try again later.`);
+  alert(`Failed to load "${window.currentSongs[activeIdx].title}". Please try again later.`);
   activeMuxPlayer.pause();
   showLoading(false);
   updateUI();
@@ -345,7 +346,12 @@ const updateProgressFromEvent = (e) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const x = clientX - cachedProgressRect.left;
     const percent = Math.max(0, Math.min(1, x / cachedProgressRect.width));
-    
+
+    // Immediate visual feedback — update fill and playhead without waiting for throttle
+    progressEl.style.width = (percent * 100) + '%';
+    const ph = document.getElementById('progressPlayhead');
+    if (ph) ph.style.left = (percent * 100) + '%';
+
     // Throttle updates for better performance during fast dragging
     if (now - lastUpdateTime >= UPDATE_THROTTLE) {
       // Cancel any pending update
@@ -376,7 +382,8 @@ const updateProgressFromEvent = (e) => {
 progressBarArea.addEventListener('mousedown', (e) => {
   if (activeIdx !== null) {
     isProgressDragging = true;
-    cachedProgressRect = null; // Reset cache
+    progressBarArea.classList.add('dragging');
+    cachedProgressRect = null;
     updateProgressFromEvent(e);
     e.preventDefault();
   }
@@ -393,9 +400,9 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('mouseup', () => {
   if (isProgressDragging) {
     isProgressDragging = false;
-    cachedProgressRect = null; // Clear cache
-    lastUpdateTime = 0; // Reset throttle
-    // Cancel any pending updates when dragging stops
+    progressBarArea.classList.remove('dragging');
+    cachedProgressRect = null;
+    lastUpdateTime = 0;
     if (pendingProgressUpdate) {
       cancelAnimationFrame(pendingProgressUpdate);
       pendingProgressUpdate = null;
@@ -407,7 +414,8 @@ document.addEventListener('mouseup', () => {
 progressBarArea.addEventListener('touchstart', (e) => {
   if (activeIdx !== null) {
     isProgressDragging = true;
-    cachedProgressRect = null; // Reset cache
+    progressBarArea.classList.add('dragging');
+    cachedProgressRect = null;
     updateProgressFromEvent(e);
     e.preventDefault();
   }
@@ -424,9 +432,9 @@ document.addEventListener('touchmove', (e) => {
 document.addEventListener('touchend', () => {
   if (isProgressDragging) {
     isProgressDragging = false;
-    cachedProgressRect = null; // Clear cache
-    lastUpdateTime = 0; // Reset throttle
-    // Cancel any pending updates when dragging stops
+    progressBarArea.classList.remove('dragging');
+    cachedProgressRect = null;
+    lastUpdateTime = 0;
     if (pendingProgressUpdate) {
       cancelAnimationFrame(pendingProgressUpdate);
       pendingProgressUpdate = null;

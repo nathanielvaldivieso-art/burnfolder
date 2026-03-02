@@ -5,6 +5,10 @@
 
 window.songsByPage = {
 
+  "archive": [
+    { title: "time bomb", playbackId: "Ajl003VQh54gI01OHR00QRHDNJa8rgekhi7BSUCwI9TCZw", section: "fight" }
+  ],
+
   "2.25.26": [
     { title: "sometimes (2.24.26)", playbackId: "pk48o00XLPHdkNxXxf89G02Erq197XzcryTXudmhYgyCA" }
   ],
