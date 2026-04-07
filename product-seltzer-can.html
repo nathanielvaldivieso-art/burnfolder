@@ -1,0 +1,14 @@
+<!-- Product listing for the shop page -->
+<div class="product">
+  <h2>Seltzer Can</h2>
+  <img src="seltzer-can.jpg" alt="Seltzer Can" style="max-width:220px;display:block;margin-bottom:1em;">
+  <p><strong>Price:</strong> $500</p>
+  <p><strong>Availability:</strong> 1 in stock</p>
+  <form action="https://buy.stripe.com/test_checkout" method="POST">
+    <input type="hidden" name="product" value="Seltzer Can">
+    <input type="hidden" name="price" value="500">
+    <input type="hidden" name="shipping" value="USPS">
+    <button type="submit">Buy Now</button>
+  </form>
+  <p style="font-size:0.9em;color:#555;">Shipping via USPS. Fulfilled with Shippo. Only one available.</p>
+</div>

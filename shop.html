@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop - burnfolder.com</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-wrap">
+    <a href="music.html" class="page-nav">music</a>
+    <a href="content.html" class="page-nav">content</a>
+    <a href="shop.html" class="page-nav">shop</a>
+    <a href="cart.html" class="page-nav">cart</a>
+    <p class="page-id">burnfolder.com</p>
+    <h1>Shop</h1>
+    <!-- Seltzer Can Product Listing -->
+    <div class="product">
+      <h2>Seltzer Can</h2>
+      <img src="IMAGES/TIN CAN.png" alt="Seltzer Can" style="max-width:220px;display:block;margin-bottom:1em;">
+      <p><strong>Price:</strong> $500</p>
+      <button onclick="addToCart()">Add to Cart</button>
+      <p style="font-size:0.9em;color:#555;">Shipping via USPS. Fulfilled with Shippo. Only one available.</p>
+      <script>
+      function addToCart() {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        // Only allow one in cart
+        if (cart.some(item => item.id === 'seltzer-can')) {
+          alert('This item is already in your cart.');
+          return;
+        }
+        cart.push({
+          id: 'seltzer-can',
+          name: 'Seltzer Can',
+          price: 500,
+          qty: 1,
+          image: 'IMAGES/TIN CAN.png'
+        });
+        localStorage.setItem('cart', JSON.stringify(cart));
+        window.location.href = 'cart.html';
+      }
+      </script>
+    </div>
+  </div>
+  <div class="page-watermark">burnfolder.com</div>
+</body>
+</html>

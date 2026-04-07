@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout - burnfolder.com</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://js.stripe.com/v3/"></script>
+  <script defer src="checkout.js"></script>
+</head>
+<body>
+  <div class="page-wrap">
+    <a href="music.html" class="page-nav">music</a>
+    <a href="content.html" class="page-nav">content</a>
+    <a href="shop.html" class="page-nav">shop</a>
+    <a href="cart.html" class="page-nav">cart</a>
+    <h1>Checkout</h1>
+    <form id="checkout-form">
+      <div id="checkout-items"></div>
+      <div id="checkout-total"></div>
+      <label>Name: <input type="text" name="name" required></label><br>
+      <label>Email: <input type="email" name="email" required></label><br>
+      <label>Shipping Address: <input type="text" name="address" required></label><br>
+      <button type="submit">Pay with Stripe</button>
+    </form>
+    <div id="checkout-status"></div>
+  </div>
+  <div class="page-watermark">burnfolder.com</div>
+</body>
+</html>
