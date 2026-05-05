@@ -1,3 +1,130 @@
+/* ── minimal checkout redesign ── */
+.minimal-checkout {
+  background: none;
+  border: 1.5px solid #000;
+  box-shadow: none;
+  opacity: 1;
+}
+.minimal-checkout .checkout-btn {
+  font-family: monospace;
+  font-size: 1em;
+  background: #fff;
+  color: #000;
+  border: 1px solid #000;
+  border-radius: 0;
+  padding: 10px 22px;
+  margin-top: 18px;
+  cursor: pointer;
+  opacity: 0.7;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+}
+.minimal-checkout .checkout-btn:hover {
+  background: #000;
+  color: #fff;
+  opacity: 1;
+}
+.minimal-checkout #card-element {
+  border: 1px solid #000;
+  background: #fff;
+  border-radius: 0;
+  margin-bottom: 8px;
+}
+/* ── floating cart button ── */
+.cart-float {
+  position: fixed;
+  top: 32px;
+  right: 32px;
+  z-index: 1000;
+  background: #fff;
+  color: #000;
+  border: 1px solid #000;
+  border-radius: 0;
+  font-family: monospace;
+  font-size: 1em;
+  padding: 6px 14px;
+  cursor: pointer;
+  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+}
+.cart-float:hover {
+  background: #000;
+  color: #fff;
+  opacity: 1;
+}
+/* ── checkout form ── */
+.checkout-form {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.checkout-label {
+  font-family: monospace;
+  font-size: 1em;
+  color: #000;
+  opacity: 0.7;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.checkout-input {
+  font-family: monospace;
+  font-size: 1em;
+  background: #fff;
+  color: #000;
+  border: 1px solid #000;
+  border-radius: 0;
+  padding: 6px 8px;
+  margin-top: 2px;
+  margin-bottom: 0;
+  outline: none;
+  opacity: 0.85;
+  transition: border 0.2s;
+}
+.checkout-input:focus {
+  border: 1.5px solid #000;
+  opacity: 1;
+}
+.icon-btn {
+  background: #fff;
+  border: 1px solid #000;
+  border-radius: 0;
+  font-family: monospace;
+  font-size: 1em;
+  color: #000;
+  cursor: pointer;
+  padding: 6px 14px;
+  opacity: 0.8;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.icon-btn svg {
+  stroke: currentColor;
+}
+.icon-btn:hover, .icon-btn:focus {
+  background: #000;
+  color: #fff;
+  opacity: 1;
+}
+.checkout-item {
+  font-family: monospace;
+  font-size: 1em;
+  margin-bottom: 8px;
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 /* ── burnfolder.com ── archival / cold minimalism ── */
 
 body {
@@ -464,6 +591,62 @@ h1 { display: none; }
     max-width: calc(100vw - 40px);
   }
 }
+
+/* ── mux video player — black & white theme ── */
+
+.page-wrap mux-player {
+  --media-primary-color: #fff;
+  --media-secondary-color: rgba(255,255,255,0.5);
+  --media-background-color: #000;
+  --controls-backdrop-color: rgba(0,0,0,0.85);
+  --media-preview-thumbnail-background: #000;
+  --media-control-background: transparent;
+  --media-control-hover-background: rgba(255,255,255,0.1);
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 16/9;
+  margin-bottom: 8px;
+}
+
+/* ── entry date link (on music & video collection pages) ── */
+
+.song-date-link {
+  padding: 2px 0 8px 16px;
+  font-size: 0.72em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: monospace;
+}
+
+.song-date-link a {
+  border: none;
+  color: #000;
+  text-decoration: none;
+  padding: 0;
+  display: inline;
+  opacity: 0.3;
+  margin: 0;
+  background: none;
+}
+
+.song-date-link a:hover {
+  background: none;
+  color: #000;
+  opacity: 0.8;
+}
+
+/* ── video entry (video collection page) ── */
+
+.video-entry {
+  margin-top: 40px;
+  max-width: 360px;
+}
+
+.video-entry:first-child {
+  margin-top: 0;
+}
+
 
 
 

@@ -5,6 +5,10 @@
 
 window.songsByPage = {
 
+  "4.30.26": [
+    { title: "IT DOESNT MATTER 4.30.26", playbackId: "JHKhUfJRYIXINeEu01aloxfNbgW7ehN44VtrAUDbFaqQ" }
+  ],
+
   "archive": [
     { title: "time bomb", playbackId: "Ajl003VQh54gI01OHR00QRHDNJa8rgekhi7BSUCwI9TCZw", section: "fight" }
   ],
@@ -24,6 +28,29 @@ window.songsByPage = {
 };
 
 // Flat list for the music page (newest first — follows key order above)
-window.allSongs = Object.entries(window.songsByPage).flatMap(([page, tracks]) =>
-  tracks.map(t => ({ ...t, page }))
-);
+// Excludes archive entries from the flat list
+window.allSongs = Object.entries(window.songsByPage)
+  .filter(([page]) => page !== 'archive')
+  .flatMap(([page, tracks]) => tracks.map(t => ({ ...t, page })));
+
+// ── Journal entries ────────────────────────────────────────────────────────────
+// Single source of truth for the index entry list and spa-router.
+// Newest first. Add new date keys here when creating new entry pages.
+// ──────────────────────────────────────────────────────────────────────────────
+window.journalEntries = ["4.30.26", "2.25.26", "11.29.25", "11.28.25"];
+
+// ── Video catalog ──────────────────────────────────────────────────────────────
+// To add a new video: add an entry below with the page key matching the HTML
+// filename without .html. Multiple videos per page: add more objects to the array.
+// ──────────────────────────────────────────────────────────────────────────────
+window.videosByPage = {
+
+  "4.30.26": [
+    { title: "DAY 4.30.26", playbackId: "t8VCau3D5102Mw9ioP00xjurc3rcMWD3FoBBA017SxPJVs" }
+  ]
+
+};
+
+// Flat list for the video page (newest first — follows key order above)
+window.allVideos = Object.entries(window.videosByPage).flatMap(([page, videos]) =>
+  videos.map(v => ({ ...v, page })));

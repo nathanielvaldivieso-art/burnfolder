@@ -12,7 +12,7 @@
 
   <div class="page-wrap">
     <a href="music.html" class="page-nav">music</a>
-    <a href="content.html" class="page-nav">content</a>
+    <a href="content.html" class="page-nav">video</a>
     <a href="shop.html" class="page-nav">shop</a>
 
     <p class="page-id">burnfolder.com</p>
@@ -36,7 +36,24 @@
   <!-- Hidden audio list div for playback restoration -->
   <div id="audioList" style="display: none;"></div>
 
+    <button class="cart-float icon-btn" id="cartFloat" onclick="window.location.href='cart.html'" title="View cart">
+      Cart
+    </button>
   <div class="page-watermark">burnfolder.com</div>
+  <script>
+    function updateCartFloat() {
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const float = document.getElementById('cartFloat');
+      if (cart.length > 0) {
+        float.style.display = 'inline-flex';
+      } else {
+        float.style.display = 'none';
+      }
+    }
+    updateCartFloat();
+    window.addEventListener('storage', updateCartFloat);
+    document.addEventListener('DOMContentLoaded', updateCartFloat);
+  </script>
 
   <!-- Bottom progress bar -->
   <div class="bottom-progress-bar" id="bottomBar">
@@ -67,7 +84,7 @@
   <script src="spa-router.js"></script>
   <script src="scripts.js"></script>
   <script>
-  const entries = ["2.25.26", "11.29.25", "11.28.25"];
+  const entries = window.journalEntries || [];
   const container = document.getElementById("entries");
   entries.forEach(entry => {
     const li = document.createElement("li");

@@ -11,17 +11,58 @@
 <body>
   <div class="page-wrap">
     <a href="music.html" class="page-nav">music</a>
-    <a href="content.html" class="page-nav">content</a>
+    <a href="content.html" class="page-nav">video</a>
     <a href="shop.html" class="page-nav">shop</a>
-    <a href="cart.html" class="page-nav">cart</a>
+      <button class="cart-float icon-btn" id="cartFloat" onclick="window.location.href='cart.html'" title="View cart">
+        Cart
+      </button>
+      <script>
+        function updateCartFloat() {
+          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+          const float = document.getElementById('cartFloat');
+          if (cart.length > 0) {
+            float.style.display = 'inline-flex';
+          } else {
+            float.style.display = 'none';
+          }
+        }
+        updateCartFloat();
+        window.addEventListener('storage', updateCartFloat);
+        document.addEventListener('DOMContentLoaded', updateCartFloat);
+        window.updateCartFloat = updateCartFloat;
+      </script>
     <h1>Checkout</h1>
-    <form id="checkout-form">
+    <form id="checkout-form" class="checkout-form minimal-checkout">
       <div id="checkout-items"></div>
       <div id="checkout-total"></div>
-      <label>Name: <input type="text" name="name" required></label><br>
-      <label>Email: <input type="email" name="email" required></label><br>
-      <label>Shipping Address: <input type="text" name="address" required></label><br>
-      <button type="submit">Pay with Stripe</button>
+      <div class="checkout-fields">
+        <label class="checkout-label">Name
+          <input class="checkout-input" type="text" name="name" required autocomplete="name">
+        </label>
+        <label class="checkout-label">Email
+          <input class="checkout-input" type="email" name="email" required autocomplete="email">
+        </label>
+        <label class="checkout-label">Street Address
+          <input class="checkout-input" type="text" name="address_line1" required autocomplete="shipping address-line1">
+        </label>
+        <label class="checkout-label">Apt / Suite (optional)
+          <input class="checkout-input" type="text" name="address_line2" autocomplete="shipping address-line2">
+        </label>
+        <label class="checkout-label">City
+          <input class="checkout-input" type="text" name="city" required autocomplete="shipping address-level2">
+        </label>
+        <div style="display:flex;gap:12px;">
+          <label class="checkout-label" style="flex:1;">State
+            <input class="checkout-input" type="text" name="state" required autocomplete="shipping address-level1" maxlength="2" placeholder="NY">
+          </label>
+          <label class="checkout-label" style="flex:1;">ZIP
+            <input class="checkout-input" type="text" name="zip" required autocomplete="shipping postal-code" maxlength="10" placeholder="10001">
+          </label>
+        </div>
+      </div>
+      <div id="card-element" class="checkout-input" style="padding:16px 0 8px 0;"></div>
+      <div id="card-errors" style="color:#c00;font-size:0.95em;margin-top:4px;"></div>
+      <button type="submit" class="icon-btn">Pay</button>
     </form>
     <div id="checkout-status"></div>
   </div>

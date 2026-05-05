@@ -115,7 +115,7 @@
     // Re-run entry list population for index page
     const entriesContainer = document.getElementById('entries');
     if (entriesContainer && entriesContainer.children.length === 0) {
-      const entries = ["2.25.26", "11.29.25", "11.28.25"];
+      const entries = window.journalEntries || [];
       entries.forEach(entry => {
         const li = document.createElement("li");
         const link = document.createElement("a");
@@ -161,8 +161,9 @@
       });
     }
 
-    // Update audio list for current page
+    // Update audio and video lists for current page
     updateAudioListForPage();
+    updateVideoListForPage();
   }
 
   function updateAudioListForPage() {
@@ -226,6 +227,18 @@
       }, { once: true });
 
       wrap.appendChild(titleSpan);
+
+      // On the music page each song has a .page date — show a subtle entry link
+      if (song.page && /^\d/.test(song.page)) {
+        const dateMeta = document.createElement('div');
+        dateMeta.className = 'song-date-link';
+        const dateLink = document.createElement('a');
+        dateLink.href = song.page + '.html';
+        dateLink.textContent = song.page;
+        dateMeta.appendChild(dateLink);
+        wrap.appendChild(dateMeta);
+      }
+
       return wrap;
     }
 
@@ -251,6 +264,33 @@
       const row = makeSongRow(song, idx, 'pageSongTitle');
       if (idx > 0) row.style.marginTop = '32px';
       audioListEl.appendChild(row);
+    });
+  }
+
+  function updateVideoListForPage() {
+    const videoListEl = document.getElementById('videoList');
+    if (!videoListEl || !window.allVideos) return;
+    videoListEl.innerHTML = '';
+    window.allVideos.forEach(function(video) {
+      const entry = document.createElement('div');
+      entry.className = 'video-entry';
+
+      const player = document.createElement('mux-player');
+      player.setAttribute('playback-id', video.playbackId);
+      player.setAttribute('metadata-video-title', video.title);
+      entry.appendChild(player);
+
+      if (video.page && /^\d/.test(video.page)) {
+        const meta = document.createElement('div');
+        meta.className = 'song-date-link';
+        const link = document.createElement('a');
+        link.href = video.page + '.html';
+        link.textContent = video.page;
+        meta.appendChild(link);
+        entry.appendChild(meta);
+      }
+
+      videoListEl.appendChild(entry);
     });
   }
 

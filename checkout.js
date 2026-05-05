@@ -28,26 +28,81 @@ function renderCheckout() {
 
 window.addEventListener('DOMContentLoaded', renderCheckout);
 
-// Stripe integration
+// Stripe Elements integration
 const form = document.getElementById('checkout-form');
 const stripe = Stripe('pk_live_51TJGQcBKbG6lpNutrYNDhGV6aFM66hoqLakruHGC4omCXn0Nc9fXAqGzpqRIpq97v6tGP67Vx3vd1vpZbK1YkSks00ZFMq7fjN');
+const elements = stripe.elements();
+const card = elements.create('card', {
+  style: {
+    base: {
+      fontFamily: 'monospace',
+      fontSize: '1em',
+      color: '#000',
+      '::placeholder': { color: '#888' },
+      iconColor: '#000',
+    },
+    invalid: { color: '#c00' }
+  }
+});
+card.mount('#card-element');
+
 form.addEventListener('submit', function(e) {
   e.preventDefault();
-  document.getElementById('checkout-status').textContent = 'Redirecting to Stripe...';
-  fetch('/.netlify/functions/create-checkout-session', {
+  const statusEl = document.getElementById('checkout-status');
+  const errorsEl = document.getElementById('card-errors');
+  statusEl.textContent = 'Processing payment...';
+  errorsEl.textContent = '';
+
+  const shipping = {
+    name: form.name.value,
+    email: form.email.value,
+    address_line1: form.address_line1.value,
+    address_line2: form.address_line2.value || '',
+    city: form.city.value,
+    state: form.state.value,
+    zip: form.zip.value
+  };
+
+  fetch('/.netlify/functions/create-payment-intent', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cart: getCart() })
+    body: JSON.stringify({ cart: getCart(), shipping })
   })
     .then(res => res.json())
-    .then(data => {
-      if (data.id) {
-        stripe.redirectToCheckout({ sessionId: data.id });
+    .then(async data => {
+      if (data.clientSecret) {
+        const result = await stripe.confirmCardPayment(data.clientSecret, {
+          payment_method: {
+            card: card,
+            billing_details: {
+              name: shipping.name,
+              email: shipping.email,
+            }
+          },
+          shipping: {
+            name: shipping.name,
+            address: {
+              line1: shipping.address_line1,
+              line2: shipping.address_line2,
+              city: shipping.city,
+              state: shipping.state,
+              postal_code: shipping.zip,
+              country: 'US'
+            }
+          }
+        });
+        if (result.error) {
+          errorsEl.textContent = result.error.message;
+          statusEl.textContent = '';
+        } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+          localStorage.removeItem('cart');
+          window.location.href = 'success.html';
+        }
       } else {
-        document.getElementById('checkout-status').textContent = 'Error: ' + (data.error || 'Could not create session.');
+        statusEl.textContent = 'Error: ' + (data.error || 'Could not create payment.');
       }
     })
     .catch(err => {
-      document.getElementById('checkout-status').textContent = 'Error: ' + err.message;
+      statusEl.textContent = 'Error: ' + err.message;
     });
 });
