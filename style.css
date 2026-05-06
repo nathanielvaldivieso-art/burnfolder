@@ -592,38 +592,60 @@ h1 { display: none; }
   }
 }
 
-/* ── mux video player — minimal monospace theme ── */
+/* ── mux video player — quicktime-inspired minimal theme ── */
 
 .page-wrap mux-player {
-  /* Remove dark overlay so poster is visible */
+  /* Black/white/blue palette only */
+  --media-primary-color: #fff;
+  --media-secondary-color: rgba(255,255,255,0.78);
+  --media-accent-color: #1f5eff;
+  --media-background-color: #000;
+
+  /* Keep poster visible; no full-frame shade */
   --controls-backdrop-color: transparent;
-  
-  /* Monochrome minimal aesthetic */
-  --media-primary-color: #000;
-  --media-secondary-color: rgba(0,0,0,0.6);
-  --media-background-color: #fff;
   --media-preview-thumbnail-background: transparent;
-  --media-control-background: rgba(255,255,255,0.9);
-  --media-control-hover-background: rgba(255,255,255,1);
-  
-  /* Monospace font for time display */
+
+  /* Controls and typography */
+  --media-control-background: transparent;
+  --media-control-hover-background: rgba(255,255,255,0.12);
   --media-font-family: monospace;
-  --media-font-size: 12px;
-  
-  /* Control bar styling - minimal black border */
-  --media-control-border: 1px solid #000;
-  
-  /* Button and icon sizing */
-  --media-button-icon-width: 18px;
-  --media-button-icon-height: 18px;
-  
-  /* 1.3x scale: 360px → 468px */
+  --media-font-size: 11px;
+
+  /* 0.7x feature scale */
+  --media-control-height: 18px;
+  --media-button-icon-width: 14px;
+  --media-button-icon-height: 14px;
+
+  /* 1.3x video scale: 360px -> 468px */
   display: block;
   width: 100%;
   max-width: 468px;
   aspect-ratio: 16/9;
   margin-bottom: 8px;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0,0,0,0.14);
+}
+
+/* Keep default control placement, but restyle shell for quicktime feel */
+.page-wrap mux-player::part(control-bar) {
+  background: rgba(0,0,0,0.42);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 0;
+  padding: 2px 6px;
+}
+
+.page-wrap mux-player::part(time-range) {
+  --media-range-track-background: rgba(255,255,255,0.26);
+  --media-range-bar-color: #1f5eff;
+  --media-range-thumb-background: #fff;
+}
+
+.page-wrap mux-player::part(button) {
+  border: 1px solid transparent;
+  border-radius: 0;
+}
+
+.page-wrap mux-player::part(button):hover {
+  border-color: rgba(255,255,255,0.45);
 }
 
 /* ── entry date link (on music & video collection pages) ── */
@@ -657,7 +679,7 @@ h1 { display: none; }
 
 .video-entry {
   margin-top: 40px;
-  max-width: 360px;
+  max-width: 468px;
 }
 
 .video-entry:first-child {

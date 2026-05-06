@@ -96,6 +96,24 @@ Newest first. This is the single source of truth — index.html and spa-router.j
   2) Confirm matching file exists: `<entry>.html`.
   3) Confirm link opens on production after deploy.
 
+### 7. Video player branding protocol (required)
+- Mux player palette is restricted to black / white / blue only.
+- Purple is forbidden in all player UI states.
+- Keep Mux control placement identical to default (play/pause, scrubber, time, fullscreen).
+- Restyle only typography, sizing, and surface treatment.
+- Controls/features are scaled to ~0.7x of default size for a minimal look.
+- Video frame is scaled to ~1.3x (current site baseline: 468px max width).
+- This scale relationship (controls 0.7x, frame 1.3x) must be reused consistently across pages.
+- Poster frame must remain clearly visible (no heavy full-frame shading overlays).
+
+### 8. Reusable control icon language (required)
+- Use the same play/pause icon language as the bottom audio player in `scripts.js`.
+- Canonical icons to reuse:
+  - Play: right-pointing triangle (`<polygon points="6,4 20,12 6,20" ...>`)
+  - Pause: dual bars (`<rect x="6" y="5" width="4" height="14" ...>` and `<rect x="14" y="5" width="4" height="14" ...>`)
+- Controls should feel like one family across audio and video surfaces.
+- Branding priority: reuse familiar controls over inventing page-specific variants.
+
 Automation references:
 - Subscriber signup endpoint: `/.netlify/functions/subscribe`
 - Welcome email trigger: `.github/workflows/welcome-email.yml`
