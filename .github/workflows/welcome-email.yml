@@ -8,45 +8,65 @@ jobs:
   send-welcome:
     runs-on: ubuntu-latest
     steps:
-      - name: Send welcome email via SendGrid API
+      - name: Send welcome email via provider
         run: |
           set -euo pipefail
           EMAIL="${{ github.event.client_payload.email }}"
-          API_KEY="${{ secrets.SENDGRID_API_KEY }}"
+          SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}"
+          RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"
 
           if [ -z "$EMAIL" ]; then
             echo "Missing email in repository_dispatch payload"
             exit 1
           fi
 
-          if [ -z "$API_KEY" ]; then
-            echo "Missing SENDGRID_API_KEY secret"
+          if [ -z "$SENDGRID_API_KEY" ] && [ -z "$RESEND_API_KEY" ]; then
+            echo "Missing email provider key. Add RESEND_API_KEY or SENDGRID_API_KEY."
             exit 1
           fi
 
           HTML_CONTENT='<!DOCTYPE html><html><head><style>body{font-family:"Courier New",Courier,monospace;background:#fff;color:#000;padding:40px;line-height:1.6;margin:0}a{color:#000;text-decoration:none;border-bottom:2px solid #000;padding-bottom:2px}.header{font-size:24px;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px}.entries{margin:20px 0}.entry{margin:8px 0}.footer{margin-top:40px;padding-top:20px;border-top:2px solid #000;font-size:12px;opacity:0.6}</style></head><body><div class="header">burnfolder</div><p>thanks for subscribing.</p><p>you will receive notifications whenever a new audio entry is posted.</p><div class="entries"><strong>recent entries:</strong><div class="entry">- <a href="https://burnfolder.com/8.25.html">8.25</a></div><div class="entry">- <a href="https://burnfolder.com/9.20.html">9.20</a></div><div class="entry">- <a href="https://burnfolder.com/10.22.html">10.22</a></div></div><p><a href="https://burnfolder.com">visit burnfolder.com</a></p><div class="footer">to unsubscribe, reply to this email</div></body></html>'
 
-          PAYLOAD=$(jq -nc \
-            --arg email "$EMAIL" \
-            --arg html "$HTML_CONTENT" \
-            '{
-              personalizations: [{ to: [{ email: $email }] }],
-              from: { email: "nathaniel@burnfolder.com", name: "burnfolder" },
-              subject: "welcome to burnfolder",
-              content: [{ type: "text/html", value: $html }]
-            }')
-
           RESPONSE_BODY=$(mktemp)
-          HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
-            -H "Authorization: Bearer $API_KEY" \
-            -H "Content-Type: application/json" \
-            --data "$PAYLOAD")
+          if [ -n "$RESEND_API_KEY" ]; then
+            PAYLOAD=$(jq -nc \
+              --arg email "$EMAIL" \
+              --arg html "$HTML_CONTENT" \
+              '{
+                from: "burnfolder <onboarding@resend.dev>",
+                to: [$email],
+                subject: "welcome to burnfolder",
+                html: $html
+              }')
 
-          echo "SendGrid HTTP status: $HTTP_CODE"
+            HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.resend.com/emails \
+              -H "Authorization: Bearer $RESEND_API_KEY" \
+              -H "Content-Type: application/json" \
+              --data "$PAYLOAD")
+            PROVIDER="Resend"
+          else
+            PAYLOAD=$(jq -nc \
+              --arg email "$EMAIL" \
+              --arg html "$HTML_CONTENT" \
+              '{
+                personalizations: [{ to: [{ email: $email }] }],
+                from: { email: "nathaniel@burnfolder.com", name: "burnfolder" },
+                subject: "welcome to burnfolder",
+                content: [{ type: "text/html", value: $html }]
+              }')
+
+            HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
+              -H "Authorization: Bearer $SENDGRID_API_KEY" \
+              -H "Content-Type: application/json" \
+              --data "$PAYLOAD")
+            PROVIDER="SendGrid"
+          fi
+
+          echo "$PROVIDER HTTP status: $HTTP_CODE"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            echo "SendGrid error response:"
+            echo "$PROVIDER error response:"
             cat "$RESPONSE_BODY"
             exit 1
           fi
 
-          echo "Welcome email sent successfully"
+          echo "Welcome email sent successfully via $PROVIDER"
