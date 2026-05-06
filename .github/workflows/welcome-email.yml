@@ -8,6 +8,9 @@ jobs:
   send-welcome:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Send welcome email via provider
         run: |
           set -euo pipefail
