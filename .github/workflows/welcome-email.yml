@@ -10,15 +10,26 @@ jobs:
     steps:
       - name: Send welcome email via SendGrid API
         run: |
-          set -euo pipefail
+          set -eo pipefail
+          EMAIL="${{ github.event.client_payload.email }}"
+          API_KEY="${{ secrets.SENDGRID_API_KEY }}"
+
+          if [ -z "$EMAIL" ]; then
+            echo "Missing email in repository_dispatch payload"
+            exit 1
+          fi
+
+          if [ -z "$API_KEY" ]; then
+            echo "Missing SENDGRID_API_KEY secret"
+            exit 1
+          fi
+
+          PAYLOAD_FILE=$(mktemp)
           RESPONSE_BODY=$(mktemp)
-          HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
-            -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d @- <<'EOF'
+          cat > "$PAYLOAD_FILE" <<EOF
           {
             "personalizations": [{
-              "to": [{"email": "${{ github.event.client_payload.email }}"}]
+              "to": [{"email": "$EMAIL"}]
             }],
             "from": {"email": "nathaniel@burnfolder.com", "name": "burnfolder"},
             "subject": "welcome to burnfolder",
@@ -29,7 +40,25 @@ jobs:
           }
           EOF
 
+          CURL_EXIT=0
+          HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer $API_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @"$PAYLOAD_FILE") || CURL_EXIT=$?
+
+          if [ "$CURL_EXIT" -ne 0 ]; then
+            echo "curl failed before HTTP response (exit $CURL_EXIT)"
+            [ -s "$RESPONSE_BODY" ] && cat "$RESPONSE_BODY"
+            exit 1
+          fi
+
           echo "SendGrid HTTP status: $HTTP_CODE"
+          if ! [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]]; then
+            echo "Unexpected HTTP code format: $HTTP_CODE"
+            [ -s "$RESPONSE_BODY" ] && cat "$RESPONSE_BODY"
+            exit 1
+          fi
+
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "SendGrid error response:"
             cat "$RESPONSE_BODY"
