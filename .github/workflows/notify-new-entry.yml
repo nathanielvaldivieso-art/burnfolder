@@ -68,7 +68,7 @@ jobs:
                 --arg text "$EMAIL_TEXT" \
                 --arg subject "new burnfolder entry: ${ENTRY_DATE}" \
                 '{
-                  from: "burnfolder <onboarding@resend.dev>",
+                  from: "burnfolder <nathaniel@burnfolder.com>",
                   to: [$email],
                   subject: $subject,
                   text: $text

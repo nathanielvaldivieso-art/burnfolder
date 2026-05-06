@@ -33,7 +33,7 @@ jobs:
               --arg email "$EMAIL" \
               --arg html "$HTML_CONTENT" \
               '{
-                from: "burnfolder <onboarding@resend.dev>",
+                from: "burnfolder <nathaniel@burnfolder.com>",
                 to: [$email],
                 subject: "welcome to burnfolder",
                 html: $html
