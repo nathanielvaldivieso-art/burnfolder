@@ -592,21 +592,38 @@ h1 { display: none; }
   }
 }
 
-/* ── mux video player — black & white theme ── */
+/* ── mux video player — minimal monospace theme ── */
 
 .page-wrap mux-player {
-  --media-primary-color: #fff;
-  --media-secondary-color: rgba(255,255,255,0.5);
-  --media-background-color: #000;
-  --controls-backdrop-color: rgba(0,0,0,0.85);
-  --media-preview-thumbnail-background: #000;
-  --media-control-background: transparent;
-  --media-control-hover-background: rgba(255,255,255,0.1);
+  /* Remove dark overlay so poster is visible */
+  --controls-backdrop-color: transparent;
+  
+  /* Monochrome minimal aesthetic */
+  --media-primary-color: #000;
+  --media-secondary-color: rgba(0,0,0,0.6);
+  --media-background-color: #fff;
+  --media-preview-thumbnail-background: transparent;
+  --media-control-background: rgba(255,255,255,0.9);
+  --media-control-hover-background: rgba(255,255,255,1);
+  
+  /* Monospace font for time display */
+  --media-font-family: monospace;
+  --media-font-size: 12px;
+  
+  /* Control bar styling - minimal black border */
+  --media-control-border: 1px solid #000;
+  
+  /* Button and icon sizing */
+  --media-button-icon-width: 18px;
+  --media-button-icon-height: 18px;
+  
+  /* 1.3x scale: 360px → 468px */
   display: block;
   width: 100%;
-  max-width: 360px;
+  max-width: 468px;
   aspect-ratio: 16/9;
   margin-bottom: 8px;
+  border: 1px solid rgba(0,0,0,0.1);
 }
 
 /* ── entry date link (on music & video collection pages) ── */
