@@ -10,7 +10,9 @@ jobs:
     steps:
       - name: Send welcome email via SendGrid API
         run: |
-          curl -X POST https://api.sendgrid.com/v3/mail/send \
+          set -euo pipefail
+          RESPONSE_BODY=$(mktemp)
+          HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
             -H "Authorization: Bearer ${{ secrets.SENDGRID_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d @- <<'EOF'
@@ -26,3 +28,12 @@ jobs:
             }]
           }
           EOF
+
+          echo "SendGrid HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "SendGrid error response:"
+            cat "$RESPONSE_BODY"
+            exit 1
+          fi
+
+          echo "Welcome email sent successfully"
