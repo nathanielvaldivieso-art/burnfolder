@@ -1,3 +1,15 @@
+/* ══════════════════════════════════════════════════════
+   SITE DESIGN TOKENS — single source of truth for player UI
+   Black  : #000
+   White  : #fff
+   Gray   : #c8c8c8
+   ══════════════════════════════════════════════════════ */
+:root {
+  --c-black: #000;
+  --c-white: #fff;
+  --c-gray:  #c8c8c8;
+}
+
 /* ── minimal checkout redesign ── */
 .minimal-checkout {
   background: none;
@@ -353,14 +365,14 @@ p, h1, .song-title, .page-annotation {
 .bottom-progress-bar {
   position: fixed;
   left: 0;
-  bottom: 20px;
+  bottom: 0;
   width: 100vw;
-  height: 56px;
+  height: 48px;
   background: #fff;
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border-top: none;
+  border-top: 1px solid #000;
   border-bottom: none;
   border-left: none;
   border-right: none;
@@ -420,7 +432,7 @@ p, h1, .song-title, .page-annotation {
   right: 0;
   top: 0;
   height: 2px;
-  background: #d0d0d0;
+  background: var(--c-gray);
   pointer-events: none;
 }
 
@@ -448,6 +460,32 @@ p, h1, .song-title, .page-annotation {
 
 .progress-bar-area:hover .progress-playhead,
 .progress-bar-area.dragging .progress-playhead {
+  opacity: 1;
+}
+
+.progress-hover-time,
+.video-progress-hover-time {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 6px));
+  padding: 3px 6px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 1100;
+  transition: opacity 0.12s;
+}
+
+.progress-hover-time.visible,
+.video-progress-hover-time.visible {
   opacity: 1;
 }
 
@@ -549,8 +587,8 @@ h1 { display: none; }
 
   .bottom-progress-bar {
     padding: 0 24px;
-    height: 52px;
-    bottom: 12px;
+    height: 48px;
+    bottom: 0;
   }
 
   .close-btn {
@@ -592,60 +630,121 @@ h1 { display: none; }
   }
 }
 
-/* ── mux video player — quicktime-inspired minimal theme ── */
+/* ── mux video player — site standard ─────────────────────────────────────
+  Palette   : black (#000) / white (#fff) / gray (#c8c8c8)
+  Corners   : square only, no rounded control surfaces.
+  Controls  : 0.7x scale in normal mode, full size in fullscreen.
+  Video     : 1.3x size (468px max-width, 16/9).
+  Progress  : thin 2px line, light-gray track with monochrome elapsed fill.
+  Poster    : always clearly visible, no full-frame shading overlay.
+  ────────────────────────────────────────────────────────────────────────── */
 
 .page-wrap mux-player {
-  /* Black/white/blue palette only */
-  --media-primary-color: #fff;
-  --media-secondary-color: rgba(255,255,255,0.78);
-  --media-accent-color: #1f5eff;
-  --media-background-color: #000;
-
-  /* Keep poster visible; no full-frame shade */
+  /* Minimal, stable monochrome control scheme */
+  --media-primary-color: #000;
+  --media-secondary-color: var(--c-gray);
+  --media-accent-color: #000;
+  --media-background-color: transparent;
+  --media-control-background: var(--c-gray);
+  --media-control-hover-background: var(--c-gray);
+  --media-font-family: monospace;
+  --media-font-size: 10px;
+  --media-range-track-height: 2px;
+  --media-range-track-background: #9e9e9e;
+  --media-range-bar-color: #000;
+  --media-range-thumb-width: 5px;
+  --media-range-thumb-height: 5px;
+  --media-range-thumb-background: #000;
+  --media-range-thumb-border-radius: 50%;
+  --media-control-height: 16px;
+  --media-button-icon-width: 12px;
+  --media-button-icon-height: 12px;
+  --airplay-button: none;
   --controls-backdrop-color: transparent;
   --media-preview-thumbnail-background: transparent;
 
-  /* Controls and typography */
-  --media-control-background: transparent;
-  --media-control-hover-background: rgba(255,255,255,0.12);
-  --media-font-family: monospace;
-  --media-font-size: 11px;
-
-  /* 0.7x feature scale */
-  --media-control-height: 18px;
-  --media-button-icon-width: 14px;
-  --media-button-icon-height: 14px;
-
-  /* 1.3x video scale: 360px -> 468px */
+  /* Video 1.3x scale */
   display: block;
   width: 100%;
   max-width: 468px;
   aspect-ratio: 16/9;
   margin-bottom: 8px;
-  border: 1px solid rgba(0,0,0,0.14);
+  border: 1px solid #000;
 }
 
-/* Keep default control placement, but restyle shell for quicktime feel */
+/* Control bar */
 .page-wrap mux-player::part(control-bar) {
-  background: rgba(0,0,0,0.42);
-  border: 1px solid rgba(255,255,255,0.16);
+  background: var(--c-gray);
+  border: none;
+  border-top: 1px solid rgba(0,0,0,0.18);
   border-radius: 0;
-  padding: 2px 6px;
+  padding: 2px 5px;
 }
 
-.page-wrap mux-player::part(time-range) {
-  --media-range-track-background: rgba(255,255,255,0.26);
-  --media-range-bar-color: #1f5eff;
-  --media-range-thumb-background: #fff;
+.page-wrap mux-player::part(bottom) { background: var(--c-gray) !important; }
+.page-wrap mux-player::part(layer) { background: transparent !important; }
+
+/* Hide airplay and the volume slider notch */
+.page-wrap mux-player::part(airplay),
+.page-wrap mux-player::part(volume),
+.page-wrap mux-player::part(mute) {
+  display: none !important;
 }
 
+/* Hide popup playback-rate button/menu; inline rates are injected into control bar via scripts.js */
+.page-wrap mux-player::part(playback-rate) {
+  display: none !important;
+}
+
+/* All control buttons */
 .page-wrap mux-player::part(button) {
-  border: 1px solid transparent;
+  border: none;
   border-radius: 0;
+  color: #000;
+  opacity: 1;
 }
 
 .page-wrap mux-player::part(button):hover {
-  border-color: rgba(255,255,255,0.45);
+  background: transparent;
+  opacity: 1;
+}
+
+/* Fullscreen must always remain visible */
+.page-wrap mux-player::part(fullscreen) {
+  display: inline-flex !important;
+  color: #000;
+}
+
+/* Keep the large overlay play button monochrome and readable */
+.page-wrap mux-player::part(pre-play),
+.page-wrap mux-player::part(play),
+.page-wrap mux-player::part(center) {
+  color: #000 !important;
+  opacity: 0.85;
+}
+
+/* Time display — monospace, site gray */
+.page-wrap mux-player::part(time) {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: #000;
+  opacity: 1;
+}
+
+/* ── Fullscreen: scale controls back up to full size ── */
+.page-wrap mux-player:fullscreen,
+.page-wrap mux-player:-webkit-full-screen {
+  --media-control-height: 28px;
+  --media-button-icon-width: 22px;
+  --media-button-icon-height: 22px;
+  --media-font-size: 13px;
+}
+
+.page-wrap mux-player:fullscreen::part(time),
+.page-wrap mux-player:-webkit-full-screen::part(time) {
+  font-size: 13px;
+  color: #000;
 }
 
 /* ── entry date link (on music & video collection pages) ── */

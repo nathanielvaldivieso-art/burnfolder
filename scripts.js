@@ -50,7 +50,195 @@ const closeBtn = document.getElementById('closeBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const activeMuxPlayer = document.getElementById('activeMuxPlayer');
 
+function createHoverTimeElement(className) {
+  const tooltip = document.createElement('div');
+  tooltip.className = className;
+  tooltip.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(tooltip);
+  return tooltip;
+}
+
+function formatTimecode(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
+
+  const wholeSeconds = Math.floor(totalSeconds);
+  const hours = Math.floor(wholeSeconds / 3600);
+  const minutes = Math.floor((wholeSeconds % 3600) / 60);
+  const seconds = wholeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function showHoverTime(tooltip, clientX, top, seconds) {
+  tooltip.textContent = formatTimecode(seconds);
+  tooltip.style.left = `${clientX}px`;
+  tooltip.style.top = `${top}px`;
+  tooltip.classList.add('visible');
+}
+
+function hideHoverTime(tooltip) {
+  tooltip.classList.remove('visible');
+}
+
+const progressHoverTime = createHoverTimeElement('progress-hover-time');
+const videoProgressHoverTime = createHoverTimeElement('video-progress-hover-time');
+
 let activeIdx = null;
+
+function initializeVideoPlayerChrome() {
+  const videoPlayers = document.querySelectorAll('.page-wrap > mux-player, .video-entry mux-player');
+
+  videoPlayers.forEach((player) => {
+    // Force all palette vars via JS so they can never be stale from CSS cache
+    player.style.setProperty('--media-primary-color', '#000');
+    player.style.setProperty('--media-secondary-color', '#c8c8c8');
+    player.style.setProperty('--media-accent-color', '#000');
+    player.style.setProperty('--media-background-color', 'transparent');
+    player.style.setProperty('--media-control-background', '#c8c8c8');
+    player.style.setProperty('--media-control-hover-background', '#c8c8c8');
+    player.style.setProperty('--airplay-button', 'none');
+
+    if (!player.hasAttribute('playbackrates')) {
+      player.setAttribute('playbackrates', '1 1.5 2');
+    }
+
+    bindVideoProgressHover(player);
+  });
+}
+
+function bindVideoProgressHover(player, attempts = 24) {
+  if (player.dataset.progressHoverBound === 'true' && player.dataset.inlineRatesBound === 'true') return;
+
+  const themeRoot = player.shadowRoot?.querySelector('media-theme')?.shadowRoot;
+  const timeRange = themeRoot?.querySelector('media-time-range');
+  const controlBar = themeRoot?.querySelector('media-control-bar');
+  const previewThumbnail = themeRoot?.querySelector('media-preview-thumbnail');
+  const previewTimeDisplay = themeRoot?.querySelector('media-preview-time-display');
+
+  if (!timeRange || !controlBar) {
+    if (attempts > 0) {
+      requestAnimationFrame(() => bindVideoProgressHover(player, attempts - 1));
+    }
+    return;
+  }
+
+  if (player.dataset.inlineRatesBound !== 'true') {
+    // Hide every internal control we don't want — do this via JS so it cannot be cached
+    const hideSelectors = [
+      'media-playback-rate-menu-button',
+      'media-playback-rate-menu',
+      'media-mute-button',
+      'media-volume-range',
+      'media-airplay-button',
+      'media-cast-button',
+      'media-pip-button',
+      'media-captions-menu-button',
+      'media-captions-menu',
+      'media-audio-track-menu-button',
+      'media-audio-track-menu',
+      'media-rendition-menu-button',
+      'media-rendition-menu',
+      'media-seek-backward-button',
+      'media-seek-forward-button',
+    ];
+    hideSelectors.forEach((sel) => {
+      const el = controlBar.querySelector(sel);
+      if (el) el.style.display = 'none';
+    });
+
+    const rateGroup = document.createElement('div');
+    rateGroup.style.display = 'inline-flex';
+    rateGroup.style.alignItems = 'center';
+    rateGroup.style.gap = '2px';
+    rateGroup.style.marginLeft = '4px';
+
+    const rates = [1, 1.5, 2];
+    const buttons = rates.map((rate) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `${rate}x`;
+      button.style.border = 'none';
+      button.style.borderRadius = '0';
+      button.style.background = 'transparent';
+      button.style.color = '#000';
+      button.style.fontFamily = 'monospace';
+      button.style.fontSize = '10px';
+      button.style.lineHeight = '1';
+      button.style.padding = '2px 4px';
+      button.style.cursor = 'pointer';
+      button.style.minWidth = '24px';
+      button.style.opacity = '0.65';
+      button.addEventListener('click', () => {
+        player.playbackRate = rate;
+      });
+      return { rate, button };
+    });
+
+    const updateRateButtons = () => {
+      const currentRate = Number(player.playbackRate || 1);
+      buttons.forEach(({ rate, button }) => {
+        const isActive = Math.abs(currentRate - rate) < 0.01;
+        button.style.opacity = isActive ? '1' : '0.4';
+        button.style.fontWeight = isActive ? '700' : '400';
+        button.style.textDecoration = 'none';
+      });
+    };
+
+    buttons.forEach(({ button }) => rateGroup.appendChild(button));
+
+    const fullscreenButton = controlBar.querySelector('media-fullscreen-button');
+    if (fullscreenButton) {
+      controlBar.insertBefore(rateGroup, fullscreenButton);
+    } else {
+      controlBar.appendChild(rateGroup);
+    }
+
+    player.addEventListener('ratechange', updateRateButtons);
+    updateRateButtons();
+    player.dataset.inlineRatesBound = 'true';
+  }
+
+  if (player.dataset.progressHoverBound === 'true') return;
+
+  player.dataset.progressHoverBound = 'true';
+
+  if (previewThumbnail) previewThumbnail.style.display = 'none';
+  if (previewTimeDisplay) previewTimeDisplay.style.display = 'none';
+
+  const updateVideoHoverTime = (clientX) => {
+    if (!Number.isFinite(player.duration) || player.duration <= 0) {
+      hideHoverTime(videoProgressHoverTime);
+      return;
+    }
+
+    const rect = timeRange.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    showHoverTime(videoProgressHoverTime, clientX, rect.top, percent * player.duration);
+  };
+
+  timeRange.addEventListener('mousemove', (event) => {
+    updateVideoHoverTime(event.clientX);
+  });
+
+  timeRange.addEventListener('mouseleave', () => {
+    hideHoverTime(videoProgressHoverTime);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.customElements?.whenDefined) {
+    window.customElements.whenDefined('mux-player').then(() => {
+      initializeVideoPlayerChrome();
+    });
+    return;
+  }
+
+  initializeVideoPlayerChrome();
+});
 
 // Store reference to active player globally
 if (!window.globalMuxPlayer) {
@@ -327,6 +515,21 @@ progressBarArea.addEventListener('click', (e) => {
   }
 });
 
+progressBarArea.addEventListener('mousemove', (e) => {
+  if (activeIdx === null || !activeMuxPlayer.duration) {
+    hideHoverTime(progressHoverTime);
+    return;
+  }
+
+  const rect = progressBarArea.getBoundingClientRect();
+  const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  showHoverTime(progressHoverTime, e.clientX, rect.top, percent * activeMuxPlayer.duration);
+});
+
+progressBarArea.addEventListener('mouseleave', () => {
+  hideHoverTime(progressHoverTime);
+});
+
 // Enhanced progress bar interaction with dragging support
 let isProgressDragging = false;
 let pendingProgressUpdate = null;
@@ -346,6 +549,8 @@ const updateProgressFromEvent = (e) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const x = clientX - cachedProgressRect.left;
     const percent = Math.max(0, Math.min(1, x / cachedProgressRect.width));
+
+    showHoverTime(progressHoverTime, clientX, cachedProgressRect.top, percent * activeMuxPlayer.duration);
 
     // Immediate visual feedback — update fill and playhead without waiting for throttle
     progressEl.style.width = (percent * 100) + '%';
@@ -401,12 +606,31 @@ document.addEventListener('mouseup', () => {
   if (isProgressDragging) {
     isProgressDragging = false;
     progressBarArea.classList.remove('dragging');
+    hideHoverTime(progressHoverTime);
     cachedProgressRect = null;
     lastUpdateTime = 0;
     if (pendingProgressUpdate) {
       cancelAnimationFrame(pendingProgressUpdate);
       pendingProgressUpdate = null;
     }
+  }
+});
+
+window.addEventListener('blur', () => {
+  isProgressDragging = false;
+  progressBarArea.classList.remove('dragging');
+  hideHoverTime(progressHoverTime);
+  cachedProgressRect = null;
+  lastUpdateTime = 0;
+  if (pendingProgressUpdate) {
+    cancelAnimationFrame(pendingProgressUpdate);
+    pendingProgressUpdate = null;
+  }
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!isProgressDragging && !progressBarArea.contains(e.target)) {
+    hideHoverTime(progressHoverTime);
   }
 });
 
@@ -433,12 +657,25 @@ document.addEventListener('touchend', () => {
   if (isProgressDragging) {
     isProgressDragging = false;
     progressBarArea.classList.remove('dragging');
+    hideHoverTime(progressHoverTime);
     cachedProgressRect = null;
     lastUpdateTime = 0;
     if (pendingProgressUpdate) {
       cancelAnimationFrame(pendingProgressUpdate);
       pendingProgressUpdate = null;
     }
+  }
+});
+
+progressBarArea.addEventListener('touchcancel', () => {
+  isProgressDragging = false;
+  progressBarArea.classList.remove('dragging');
+  hideHoverTime(progressHoverTime);
+  cachedProgressRect = null;
+  lastUpdateTime = 0;
+  if (pendingProgressUpdate) {
+    cancelAnimationFrame(pendingProgressUpdate);
+    pendingProgressUpdate = null;
   }
 });
 
