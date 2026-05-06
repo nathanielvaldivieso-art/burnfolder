@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Send welcome email via SendGrid API
         run: |
-          set -eo pipefail
+          set -euo pipefail
           EMAIL="${{ github.event.client_payload.email }}"
           API_KEY="${{ secrets.SENDGRID_API_KEY }}"
 
@@ -24,41 +24,25 @@ jobs:
             exit 1
           fi
 
-          PAYLOAD_FILE=$(mktemp)
-          RESPONSE_BODY=$(mktemp)
-          cat > "$PAYLOAD_FILE" <<EOF
-          {
-            "personalizations": [{
-              "to": [{"email": "$EMAIL"}]
-            }],
-            "from": {"email": "nathaniel@burnfolder.com", "name": "burnfolder"},
-            "subject": "welcome to burnfolder",
-            "content": [{
-              "type": "text/html",
-              "value": "<!DOCTYPE html><html><head><style>body{font-family:'Courier New',Courier,monospace;background:#fff;color:#000;padding:40px;line-height:1.6;margin:0}a{color:#000;text-decoration:none;border-bottom:2px solid #000;padding-bottom:2px}.header{font-size:24px;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px}.entries{margin:20px 0}.entry{margin:8px 0}.footer{margin-top:40px;padding-top:20px;border-top:2px solid #000;font-size:12px;opacity:0.6}</style></head><body><div class=\"header\">burnfolder</div><p>thanks for subscribing.</p><p>you'll receive notifications whenever a new audio entry is posted.</p><div class=\"entries\"><strong>recent entries:</strong><div class=\"entry\">• <a href=\"https://burnfolder.com/8.25.html\">8.25</a></div><div class=\"entry\">• <a href=\"https://burnfolder.com/9.20.html\">9.20</a></div><div class=\"entry\">• <a href=\"https://burnfolder.com/10.22.html\">10.22</a></div></div><p><a href=\"https://burnfolder.com\">visit burnfolder.com</a></p><div class=\"footer\">to unsubscribe, reply to this email</div></body></html>"
-            }]
-          }
-          EOF
+          HTML_CONTENT='<!DOCTYPE html><html><head><style>body{font-family:"Courier New",Courier,monospace;background:#fff;color:#000;padding:40px;line-height:1.6;margin:0}a{color:#000;text-decoration:none;border-bottom:2px solid #000;padding-bottom:2px}.header{font-size:24px;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px}.entries{margin:20px 0}.entry{margin:8px 0}.footer{margin-top:40px;padding-top:20px;border-top:2px solid #000;font-size:12px;opacity:0.6}</style></head><body><div class="header">burnfolder</div><p>thanks for subscribing.</p><p>you will receive notifications whenever a new audio entry is posted.</p><div class="entries"><strong>recent entries:</strong><div class="entry">- <a href="https://burnfolder.com/8.25.html">8.25</a></div><div class="entry">- <a href="https://burnfolder.com/9.20.html">9.20</a></div><div class="entry">- <a href="https://burnfolder.com/10.22.html">10.22</a></div></div><p><a href="https://burnfolder.com">visit burnfolder.com</a></p><div class="footer">to unsubscribe, reply to this email</div></body></html>'
 
-          CURL_EXIT=0
+          PAYLOAD=$(jq -nc \
+            --arg email "$EMAIL" \
+            --arg html "$HTML_CONTENT" \
+            '{
+              personalizations: [{ to: [{ email: $email }] }],
+              from: { email: "nathaniel@burnfolder.com", name: "burnfolder" },
+              subject: "welcome to burnfolder",
+              content: [{ type: "text/html", value: $html }]
+            }')
+
+          RESPONSE_BODY=$(mktemp)
           HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
             -H "Authorization: Bearer $API_KEY" \
             -H "Content-Type: application/json" \
-            --data-binary @"$PAYLOAD_FILE") || CURL_EXIT=$?
-
-          if [ "$CURL_EXIT" -ne 0 ]; then
-            echo "curl failed before HTTP response (exit $CURL_EXIT)"
-            [ -s "$RESPONSE_BODY" ] && cat "$RESPONSE_BODY"
-            exit 1
-          fi
+            --data "$PAYLOAD")
 
           echo "SendGrid HTTP status: $HTTP_CODE"
-          if ! [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]]; then
-            echo "Unexpected HTTP code format: $HTTP_CODE"
-            [ -s "$RESPONSE_BODY" ] && cat "$RESPONSE_BODY"
-            exit 1
-          fi
-
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "SendGrid error response:"
             cat "$RESPONSE_BODY"
