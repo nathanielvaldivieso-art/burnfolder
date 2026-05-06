@@ -18,8 +18,9 @@ jobs:
       - name: Check for new HTML files
         id: check
         run: |
-          # Get list of new .html files (dated entries only, exclude index.html)
-          NEW_FILES=$(git diff --name-only HEAD^ HEAD | grep -E '^[0-9]+\.[0-9]+\.html$' || true)
+          # Get list of new dated entry .html files.
+          # Supports both M.DD.html and M.DD.YY.html naming.
+          NEW_FILES=$(git diff --name-only HEAD^ HEAD | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?\.html$' || true)
           
           if [ -n "$NEW_FILES" ]; then
             # Extract the date from filename (e.g., "10.22" from "10.22.html")

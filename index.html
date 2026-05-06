@@ -108,7 +108,7 @@
       });
       const data = await response.json();
       if (response.ok) {
-        statusMsg.textContent = '✓ subscribed';
+        statusMsg.textContent = data.message || '✓ subscribed';
         document.getElementById('emailInput').value = '';
       } else {
         statusMsg.textContent = data.message || 'error — try again';

@@ -40,26 +40,26 @@ exports.handler = async (event) => {
     const content = Buffer.from(fileData.content, 'base64').toString('utf8');
     const subscribers = JSON.parse(content);
 
-    if (subscribers.subscribers.includes(email)) {
-      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Already subscribed' }) };
+    const alreadySubscribed = subscribers.subscribers.includes(email);
+
+    if (!alreadySubscribed) {
+      subscribers.subscribers.push(email);
+
+      // Commit updated subscribers.json only for new subscribers.
+      const putRes = await fetch(apiBase, {
+        method: 'PUT',
+        headers: ghHeaders,
+        body: JSON.stringify({
+          message: `Add subscriber: ${email}`,
+          content: Buffer.from(JSON.stringify(subscribers, null, 2)).toString('base64'),
+          sha: fileData.sha,
+        }),
+      });
+      if (!putRes.ok) throw new Error(`GitHub PUT failed: ${putRes.status}`);
     }
 
-    subscribers.subscribers.push(email);
-
-    // Commit updated subscribers.json
-    const putRes = await fetch(apiBase, {
-      method: 'PUT',
-      headers: ghHeaders,
-      body: JSON.stringify({
-        message: `Add subscriber: ${email}`,
-        content: Buffer.from(JSON.stringify(subscribers, null, 2)).toString('base64'),
-        sha: fileData.sha,
-      }),
-    });
-    if (!putRes.ok) throw new Error(`GitHub PUT failed: ${putRes.status}`);
-
     // Trigger welcome email workflow
-    await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
+    const dispatchRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
       method: 'POST',
       headers: ghHeaders,
       body: JSON.stringify({
@@ -68,7 +68,27 @@ exports.handler = async (event) => {
       }),
     });
 
-    return { statusCode: 200, headers, body: JSON.stringify({ message: 'Subscribed successfully' }) };
+    if (!dispatchRes.ok) {
+      const dispatchBody = await dispatchRes.text();
+      console.error('Welcome email dispatch failed:', dispatchRes.status, dispatchBody);
+      return {
+        statusCode: 202,
+        headers,
+        body: JSON.stringify({
+          message: alreadySubscribed
+            ? 'Already subscribed, but welcome email resend failed. Please check GitHub token scopes and workflow setup.'
+            : 'Subscribed, but welcome email dispatch failed. Please check GitHub token scopes and workflow setup.',
+        }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        message: alreadySubscribed ? 'Already subscribed - welcome email resent' : 'Subscribed successfully',
+      }),
+    };
 
   } catch (error) {
     console.error('Subscribe error:', error);

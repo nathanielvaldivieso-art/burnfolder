@@ -77,6 +77,18 @@ window.journalEntries = ["M.DD.YY", "4.30.26", "2.25.26", ...];
 ```
 Newest first. This is the single source of truth — index.html and spa-router.js both read from it.
 
+### 5. Newsletter email automation (required)
+- Every new journal entry must trigger an email notification to all subscribers.
+- Notification email must include a direct link to the new entry page:
+  `https://burnfolder.com/M.DD.YY.html`
+- Keep entry filenames in dated format (`M.DD.YY.html`) so workflow detection works.
+- Do not bypass this workflow when publishing new entries.
+
+Automation references:
+- Subscriber signup endpoint: `/.netlify/functions/subscribe`
+- Welcome email trigger: `.github/workflows/welcome-email.yml`
+- New entry notification trigger: `.github/workflows/notify-new-entry.yml`
+
 ## Page anatomy (_template.html)
 ```
 ① <title> and .page-id      — date stamp e.g. 4.30.26
