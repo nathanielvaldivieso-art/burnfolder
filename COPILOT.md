@@ -84,6 +84,18 @@ Newest first. This is the single source of truth — index.html and spa-router.j
 - Keep entry filenames in dated format (`M.DD.YY.html`) so workflow detection works.
 - Do not bypass this workflow when publishing new entries.
 
+### 6. Keep welcome email "recent entries" synced (required)
+- Source of truth is `window.journalEntries` in `songs.js` (newest first).
+- The welcome email must always render the top 3 published entries from that list.
+- Never hardcode entry dates in email workflow templates.
+- Each recent-entry link must use this exact pattern:
+  `https://burnfolder.com/<entry>.html`
+- Only include entries whose HTML file exists in the repo.
+- Publish checklist for every new entry:
+  1) Add date to `window.journalEntries` (first item).
+  2) Confirm matching file exists: `<entry>.html`.
+  3) Confirm link opens on production after deploy.
+
 Automation references:
 - Subscriber signup endpoint: `/.netlify/functions/subscribe`
 - Welcome email trigger: `.github/workflows/welcome-email.yml`
