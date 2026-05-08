@@ -9,6 +9,7 @@
 </head>
 <body>
 <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+<button class="cart-float icon-btn" id="cartFloat" title="Checkout">Cart</button>
 
 <div class="page-wrap">
   <a href="index.html" class="page-nav">home</a>
@@ -80,6 +81,9 @@ function addTinCanToCart() {
 
   localStorage.setItem('cart', JSON.stringify(cart));
   if (window.updateCartFloat) window.updateCartFloat();
+  if (window.openCheckoutPopup) {
+    window.openCheckoutPopup('cart');
+  }
 }
 </script>
 <script src="songs.js"></script>

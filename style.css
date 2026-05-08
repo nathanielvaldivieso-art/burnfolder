@@ -454,52 +454,90 @@ p, h1, .song-title, .page-annotation {
   padding: 4px 8px;
 }
 
-.tip-mini-checkout {
+.checkout-popup-overlay {
   position: fixed;
   inset: 0;
+  background: rgba(255, 255, 255, 0.92);
+  z-index: 1600;
   display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.9);
-  z-index: 1500;
 }
 
-.tip-mini-checkout.open {
-  display: flex;
+.checkout-popup-overlay.open {
+  display: block;
 }
 
-.tip-mini-card {
-  width: min(420px, calc(100vw - 40px));
+.checkout-popup {
+  width: min(560px, calc(100vw - 20px));
+  margin: 10px auto 0 auto;
   border: 1px solid #000;
   background: #fff;
-  padding: 18px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  transform: translateY(-120%);
+  transition: transform 0.28s ease;
 }
 
-.tip-mini-title {
-  margin: 0 0 8px 0;
-  font-size: 0.86em;
-  letter-spacing: 0.12em;
+.checkout-popup-overlay.open .checkout-popup {
+  transform: translateY(0);
+}
+
+.checkout-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #000;
+  padding: 12px 14px;
+}
+
+.checkout-popup-eyebrow {
+  margin: 0;
+  font-size: 0.8em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   opacity: 0.7;
 }
 
-.tip-mini-amount {
-  margin: 0 0 14px 0;
-  font-size: 1em;
-  letter-spacing: 0.04em;
+.checkout-close-btn {
+  min-height: 28px;
 }
 
-.tip-mini-actions {
-  display: flex;
-  gap: 8px;
+.checkout-popup-body {
+  padding: 14px;
 }
 
-.tip-mini-status {
+.checkout-popup-title {
+  margin: 0 0 8px 0;
+  font-size: 0.95em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.checkout-popup-line {
+  margin: 0 0 8px 0;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.checkout-popup-total {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #000;
+  font-size: 0.9em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkout-popup-status {
   margin-top: 10px;
   min-height: 1.2em;
-  font-size: 0.78em;
+  font-size: 0.8em;
   letter-spacing: 0.06em;
   opacity: 0.7;
+}
+
+body.checkout-open {
+  overflow: hidden;
 }
 
 .progress-bar-area {
@@ -687,6 +725,16 @@ h1 { display: none; }
   .tip-options {
     left: auto;
     right: 0;
+  }
+
+  .checkout-popup {
+    width: calc(100vw - 12px);
+    margin-top: 6px;
+    max-height: calc(100vh - 12px);
+  }
+
+  .checkout-popup-body {
+    padding: 12px;
   }
 
   .close-btn {
