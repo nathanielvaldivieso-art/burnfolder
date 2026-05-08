@@ -16,7 +16,7 @@ exports.handler = async function(event) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(roundedAmount * 100),
       currency: 'usd',
-      payment_method_types: ['card'],
+      automatic_payment_methods: { enabled: true },
       description: `burnfolder.com support tip ($${roundedAmount})`,
       metadata: {
         order_type: 'tip',

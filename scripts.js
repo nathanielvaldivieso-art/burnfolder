@@ -441,11 +441,20 @@ async function mountCheckoutWalletButton() {
     },
     requestPayerName: true,
     requestPayerEmail: true,
-    requestShipping: checkoutMode === 'cart'
+    requestShipping: checkoutMode === 'cart',
+    disableWallets: ['link']
   });
 
   const canMakePayment = await checkoutPaymentRequest.canMakePayment();
-  if (!canMakePayment) return;
+  const hasAppleOrGoogleWallet = Boolean(
+    canMakePayment && (canMakePayment.applePay || canMakePayment.googlePay)
+  );
+  if (!hasAppleOrGoogleWallet) {
+    if (status) {
+      status.textContent = 'Apple Pay / Google Pay unavailable on this device or browser.';
+    }
+    return;
+  }
 
   const walletElements = stripeClient.elements();
   checkoutPaymentRequestButton = walletElements.create('paymentRequestButton', {
