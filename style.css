@@ -372,7 +372,7 @@ p, h1, .song-title, .page-annotation {
   z-index: 100;
   display: none;
   box-sizing: border-box;
-  border-top: 1px solid #000;
+  border-top: 1px solid var(--c-gray);
   border-bottom: none;
   border-left: none;
   border-right: none;
@@ -383,6 +383,13 @@ p, h1, .song-title, .page-annotation {
   display: flex;
   align-items: center;
   gap: 24px;
+  height: 100%;
+}
+
+.bottom-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   height: 100%;
 }
 
@@ -400,17 +407,21 @@ p, h1, .song-title, .page-annotation {
 }
 
 .bottom-play-pause-btn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   font-size: 11px;
-  border: none;
-  background: transparent;
+  border: 1px solid #000;
+  background: #fff;
   padding: 0;
   color: #000;
   opacity: 0.7;
   cursor: pointer;
   flex-shrink: 0;
   outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 .bottom-play-pause-btn:hover { opacity: 1; }
 .bottom-play-pause-btn:focus { outline: none; }
@@ -419,29 +430,33 @@ p, h1, .song-title, .page-annotation {
   position: relative;
   display: inline-flex;
   align-items: center;
+  margin-left: 8px;
 }
 
 .now-playing-tip-btn {
   font-size: 0.75em;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 2px 8px;
-  margin-left: 8px;
-  min-height: 24px;
-  min-width: 36px;
+  padding: 3px 10px;
+  margin-left: 0;
+  min-height: 28px;
+  min-width: 40px;
 }
 
 .tip-options {
   position: absolute;
   bottom: calc(100% + 8px);
-  left: 0;
+  left: auto;
+  right: 0;
   display: none;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   background: #fff;
   border: 1px solid #000;
   padding: 6px;
   z-index: 200;
+  min-width: 64px;
+  box-sizing: border-box;
 }
 
 .tip-options.open {
@@ -449,15 +464,66 @@ p, h1, .song-title, .page-annotation {
 }
 
 .tip-option-btn {
-  width: 48px;
+  width: 52px;
   justify-content: center;
   padding: 4px 8px;
+}
+
+.tip-custom-panel {
+  display: none;
+  border-top: 1px solid #000;
+  padding-top: 6px;
+  margin-top: 2px;
+  gap: 6px;
+}
+
+.tip-custom-panel.open {
+  display: flex;
+  flex-direction: column;
+}
+
+.tip-custom-label {
+  font-size: 0.68em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.tip-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tip-custom-input {
+  width: 76px;
+  border: 1px solid #000;
+  border-radius: 0;
+  font-family: monospace;
+  font-size: 0.82em;
+  padding: 4px 6px;
+  background: #fff;
+  color: #000;
+  outline: none;
+}
+
+.tip-custom-input:focus {
+  border-width: 1.5px;
+}
+
+.tip-custom-go {
+  min-width: 38px;
+  padding: 4px 8px;
+  font-size: 0.74em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .checkout-popup-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(2px);
   z-index: 1600;
   display: none;
 }
@@ -474,7 +540,8 @@ p, h1, .song-title, .page-annotation {
   max-height: calc(100vh - 20px);
   overflow-y: auto;
   transform: translateY(-120%);
-  transition: transform 0.28s ease;
+  transition: transform 0.24s ease;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
 }
 
 .checkout-popup-overlay.open .checkout-popup {
@@ -487,7 +554,7 @@ p, h1, .song-title, .page-annotation {
   justify-content: space-between;
   gap: 10px;
   border-bottom: 1px solid #000;
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .checkout-popup-eyebrow {
@@ -503,25 +570,25 @@ p, h1, .song-title, .page-annotation {
 }
 
 .checkout-popup-body {
-  padding: 14px;
+  padding: 12px;
 }
 
 .checkout-popup-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   font-size: 0.95em;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .checkout-popup-line {
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   font-size: 0.9em;
   opacity: 0.85;
 }
 
 .checkout-popup-total {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px solid #000;
   font-size: 0.9em;
   letter-spacing: 0.08em;
@@ -534,6 +601,53 @@ p, h1, .song-title, .page-annotation {
   font-size: 0.8em;
   letter-spacing: 0.06em;
   opacity: 0.7;
+}
+
+.checkout-wallet-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.checkout-wallet-button {
+  border: 1px solid #000;
+  padding: 5px;
+  background: #fff;
+}
+
+.checkout-wallet-divider {
+  font-size: 0.68em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+#purchaseForm.checkout-form {
+  gap: 12px;
+}
+
+#purchaseShippingFields {
+  display: grid;
+  gap: 10px;
+}
+
+#purchaseForm .checkout-label {
+  gap: 3px;
+  font-size: 0.92em;
+  opacity: 0.62;
+}
+
+#purchaseForm .checkout-input {
+  padding: 7px 8px;
+}
+
+#purchaseForm #purchasePayBtn {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 body.checkout-open {
@@ -717,14 +831,52 @@ h1 { display: none; }
   }
 
   .now-playing-tip-btn {
-    margin-left: 6px;
-    min-width: 34px;
-    padding: 2px 6px;
+    margin-left: 0;
+    min-width: 40px;
+    min-height: 30px;
+    padding: 4px 10px;
   }
 
   .tip-options {
     left: auto;
-    right: 0;
+    right: 8px;
+    min-width: 112px;
+    padding: 7px;
+    gap: 7px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .bottom-bar-controls {
+    gap: 16px;
+  }
+
+  .bottom-play-pause-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .bottom-tip-wrap {
+    margin-left: 10px;
+  }
+
+  .tip-option-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tip-custom-row {
+    gap: 7px;
+  }
+
+  .tip-custom-input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    font-size: 16px;
+  }
+
+  .tip-custom-go {
+    min-height: 30px;
   }
 
   .checkout-popup {

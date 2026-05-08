@@ -52,8 +52,25 @@ const activeMuxPlayer = document.getElementById('activeMuxPlayer');
 let stripeClient = null;
 let checkoutElements = null;
 let checkoutCard = null;
+let checkoutPaymentRequest = null;
+let checkoutPaymentRequestButton = null;
 let checkoutMode = 'cart';
 let checkoutTipAmount = 1;
+
+function formatTipAmount(amount) {
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric) || numeric <= 0) return '1';
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/\.00$/, '');
+}
+
+function parseCustomTipAmount(rawValue) {
+  const normalized = String(rawValue || '').replace(/[^0-9.]/g, '');
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+  const rounded = Math.round(amount * 100) / 100;
+  if (rounded < 1 || rounded > 500) return null;
+  return rounded;
+}
 
 function createHoverTimeElement(className) {
   const tooltip = document.createElement('div');
@@ -147,18 +164,87 @@ function createTipUI() {
   menu.className = 'tip-options';
   menu.id = 'tipOptions';
 
-  [1, 2, 3].forEach(amount => {
+  [1, 3].forEach(amount => {
     const option = document.createElement('button');
     option.type = 'button';
     option.className = 'icon-btn tip-option-btn';
     option.textContent = `$${amount}`;
     option.addEventListener('click', () => {
+      const customPanel = document.getElementById('tipCustomPanel');
+      if (customPanel) customPanel.classList.remove('open');
       menu.classList.remove('open');
       tipBtn.setAttribute('aria-expanded', 'false');
       openCheckoutPopup('tip', amount);
     });
     menu.appendChild(option);
   });
+
+  const customBtn = document.createElement('button');
+  customBtn.type = 'button';
+  customBtn.className = 'icon-btn tip-option-btn';
+  customBtn.id = 'tipCustomToggle';
+  customBtn.textContent = '+';
+
+  const customPanel = document.createElement('div');
+  customPanel.className = 'tip-custom-panel';
+  customPanel.id = 'tipCustomPanel';
+  customPanel.innerHTML = `
+    <label class="tip-custom-label" for="tipCustomAmount">Custom $</label>
+    <div class="tip-custom-row">
+      <input id="tipCustomAmount" class="tip-custom-input" type="number" inputmode="decimal" min="1" max="500" step="0.01" placeholder="5" aria-label="Custom tip amount">
+      <button type="button" class="icon-btn tip-custom-go" id="tipCustomGo">Go</button>
+    </div>
+  `;
+
+  const closeCustomPanel = () => {
+    customPanel.classList.remove('open');
+  };
+
+  const submitCustomAmount = () => {
+    const input = customPanel.querySelector('#tipCustomAmount');
+    if (!input) return;
+    const parsed = parseCustomTipAmount(input.value);
+
+    if (!parsed) {
+      input.focus();
+      input.select();
+      return;
+    }
+
+    input.value = '';
+    closeCustomPanel();
+    menu.classList.remove('open');
+    tipBtn.setAttribute('aria-expanded', 'false');
+    openCheckoutPopup('tip', parsed);
+  };
+
+  customBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !customPanel.classList.contains('open');
+    customPanel.classList.toggle('open', opening);
+    if (opening) {
+      const input = customPanel.querySelector('#tipCustomAmount');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+    }
+  });
+
+  customPanel.querySelector('#tipCustomGo').addEventListener('click', submitCustomAmount);
+  customPanel.querySelector('#tipCustomAmount').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitCustomAmount();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCustomPanel();
+    }
+  });
+
+  menu.appendChild(customBtn);
+  menu.appendChild(customPanel);
 
   tipBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -172,6 +258,7 @@ function createTipUI() {
 
   document.addEventListener('click', (e) => {
     if (!wrap.contains(e.target)) {
+      closeCustomPanel();
       menu.classList.remove('open');
       tipBtn.setAttribute('aria-expanded', 'false');
     }
@@ -218,9 +305,10 @@ function createCheckoutPopup() {
               <input class="checkout-input" type="text" name="zip" required maxlength="10" placeholder="10001">
             </label>
           </div>
-          <label class="checkout-label" id="purchaseTipEmailWrap" style="display:none;">Email (optional)
-            <input class="checkout-input" type="email" name="tip_email" placeholder="you@email.com">
-          </label>
+          <div id="purchaseWalletWrap" class="checkout-wallet-wrap" style="display:none;">
+            <div id="purchaseApplePayElement" class="checkout-wallet-button"></div>
+            <div class="checkout-wallet-divider">or pay with card</div>
+          </div>
           <div id="purchaseCardElement" class="checkout-input" style="padding:16px 0 8px 0;"></div>
           <div id="purchaseCardErrors" style="color:#c00;font-size:0.95em;margin-top:4px;"></div>
           <button type="submit" class="icon-btn" id="purchasePayBtn">Pay</button>
@@ -257,17 +345,15 @@ function updateCartFloat() {
 function renderCheckoutSummary() {
   const summary = document.getElementById('purchaseSummary');
   const shippingFields = document.getElementById('purchaseShippingFields');
-  const tipEmailWrap = document.getElementById('purchaseTipEmailWrap');
 
-  if (!summary || !shippingFields || !tipEmailWrap) return;
+  if (!summary || !shippingFields) return;
 
   if (checkoutMode === 'tip') {
     summary.innerHTML = `
       <p class="checkout-popup-title">Support Burnfolder</p>
-      <p class="checkout-popup-line">Tip amount: $${checkoutTipAmount}</p>
+      <p class="checkout-popup-line">Tip amount: $${formatTipAmount(checkoutTipAmount)}</p>
     `;
     shippingFields.style.display = 'none';
-    tipEmailWrap.style.display = 'flex';
   } else {
     const cart = getCartItems();
     const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -284,8 +370,198 @@ function renderCheckoutSummary() {
     }
 
     shippingFields.style.display = 'block';
-    tipEmailWrap.style.display = 'none';
   }
+}
+
+function getCheckoutAmountCents() {
+  if (checkoutMode === 'tip') {
+    return Math.max(0, Number(checkoutTipAmount) * 100);
+  }
+
+  const cart = getCartItems();
+  const total = cart.reduce((acc, item) => acc + (Number(item.price) * Number(item.qty)), 0);
+  return Math.max(0, Math.round(total * 100));
+}
+
+function resetCheckoutWalletButton() {
+  if (checkoutPaymentRequestButton) {
+    try {
+      checkoutPaymentRequestButton.unmount();
+    } catch {
+      // no-op
+    }
+  }
+
+  checkoutPaymentRequestButton = null;
+  checkoutPaymentRequest = null;
+
+  const walletContainer = document.getElementById('purchaseApplePayElement');
+  if (walletContainer) walletContainer.innerHTML = '';
+}
+
+function getShippingFromWalletEvent(ev) {
+  const shippingAddress = ev.shippingAddress || {};
+  const line1 = Array.isArray(shippingAddress.addressLine) ? (shippingAddress.addressLine[0] || '') : '';
+  const line2 = Array.isArray(shippingAddress.addressLine) ? (shippingAddress.addressLine[1] || '') : '';
+
+  return {
+    name: ev.payerName || '',
+    email: ev.payerEmail || '',
+    address_line1: line1,
+    address_line2: line2,
+    city: shippingAddress.city || shippingAddress.locality || '',
+    state: (shippingAddress.region || '').toUpperCase(),
+    zip: shippingAddress.postalCode || ''
+  };
+}
+
+async function mountCheckoutWalletButton() {
+  const walletWrap = document.getElementById('purchaseWalletWrap');
+  const walletContainer = document.getElementById('purchaseApplePayElement');
+  const status = document.getElementById('purchaseStatus');
+  const errors = document.getElementById('purchaseCardErrors');
+
+  if (!walletWrap || !walletContainer) return;
+
+  walletWrap.style.display = 'none';
+  resetCheckoutWalletButton();
+
+  await loadStripeScript();
+  if (!stripeClient) return;
+
+  const amount = getCheckoutAmountCents();
+  if (!amount) return;
+
+  checkoutPaymentRequest = stripeClient.paymentRequest({
+    country: 'US',
+    currency: 'usd',
+    total: {
+      label: checkoutMode === 'tip' ? 'Burnfolder Tip' : 'Burnfolder Order',
+      amount
+    },
+    requestPayerName: true,
+    requestPayerEmail: true,
+    requestShipping: checkoutMode === 'cart'
+  });
+
+  const canMakePayment = await checkoutPaymentRequest.canMakePayment();
+  if (!canMakePayment) return;
+
+  const walletElements = stripeClient.elements();
+  checkoutPaymentRequestButton = walletElements.create('paymentRequestButton', {
+    paymentRequest: checkoutPaymentRequest,
+    style: {
+      paymentRequestButton: {
+        type: 'buy',
+        theme: 'dark',
+        height: '40px'
+      }
+    }
+  });
+
+  checkoutPaymentRequestButton.mount('#purchaseApplePayElement');
+  walletWrap.style.display = 'block';
+
+  checkoutPaymentRequest.on('paymentmethod', async (ev) => {
+    if (errors) errors.textContent = '';
+    if (status) status.textContent = 'Processing wallet payment...';
+
+    try {
+      let clientSecret = '';
+      let confirmOpts = {
+        payment_method: ev.paymentMethod.id
+      };
+
+      if (checkoutMode === 'tip') {
+        const res = await fetch('/.netlify/functions/create-tip-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: checkoutTipAmount, email: ev.payerEmail || '' })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.clientSecret) {
+          ev.complete('fail');
+          throw new Error(data.error || 'Could not create tip payment intent.');
+        }
+
+        clientSecret = data.clientSecret;
+        confirmOpts = {
+          payment_method: ev.paymentMethod.id,
+          receipt_email: ev.payerEmail || undefined
+        };
+      } else {
+        const cart = getCartItems();
+        if (cart.length === 0) {
+          ev.complete('fail');
+          throw new Error('Your cart is empty.');
+        }
+
+        const shipping = getShippingFromWalletEvent(ev);
+        const res = await fetch('/.netlify/functions/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cart, shipping })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.clientSecret) {
+          ev.complete('fail');
+          throw new Error(data.error || 'Could not create payment intent.');
+        }
+
+        clientSecret = data.clientSecret;
+        confirmOpts = {
+          payment_method: ev.paymentMethod.id,
+          shipping: {
+            name: shipping.name,
+            address: {
+              line1: shipping.address_line1,
+              line2: shipping.address_line2,
+              city: shipping.city,
+              state: shipping.state,
+              postal_code: shipping.zip,
+              country: 'US'
+            }
+          },
+          receipt_email: shipping.email || undefined
+        };
+      }
+
+      const initial = await stripeClient.confirmCardPayment(clientSecret, confirmOpts, { handleActions: false });
+      if (initial.error) {
+        ev.complete('fail');
+        throw new Error(initial.error.message || 'Wallet payment failed.');
+      }
+
+      ev.complete('success');
+
+      if (initial.paymentIntent && initial.paymentIntent.status === 'requires_action') {
+        const followUp = await stripeClient.confirmCardPayment(clientSecret);
+        if (followUp.error) {
+          throw new Error(followUp.error.message || 'Payment authentication failed.');
+        }
+      }
+
+      if (checkoutMode === 'cart') {
+        localStorage.removeItem('cart');
+        updateCartFloat();
+        if (status) status.textContent = 'Payment successful. Your order is confirmed.';
+      } else {
+        if (status) status.textContent = 'Payment successful. Thank you for supporting burnfolder.';
+      }
+
+      setTimeout(() => {
+        closeCheckoutPopup();
+      }, 1200);
+    } catch (err) {
+      try {
+        ev.complete('fail');
+      } catch {
+        // no-op
+      }
+      if (errors) errors.textContent = err.message || 'Wallet payment failed.';
+      if (status) status.textContent = '';
+    }
+  });
 }
 
 async function ensureCheckoutCardMounted() {
@@ -328,6 +604,9 @@ async function openCheckoutPopup(mode, amount) {
 
   title.textContent = mode === 'tip' ? 'Support Burnfolder' : 'Checkout';
   payBtn.textContent = mode === 'tip' ? `Pay $${checkoutTipAmount}` : 'Pay';
+  if (mode === 'tip') {
+    payBtn.textContent = `Pay $${formatTipAmount(checkoutTipAmount)}`;
+  }
   status.textContent = '';
   errors.textContent = '';
 
@@ -338,6 +617,7 @@ async function openCheckoutPopup(mode, amount) {
 
   try {
     await ensureCheckoutCardMounted();
+    await mountCheckoutWalletButton();
   } catch (err) {
     status.textContent = err.message || 'Checkout unavailable.';
   }
@@ -348,6 +628,7 @@ function closeCheckoutPopup() {
   if (!overlay) return;
   overlay.classList.remove('open');
   document.body.classList.remove('checkout-open');
+  resetCheckoutWalletButton();
 }
 
 async function handlePopupCheckoutSubmit(e) {
@@ -369,11 +650,10 @@ async function handlePopupCheckoutSubmit(e) {
     let confirmOpts = { payment_method: { card: checkoutCard } };
 
     if (checkoutMode === 'tip') {
-      const tipEmail = form.tip_email.value || '';
       const res = await fetch('/.netlify/functions/create-tip-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: checkoutTipAmount, email: tipEmail })
+        body: JSON.stringify({ amount: checkoutTipAmount })
       });
       const data = await res.json();
       if (!res.ok || !data.clientSecret) {
@@ -381,14 +661,7 @@ async function handlePopupCheckoutSubmit(e) {
       }
 
       clientSecret = data.clientSecret;
-      confirmOpts = {
-        payment_method: {
-          card: checkoutCard,
-          billing_details: {
-            email: tipEmail || undefined
-          }
-        }
-      };
+      confirmOpts = { payment_method: { card: checkoutCard } };
     } else {
       const cart = getCartItems();
       if (cart.length === 0) throw new Error('Your cart is empty.');

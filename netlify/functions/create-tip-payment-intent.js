@@ -4,24 +4,24 @@ exports.handler = async function(event) {
   try {
     const { amount, email } = JSON.parse(event.body || '{}');
     const numericAmount = Number(amount);
-    const allowedAmounts = [1, 2, 3];
+    const roundedAmount = Math.round(numericAmount * 100) / 100;
 
-    if (!allowedAmounts.includes(numericAmount)) {
+    if (!Number.isFinite(roundedAmount) || roundedAmount < 1 || roundedAmount > 500) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid tip amount.' })
+        body: JSON.stringify({ error: 'Tip amount must be between $1 and $500.' })
       };
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: numericAmount * 100,
+      amount: Math.round(roundedAmount * 100),
       currency: 'usd',
       payment_method_types: ['card'],
-      description: `burnfolder.com support tip ($${numericAmount})`,
+      description: `burnfolder.com support tip ($${roundedAmount})`,
       metadata: {
         order_type: 'tip',
         requires_shipping: 'false',
-        tip_amount: String(numericAmount),
+        tip_amount: String(roundedAmount),
         customer_email: email || ''
       },
       receipt_email: email || undefined
