@@ -446,13 +446,9 @@ async function mountCheckoutWalletButton() {
   });
 
   const canMakePayment = await checkoutPaymentRequest.canMakePayment();
-  const safariApplePayAvailable = Boolean(
-    window.ApplePaySession && typeof window.ApplePaySession.canMakePayments === 'function' && window.ApplePaySession.canMakePayments()
-  );
   const hasAppleOrGoogleWallet = Boolean(
     canMakePayment === true ||
-    (canMakePayment && (canMakePayment.applePay || canMakePayment.googlePay)) ||
-    safariApplePayAvailable
+    (canMakePayment && (canMakePayment.applePay || canMakePayment.googlePay))
   );
   if (!hasAppleOrGoogleWallet) {
     if (status) {
@@ -461,20 +457,27 @@ async function mountCheckoutWalletButton() {
     return;
   }
 
-  const walletElements = stripeClient.elements();
-  checkoutPaymentRequestButton = walletElements.create('paymentRequestButton', {
-    paymentRequest: checkoutPaymentRequest,
-    style: {
-      paymentRequestButton: {
-        type: 'buy',
-        theme: 'dark',
-        height: '40px'
+  try {
+    const walletElements = stripeClient.elements();
+    checkoutPaymentRequestButton = walletElements.create('paymentRequestButton', {
+      paymentRequest: checkoutPaymentRequest,
+      style: {
+        paymentRequestButton: {
+          type: 'buy',
+          theme: 'dark',
+          height: '40px'
+        }
       }
-    }
-  });
+    });
 
-  checkoutPaymentRequestButton.mount('#purchaseApplePayElement');
-  walletWrap.style.display = 'block';
+    checkoutPaymentRequestButton.mount('#purchaseApplePayElement');
+    walletWrap.style.display = 'block';
+  } catch {
+    if (status) {
+      status.textContent = 'Apple Pay / Google Pay unavailable in this checkout context.';
+    }
+    return;
+  }
 
   checkoutPaymentRequest.on('paymentmethod', async (ev) => {
     if (errors) errors.textContent = '';
