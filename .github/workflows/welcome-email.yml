@@ -39,18 +39,21 @@ jobs:
             end
           ')
 
-          HTML_CONTENT="<!DOCTYPE html><html><head><style>body{font-family:'Courier New',Courier,monospace;background:#fff;color:#000;padding:40px;line-height:1.6;margin:0}a{color:#000;text-decoration:none;border-bottom:2px solid #000;padding-bottom:2px}.header{font-size:24px;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:10px}.entries{margin:20px 0}.entry{margin:8px 0}.footer{margin-top:40px;padding-top:20px;border-top:2px solid #000;font-size:12px;opacity:0.6}</style></head><body><div class=\"header\">burnfolder</div><p>thanks for subscribing.</p><p>you will receive notifications whenever a new audio entry is posted.</p><div class=\"entries\"><strong>recent entries:</strong>${RECENT_ENTRIES_HTML}</div><p><a href=\"https://burnfolder.com\">visit burnfolder.com</a></p><div class=\"footer\">to unsubscribe, reply to this email</div></body></html>"
+          HTML_CONTENT="<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body{margin:0;padding:0;background:#ffffff;color:#000000;font-family:monospace}.shell{width:100%;padding:32px 16px}.card{max-width:560px;border:1px solid #000000;padding:22px;background:#ffffff}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin:0 0 14px 0}.headline{font-size:30px;line-height:1.1;letter-spacing:.02em;margin:0 0 14px 0}.body{font-size:16px;line-height:1.7;opacity:.9;margin:0 0 16px 0}.section-label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.5;margin:0 0 8px 0}.entries{margin:12px 0 18px 0;border-left:2px solid #000000;padding-left:12px}.entry{margin:8px 0;font-size:14px;letter-spacing:.06em;text-transform:uppercase}.entry a{color:#000000;text-decoration:none;border-bottom:1px solid #000000}.cta{display:inline-block;border:1px solid #000000;padding:10px 14px;text-decoration:none;color:#000000;font-size:14px;letter-spacing:.08em;text-transform:uppercase}.cta:hover{background:#000000;color:#ffffff}.footer{margin-top:22px;padding-top:14px;border-top:1px solid #000000;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.55}@media (max-width:600px){.headline{font-size:24px}}</style></head><body><table role=\"presentation\" width=\"100%\" class=\"shell\"><tr><td align=\"center\"><table role=\"presentation\" width=\"100%\" class=\"card\"><tr><td><p class=\"eyebrow\">burnfolder</p><h1 class=\"headline\">welcome</h1><p class=\"body\">thanks for subscribing. you will get an email whenever a new entry goes live.</p><p class=\"section-label\">recent entries</p><div class=\"entries\">${RECENT_ENTRIES_HTML}</div><p><a class=\"cta\" href=\"https://burnfolder.com\">visit burnfolder.com</a></p><p class=\"footer\">to unsubscribe, reply to this email</p></td></tr></table></td></tr></table></body></html>"
+          TEXT_CONTENT=$'welcome to burnfolder\n\nthanks for subscribing.\nnew entries are sent here when published.\n\nvisit: https://burnfolder.com'
 
           RESPONSE_BODY=$(mktemp)
           if [ -n "$RESEND_API_KEY" ]; then
             PAYLOAD=$(jq -nc \
               --arg email "$EMAIL" \
               --arg html "$HTML_CONTENT" \
+              --arg text "$TEXT_CONTENT" \
               '{
                 from: "burnfolder <nathaniel@burnfolder.com>",
                 to: [$email],
                 subject: "welcome to burnfolder",
-                html: $html
+                html: $html,
+                text: $text
               }')
 
             HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.resend.com/emails \
@@ -62,11 +65,15 @@ jobs:
             PAYLOAD=$(jq -nc \
               --arg email "$EMAIL" \
               --arg html "$HTML_CONTENT" \
+              --arg text "$TEXT_CONTENT" \
               '{
                 personalizations: [{ to: [{ email: $email }] }],
                 from: { email: "nathaniel@burnfolder.com", name: "burnfolder" },
                 subject: "welcome to burnfolder",
-                content: [{ type: "text/html", value: $html }]
+                content: [
+                  { type: "text/plain", value: $text },
+                  { type: "text/html", value: $html }
+                ]
               }')
 
             HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST https://api.sendgrid.com/v3/mail/send \
