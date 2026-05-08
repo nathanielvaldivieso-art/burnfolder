@@ -13,12 +13,25 @@
     <a href="shop.html" class="page-nav">shop</a>
 
     <p class="page-id">burnfolder.com</p>
-    <h1>Order Confirmed</h1>
-    <p class="page-annotation">payment successful. your order is being prepared and a shipping label is being created automatically. you will receive tracking information at the email you provided.</p>
-    <p class="page-annotation" style="margin-top:24px;">thank you.</p>
-    <a href="index.html" class="icon-btn" style="margin-top:32px;text-decoration:none;">Back to Home</a>
+    <h1 id="successTitle">Order Confirmed</h1>
+    <p class="page-annotation" id="successMessage">payment successful. your order is being prepared and a shipping label is being created automatically. you will receive tracking information at the email you provided.</p>
+    <p class="page-annotation" style="margin-top:24px;" id="successThanks">thank you.</p>
+    <a href="index.html" class="icon-btn" style="margin-top:32px;text-decoration:none;" id="successLink">Back to Home</a>
   </div>
   <div class="page-watermark">burnfolder.com</div>
-  <script>localStorage.removeItem('cart');</script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const isTip = params.get('type') === 'tip';
+
+    if (isTip) {
+      document.getElementById('successTitle').textContent = 'Tip Confirmed';
+      document.getElementById('successMessage').textContent = 'payment successful. thank you for supporting burnfolder.';
+      document.getElementById('successThanks').textContent = 'your support keeps this work moving.';
+      document.getElementById('successLink').setAttribute('href', 'music.html');
+      document.getElementById('successLink').textContent = 'Back to Music';
+    } else {
+      localStorage.removeItem('cart');
+    }
+  </script>
 </body>
 </html>

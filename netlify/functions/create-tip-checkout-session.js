@@ -25,8 +25,8 @@ exports.handler = async function(event) {
         }
       ],
       mode: 'payment',
-      success_url: 'https://burnfolder.com/success.html',
-      cancel_url: 'https://burnfolder.com/cancel.html',
+      success_url: 'https://burnfolder.com/success.html?type=tip',
+      cancel_url: 'https://burnfolder.com/cancel.html?type=tip',
       payment_intent_data: {
         description: `burnfolder.com support tip ($${Number(amount)})`,
         metadata: {

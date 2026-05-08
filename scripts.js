@@ -441,21 +441,11 @@ async function mountCheckoutWalletButton() {
     },
     requestPayerName: true,
     requestPayerEmail: true,
-    requestShipping: checkoutMode === 'cart',
-    disableWallets: ['link']
+    requestShipping: checkoutMode === 'cart'
   });
 
   const canMakePayment = await checkoutPaymentRequest.canMakePayment();
-  const hasAppleOrGoogleWallet = Boolean(
-    canMakePayment === true ||
-    (canMakePayment && (canMakePayment.applePay || canMakePayment.googlePay))
-  );
-  if (!hasAppleOrGoogleWallet) {
-    if (status) {
-      status.textContent = 'Apple Pay / Google Pay unavailable on this device or browser.';
-    }
-    return;
-  }
+  if (!canMakePayment) return;
 
   try {
     const walletElements = stripeClient.elements();
@@ -474,7 +464,7 @@ async function mountCheckoutWalletButton() {
     walletWrap.style.display = 'block';
   } catch {
     if (status) {
-      status.textContent = 'Apple Pay / Google Pay unavailable in this checkout context.';
+      status.textContent = 'Quick pay unavailable in this checkout context.';
     }
     return;
   }
