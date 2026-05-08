@@ -446,8 +446,13 @@ async function mountCheckoutWalletButton() {
   });
 
   const canMakePayment = await checkoutPaymentRequest.canMakePayment();
+  const safariApplePayAvailable = Boolean(
+    window.ApplePaySession && typeof window.ApplePaySession.canMakePayments === 'function' && window.ApplePaySession.canMakePayments()
+  );
   const hasAppleOrGoogleWallet = Boolean(
-    canMakePayment && (canMakePayment.applePay || canMakePayment.googlePay)
+    canMakePayment === true ||
+    (canMakePayment && (canMakePayment.applePay || canMakePayment.googlePay)) ||
+    safariApplePayAvailable
   );
   if (!hasAppleOrGoogleWallet) {
     if (status) {
