@@ -42,6 +42,17 @@ exports.handler = async function(event) {
   if (stripeEvent.type === 'payment_intent.succeeded') {
     const pi = stripeEvent.data.object;
     const meta = pi.metadata || {};
+    const requiresShipping = String(meta.requires_shipping || '').toLowerCase() === 'true';
+    const orderType = meta.order_type || 'shop';
+
+    if (!requiresShipping || orderType === 'tip') {
+      console.log('Skipping Shippo label for non-shippable payment:', pi.id, orderType);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, skipped_shipping: true })
+      };
+    }
+
     const shippingInfo = pi.shipping || {};
     const addr = shippingInfo.address || {};
 

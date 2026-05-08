@@ -49,6 +49,8 @@ const songTitleEl = document.getElementById('songTitle');
 const closeBtn = document.getElementById('closeBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const activeMuxPlayer = document.getElementById('activeMuxPlayer');
+let tipSelectedAmount = null;
+let stripeClient = null;
 
 function createHoverTimeElement(className) {
   const tooltip = document.createElement('div');
@@ -86,6 +88,178 @@ function hideHoverTime(tooltip) {
 
 const progressHoverTime = createHoverTimeElement('progress-hover-time');
 const videoProgressHoverTime = createHoverTimeElement('video-progress-hover-time');
+
+function ensureStripeClient() {
+  if (window.Stripe && !stripeClient) {
+    stripeClient = window.Stripe('pk_live_51TJGQcBKbG6lpNutrYNDhGV6aFM66hoqLakruHGC4omCXn0Nc9fXAqGzpqRIpq97v6tGP67Vx3vd1vpZbK1YkSks00ZFMq7fjN');
+  }
+}
+
+function loadStripeScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Stripe) {
+      ensureStripeClient();
+      resolve();
+      return;
+    }
+
+    let script = document.querySelector('script[data-stripe-js="true"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://js.stripe.com/v3/';
+      script.async = true;
+      script.dataset.stripeJs = 'true';
+      document.head.appendChild(script);
+    }
+
+    script.addEventListener('load', () => {
+      ensureStripeClient();
+      resolve();
+    }, { once: true });
+
+    script.addEventListener('error', () => {
+      reject(new Error('Failed to load Stripe.'));
+    }, { once: true });
+  });
+}
+
+function createTipUI() {
+  if (!bottomPlayBtn) return;
+  if (document.getElementById('tipToggleBtn')) return;
+
+  const controls = document.querySelector('.bottom-bar-controls');
+  if (!controls) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'bottom-tip-wrap';
+
+  const tipBtn = document.createElement('button');
+  tipBtn.type = 'button';
+  tipBtn.className = 'icon-btn now-playing-tip-btn';
+  tipBtn.id = 'tipToggleBtn';
+  tipBtn.setAttribute('aria-expanded', 'false');
+  tipBtn.textContent = 'Tip';
+
+  const menu = document.createElement('div');
+  menu.className = 'tip-options';
+  menu.id = 'tipOptions';
+
+  [1, 2, 3].forEach(amount => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'icon-btn tip-option-btn';
+    option.textContent = `$${amount}`;
+    option.addEventListener('click', () => openTipMiniCheckout(amount));
+    menu.appendChild(option);
+  });
+
+  tipBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = menu.classList.toggle('open');
+    tipBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+
+  wrap.appendChild(tipBtn);
+  wrap.appendChild(menu);
+  controls.insertBefore(wrap, progressBarArea);
+
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) {
+      menu.classList.remove('open');
+      tipBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+function createTipMiniCheckout() {
+  if (document.getElementById('tipMiniCheckout')) return;
+
+  const modal = document.createElement('div');
+  modal.className = 'tip-mini-checkout';
+  modal.id = 'tipMiniCheckout';
+  modal.innerHTML = `
+    <div class="tip-mini-card" role="dialog" aria-modal="true" aria-labelledby="tipMiniTitle">
+      <p class="tip-mini-title" id="tipMiniTitle">Support Burnfolder</p>
+      <p class="tip-mini-amount" id="tipMiniAmount">Tip amount</p>
+      <div class="tip-mini-actions">
+        <button type="button" class="icon-btn" id="tipCheckoutBtn">Continue</button>
+        <button type="button" class="icon-btn" id="tipCancelBtn">Cancel</button>
+      </div>
+      <div class="tip-mini-status" id="tipMiniStatus"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeTipMiniCheckout();
+  });
+
+  document.getElementById('tipCancelBtn').addEventListener('click', closeTipMiniCheckout);
+  document.getElementById('tipCheckoutBtn').addEventListener('click', startTipCheckout);
+}
+
+function openTipMiniCheckout(amount) {
+  const tipOptions = document.getElementById('tipOptions');
+  const tipToggleBtn = document.getElementById('tipToggleBtn');
+  if (tipOptions) tipOptions.classList.remove('open');
+  if (tipToggleBtn) tipToggleBtn.setAttribute('aria-expanded', 'false');
+
+  tipSelectedAmount = amount;
+  createTipMiniCheckout();
+
+  const modal = document.getElementById('tipMiniCheckout');
+  const amountEl = document.getElementById('tipMiniAmount');
+  const statusEl = document.getElementById('tipMiniStatus');
+  amountEl.textContent = `Tip amount: $${amount}`;
+  statusEl.textContent = '';
+  modal.classList.add('open');
+}
+
+function closeTipMiniCheckout() {
+  const modal = document.getElementById('tipMiniCheckout');
+  if (!modal) return;
+  modal.classList.remove('open');
+}
+
+async function startTipCheckout() {
+  const statusEl = document.getElementById('tipMiniStatus');
+  const checkoutBtn = document.getElementById('tipCheckoutBtn');
+
+  if (!tipSelectedAmount || !statusEl || !checkoutBtn) return;
+
+  try {
+    checkoutBtn.disabled = true;
+    statusEl.textContent = 'Preparing checkout...';
+
+    await loadStripeScript();
+    if (!stripeClient) {
+      throw new Error('Stripe unavailable.');
+    }
+
+    const res = await fetch('/.netlify/functions/create-tip-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: tipSelectedAmount })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.id) {
+      throw new Error(data.error || 'Unable to create session.');
+    }
+
+    statusEl.textContent = 'Redirecting...';
+    const result = await stripeClient.redirectToCheckout({ sessionId: data.id });
+    if (result && result.error) {
+      throw new Error(result.error.message || 'Redirect failed.');
+    }
+  } catch (err) {
+    statusEl.textContent = err.message || 'Checkout failed.';
+    checkoutBtn.disabled = false;
+  }
+}
+
+createTipUI();
 
 let activeIdx = null;
 

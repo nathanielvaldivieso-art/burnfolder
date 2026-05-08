@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>4.30.26</title>
+<title>5.8.26</title>
 <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -12,27 +12,31 @@
 
 <div class="page-wrap">
   <a href="index.html" class="page-nav">home</a>
+  <a href="shop.html" class="page-nav">shop</a>
 
-  <p class="page-id">4.30.26</p>
+  <p class="page-id">5.8.26</p>
 
-  <mux-player
-    playback-id="t8VCau3D5102Mw9ioP00xjurc3rcMWD3FoBBA017SxPJVs"
-    metadata-video-title="DAY 4.30.26"
-    playbackrates="1 1.5 2"
-    noairplay
-    style="width:100%;margin-bottom:24px;"
-  ></mux-player>
+  <p class="page-annotation">working on the shop features..</p>
+  <p class="page-annotation">first, I need to design a framework for objects with a set price, like this tin can</p>
 
-  <p class="page-annotation">wake/laundry/smoothie/mixing/math class/sleep</p>
+  <div class="entry-product">
+    <h2>Tin Can</h2>
+    <img src="IMAGES/TIN CAN.png" alt="Tin Can" style="max-width:220px;display:block;margin-bottom:1em;">
+    <p><strong>Price:</strong> $1</p>
+    <button class="icon-btn" type="button" onclick="addTinCanToCart()">Add to Cart</button>
+    <p style="font-size:0.9em;color:#555;max-width:360px;">Shipping via USPS. Fulfilled with Shippo. Only one available.</p>
+  </div>
 
-  <p class="page-annotation">lots of work to be done. here is the song as it stands</p>
+  <p class="page-annotation">now, something with a sliding scale. sort of a support me and my work kind of thing. just needs to feel clean and intentional.</p>
 
   <div id="audioList" style="margin-top: 48px;"></div>
+
+  <p class="page-annotation">working on a support option, if anyone feels compelled to</p>
 </div>
 
-<div class="page-watermark">4.30.26</div>
+<div class="page-watermark">5.8.26</div>
 
-<!-- bottom player — do not modify -->
+<!-- Bottom progress bar -->
 <div class="bottom-progress-bar" id="bottomBar">
   <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
   <div class="bottom-bar-content">
@@ -56,6 +60,28 @@
     <div class="loading-spinner" id="loadingSpinner"></div>
   </div>
 </div>
+
+<script>
+function addTinCanToCart() {
+  const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+  if (cart.some(item => item.id === 'seltzer-can')) {
+    alert('This item is already in your cart.');
+    return;
+  }
+
+  cart.push({
+    id: 'seltzer-can',
+    name: 'Tin Can',
+    price: 1,
+    qty: 1,
+    image: 'IMAGES/TIN CAN.png',
+    requiresShipping: 'true'
+  });
+
+  localStorage.setItem('cart', JSON.stringify(cart));
+  if (window.updateCartFloat) window.updateCartFloat();
+}
+</script>
 <script src="songs.js"></script>
 <script src="spa-router.js"></script>
 <script src="scripts.js"></script>

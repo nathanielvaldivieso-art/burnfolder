@@ -96,23 +96,60 @@ Newest first. This is the single source of truth — index.html and spa-router.j
   2) Confirm matching file exists: `<entry>.html`.
   3) Confirm link opens on production after deploy.
 
-### 7. Video player branding protocol (required)
-- Mux player palette is restricted to black / white / blue only.
-- Purple is forbidden in all player UI states.
-- Keep Mux control placement identical to default (play/pause, scrubber, time, fullscreen).
-- Restyle only typography, sizing, and surface treatment.
-- Controls/features are scaled to ~0.7x of default size for a minimal look.
-- Video frame is scaled to ~1.3x (current site baseline: 468px max width).
-- This scale relationship (controls 0.7x, frame 1.3x) must be reused consistently across pages.
-- Poster frame must remain clearly visible (no heavy full-frame shading overlays).
+### 7. Player color palette (single source of truth)
+Three colors only for video player and progress UI. Do not introduce blue.
 
-### 8. Reusable control icon language (required)
+| Token      | Hex       | Use |
+|------------|-----------|-----|
+| Black      | `#000`    | Text, borders, filled progress bar, icon fill |
+| White      | `#fff`    | Backgrounds, icon color on dark surfaces |
+| Gray       | `#c8c8c8` | Unfilled progress track, muted UI contrast |
+
+- **No blue in player UI.** Video player surfaces and progress systems should be grayscale only.
+- **No purple.** Mux player defaults sometimes introduce purple — always override.
+- CSS variables for these tokens are declared in `:root` in `style.css`:
+  `--c-black`, `--c-white`, `--c-gray`
+
+### 8. Video player branding protocol (required)
+- Palette: black / white / gray only (see Step 7).
+- Keep Mux control placement identical to default (play/pause, scrubber, time, fullscreen).
+- Always add `playbackrates="1 1.5 2"` attribute to every `<mux-player>` element.
+- Hide AirPlay with player CSS (`--airplay-button: none`) and `::part(airplay)`.
+- Controls scale 0.7x in normal mode (`--media-button-icon-width: 12px`).
+  Controls scale full size in fullscreen (via `:fullscreen` and `:-webkit-full-screen`).
+- Video frame 1.3x (468px max-width, 16/9 aspect ratio).
+- Poster frame must remain clearly visible — `--controls-backdrop-color: transparent`.
+- Control bar: one clean square-cornered rectangle. No rounded corners. No indented volume slider.
+- Hide the volume slider itself with `::part(volume)` so the control bar stays visually flat.
+- Progress bar: 2px light-gray track with monochrome elapsed fill and a 5px playhead.
+  Video should mimic the audio player's geometry and hover timestamp behavior.
+- Speed control must remain in the control bar via `::part(playback-rate)`.
+
+### 9. Corner framework (required)
+- Corner rule across the site: rectangles stay square. Use `border-radius: 0` for buttons,
+  control bars, menus, tooltips, forms, and media chrome.
+- Do not add rounded corners to player controls or overlays.
+- Progress playheads may remain circular when needed for visibility, but the containing bar
+  and all surrounding surfaces remain rectangular.
+
+### 10. Reusable control icon language (required)
 - Use the same play/pause icon language as the bottom audio player in `scripts.js`.
-- Canonical icons to reuse:
-  - Play: right-pointing triangle (`<polygon points="6,4 20,12 6,20" ...>`)
-  - Pause: dual bars (`<rect x="6" y="5" width="4" height="14" ...>` and `<rect x="14" y="5" width="4" height="14" ...>`)
-- Controls should feel like one family across audio and video surfaces.
+- Canonical icons (both in `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">`):
+  - Play:  `<polygon points="6,4 20,12 6,20" fill="currentColor"/>`
+  - Pause: `<rect x="6" y="5" width="4" height="14" fill="currentColor"/>` +
+           `<rect x="14" y="5" width="4" height="14" fill="currentColor"/>`
+- Controls must feel like one family across audio and video surfaces.
 - Branding priority: reuse familiar controls over inventing page-specific variants.
+
+### 11. Audio bottom bar (required, never modify structure)
+- Fixed at `bottom: 0`, full width, `height: 48px`, white background.
+- `border-top: 1px solid #000` — this defines the rectangle edge cleanly.
+- No box-shadow, no border-bottom, no rounded corners.
+- Progress track is `::before` pseudo on `.progress-bar-area`:
+  2px height, `#c8c8c8` background. Fill `.progress` is 2px, `#000`.
+  Playhead `.progress-playhead` is 5px circle, `#000`, hidden until hover.
+- On hover, the progress system must show a timestamp above the bar.
+- Volume control is `display: none !important` — do not re-enable.
 
 Automation references:
 - Subscriber signup endpoint: `/.netlify/functions/subscribe`

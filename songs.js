@@ -5,6 +5,10 @@
 
 window.songsByPage = {
 
+  "5.8.26": [
+    { title: "fire escape 4.26.26", playbackId: "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc" }
+  ],
+
   "4.30.26": [
     { title: "IT DOESNT MATTER 4.30.26", playbackId: "JHKhUfJRYIXINeEu01aloxfNbgW7ehN44VtrAUDbFaqQ" }
   ],
@@ -37,7 +41,7 @@ window.allSongs = Object.entries(window.songsByPage)
 // Single source of truth for the index entry list and spa-router.
 // Newest first. Add new date keys here when creating new entry pages.
 // ──────────────────────────────────────────────────────────────────────────────
-window.journalEntries = ["4.30.26", "2.25.26", "11.29.25", "11.28.25"];
+window.journalEntries = ["5.8.26", "4.30.26", "2.25.26", "11.29.25", "11.28.25"];
 
 // ── Video catalog ──────────────────────────────────────────────────────────────
 // To add a new video: add an entry below with the page key matching the HTML

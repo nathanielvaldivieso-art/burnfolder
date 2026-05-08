@@ -415,6 +415,93 @@ p, h1, .song-title, .page-annotation {
 .bottom-play-pause-btn:hover { opacity: 1; }
 .bottom-play-pause-btn:focus { outline: none; }
 
+.bottom-tip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.now-playing-tip-btn {
+  font-size: 0.75em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  margin-left: 8px;
+  min-height: 24px;
+  min-width: 36px;
+}
+
+.tip-options {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #000;
+  padding: 6px;
+  z-index: 200;
+}
+
+.tip-options.open {
+  display: flex;
+}
+
+.tip-option-btn {
+  width: 48px;
+  justify-content: center;
+  padding: 4px 8px;
+}
+
+.tip-mini-checkout {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 1500;
+}
+
+.tip-mini-checkout.open {
+  display: flex;
+}
+
+.tip-mini-card {
+  width: min(420px, calc(100vw - 40px));
+  border: 1px solid #000;
+  background: #fff;
+  padding: 18px;
+}
+
+.tip-mini-title {
+  margin: 0 0 8px 0;
+  font-size: 0.86em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.tip-mini-amount {
+  margin: 0 0 14px 0;
+  font-size: 1em;
+  letter-spacing: 0.04em;
+}
+
+.tip-mini-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tip-mini-status {
+  margin-top: 10px;
+  min-height: 1.2em;
+  font-size: 0.78em;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
 .progress-bar-area {
   position: absolute;
   top: 0;
@@ -589,6 +676,17 @@ h1 { display: none; }
     padding: 0 24px;
     height: 48px;
     bottom: 0;
+  }
+
+  .now-playing-tip-btn {
+    margin-left: 6px;
+    min-width: 34px;
+    padding: 2px 6px;
+  }
+
+  .tip-options {
+    left: auto;
+    right: 0;
   }
 
   .close-btn {
