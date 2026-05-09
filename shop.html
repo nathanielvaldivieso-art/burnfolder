@@ -7,33 +7,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+  </header>
+
   <div class="page-wrap">
-    <a href="music.html" class="page-nav">music</a>
-    <a href="content.html" class="page-nav">video</a>
-    <a href="shop.html" class="page-nav">shop</a>
-      <button class="cart-float icon-btn" id="cartFloat" onclick="window.location.href='cart.html'" title="View cart">
-        Cart
-      </button>
-      <script>
-        function updateCartFloat() {
-          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-          const float = document.getElementById('cartFloat');
-          if (cart.length > 0) {
-            float.style.display = 'inline-flex';
-          } else {
-            float.style.display = 'none';
-          }
-        }
-        updateCartFloat();
-        window.addEventListener('storage', updateCartFloat);
-        document.addEventListener('DOMContentLoaded', updateCartFloat);
-        window.updateCartFloat = updateCartFloat;
-      </script>
-    <p class="page-id">burnfolder.com</p>
-    <h1>Shop</h1>
+    <p class="page-id">shop</p>
     <p class="page-annotation">Tin can listing moved to the 5.8.26 entry for testing checkout flow.</p>
     <p><a href="5.8.26.html" class="icon-btn">Open 5.8.26 Entry</a></p>
   </div>
-  <div class="page-watermark">burnfolder.com</div>
+  <div class="page-watermark">shop</div>
 </body>
 </html>

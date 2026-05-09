@@ -9,29 +9,18 @@
   <script defer src="checkout.js"></script>
 </head>
 <body>
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+  </header>
+
   <div class="page-wrap">
-    <a href="music.html" class="page-nav">music</a>
-    <a href="content.html" class="page-nav">video</a>
-    <a href="shop.html" class="page-nav">shop</a>
-      <button class="cart-float icon-btn" id="cartFloat" onclick="window.location.href='cart.html'" title="View cart">
-        Cart
-      </button>
-      <script>
-        function updateCartFloat() {
-          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-          const float = document.getElementById('cartFloat');
-          if (cart.length > 0) {
-            float.style.display = 'inline-flex';
-          } else {
-            float.style.display = 'none';
-          }
-        }
-        updateCartFloat();
-        window.addEventListener('storage', updateCartFloat);
-        document.addEventListener('DOMContentLoaded', updateCartFloat);
-        window.updateCartFloat = updateCartFloat;
-      </script>
-    <h1>Checkout</h1>
+    <p class="page-id">checkout</p>
     <form id="checkout-form" class="checkout-form minimal-checkout">
       <div id="checkout-items"></div>
       <div id="checkout-total"></div>

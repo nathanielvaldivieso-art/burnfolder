@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>burnfolder.com</title>
+  <title>song — burnfolder.com</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="index-home">
+<body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
 
   <header class="site-header">
@@ -20,26 +20,59 @@
     <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
   </header>
 
-  <div class="page-wrap">
-    <!-- Entries -->
-    <ul id="entries"></ul>
+  <div class="page-wrap" id="songHubPage">
+    <p class="page-id">song hub</p>
 
-    <!-- Newsletter signup -->
-    <div class="newsletter-signup newsletter-popup">
-      <p>get notified of new entries</p>
-      <form id="subscribeForm">
-        <input type="email" id="emailInput" name="email" placeholder="your@email.com" required>
-        <button type="submit">subscribe</button>
-      </form>
-      <p id="statusMessage"></p>
+    <h2 class="song-hub-title" id="songHubTitle">Song</h2>
+    <p class="song-hub-subtitle" id="songHubSubtitle">Collecting versions...</p>
+
+    <div class="song-hub-panel">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Versions</p>
+        <label class="song-hub-sort-label" for="songHubSort">Sort</label>
+        <select id="songHubSort" class="song-hub-sort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      <div class="song-hub-versions" id="songHubVersions"></div>
+    </div>
+
+    <div class="song-hub-panel">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Lyrics</p>
+        <button type="button" class="icon-btn" id="songHubLyricsToggle" aria-expanded="false">Open lyrics</button>
+      </div>
+      <div class="song-hub-lyrics" id="songHubLyricsPanel">
+        <p>Lyrics for this song can live here. Add full text, drafts, or alternate lines over time.</p>
+        <p class="song-hub-placeholder">Placeholder: future lyrical content.</p>
+      </div>
+    </div>
+
+    <div class="song-hub-panel">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Related content</p>
+      </div>
+      <div class="song-hub-content-grid">
+        <article class="song-hub-content-card">
+          <h3>Notebook</h3>
+          <p>Production notes, date context, and experiments tied to this song.</p>
+        </article>
+        <article class="song-hub-content-card">
+          <h3>Visuals</h3>
+          <p>Image references, cover drafts, and visual companions can be attached here.</p>
+        </article>
+        <article class="song-hub-content-card">
+          <h3>Session clips</h3>
+          <p>Outtakes, stems, and side recordings can be listed as they are uploaded.</p>
+        </article>
+      </div>
     </div>
   </div>
 
-  <!-- Hidden audio list div for playback restoration -->
   <div id="audioList" style="display: none;"></div>
-  <div class="page-watermark">burnfolder.com</div>
+  <div class="page-watermark">song</div>
 
-  <!-- Bottom progress bar -->
   <div class="bottom-progress-bar" id="bottomBar">
     <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
     <div class="bottom-bar-content">
@@ -67,40 +100,5 @@
   <script src="songs.js"></script>
   <script src="spa-router.js"></script>
   <script src="scripts.js"></script>
-  <script>
-  const entries = window.journalEntries || [];
-  const container = document.getElementById("entries");
-  entries.forEach(entry => {
-    const li = document.createElement("li");
-    const link = document.createElement("a");
-    link.href = `${entry}.html`;
-    link.textContent = entry;
-    li.appendChild(link);
-    container.appendChild(li);
-  });
-
-  document.getElementById('subscribeForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('emailInput').value;
-    const statusMsg = document.getElementById('statusMessage');
-    statusMsg.textContent = 'subscribing...';
-    try {
-      const response = await fetch('/.netlify/functions/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        statusMsg.textContent = data.message || '✓ subscribed';
-        document.getElementById('emailInput').value = '';
-      } else {
-        statusMsg.textContent = data.message || 'error — try again';
-      }
-    } catch {
-      statusMsg.textContent = 'error — try again';
-    }
-  });
-  </script>
 </body>
 </html>

@@ -164,6 +164,11 @@
     // Update audio and video lists for current page
     updateAudioListForPage();
     updateVideoListForPage();
+
+    // Re-render song hub page content when present
+    if (typeof window.renderSongHubPage === 'function') {
+      window.renderSongHubPage();
+    }
   }
 
   function updateAudioListForPage() {

@@ -7,36 +7,57 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+  </header>
+
   <div class="page-wrap">
-    <a href="music.html" class="page-nav">music</a>
-    <a href="content.html" class="page-nav">video</a>
-    <a href="shop.html" class="page-nav">shop</a>
-      <button class="cart-float icon-btn" id="cartFloat" onclick="window.location.href='cart.html'" title="View cart">
-        Cart
-      </button>
-      <script>
-        function updateCartFloat() {
-          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-          const float = document.getElementById('cartFloat');
-          if (cart.length > 0) {
-            float.style.display = 'inline-flex';
-          } else {
-            float.style.display = 'none';
-          }
-        }
-        updateCartFloat();
-        window.addEventListener('storage', updateCartFloat);
-        document.addEventListener('DOMContentLoaded', updateCartFloat);
-        window.updateCartFloat = updateCartFloat;
-      </script>
-    <h1>Your Cart</h1>
+    <p class="page-id">your cart</p>
     <div id="cart-items"></div>
     <div id="cart-total"></div>
     <button id="checkout-btn" class="icon-btn" style="display:none;margin-top:18px;">
       Checkout
     </button>
+    <div id="checkout-status" style="margin-top:10px;font-size:0.85em;opacity:0.72;"></div>
     <p id="empty-cart-msg">Your cart is empty.</p>
     <script>
+      const stripePublicKey = 'pk_live_51TJGQcBKbG6lpNutrYNDhGV6aFM66hoqLakruHGC4omCXn0Nc9fXAqGzpqRIpq97v6tGP67Vx3vd1vpZbK1YkSks00ZFMq7fjN';
+      let stripeClient = null;
+
+      function loadStripe() {
+        return new Promise((resolve, reject) => {
+          if (window.Stripe) {
+            stripeClient = stripeClient || window.Stripe(stripePublicKey);
+            resolve();
+            return;
+          }
+
+          let script = document.querySelector('script[data-stripe-js="true"]');
+          if (!script) {
+            script = document.createElement('script');
+            script.src = 'https://js.stripe.com/v3/';
+            script.async = true;
+            script.dataset.stripeJs = 'true';
+            document.head.appendChild(script);
+          }
+
+          script.addEventListener('load', () => {
+            stripeClient = window.Stripe(stripePublicKey);
+            resolve();
+          }, { once: true });
+
+          script.addEventListener('error', () => {
+            reject(new Error('Failed to load Stripe.'));
+          }, { once: true });
+        });
+      }
+
       // Patch cart.js logic for icon Remove and Checkout
       function getCart() {
         return JSON.parse(localStorage.getItem('cart') || '[]');
@@ -80,9 +101,46 @@
         renderCart();
         if (window.updateCartFloat) window.updateCartFloat();
       }
-      document.getElementById('checkout-btn').onclick = function() {
-        window.location.href = 'checkout.html';
-      };
+
+      async function startWalletCheckout() {
+        const status = document.getElementById('checkout-status');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const cart = getCart();
+
+        if (!cart.length) {
+          status.textContent = 'Your cart is empty.';
+          return;
+        }
+
+        checkoutBtn.disabled = true;
+        status.textContent = 'Redirecting to secure checkout...';
+
+        try {
+          await loadStripe();
+          if (!stripeClient) throw new Error('Stripe unavailable.');
+
+          const res = await fetch('/.netlify/functions/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cart })
+          });
+          const data = await res.json();
+
+          if (!res.ok || !data.id) {
+            throw new Error(data.error || 'Could not create checkout session.');
+          }
+
+          const result = await stripeClient.redirectToCheckout({ sessionId: data.id });
+          if (result && result.error) {
+            throw new Error(result.error.message || 'Could not redirect to checkout.');
+          }
+        } catch (err) {
+          status.textContent = err.message || 'Checkout unavailable.';
+          checkoutBtn.disabled = false;
+        }
+      }
+
+      document.getElementById('checkout-btn').onclick = startWalletCheckout;
       window.addEventListener('DOMContentLoaded', renderCart);
     </script>
   </div>

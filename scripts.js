@@ -49,6 +49,9 @@ const songTitleEl = document.getElementById('songTitle');
 const closeBtn = document.getElementById('closeBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const activeMuxPlayer = document.getElementById('activeMuxPlayer');
+let versionPickerMenu = null;
+let versionPickerList = null;
+let songTitleWrap = null;
 let stripeClient = null;
 let checkoutElements = null;
 let checkoutCard = null;
@@ -265,6 +268,325 @@ function createTipUI() {
   });
 }
 
+function extractDateFromText(text) {
+  const match = String(text || '').match(/(?:\(|\s)(\d{1,2}\.\d{1,2}\.\d{2})(?:\)|\s|$)/);
+  return match ? match[1] : null;
+}
+
+function getTrackDateLabel(song) {
+  const fromTitle = extractDateFromText(song && song.title);
+  if (fromTitle) return fromTitle;
+  if (song && /^\d+\.\d+\.\d+$/.test(song.page || '')) return song.page;
+  return '';
+}
+
+function parseTrackDateValue(song) {
+  const label = getTrackDateLabel(song);
+  if (!label) return -Infinity;
+
+  const [monthRaw, dayRaw, yearRaw] = label.split('.').map(Number);
+  if (![monthRaw, dayRaw, yearRaw].every(Number.isFinite)) return -Infinity;
+
+  const year = 2000 + yearRaw;
+  return new Date(year, monthRaw - 1, dayRaw).getTime();
+}
+
+function stripTrailingDate(title) {
+  return String(title || '')
+    .replace(/\s*\(\d{1,2}\.\d{1,2}\.\d{2}\)\s*$/i, '')
+    .replace(/\s+\d{1,2}\.\d{1,2}\.\d{2}\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getTrackGroupKey(title) {
+  return stripTrailingDate(title).toLowerCase();
+}
+
+function getSongHubHref(song) {
+  if (!song || !song.title) return 'song.html';
+  return `song.html?song=${encodeURIComponent(getTrackGroupKey(song.title))}`;
+}
+
+function getVersionCandidatesForActiveSong() {
+  const activeSong = getActiveSong();
+  if (!activeSong) return [];
+  const groupKey = getTrackGroupKey(activeSong.title);
+  const source = Array.isArray(window.allSongs) && window.allSongs.length ? window.allSongs : window.currentSongs;
+
+  const byPlaybackId = new Map();
+  source.forEach((song) => {
+    if (!song || !song.playbackId) return;
+    if (getTrackGroupKey(song.title) === groupKey) byPlaybackId.set(song.playbackId, song);
+  });
+
+  if (!byPlaybackId.has(activeSong.playbackId)) {
+    byPlaybackId.set(activeSong.playbackId, activeSong);
+  }
+
+  return Array.from(byPlaybackId.values()).sort((a, b) => {
+    const aDate = parseTrackDateValue(a);
+    const bDate = parseTrackDateValue(b);
+    if (aDate !== bDate) return bDate - aDate;
+    return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+  });
+}
+
+function closeVersionPicker() {
+  if (!versionPickerMenu || !songTitleEl) return;
+  versionPickerMenu.classList.remove('open');
+  songTitleEl.setAttribute('aria-expanded', 'false');
+}
+
+function playTrackBySong(song) {
+  if (!song || !song.playbackId) return;
+
+  const idx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
+  if (idx !== -1) {
+    playTrack(idx);
+    return;
+  }
+
+  activeSongOverride = song;
+  activeIdx = -1;
+
+  activeMuxPlayer.pause();
+  activeMuxPlayer.currentTime = 0;
+  activeMuxPlayer.setAttribute('playback-id', song.playbackId);
+  activeMuxPlayer.setAttribute('metadata-video-title', song.title);
+  updateUI();
+
+  setTimeout(() => {
+    initializeVolumeControl();
+  }, 100);
+
+  const playPromise = activeMuxPlayer.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(() => {
+      bottomPlayBtn.click();
+    });
+  }
+  setTimeout(() => {
+    if (activeMuxPlayer.paused) {
+      bottomPlayBtn.click();
+    }
+    bottomPlayBtn.focus();
+  }, 100);
+}
+
+function renderVersionPicker() {
+  if (!versionPickerList || !versionPickerMenu || !songTitleEl) return;
+  versionPickerList.innerHTML = '';
+
+  const activeSong = getActiveSong();
+  if (!activeSong) {
+    closeVersionPicker();
+    return;
+  }
+
+  const versions = getVersionCandidatesForActiveSong();
+
+  const goToSongLink = document.createElement('a');
+  goToSongLink.className = 'icon-btn version-picker-go-link';
+  goToSongLink.href = getSongHubHref(activeSong);
+  goToSongLink.textContent = 'Go to song';
+  goToSongLink.addEventListener('click', () => {
+    closeVersionPicker();
+  });
+  versionPickerList.appendChild(goToSongLink);
+
+  versions.forEach((song) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'icon-btn version-picker-item';
+    button.textContent = song.title;
+    if (activeSong && song.playbackId === activeSong.playbackId) {
+      button.classList.add('active');
+    }
+
+    button.addEventListener('click', () => {
+      closeVersionPicker();
+      if (activeSong && song.playbackId === activeSong.playbackId) return;
+      playTrackBySong(song);
+    });
+
+    versionPickerList.appendChild(button);
+  });
+}
+
+function toggleVersionPicker() {
+  if (!versionPickerMenu || !songTitleEl) return;
+  if (!getActiveSong()) return;
+
+  renderVersionPicker();
+  const opening = !versionPickerMenu.classList.contains('open');
+  versionPickerMenu.classList.toggle('open', opening);
+  songTitleEl.setAttribute('aria-expanded', opening ? 'true' : 'false');
+}
+
+function createVersionPickerUI() {
+  if (!songTitleEl || !songTitleEl.parentElement || document.getElementById('versionPickerMenu')) return;
+
+  songTitleWrap = document.createElement('div');
+  songTitleWrap.className = 'song-title-wrap';
+
+  const parent = songTitleEl.parentElement;
+  parent.insertBefore(songTitleWrap, songTitleEl);
+  songTitleWrap.appendChild(songTitleEl);
+
+  songTitleEl.classList.add('song-title-trigger');
+  songTitleEl.setAttribute('tabindex', '0');
+  songTitleEl.setAttribute('role', 'button');
+  songTitleEl.setAttribute('aria-haspopup', 'dialog');
+  songTitleEl.setAttribute('aria-expanded', 'false');
+  songTitleEl.setAttribute('aria-label', 'Choose song version');
+
+  versionPickerMenu = document.createElement('div');
+  versionPickerMenu.className = 'version-picker-menu';
+  versionPickerMenu.id = 'versionPickerMenu';
+  versionPickerMenu.innerHTML = `
+    <div class="version-picker-heading">Versions</div>
+    <div class="version-picker-list" id="versionPickerList"></div>
+  `;
+
+  songTitleWrap.appendChild(versionPickerMenu);
+  versionPickerList = versionPickerMenu.querySelector('#versionPickerList');
+
+  songTitleEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleVersionPicker();
+  });
+
+  songTitleEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleVersionPicker();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeVersionPicker();
+    }
+  });
+
+  versionPickerMenu.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!songTitleWrap || !songTitleWrap.contains(e.target)) {
+      closeVersionPicker();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeVersionPicker();
+  });
+}
+
+function renderSongHubPage() {
+  const hubRoot = document.getElementById('songHubPage');
+  if (!hubRoot) return;
+
+  const titleEl = document.getElementById('songHubTitle');
+  const subtitleEl = document.getElementById('songHubSubtitle');
+  const versionsEl = document.getElementById('songHubVersions');
+  const sortEl = document.getElementById('songHubSort');
+  const lyricsPanel = document.getElementById('songHubLyricsPanel');
+  const lyricsToggle = document.getElementById('songHubLyricsToggle');
+
+  if (!titleEl || !subtitleEl || !versionsEl || !sortEl || !lyricsPanel || !lyricsToggle) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const requestedSongKey = (params.get('song') || '').toLowerCase().trim();
+  const activeSong = getActiveSong();
+  const fallbackKey = activeSong ? getTrackGroupKey(activeSong.title) : '';
+  const targetKey = requestedSongKey || fallbackKey;
+
+  const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
+  const matchingVersions = allSongs.filter((song) => getTrackGroupKey(song.title) === targetKey);
+
+  if (!matchingVersions.length) {
+    titleEl.textContent = 'Song';
+    subtitleEl.textContent = 'No versions found yet.';
+    versionsEl.innerHTML = '<p class="song-hub-empty">Versions will appear here as they are added.</p>';
+    return;
+  }
+
+  const baseTitle = stripTrailingDate(matchingVersions[0].title);
+  titleEl.textContent = baseTitle;
+  subtitleEl.textContent = `${matchingVersions.length} version${matchingVersions.length === 1 ? '' : 's'}`;
+
+  const renderVersions = () => {
+    const sortMode = sortEl.value || 'newest';
+    const sorted = [...matchingVersions].sort((a, b) => {
+      const aDate = parseTrackDateValue(a);
+      const bDate = parseTrackDateValue(b);
+      if (aDate === bDate) {
+        return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+      }
+      return sortMode === 'oldest' ? aDate - bDate : bDate - aDate;
+    });
+
+    versionsEl.innerHTML = '';
+    sorted.forEach((song) => {
+      const row = document.createElement('div');
+      row.className = 'song-hub-version-row';
+
+      const info = document.createElement('div');
+      info.className = 'song-hub-version-info';
+
+      const songTitle = document.createElement('p');
+      songTitle.className = 'song-hub-version-title';
+      songTitle.textContent = song.title;
+
+      const meta = document.createElement('p');
+      meta.className = 'song-hub-version-meta';
+      const label = getTrackDateLabel(song) || 'undated';
+      const page = song.page ? ` | entry ${song.page}` : '';
+      meta.textContent = `${label}${page}`;
+
+      info.appendChild(songTitle);
+      info.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'song-hub-version-actions';
+
+      const playBtn = document.createElement('button');
+      playBtn.type = 'button';
+      playBtn.className = 'icon-btn';
+      playBtn.textContent = 'Play';
+      playBtn.addEventListener('click', () => {
+        playTrackBySong(song);
+      });
+      actions.appendChild(playBtn);
+
+      if (song.page && /^\d/.test(song.page)) {
+        const entryLink = document.createElement('a');
+        entryLink.className = 'icon-btn';
+        entryLink.href = `${song.page}.html`;
+        entryLink.textContent = 'Open entry';
+        actions.appendChild(entryLink);
+      }
+
+      row.appendChild(info);
+      row.appendChild(actions);
+      versionsEl.appendChild(row);
+    });
+  };
+
+  sortEl.onchange = renderVersions;
+  renderVersions();
+
+  lyricsToggle.onclick = () => {
+    const opening = !lyricsPanel.classList.contains('open');
+    lyricsPanel.classList.toggle('open', opening);
+    lyricsToggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    lyricsToggle.textContent = opening ? 'Hide lyrics' : 'Open lyrics';
+  };
+}
+
+window.renderSongHubPage = renderSongHubPage;
+
 function createCheckoutPopup() {
   if (document.getElementById('purchaseOverlay')) return;
 
@@ -309,6 +631,10 @@ function createCheckoutPopup() {
             <div id="purchaseApplePayElement" class="checkout-wallet-button"></div>
             <div class="checkout-wallet-divider">or pay with card</div>
           </div>
+          <div id="purchaseHostedWalletWrap" class="checkout-wallet-wrap" style="display:none;">
+            <button type="button" class="icon-btn checkout-hosted-wallet-btn" id="purchaseHostedWalletBtn">Apple Pay / Google Pay</button>
+            <div class="checkout-wallet-divider">opens secure Stripe checkout</div>
+          </div>
           <div id="purchaseCardElement" class="checkout-input" style="padding:16px 0 8px 0;"></div>
           <div id="purchaseCardErrors" style="color:#c00;font-size:0.95em;margin-top:4px;"></div>
           <button type="submit" class="icon-btn" id="purchasePayBtn">Pay</button>
@@ -325,6 +651,7 @@ function createCheckoutPopup() {
   });
   document.getElementById('purchaseClose').addEventListener('click', closeCheckoutPopup);
   document.getElementById('purchaseForm').addEventListener('submit', handlePopupCheckoutSubmit);
+  document.getElementById('purchaseHostedWalletBtn').addEventListener('click', startHostedWalletCheckout);
 }
 
 function getCartItems() {
@@ -338,8 +665,7 @@ function getCartItems() {
 function updateCartFloat() {
   const float = document.getElementById('cartFloat');
   if (!float) return;
-  const cart = getCartItems();
-  float.style.display = cart.length > 0 ? 'inline-flex' : 'none';
+  float.style.display = 'inline-flex';
 }
 
 function renderCheckoutSummary() {
@@ -399,6 +725,59 @@ function resetCheckoutWalletButton() {
   if (walletContainer) walletContainer.innerHTML = '';
 }
 
+function setHostedWalletVisibility(visible) {
+  const hostedWrap = document.getElementById('purchaseHostedWalletWrap');
+  if (hostedWrap) hostedWrap.style.display = visible ? 'block' : 'none';
+}
+
+async function startHostedWalletCheckout() {
+  const status = document.getElementById('purchaseStatus');
+  const errors = document.getElementById('purchaseCardErrors');
+  const hostedBtn = document.getElementById('purchaseHostedWalletBtn');
+
+  if (errors) errors.textContent = '';
+  if (status) status.textContent = 'Redirecting to secure checkout...';
+  if (hostedBtn) hostedBtn.disabled = true;
+
+  try {
+    await loadStripeScript();
+    if (!stripeClient) throw new Error('Stripe unavailable.');
+
+    let endpoint = '';
+    let payload = {};
+
+    if (checkoutMode === 'tip') {
+      endpoint = '/.netlify/functions/create-tip-checkout-session';
+      payload = { amount: checkoutTipAmount };
+    } else {
+      const cart = getCartItems();
+      if (cart.length === 0) throw new Error('Your cart is empty.');
+      endpoint = '/.netlify/functions/create-checkout-session';
+      payload = { cart };
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.id) {
+      throw new Error(data.error || 'Could not start secure checkout.');
+    }
+
+    const redirectResult = await stripeClient.redirectToCheckout({ sessionId: data.id });
+    if (redirectResult && redirectResult.error) {
+      throw new Error(redirectResult.error.message || 'Could not redirect to checkout.');
+    }
+  } catch (err) {
+    if (status) status.textContent = '';
+    if (errors) errors.textContent = err.message || 'Wallet checkout unavailable.';
+    if (hostedBtn) hostedBtn.disabled = false;
+  }
+}
+
 function getShippingFromWalletEvent(ev) {
   const shippingAddress = ev.shippingAddress || {};
   const line1 = Array.isArray(shippingAddress.addressLine) ? (shippingAddress.addressLine[0] || '') : '';
@@ -424,6 +803,7 @@ async function mountCheckoutWalletButton() {
   if (!walletWrap || !walletContainer) return;
 
   walletWrap.style.display = 'none';
+  setHostedWalletVisibility(false);
   resetCheckoutWalletButton();
 
   await loadStripeScript();
@@ -445,7 +825,10 @@ async function mountCheckoutWalletButton() {
   });
 
   const canMakePayment = await checkoutPaymentRequest.canMakePayment();
-  if (!canMakePayment) return;
+  if (!canMakePayment) {
+    setHostedWalletVisibility(true);
+    return;
+  }
 
   try {
     const walletElements = stripeClient.elements();
@@ -463,9 +846,8 @@ async function mountCheckoutWalletButton() {
     checkoutPaymentRequestButton.mount('#purchaseApplePayElement');
     walletWrap.style.display = 'block';
   } catch {
-    if (status) {
-      status.textContent = 'Quick pay unavailable in this checkout context.';
-    }
+    setHostedWalletVisibility(true);
+    if (status) status.textContent = 'Quick pay unavailable in this checkout context.';
     return;
   }
 
@@ -636,6 +1018,7 @@ function closeCheckoutPopup() {
   overlay.classList.remove('open');
   document.body.classList.remove('checkout-open');
   resetCheckoutWalletButton();
+  setHostedWalletVisibility(false);
 }
 
 async function handlePopupCheckoutSubmit(e) {
@@ -755,9 +1138,18 @@ document.addEventListener('click', (e) => {
 window.addEventListener('storage', updateCartFloat);
 document.addEventListener('DOMContentLoaded', updateCartFloat);
 
-createTipUI();
-
 let activeIdx = null;
+let activeSongOverride = null;
+
+function getActiveSong() {
+  if (activeIdx === null) return null;
+  if (activeIdx >= 0 && window.currentSongs[activeIdx]) return window.currentSongs[activeIdx];
+  return activeSongOverride;
+}
+
+createTipUI();
+createVersionPickerUI();
+renderSongHubPage();
 
 // Store reference to active player globally
 if (!window.globalMuxPlayer) {
@@ -770,8 +1162,12 @@ if (savedState && audioList) {
   try {
     const state = JSON.parse(savedState);
     // Only restore if the song is valid for the current page
-    const songIndex = window.currentSongs.findIndex(s => s.playbackId === state.playbackId);
+    let songIndex = window.currentSongs.findIndex(s => s.playbackId === state.playbackId);
+    const fallbackSong = songIndex === -1 && Array.isArray(window.allSongs)
+      ? window.allSongs.find(s => s.playbackId === state.playbackId)
+      : null;
     if (songIndex !== -1) {
+      activeSongOverride = null;
       activeIdx = songIndex;
       // Check if player already has this track loaded
       const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id');
@@ -799,9 +1195,27 @@ if (savedState && audioList) {
           }, { once: true });
         }, 50);
       }
+    } else if (fallbackSong) {
+      activeSongOverride = fallbackSong;
+      activeIdx = -1;
+      setTimeout(() => {
+        activeMuxPlayer.setAttribute('playback-id', fallbackSong.playbackId);
+        activeMuxPlayer.setAttribute('metadata-video-title', fallbackSong.title);
+        activeMuxPlayer.addEventListener('loadedmetadata', () => {
+          activeMuxPlayer.currentTime = state.currentTime || 0;
+          if (state.isPlaying) {
+            activeMuxPlayer.play().catch(() => {
+              console.log('Auto-play prevented');
+            });
+          }
+          updateUI();
+          initializeVolumeControl();
+        }, { once: true });
+      }, 50);
     } else {
       // If the saved song is not valid for this page, reset player state
       activeIdx = null;
+      activeSongOverride = null;
       if (window.globalMuxPlayer) {
         window.globalMuxPlayer.pause();
         window.globalMuxPlayer.removeAttribute('playback-id');
@@ -816,10 +1230,11 @@ if (savedState && audioList) {
 
 // Save playback state before page unload
 window.addEventListener('beforeunload', () => {
-  if (activeIdx !== null && activeMuxPlayer) {
+  const activeSong = getActiveSong();
+  if (activeIdx !== null && activeMuxPlayer && activeSong) {
     const state = {
-      playbackId: window.currentSongs[activeIdx].playbackId,
-      title: window.currentSongs[activeIdx].title,
+      playbackId: activeSong.playbackId,
+      title: activeSong.title,
       currentTime: activeMuxPlayer.currentTime || 0,
       isPlaying: !activeMuxPlayer.paused
     };
@@ -829,10 +1244,11 @@ window.addEventListener('beforeunload', () => {
 
 // Update playback state periodically
 setInterval(() => {
-  if (activeIdx !== null && activeMuxPlayer) {
+  const activeSong = getActiveSong();
+  if (activeIdx !== null && activeMuxPlayer && activeSong) {
     const state = {
-      playbackId: window.currentSongs[activeIdx].playbackId,
-      title: window.currentSongs[activeIdx].title,
+      playbackId: activeSong.playbackId,
+      title: activeSong.title,
       currentTime: activeMuxPlayer.currentTime || 0,
       isPlaying: !activeMuxPlayer.paused
     };
@@ -904,24 +1320,29 @@ window.currentSongs.forEach((song, idx) => {
 
 function updateUI() {
   document.querySelectorAll('.page-song-title').forEach((el, i) => {
-    el.classList.toggle('active', i === activeIdx && !activeMuxPlayer.paused);
+    el.classList.toggle('active', i === activeIdx && activeIdx >= 0 && !activeMuxPlayer.paused);
   });
-  if (activeIdx !== null) {
+  const activeSong = getActiveSong();
+  if (activeIdx !== null && activeSong) {
     if (!activeMuxPlayer.paused) {
       bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>';
     } else {
       bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
     }
-    songTitleEl.textContent = window.currentSongs[activeIdx].title;
+    songTitleEl.textContent = activeSong.title;
+    songTitleEl.setAttribute('aria-label', `Choose version for ${activeSong.title}`);
+    renderVersionPicker();
     bottomBar.style.display = 'block';
     bottomPlayBtn.focus();
   } else {
+    closeVersionPicker();
     bottomBar.style.display = 'none';
     songTitleEl.textContent = '';
   }
 }
 
 function playTrack(idx) {
+  activeSongOverride = null;
   activeMuxPlayer.pause();
   activeMuxPlayer.currentTime = 0;
   // Set playback-id — mux-player reacts to attribute changes automatically.
@@ -981,7 +1402,9 @@ closeBtn.addEventListener('click', () => {
   if (activeIdx !== null) {
     activeMuxPlayer.pause();
     activeIdx = null;
+    activeSongOverride = null;
     sessionStorage.removeItem('playbackState');
+    closeVersionPicker();
     updateUI();
   }
 });
@@ -1018,7 +1441,9 @@ activeMuxPlayer.addEventListener('pause', () => {
   updateUI();
 });
 activeMuxPlayer.addEventListener('error', () => {
-  alert(`Failed to load "${window.currentSongs[activeIdx].title}". Please try again later.`);
+  const activeSong = getActiveSong();
+  const failedTitle = activeSong ? activeSong.title : 'Track';
+  alert(`Failed to load "${failedTitle}". Please try again later.`);
   activeMuxPlayer.pause();
   showLoading(false);
   updateUI();

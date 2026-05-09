@@ -6,15 +6,28 @@
   <title>Admin - Add Song</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    body { max-width: 600px; margin: 40px auto; font-family: monospace; }
+    body.admin-page { margin: 0; font-family: monospace; }
+    body.admin-page .page-wrap { max-width: 600px; }
     label { display: block; margin-top: 20px; }
     input, button { font-size: 1rem; padding: 6px; margin-top: 4px; }
     .success { color: green; margin-top: 20px; }
     .error { color: red; margin-top: 20px; }
   </style>
 </head>
-<body>
-  <h1>Admin: Add New Song</h1>
+<body class="admin-page">
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+  </header>
+
+  <div class="page-wrap">
+    <p class="page-id">admin</p>
+    <h1>Admin: Add New Song</h1>
   <form id="addSongForm">
     <label>Song Title
       <input type="text" id="title" required />

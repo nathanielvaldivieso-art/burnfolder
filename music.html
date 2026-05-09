@@ -10,11 +10,17 @@
 <body>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
 
-  <div class="page-wrap">
-    <a href="index.html" class="page-nav">home</a>
-    <a href="content.html" class="page-nav">video</a>
-    <a href="archive.html" class="page-nav">audio archive</a>
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+  </header>
 
+  <div class="page-wrap">
     <p class="page-id">music</p>
 
     <div id="audioList" style="margin-top: 48px;"></div>
