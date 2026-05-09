@@ -632,9 +632,10 @@ function createCheckoutPopup() {
             <div class="checkout-wallet-divider">or pay with card</div>
           </div>
           <div id="purchaseHostedWalletWrap" class="checkout-wallet-wrap" style="display:none;">
-            <button type="button" class="icon-btn checkout-hosted-wallet-btn" id="purchaseHostedWalletBtn">Apple Pay / Google Pay</button>
+            <button type="button" class="icon-btn checkout-hosted-wallet-btn" id="purchaseHostedWalletBtn">Continue to secure wallet checkout</button>
             <div class="checkout-wallet-divider">opens secure Stripe checkout</div>
           </div>
+          <div id="purchaseWalletHint" class="checkout-wallet-hint" style="display:none;"></div>
           <div id="purchaseCardElement" class="checkout-input" style="padding:16px 0 8px 0;"></div>
           <div id="purchaseCardErrors" style="color:#c00;font-size:0.95em;margin-top:4px;"></div>
           <button type="submit" class="icon-btn" id="purchasePayBtn">Pay</button>
@@ -730,6 +731,15 @@ function setHostedWalletVisibility(visible) {
   if (hostedWrap) hostedWrap.style.display = visible ? 'block' : 'none';
 }
 
+function setWalletHint(message) {
+  const hint = document.getElementById('purchaseWalletHint');
+  if (!hint) return;
+
+  const text = String(message || '').trim();
+  hint.textContent = text;
+  hint.style.display = text ? 'block' : 'none';
+}
+
 async function startHostedWalletCheckout() {
   const status = document.getElementById('purchaseStatus');
   const errors = document.getElementById('purchaseCardErrors');
@@ -769,13 +779,7 @@ async function startHostedWalletCheckout() {
       return;
     }
 
-    await loadStripeScript();
-    if (!stripeClient) throw new Error('Stripe unavailable.');
-
-    const redirectResult = await stripeClient.redirectToCheckout({ sessionId: data.id });
-    if (redirectResult && redirectResult.error) {
-      throw new Error(redirectResult.error.message || 'Could not redirect to checkout.');
-    }
+    throw new Error('Secure checkout URL unavailable. Please try again.');
   } catch (err) {
     if (status) status.textContent = '';
     if (errors) errors.textContent = err.message || 'Wallet checkout unavailable.';
@@ -809,10 +813,22 @@ async function mountCheckoutWalletButton() {
 
   walletWrap.style.display = 'none';
   setHostedWalletVisibility(false);
+  setWalletHint('');
   resetCheckoutWalletButton();
 
-  await loadStripeScript();
-  if (!stripeClient) return;
+  try {
+    await loadStripeScript();
+  } catch {
+    setHostedWalletVisibility(true);
+    setWalletHint('Quick wallet is unavailable in this browser context. Use secure wallet checkout.');
+    return;
+  }
+
+  if (!stripeClient) {
+    setHostedWalletVisibility(true);
+    setWalletHint('Quick wallet is unavailable in this browser context. Use secure wallet checkout.');
+    return;
+  }
 
   const amount = getCheckoutAmountCents();
   if (!amount) return;
@@ -832,8 +848,11 @@ async function mountCheckoutWalletButton() {
   const canMakePayment = await checkoutPaymentRequest.canMakePayment();
   if (!canMakePayment) {
     setHostedWalletVisibility(true);
+    setWalletHint('Apple Pay / Google Pay is not available in this browser. Use secure wallet checkout.');
     return;
   }
+
+  setWalletHint('');
 
   try {
     const walletElements = stripeClient.elements();
@@ -852,7 +871,8 @@ async function mountCheckoutWalletButton() {
     walletWrap.style.display = 'block';
   } catch {
     setHostedWalletVisibility(true);
-    if (status) status.textContent = 'Quick pay unavailable in this checkout context.';
+    setWalletHint('Quick wallet could not initialize here. Use secure wallet checkout.');
+    if (status) status.textContent = 'Quick wallet unavailable in this checkout context.';
     return;
   }
 
@@ -1024,6 +1044,7 @@ function closeCheckoutPopup() {
   document.body.classList.remove('checkout-open');
   resetCheckoutWalletButton();
   setHostedWalletVisibility(false);
+  setWalletHint('');
 }
 
 async function handlePopupCheckoutSubmit(e) {

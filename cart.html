@@ -132,13 +132,7 @@
             return;
           }
 
-          await loadStripe();
-          if (!stripeClient) throw new Error('Stripe unavailable.');
-
-          const result = await stripeClient.redirectToCheckout({ sessionId: data.id });
-          if (result && result.error) {
-            throw new Error(result.error.message || 'Could not redirect to checkout.');
-          }
+          throw new Error('Secure checkout URL unavailable. Please try again.');
         } catch (err) {
           status.textContent = err.message || 'Checkout unavailable.';
           checkoutBtn.disabled = false;

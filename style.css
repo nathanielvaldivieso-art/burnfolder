@@ -975,6 +975,14 @@ body.index-home .newsletter-popup #statusMessage {
   opacity: 0.5;
 }
 
+.checkout-wallet-hint {
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin-top: 2px;
+}
+
 .checkout-hosted-wallet-btn {
   width: 100%;
   justify-content: center;
