@@ -740,9 +740,6 @@ async function startHostedWalletCheckout() {
   if (hostedBtn) hostedBtn.disabled = true;
 
   try {
-    await loadStripeScript();
-    if (!stripeClient) throw new Error('Stripe unavailable.');
-
     let endpoint = '';
     let payload = {};
 
@@ -763,9 +760,17 @@ async function startHostedWalletCheckout() {
     });
 
     const data = await res.json();
-    if (!res.ok || !data.id) {
+    if (!res.ok || (!data.id && !data.url)) {
       throw new Error(data.error || 'Could not start secure checkout.');
     }
+
+    if (data.url && /^https:\/\//i.test(data.url)) {
+      window.location.href = data.url;
+      return;
+    }
+
+    await loadStripeScript();
+    if (!stripeClient) throw new Error('Stripe unavailable.');
 
     const redirectResult = await stripeClient.redirectToCheckout({ sessionId: data.id });
     if (redirectResult && redirectResult.error) {

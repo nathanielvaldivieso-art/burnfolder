@@ -116,9 +116,6 @@
         status.textContent = 'Redirecting to secure checkout...';
 
         try {
-          await loadStripe();
-          if (!stripeClient) throw new Error('Stripe unavailable.');
-
           const res = await fetch('/.netlify/functions/create-checkout-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -126,9 +123,17 @@
           });
           const data = await res.json();
 
-          if (!res.ok || !data.id) {
+          if (!res.ok || (!data.id && !data.url)) {
             throw new Error(data.error || 'Could not create checkout session.');
           }
+
+          if (data.url && /^https:\/\//i.test(data.url)) {
+            window.location.href = data.url;
+            return;
+          }
+
+          await loadStripe();
+          if (!stripeClient) throw new Error('Stripe unavailable.');
 
           const result = await stripeClient.redirectToCheckout({ sessionId: data.id });
           if (result && result.error) {
