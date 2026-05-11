@@ -20,5 +20,7 @@ node_modules/
 *.log
 
 # IDE files
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
 .idea/
