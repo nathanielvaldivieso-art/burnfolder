@@ -89,12 +89,19 @@
       // Update page title
       document.title = doc.title;
 
+      // Keep body flags in sync so route-specific CSS (e.g. index newsletter dock) applies after SPA navigation
+      document.body.className = doc.body.className;
+
       // Replace content
       contentContainer.innerHTML = '';
       contentContainer.appendChild(newContent);
 
       // Re-initialize any page-specific scripts
       reinitializePageScripts();
+
+      if (typeof window.syncPlaybackChromeState === 'function') {
+        window.syncPlaybackChromeState();
+      }
 
       // Scroll to top
       window.scrollTo(0, 0);
@@ -107,9 +114,8 @@
   }
 
   function reinitializePageScripts() {
-    // Re-run dark mode initialization
-    if (typeof initializeDarkMode === 'function') {
-      initializeDarkMode();
+    if (typeof window.renderDataEntryPage === 'function') {
+      window.renderDataEntryPage();
     }
 
     // Re-run entry list population for index page
@@ -126,40 +132,7 @@
       });
     }
 
-    // Re-initialize newsletter form if present
-    const subscribeForm = document.getElementById('subscribeForm');
-    if (subscribeForm) {
-      subscribeForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('emailInput').value;
-        const statusMsg = document.getElementById('statusMessage');
-        
-        statusMsg.textContent = 'subscribing...';
-        statusMsg.style.color = '#666';
-        
-        try {
-          const response = await fetch('/.netlify/functions/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email })
-          });
-          
-          const data = await response.json();
-          
-          if (response.ok) {
-            statusMsg.textContent = '✓ subscribed! check your email';
-            statusMsg.style.color = '#000';
-            document.getElementById('emailInput').value = '';
-          } else {
-            statusMsg.textContent = data.message || 'error - try again';
-            statusMsg.style.color = '#000';
-          }
-        } catch (error) {
-          statusMsg.textContent = 'error - try again';
-          statusMsg.style.color = '#000';
-        }
-      });
-    }
+    // Newsletter uses a single document-level submit handler (see bindNewsletterOnce below)
 
     // Update audio and video lists for current page
     updateAudioListForPage();
@@ -176,8 +149,10 @@
     const pathParts = window.location.pathname.split('/');
     const pageKey = pathParts[pathParts.length - 1].replace('.html', '') || 'index';
 
-    // Update window.currentSongs so playTrack() always reads the right array
-    if (window.songsByPage && window.songsByPage[pageKey]) {
+    const noAudioListPages = new Set(['index', 'shop', 'cart', 'checkout', 'cancel', 'success']);
+    if (noAudioListPages.has(pageKey)) {
+      window.currentSongs = [];
+    } else if (window.songsByPage && window.songsByPage[pageKey]) {
       window.currentSongs = window.songsByPage[pageKey];
     } else {
       window.currentSongs = window.allSongs || [];
@@ -198,6 +173,7 @@
       titleSpan.setAttribute('aria-label', 'Play ' + song.title);
 
       const nameSpan = document.createElement('span');
+      nameSpan.className = 'audio-track-name';
       nameSpan.textContent = song.title;
 
       const durSpan = document.createElement('span');
@@ -211,7 +187,11 @@
       titleSpan.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          playTrack(idx);
+          if (typeof activeIdx !== 'undefined' && activeIdx === idx && typeof togglePlayPause === 'function') {
+            togglePlayPause();
+          } else {
+            playTrack(idx);
+          }
         }
       });
 
@@ -233,29 +213,35 @@
 
       wrap.appendChild(titleSpan);
 
-      // On the music page each song has a .page date — show a subtle entry link
-      if (song.page && /^\d/.test(song.page)) {
-        const dateMeta = document.createElement('div');
-        dateMeta.className = 'song-date-link';
-        const dateLink = document.createElement('a');
-        dateLink.href = song.page + '.html';
-        dateLink.textContent = song.page;
-        dateMeta.appendChild(dateLink);
-        wrap.appendChild(dateMeta);
-      }
-
       return wrap;
     }
 
-    // ── Archive page: populate section columns ─────────────────────────────
-    if (pageKey === 'archive') {
-      songs.forEach(function(song, idx) {
-        const section = song.section || 'misc';
-        const trackList = document.querySelector(
-          '.archive-section[data-section="' + section + '"] .archive-track-list'
-        );
-        if (!trackList) return;
-        trackList.appendChild(makeSongRow(song, idx, null));
+    function getSongsForContainer(container) {
+      if (container.dataset.album) {
+        return songs
+          .map((song, idx) => ({ song, idx }))
+          .filter(item => item.song.album === container.dataset.album);
+      }
+
+      if (container.dataset.playbackId) {
+        const exactMatches = songs
+          .map((song, idx) => ({ song, idx }))
+          .filter(item => item.song.playbackId === container.dataset.playbackId);
+        const nonAlbumMatches = exactMatches.filter(item => !item.song.album);
+        return nonAlbumMatches.length ? nonAlbumMatches : exactMatches;
+      }
+
+      return songs.map((song, idx) => ({ song, idx }));
+    }
+
+    const scopedAudioLists = Array.from(document.querySelectorAll('.entry-audio-list'));
+    if (scopedAudioLists.length) {
+      scopedAudioLists.forEach((listEl, listIdx) => {
+        listEl.innerHTML = '';
+        getSongsForContainer(listEl).forEach(({ song, idx }) => {
+          const row = makeSongRow(song, idx, `pageSongTitle${listIdx}-`);
+          listEl.appendChild(row);
+        });
       });
       return;
     }
@@ -267,7 +253,6 @@
     audioListEl.innerHTML = '';
     songs.forEach(function(song, idx) {
       const row = makeSongRow(song, idx, 'pageSongTitle');
-      if (idx > 0) row.style.marginTop = '32px';
       audioListEl.appendChild(row);
     });
   }
@@ -283,6 +268,9 @@
       const player = document.createElement('mux-player');
       player.setAttribute('playback-id', video.playbackId);
       player.setAttribute('metadata-video-title', video.title);
+      player.setAttribute('playbackrates', '1 1.5 2');
+      player.setAttribute('noairplay', '');
+      player.classList.add('page-inline-video');
       entry.appendChild(player);
 
       if (video.page && /^\d/.test(video.page)) {
@@ -305,5 +293,49 @@
   } else {
     initRouter();
   }
+
+  // Single delegated handler — survives SPA swaps without duplicate listeners
+  document.addEventListener('submit', async function onBurnfolderSubscribe(e) {
+    const form = e.target.closest('#subscribeForm');
+    if (!form) return;
+    e.preventDefault();
+    const emailInput = document.getElementById('emailInput');
+    const statusMsg = document.getElementById('statusMessage');
+    if (!emailInput || !statusMsg) return;
+
+    const email = emailInput.value;
+    const host = typeof location !== 'undefined' ? location.hostname : '';
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+
+    statusMsg.textContent = 'subscribing...';
+    statusMsg.style.color = '#666';
+
+    if (isLocal) {
+      statusMsg.textContent =
+        'subscribe needs netlify (deploy or netlify dev). not sent from local preview.';
+      statusMsg.style.color = '#000';
+      return;
+    }
+
+    try {
+      const response = await fetch('/.netlify/functions/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        statusMsg.textContent = data.message || '✓ subscribed';
+        statusMsg.style.color = '#000';
+        emailInput.value = '';
+      } else {
+        statusMsg.textContent = data.message || 'error — try again';
+        statusMsg.style.color = '#000';
+      }
+    } catch {
+      statusMsg.textContent = 'error — try again';
+      statusMsg.style.color = '#000';
+    }
+  });
 
 })();

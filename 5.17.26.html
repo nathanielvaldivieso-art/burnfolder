@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5.17.26</title>
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <a href="index.html" class="site-brand">burnfolder.com</a>
+  <nav class="site-nav" aria-label="Primary">
+    <a href="music.html" class="page-nav">music</a>
+    <a href="content.html" class="page-nav">video</a>
+    <a href="shop.html" class="page-nav">shop</a>
+  </nav>
+  <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
+</header>
+
+<div class="page-wrap">
+  <p class="page-id">5.17.26</p>
+
+  <p class="page-annotation">photonegative is in an interesting place.<br><br>all 4 songs have seen 10+ versions now. I&#39;m about 6 months into actively pursuing this concept. a lot of the work feels really good, i notice myself get better constantly, not just at the music but at focus, organization and other life skills that i never pictured myself being good at. <br><br>in creating photonegative, i also began to conceptualize burnfolder. i began to really consider what leverage in art looks like. i gained faith in myself that i didnt realize i lacked. i bought a camera, became interested in design, and began to holistclly aim towards the story i wanted to tell. realizing that this concept needs to live in multiple meduims to make sense.<br><br>this work is far from done, but the music I&#39;m making right now is making me really happy. if i were to never work on photonegative again, id listen back to it and be proud of what i created.<br><br>although i feel satisfied, i also know that everytime i work on it the project gets better. it improves slowly but it improves nontheless. sometimes it will take a full mix to realize the vocals are wrong and that i need to retake. it took months of practice on the drums before i realised that i could play more expressively on &quot;it doesnt matter&quot;. I worked for weeks to perfect the sound. Now, a few months of practice later, and i feel like i can redo and make the drums even better (and im probably right).<br><br>after the dust settles from all the retakes, the song is usually better. i am also probably a better musician after all of the work. yet, i listen back to the older versions of the song and i think &quot;damn.. it was great then too&quot;. its interesting becuase if i listen to the project as it was 6 months ago, the songs are completely different in every way (lyrics, instrumentation and structure). Currently, everything about the records sounds better to me. Yet, i wonder if i wait another year would i feel the same way about the versions i have now?<br><br>so if i continue to edit my this music, am i deplatforming a version of myself that deserves the last word?<br><br>when do i take the picture?<br><br>when do i begin to chip away at authenticity by working towards it?<br><br>here is the project im talking about</p>
+
+  <div class="entry-album">
+    <img src="IMAGES/CLASSIC NEGATIVE.jpg" alt="PHOTO NEGATIVE" class="entry-album-cover">
+    <p class="entry-album-title">PHOTO NEGATIVE</p>
+    <div class="entry-audio-list" data-album="PHOTO NEGATIVE" style="margin-top: 24px;"></div>
+  </div>
+</div>
+
+<div class="page-watermark">5.17.26</div>
+
+<!-- bottom player — do not modify -->
+<div class="bottom-progress-bar" id="bottomBar">
+  <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
+  <div class="bottom-bar-content">
+    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <span class="song-title" id="songTitle">Track Title</span>
+    <div class="bottom-bar-controls">
+      <div class="volume-control" id="volumeControl">
+        <div class="speaker-icon" id="speakerIcon">♪</div>
+        <div class="volume-fader" id="volumeFader">
+          <div class="volume-track">
+            <div class="volume-fill" id="volumeFill"></div>
+          </div>
+        </div>
+      </div>
+      <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>
+      <div class="progress-bar-area" id="progressBarArea">
+        <div class="progress" id="progress"></div>
+        <div class="progress-playhead" id="progressPlayhead"></div>
+      </div>
+    </div>
+    <div class="loading-spinner" id="loadingSpinner"></div>
+  </div>
+</div>
+<script src="entries.js"></script>
+<script src="entry-renderer.js"></script>
+<script src="songs.js"></script>
+<script src="stripe-publishable.js"></script>
+<script src="spa-router.js"></script>
+<script src="scripts.js?v=20260509c"></script>
+</body>
+</html>

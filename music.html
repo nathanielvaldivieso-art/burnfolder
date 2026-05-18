@@ -7,9 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-
+<body class="page-music">
   <header class="site-header">
     <a href="index.html" class="site-brand">burnfolder.com</a>
     <nav class="site-nav" aria-label="Primary">
@@ -17,13 +15,14 @@
       <a href="content.html" class="page-nav">video</a>
       <a href="shop.html" class="page-nav">shop</a>
     </nav>
-    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
   </header>
 
   <div class="page-wrap">
     <p class="page-id">music</p>
+    <p class="page-annotation">newest first. entry link lives in the player title menu.</p>
 
-    <div id="audioList" style="margin-top: 48px;"></div>
+    <div id="audioList" class="music-audio-list"></div>
   </div>
 
   <div class="page-watermark">music</div>
@@ -53,7 +52,10 @@
     </div>
   </div>
 
-  <script src="songs.js"></script>
+  <script src="entries.js"></script>
+<script src="entry-renderer.js"></script>
+<script src="songs.js"></script>
+  <script src="stripe-publishable.js"></script>
   <script src="spa-router.js"></script>
   <script src="scripts.js?v=20260509c"></script>
 </body>

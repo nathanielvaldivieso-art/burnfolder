@@ -152,7 +152,8 @@ Three colors only for video player and progress UI. Do not introduce blue.
 - Volume control is `display: none !important` — do not re-enable.
 
 Automation references:
-- Subscriber signup endpoint: `/.netlify/functions/subscribe`
+- Subscriber signup endpoint: `/.netlify/functions/subscribe` (writes Netlify Blobs)
+- Subscriber export (CI only): `/.netlify/functions/export-subscribers` + bearer `SUBSCRIBERS_EXPORT_SECRET`
 - Welcome email trigger: `.github/workflows/welcome-email.yml`
 - New entry notification trigger: `.github/workflows/notify-new-entry.yml`
 
@@ -192,9 +193,8 @@ window.videosByPage = {
 | music | music.html | window.allSongs (from songsByPage) |
 | video | content.html | window.allVideos (from videosByPage) |
 | shop | shop.html | manual HTML |
-| archive | archive.html | songsByPage["archive"] |
 
-Each track/video on a collection page shows a subtle date link (→ entry page).
+Each track on the music page no longer shows the entry date inline; use the **now playing** bar — click the track title for **go to song**, **go to entry** (when the recording is tied to a dated page), and **versions** (alternate takes).
 
 ## Known bugs to avoid
 - Never call `activeMuxPlayer.load()` after setting `playback-id` — mux-player
@@ -215,92 +215,20 @@ Each track/video on a collection page shows a subtle date link (→ entry page).
 | `index.html` | Home — entries auto-populated from window.journalEntries |
 | `music.html` | All audio — auto-populated from songs.js |
 | `content.html` | All video — auto-populated from songs.js (window.allVideos) |
-| `archive.html` | Audio archive — manual section management |
+| `stripe-publishable.js` | Stripe publishable key (load before `scripts.js` / `checkout.js`) |
 
+## Subscribers and deploy (Netlify + GitHub)
 
-## Voice and tone
-Lowercase throughout. Sparse. No marketing language, no calls to action.
-Text on the page should feel like a label on an archive box — just enough to identify,
-nothing to persuade. Dates are the primary navigation logic.
+- **Canonical list:** `/.netlify/functions/subscribe` stores emails in **Netlify Blobs** (store name `burnfolder-newsletter`, key `subscriber-emails`). They are **not** committed to git.
+- **`subscribers.json` in the repo** is an empty placeholder only (`{"subscribers":[]}`). Do not put real addresses there.
+- **One-time seed (optional):** set Netlify env `SUBSCRIBER_SEED_EMAILS` to a comma-separated list; on first subscribe after deploy, the function seeds the blob if it was empty, then you can remove the env var.
+- **New-entry emails (GitHub Actions):** add repository secret `SUBSCRIBERS_EXPORT_SECRET` with the same value as Netlify env `SUBSCRIBERS_EXPORT_SECRET`. The workflow `notify-new-entry.yml` calls `GET https://burnfolder.com/.netlify/functions/export-subscribers` with `Authorization: Bearer <secret>` to read the list.
+- **Welcome emails:** unchanged — still triggered by `repository_dispatch` from subscribe; no subscriber list file on disk required.
 
-## Aesthetic principles
-- **Archival coldness.** The site should feel like it has always existed and will continue
-  to exist without maintenance. No animations, no hover effects beyond opacity fades.
-- **Monospace as identity.** The font is not decorative — it signals that this is a record.
-- **Restraint over expression.** If something can be removed without losing meaning, remove it.
-  Whitespace is load-bearing. Left margin and opacity do more work than color or scale.
-- **Dates as titles.** Pages are named by date (M.DD.YY), not by title. The work speaks;
-  the page just marks when it happened.
-- **The player is infrastructure.** The bottom bar is functional, not featured. It should
-  disappear into the page when not in use.
+## Local preview
 
-## What to preserve in every design decision
-- White background, black text, monospace. No exceptions.
-- Left-aligned layout with consistent 60px margin. Nothing centered.
-- Page watermark (bottom-right, 9px, opacity 0.2) on every entry page.
-- Navigation links are `page-nav` class — uppercase, faded, no underline.
-- Song/entry rows use left-border + bottom-border only. No all-around boxes.
+- Newsletter subscribe shows a short message on `localhost` / `127.0.0.1` instead of calling Netlify. Use `netlify dev` to test the function locally.
 
-## Design system
-White background, black text, monospace font throughout.
-No dark mode. No colored links. No borders except left-only on song/entry rows.
-Layout is left-aligned: `page-wrap` with 60px left margin, 480px max-width.
-All entry pages share one `style.css` — page-specific styles go in a `<style>` block in the HTML file.
+## Admin / add-song
 
-## Adding a new entry — 3 steps
-
-### 1. Create the page
-Duplicate `_template.html` → rename to `M.DD.YY.html`
-Replace all three `M.DD.YY` placeholders: `<title>`, `.page-id`, `.page-watermark`
-
-### 2. Add the song to songs.js
-```js
-"M.DD.YY": [
-  { title: "track name", playbackId: "mux_playback_id_here" }
-],
-```
-The key must exactly match the HTML filename without `.html`.
-Multiple tracks on one page: add more objects to the array.
-
-### 3. Add to the index entries list (index.html)
-```js
-const entries = ["M.DD.YY", "2.25.26", "11.29.25", "11.28.25"];
-```
-Newest first.
-
-## Page anatomy (_template.html)
-```
-① <title> and .page-id      — date stamp e.g. 2.25.26
-② .page-img                 — optional photo (remove block if unused)
-③ .page-annotation          — optional caption/text (remove block if unused)
-④ #audioList                — rendered automatically by scripts.js
-⑤ .page-watermark           — fixed bottom-right stamp, matches date
-⑥ bottom player block       — never modify, identical on every page
-```
-
-## songs.js structure
-```js
-window.songsByPage = {
-  "2.25.26":  [{ title: "...", playbackId: "..." }],
-  "11.29.25": [{ title: "...", playbackId: "..." }],
-  "11.28.25": [{ title: "...", playbackId: "..." }]
-};
-// allSongs (for music page) is derived automatically — do not edit manually
-```
-
-## Known bugs to avoid
-- Never call `activeMuxPlayer.load()` after setting `playback-id` — mux-player
-  handles attribute changes automatically; calling .load() reverts to the previous track.
-- Never use `allSongs.filter(song => song.page === fileName)` to match tracks to pages
-  — use `window.songsByPage[fileName]` directly (immune to typos).
-
-## File map
-| File | Purpose |
-|------|---------|
-| `style.css` | Global styles — all pages |
-| `songs.js` | Song catalog — edit here to add tracks |
-| `scripts.js` | Audio engine — rarely needs editing |
-| `spa-router.js` | Page routing — do not edit |
-| `_template.html` | Starter for new entry pages |
-| `index.html` | Home — update entries array when adding pages |
-| `music.html` | All songs — auto-populated from songs.js |
+- `admin.html` was removed. `netlify/functions/add-song.js` returns 403 — add catalog entries by editing `songs.js` in git.

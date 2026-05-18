@@ -3,7 +3,32 @@
 // and add your entry. The music page automatically shows all songs in order.
 // ──────────────────────────────────────────────────────────────────────────────
 
-window.songsByPage = {
+function getSongsFromEntry(entry) {
+  return (entry.blocks || []).flatMap(block => {
+    if (block.type === 'audio' && block.title && block.playbackId) {
+      return [{ title: block.title, playbackId: block.playbackId }];
+    }
+
+    if (block.type === 'album' && Array.isArray(block.tracks)) {
+      return block.tracks
+        .filter(track => track.title && track.playbackId)
+        .map(track => ({
+          title: track.title,
+          playbackId: track.playbackId,
+          album: block.title || undefined,
+          coverArt: block.coverArt || undefined
+        }));
+    }
+
+    return [];
+  });
+}
+
+const entrySongsByPage = Object.fromEntries(
+  Object.entries(window.entryDataByDate || {}).map(([date, entry]) => [date, getSongsFromEntry(entry)])
+);
+
+const manualSongsByPage = {
 
   "5.8.26": [
     { title: "fire escape 4.26.26", playbackId: "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc" }
@@ -31,6 +56,11 @@ window.songsByPage = {
 
 };
 
+window.songsByPage = {
+  ...manualSongsByPage,
+  ...entrySongsByPage
+};
+
 // Flat list for the music page (newest first — follows key order above)
 // Excludes archive entries from the flat list
 window.allSongs = Object.entries(window.songsByPage)
@@ -41,7 +71,8 @@ window.allSongs = Object.entries(window.songsByPage)
 // Single source of truth for the index entry list and spa-router.
 // Newest first. Add new date keys here when creating new entry pages.
 // ──────────────────────────────────────────────────────────────────────────────
-window.journalEntries = ["5.8.26", "4.30.26", "2.25.26", "11.29.25", "11.28.25"];
+const dataEntryOrder = Array.isArray(window.entryOrder) ? window.entryOrder : Object.keys(window.entryDataByDate || {});
+window.journalEntries = Array.from(new Set([...dataEntryOrder, "5.8.26", "4.30.26", "2.25.26", "11.29.25", "11.28.25"]));
 
 // ── Video catalog ──────────────────────────────────────────────────────────────
 // To add a new video: add an entry below with the page key matching the HTML

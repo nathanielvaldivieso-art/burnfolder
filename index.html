@@ -8,8 +8,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="index-home">
-  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
-
   <header class="site-header">
     <a href="index.html" class="site-brand">burnfolder.com</a>
     <nav class="site-nav" aria-label="Primary">
@@ -17,7 +15,7 @@
       <a href="content.html" class="page-nav">video</a>
       <a href="shop.html" class="page-nav">shop</a>
     </nav>
-    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
   </header>
 
   <div class="page-wrap">
@@ -64,7 +62,10 @@
     </div>
   </div>
 
-  <script src="songs.js"></script>
+  <script src="entries.js"></script>
+<script src="entry-renderer.js"></script>
+<script src="songs.js"></script>
+  <script src="stripe-publishable.js"></script>
   <script src="spa-router.js"></script>
   <script src="scripts.js?v=20260509c"></script>
   <script>
@@ -77,29 +78,6 @@
     link.textContent = entry;
     li.appendChild(link);
     container.appendChild(li);
-  });
-
-  document.getElementById('subscribeForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('emailInput').value;
-    const statusMsg = document.getElementById('statusMessage');
-    statusMsg.textContent = 'subscribing...';
-    try {
-      const response = await fetch('/.netlify/functions/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        statusMsg.textContent = data.message || '✓ subscribed';
-        document.getElementById('emailInput').value = '';
-      } else {
-        statusMsg.textContent = data.message || 'error — try again';
-      }
-    } catch {
-      statusMsg.textContent = 'error — try again';
-    }
   });
   </script>
 </body>

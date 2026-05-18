@@ -1,38 +1,16 @@
-// Dark mode functionality
-function initializeDarkMode() {
-  const themeToggle = document.getElementById('themeToggle');
-  const body = document.body;
-
-  if (themeToggle) {
-    // Check for saved theme preference or default to light mode
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    if (currentTheme === 'dark') {
-      body.classList.add('dark-mode');
-    }
-
-    themeToggle.addEventListener('click', () => {
-      body.classList.toggle('dark-mode');
-      const theme = body.classList.contains('dark-mode') ? 'dark' : 'light';
-      localStorage.setItem('theme', theme);
-    });
-  }
-}
-
-// Initialize dark mode when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeDarkMode);
-
 // --- Spotify-like Streaming Service Audio Logic ---
 // Load allSongs from songs.js (must be included in HTML before scripts.js)
 let allSongs = window.allSongs || [];
 
 // Determine which songs to show on this page
 const pathParts = window.location.pathname.split('/');
-const fileName = pathParts[pathParts.length - 1].replace('.html', '');
-window.currentSongs = allSongs;
+const fileName = pathParts[pathParts.length - 1].replace('.html', '') || 'index';
+const noAudioChromePages = new Set(['index', 'shop', 'cart', 'checkout', 'cancel', 'success']);
+window.currentSongs = noAudioChromePages.has(fileName) ? [] : allSongs;
 
-// Entry pages + archive: pull directly from the keyed catalog — no string matching needed
-if ((fileName.match(/^\d+\.\d+\.\d+$/) || fileName === 'archive') && window.songsByPage) {
-  if (fileName !== 'archive') sessionStorage.removeItem('playbackState');
+// Dated entry pages: pull directly from the keyed catalog — no string matching needed
+if (fileName.match(/^\d+\.\d+\.\d+$/) && window.songsByPage) {
+  sessionStorage.removeItem('playbackState');
   window.currentSongs = window.songsByPage[fileName] || [];
   if (window.globalMuxPlayer) {
     window.globalMuxPlayer.pause();
@@ -113,8 +91,9 @@ const progressHoverTime = createHoverTimeElement('progress-hover-time');
 const videoProgressHoverTime = createHoverTimeElement('video-progress-hover-time');
 
 function ensureStripeClient() {
-  if (window.Stripe && !stripeClient) {
-    stripeClient = window.Stripe('pk_live_51TJGQcBKbG6lpNutrYNDhGV6aFM66hoqLakruHGC4omCXn0Nc9fXAqGzpqRIpq97v6tGP67Vx3vd1vpZbK1YkSks00ZFMq7fjN');
+  const pk = window.STRIPE_PUBLISHABLE_KEY;
+  if (window.Stripe && pk && !stripeClient) {
+    stripeClient = window.Stripe(pk);
   }
 }
 
@@ -308,6 +287,19 @@ function getSongHubHref(song) {
   return `song.html?song=${encodeURIComponent(getTrackGroupKey(song.title))}`;
 }
 
+/** Journal entry page for this recording (`M.DD.YY.html`), if applicable. */
+function getEntryPageHref(song) {
+  if (!song) return '';
+  let p = song.page != null ? String(song.page).trim() : '';
+  if (!p || !/^\d+\.\d+\.\d+$/.test(p)) {
+    const pathParts = window.location.pathname.split('/');
+    const fn = pathParts[pathParts.length - 1].replace('.html', '');
+    if (/^\d+\.\d+\.\d+$/.test(fn)) p = fn;
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(p)) return '';
+  return `${p}.html`;
+}
+
 function getVersionCandidatesForActiveSong() {
   const activeSong = getActiveSong();
   if (!activeSong) return [];
@@ -375,7 +367,10 @@ function playTrackBySong(song) {
 }
 
 function renderVersionPicker() {
-  if (!versionPickerList || !versionPickerMenu || !songTitleEl) return;
+  const actionsEl = document.getElementById('versionPickerActions');
+  if (!versionPickerList || !versionPickerMenu || !songTitleEl || !actionsEl) return;
+
+  actionsEl.innerHTML = '';
   versionPickerList.innerHTML = '';
 
   const activeSong = getActiveSong();
@@ -389,11 +384,23 @@ function renderVersionPicker() {
   const goToSongLink = document.createElement('a');
   goToSongLink.className = 'icon-btn version-picker-go-link';
   goToSongLink.href = getSongHubHref(activeSong);
-  goToSongLink.textContent = 'Go to song';
+  goToSongLink.textContent = 'go to song';
   goToSongLink.addEventListener('click', () => {
     closeVersionPicker();
   });
-  versionPickerList.appendChild(goToSongLink);
+  actionsEl.appendChild(goToSongLink);
+
+  const entryHref = getEntryPageHref(activeSong);
+  if (entryHref) {
+    const goToEntryLink = document.createElement('a');
+    goToEntryLink.className = 'icon-btn version-picker-go-link';
+    goToEntryLink.href = entryHref;
+    goToEntryLink.textContent = 'go to entry';
+    goToEntryLink.addEventListener('click', () => {
+      closeVersionPicker();
+    });
+    actionsEl.appendChild(goToEntryLink);
+  }
 
   versions.forEach((song) => {
     const button = document.createElement('button');
@@ -439,13 +446,14 @@ function createVersionPickerUI() {
   songTitleEl.setAttribute('role', 'button');
   songTitleEl.setAttribute('aria-haspopup', 'dialog');
   songTitleEl.setAttribute('aria-expanded', 'false');
-  songTitleEl.setAttribute('aria-label', 'Choose song version');
+  songTitleEl.setAttribute('aria-label', 'Open now playing menu');
 
   versionPickerMenu = document.createElement('div');
   versionPickerMenu.className = 'version-picker-menu';
   versionPickerMenu.id = 'versionPickerMenu';
   versionPickerMenu.innerHTML = `
-    <div class="version-picker-heading">Versions</div>
+    <div class="version-picker-actions" id="versionPickerActions"></div>
+    <div class="version-picker-heading">versions</div>
     <div class="version-picker-list" id="versionPickerList"></div>
   `;
 
@@ -666,8 +674,57 @@ function getCartItems() {
 function updateCartFloat() {
   const float = document.getElementById('cartFloat');
   if (!float) return;
-  float.style.display = 'inline-flex';
+  const hasItems = getCartItems().length > 0;
+  float.classList.toggle('site-cart-btn--hidden', !hasItems);
+  float.setAttribute('aria-hidden', hasItems ? 'false' : 'true');
 }
+
+window.updateCartFloat = updateCartFloat;
+
+function addTinCanToCart() {
+  const cart = getCartItems();
+  if (cart.some((item) => item.id === 'seltzer-can')) {
+    alert('already in cart.');
+    return;
+  }
+  cart.push({
+    id: 'seltzer-can',
+    name: 'tin can',
+    price: 1,
+    qty: 1,
+    image: 'IMAGES/tin-can.png',
+    requiresShipping: 'true',
+  });
+  localStorage.setItem('cart', JSON.stringify(cart));
+  updateCartFloat();
+  if (typeof openCheckoutPopup === 'function') {
+    openCheckoutPopup('cart');
+  }
+}
+
+window.addTinCanToCart = addTinCanToCart;
+
+function removeCartItemAt(rawIndex) {
+  const idx = Math.floor(Number(rawIndex));
+  const cart = getCartItems();
+  if (!Number.isFinite(idx) || idx < 0 || idx >= cart.length) return;
+  cart.splice(idx, 1);
+  localStorage.setItem('cart', JSON.stringify(cart));
+  updateCartFloat();
+  window.dispatchEvent(new CustomEvent('burnfolder-cart-changed'));
+
+  const overlay = document.getElementById('purchaseOverlay');
+  const popupOpen = overlay && overlay.classList.contains('open') && checkoutMode === 'cart';
+  if (popupOpen) {
+    if (cart.length === 0) {
+      closeCheckoutPopup();
+    } else {
+      renderCheckoutSummary();
+    }
+  }
+}
+
+window.removeCartItemAt = removeCartItemAt;
 
 function renderCheckoutSummary() {
   const summary = document.getElementById('purchaseSummary');
@@ -685,15 +742,39 @@ function renderCheckoutSummary() {
     const cart = getCartItems();
     const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
 
+    summary.innerHTML = '';
     if (cart.length === 0) {
       summary.innerHTML = '<p class="checkout-popup-line">Your cart is empty.</p>';
     } else {
-      const rows = cart.map(item => `<div class="checkout-popup-line">${item.name} x${item.qty} - $${item.price * item.qty}</div>`).join('');
-      summary.innerHTML = `
-        <p class="checkout-popup-title">Your Cart</p>
-        ${rows}
-        <div class="checkout-popup-total">Total: $${total}</div>
-      `;
+      const title = document.createElement('p');
+      title.className = 'checkout-popup-title';
+      title.textContent = 'Your Cart';
+      summary.appendChild(title);
+
+      cart.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'checkout-popup-line checkout-popup-cart-row';
+
+        const info = document.createElement('span');
+        info.className = 'checkout-popup-cart-info';
+        info.textContent = `${item.name} x${item.qty} - $${item.price * item.qty}`;
+
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'icon-btn checkout-cart-remove';
+        rm.textContent = 'remove';
+        rm.setAttribute('aria-label', `remove ${item.name} from cart`);
+        rm.addEventListener('click', () => removeCartItemAt(i));
+
+        row.appendChild(info);
+        row.appendChild(rm);
+        summary.appendChild(row);
+      });
+
+      const tot = document.createElement('div');
+      tot.className = 'checkout-popup-total';
+      tot.textContent = `Total: $${total}`;
+      summary.appendChild(tot);
     }
 
     shippingFields.style.display = 'block';
@@ -1245,7 +1326,6 @@ if (savedState && audioList) {
       if (window.globalMuxPlayer) {
         window.globalMuxPlayer.pause();
         window.globalMuxPlayer.removeAttribute('playback-id');
-        window.globalMuxPlayer.load();
       }
       updateUI();
     }
@@ -1293,6 +1373,7 @@ if (audioList && !didRenderInitially) {
     titleSpan.className = 'page-song-title';
     titleSpan.id = `pageSongTitle${idx+1}`;
     const nameSpan = document.createElement('span');
+    nameSpan.className = 'audio-track-name';
     nameSpan.textContent = song.title;
     const durationSpan = document.createElement('span');
     durationSpan.className = 'song-duration';
@@ -1311,7 +1392,6 @@ if (audioList && !didRenderInitially) {
     });
     const container = document.createElement('div');
     container.className = 'mux-audio-container';
-    if (idx > 0) container.style.marginTop = '32px';
     container.appendChild(titleSpan);
     audioList.appendChild(container);
   });
@@ -1356,7 +1436,7 @@ function updateUI() {
       bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
     }
     songTitleEl.textContent = activeSong.title;
-    songTitleEl.setAttribute('aria-label', `Choose version for ${activeSong.title}`);
+    songTitleEl.setAttribute('aria-label', `menu for ${activeSong.title}`);
     renderVersionPicker();
     bottomBar.style.display = 'block';
     bottomPlayBtn.focus();
@@ -1365,7 +1445,21 @@ function updateUI() {
     bottomBar.style.display = 'none';
     songTitleEl.textContent = '';
   }
+  syncPlaybackChromeState();
 }
+
+function syncPlaybackChromeState() {
+  const activeSong = getActiveSong();
+  const barOn = bottomBar && bottomBar.style.display === 'block';
+  const playing =
+    activeIdx !== null &&
+    activeSong &&
+    barOn &&
+    !activeMuxPlayer.paused;
+  document.body.classList.toggle('playback-playing', !!playing);
+}
+
+window.syncPlaybackChromeState = syncPlaybackChromeState;
 
 function playTrack(idx) {
   activeSongOverride = null;
@@ -1453,8 +1547,13 @@ function updateProgress() {
 }
 activeMuxPlayer.addEventListener('timeupdate', updateProgress);
 activeMuxPlayer.addEventListener('ended', () => {
-  updateUI();
   progressEl.style.width = '0%';
+  const nextIdx = activeIdx !== null && activeIdx >= 0 ? activeIdx + 1 : null;
+  if (nextIdx !== null && nextIdx < window.currentSongs.length) {
+    playTrack(nextIdx);
+    return;
+  }
+  updateUI();
 });
 activeMuxPlayer.addEventListener('waiting', () => {
   showLoading(true);
@@ -1468,9 +1567,14 @@ activeMuxPlayer.addEventListener('pause', () => {
 });
 activeMuxPlayer.addEventListener('error', () => {
   const activeSong = getActiveSong();
-  const failedTitle = activeSong ? activeSong.title : 'Track';
-  alert(`Failed to load "${failedTitle}". Please try again later.`);
-  activeMuxPlayer.pause();
+  if (activeSong) {
+    console.warn(`Failed to load "${activeSong.title}".`, activeSong.playbackId);
+  }
+  const nextIdx = activeIdx !== null && activeIdx >= 0 ? activeIdx + 1 : null;
+  if (nextIdx !== null && nextIdx < window.currentSongs.length) {
+    playTrack(nextIdx);
+    return;
+  }
   showLoading(false);
   updateUI();
 });

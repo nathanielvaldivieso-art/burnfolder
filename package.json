@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Newsletter automation for burnfolder.com",
   "dependencies": {
+    "@netlify/blobs": "^8.2.0",
     "@octokit/rest": "^20.0.2",
     "shippo": "^2.18.0",
     "stripe": "^22.0.0"

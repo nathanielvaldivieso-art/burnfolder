@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '[0-9]*.html'
+      - 'entries.js'
 
 jobs:
   check-and-notify:
@@ -15,23 +16,62 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check for new HTML files
+      - name: Check for new entries
         id: check
         run: |
-          # Only notify on newly added dated entry files in this push range.
-          # Supports M.DD.html and M.DD.YY.html naming.
+          # Notify on newly added dated entry files or newly added entries.js data keys.
           BASE_SHA="${{ github.event.before }}"
           HEAD_SHA="${{ github.sha }}"
+          export BASE_SHA HEAD_SHA
 
           if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
             NEW_FILES=$(git ls-tree --name-only -r "$HEAD_SHA" | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?\.html$' || true)
           else
             NEW_FILES=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | awk '$1=="A" {print $2}' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?\.html$' || true)
           fi
-          
+
+          NEW_DATA_ENTRIES=$(node <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const { execFileSync } = require('child_process');
+          const baseSha = process.env.BASE_SHA;
+          const headSha = process.env.HEAD_SHA;
+
+          function loadEntries(source) {
+            const ctx = { window: {} };
+            vm.createContext(ctx);
+            try {
+              vm.runInContext(source, ctx);
+            } catch (error) {
+              return [];
+            }
+            return Object.keys(ctx.window.entryDataByDate || {});
+          }
+
+          function fileAt(ref) {
+            try {
+              return execFileSync('git', ['show', `${ref}:entries.js`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+            } catch (error) {
+              return '';
+            }
+          }
+
+          const headSource = fs.existsSync('entries.js') ? fs.readFileSync('entries.js', 'utf8') : fileAt(headSha);
+          const baseSource = baseSha && baseSha !== '0000000000000000000000000000000000000000' ? fileAt(baseSha) : '';
+          const before = new Set(loadEntries(baseSource));
+          const added = loadEntries(headSource).filter((date) => !before.has(date));
+          process.stdout.write(added.join('\n'));
+          NODE
+          )
+
+          NEW_ENTRIES=$(printf '%s\n%s\n' "$NEW_FILES" "$NEW_DATA_ENTRIES" | sed 's/\.html$//' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -u || true)
+
           if [ -n "$NEW_FILES" ]; then
-            ENTRIES=$(echo "$NEW_FILES" | sed 's/\.html$//')
-            ENTRIES_CSV=$(echo "$ENTRIES" | paste -sd, -)
+            :
+          fi
+
+          if [ -n "$NEW_ENTRIES" ]; then
+            ENTRIES_CSV=$(echo "$NEW_ENTRIES" | paste -sd, -)
             echo "new_entries=$ENTRIES_CSV" >> $GITHUB_OUTPUT
             echo "has_new=true" >> $GITHUB_OUTPUT
             echo "Found new entries: $ENTRIES_CSV"
@@ -43,11 +83,20 @@ jobs:
       - name: Get subscriber list
         if: steps.check.outputs.has_new == 'true'
         id: subscribers
+        env:
+          EXPORT_SECRET: ${{ secrets.SUBSCRIBERS_EXPORT_SECRET }}
         run: |
-          # Read subscribers from JSON file
-          EMAILS=$(cat subscribers.json | jq -r '.subscribers[]' | tr '\n' ',' | sed 's/,$//')
-          echo "emails=$EMAILS" >> $GITHUB_OUTPUT
-          echo "Subscribers: $EMAILS"
+          set -euo pipefail
+          if [ -z "${EXPORT_SECRET:-}" ]; then
+            echo "Add GitHub repository secret SUBSCRIBERS_EXPORT_SECRET (same value as Netlify env for export-subscribers)."
+            exit 1
+          fi
+          curl -sS -f -H "Authorization: Bearer ${EXPORT_SECRET}" \
+            "https://burnfolder.com/.netlify/functions/export-subscribers" \
+            -o subscribers-export.json
+          EMAILS=$(jq -r '.subscribers[]?' subscribers-export.json 2>/dev/null | tr '\n' ',' | sed 's/,$//' || true)
+          echo "emails=$EMAILS" >> "$GITHUB_OUTPUT"
+          echo "Subscribers fetched for notify job."
 
       - name: Send notification emails
         if: steps.check.outputs.has_new == 'true' && steps.subscribers.outputs.emails != ''
@@ -64,6 +113,7 @@ jobs:
 
           IFS=',' read -ra EMAIL_ARRAY <<< "${{ steps.subscribers.outputs.emails }}"
           IFS=',' read -ra ENTRY_ARRAY <<< "$ENTRIES_CSV"
+          FAILED_SENDS=0
 
           for entry in "${ENTRY_ARRAY[@]}"; do
             ENTRY_DATE="$entry"
@@ -120,7 +170,12 @@ jobs:
               if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
                 echo "${PROVIDER} error for ${email}:"
                 cat "$RESPONSE_BODY"
-                exit 1
+                FAILED_SENDS=$((FAILED_SENDS + 1))
               fi
             done
           done
+
+          if [ "$FAILED_SENDS" -gt 0 ]; then
+            echo "$FAILED_SENDS notification send(s) failed."
+            exit 1
+          fi

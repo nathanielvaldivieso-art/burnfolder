@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>entry editor - burnfolder.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="entry-editor-page">
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
+  </header>
+
+  <main class="entry-editor-shell">
+    <section class="entry-editor-panel" aria-label="Entry editor controls">
+      <p class="page-id">entry editor</p>
+      <p class="page-annotation">local draft tool. build the page here, then copy the entries.js object. html and song data are generated from the same blocks.</p>
+
+      <div class="entry-editor-field">
+        <label for="entryDate">date / filename key</label>
+        <input id="entryDate" type="text" placeholder="5.17.26" spellcheck="false">
+      </div>
+
+      <div class="entry-editor-section-title">add blocks</div>
+      <div class="entry-block-toolbar" aria-label="Add entry blocks">
+        <button class="icon-btn" id="addTextBlockBtn" type="button">text</button>
+        <button class="icon-btn" id="addImageBlockBtn" type="button">photo</button>
+        <button class="icon-btn" id="addAudioBlockBtn" type="button">audio</button>
+        <button class="icon-btn" id="addAlbumBlockBtn" type="button">album</button>
+        <button class="icon-btn" id="addVideoBlockBtn" type="button">video</button>
+      </div>
+
+      <div class="entry-editor-section-title">blocks</div>
+      <div id="entryBlocks" class="entry-block-list" aria-label="Entry blocks"></div>
+
+      <div class="entry-editor-actions">
+        <button class="icon-btn" id="copyPackageBtn" type="button">copy entry package</button>
+        <button class="icon-btn" id="downloadPackageBtn" type="button">download entry package</button>
+        <button class="icon-btn" id="copyHtmlBtn" type="button">copy html</button>
+        <button class="icon-btn" id="downloadHtmlBtn" type="button">download html</button>
+        <button class="icon-btn" id="saveHtmlBtn" type="button">save html file</button>
+      </div>
+      <p class="entry-editor-status" id="entryEditorStatus" aria-live="polite"></p>
+    </section>
+
+    <section class="entry-editor-preview-panel" aria-label="Entry preview">
+      <div class="entry-editor-preview-top">
+        <p class="page-id">preview</p>
+        <button class="icon-btn" id="refreshPreviewBtn" type="button">refresh</button>
+      </div>
+      <div id="entryPreview" class="entry-editor-preview"></div>
+    </section>
+
+    <section class="entry-editor-output-panel" aria-label="Generated output">
+      <p class="page-id">generated output</p>
+
+      <div class="entry-editor-output-group">
+        <div class="entry-editor-output-heading">
+          <span>entries.js entry</span>
+          <button class="icon-btn" data-copy-target="entryDataOutput" type="button">copy</button>
+        </div>
+        <textarea id="entryDataOutput" rows="10" spellcheck="false"></textarea>
+      </div>
+
+      <div class="entry-editor-output-group">
+        <div class="entry-editor-output-heading">
+          <span>entry html</span>
+          <button class="icon-btn" data-copy-target="entryHtmlOutput" type="button">copy</button>
+        </div>
+        <textarea id="entryHtmlOutput" rows="12" spellcheck="false"></textarea>
+      </div>
+
+      <div class="entry-editor-output-group">
+        <div class="entry-editor-output-heading">
+          <span>songs.js page entry</span>
+          <button class="icon-btn" data-copy-target="songsEntryOutput" type="button">copy</button>
+        </div>
+        <textarea id="songsEntryOutput" rows="6" spellcheck="false"></textarea>
+      </div>
+
+      <div class="entry-editor-output-group">
+        <div class="entry-editor-output-heading">
+          <span>journal entries line</span>
+          <button class="icon-btn" data-copy-target="journalEntryOutput" type="button">copy</button>
+        </div>
+        <textarea id="journalEntryOutput" rows="3" spellcheck="false"></textarea>
+      </div>
+    </section>
+  </main>
+
+  <script src="entries.js"></script>
+<script src="entry-renderer.js"></script>
+<script src="songs.js"></script>
+  <script src="entry-editor.js"></script>
+</body>
+</html>

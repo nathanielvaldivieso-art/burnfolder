@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cart - burnfolder.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,7 +15,7 @@
       <a href="content.html" class="page-nav">video</a>
       <a href="shop.html" class="page-nav">shop</a>
     </nav>
-    <a href="cart.html" class="icon-btn site-cart-btn" id="cartFloat" title="View cart">cart</a>
+    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
   </header>
 
   <div class="page-wrap">
@@ -22,127 +23,159 @@
     <div id="cart-items"></div>
     <div id="cart-total"></div>
     <button id="checkout-btn" class="icon-btn" style="display:none;margin-top:18px;">
-      Checkout
+      checkout
     </button>
     <div id="checkout-status" style="margin-top:10px;font-size:0.85em;opacity:0.72;"></div>
-    <p id="empty-cart-msg">Your cart is empty.</p>
-    <script>
-      const stripePublicKey = 'pk_live_51TJGQcBKbG6lpNutrYNDhGV6aFM66hoqLakruHGC4omCXn0Nc9fXAqGzpqRIpq97v6tGP67Vx3vd1vpZbK1YkSks00ZFMq7fjN';
-      let stripeClient = null;
-
-      function loadStripe() {
-        return new Promise((resolve, reject) => {
-          if (window.Stripe) {
-            stripeClient = stripeClient || window.Stripe(stripePublicKey);
-            resolve();
-            return;
-          }
-
-          let script = document.querySelector('script[data-stripe-js="true"]');
-          if (!script) {
-            script = document.createElement('script');
-            script.src = 'https://js.stripe.com/v3/';
-            script.async = true;
-            script.dataset.stripeJs = 'true';
-            document.head.appendChild(script);
-          }
-
-          script.addEventListener('load', () => {
-            stripeClient = window.Stripe(stripePublicKey);
-            resolve();
-          }, { once: true });
-
-          script.addEventListener('error', () => {
-            reject(new Error('Failed to load Stripe.'));
-          }, { once: true });
-        });
-      }
-
-      // Patch cart.js logic for icon Remove and Checkout
-      function getCart() {
-        return JSON.parse(localStorage.getItem('cart') || '[]');
-      }
-      function setCart(cart) {
-        localStorage.setItem('cart', JSON.stringify(cart));
-      }
-      function renderCart() {
-        const cart = getCart();
-        const cartItemsDiv = document.getElementById('cart-items');
-        const cartTotalDiv = document.getElementById('cart-total');
-        const checkoutBtn = document.getElementById('checkout-btn');
-        const emptyMsg = document.getElementById('empty-cart-msg');
-        cartItemsDiv.innerHTML = '';
-        let total = 0;
-        if (cart.length === 0) {
-          cartTotalDiv.textContent = '';
-          checkoutBtn.style.display = 'none';
-          emptyMsg.style.display = 'block';
-          return;
-        }
-        emptyMsg.style.display = 'none';
-        checkoutBtn.style.display = 'inline-flex';
-        cart.forEach((item, idx) => {
-          total += item.price * item.qty;
-          const div = document.createElement('div');
-          div.className = 'cart-item';
-          div.innerHTML = `
-            <img src="${item.image}" alt="${item.name}" style="width:60px;vertical-align:middle;"> 
-            <span style="margin:0 12px 0 8px;">${item.name} $${item.price} Qty: ${item.qty}</span>
-            <button class="icon-btn" title="Remove" onclick="removeFromCart(${idx})">Remove</button>
-          `;
-          cartItemsDiv.appendChild(div);
-        });
-        cartTotalDiv.textContent = `Total: $${total}`;
-      }
-      function removeFromCart(idx) {
-        const cart = getCart();
-        cart.splice(idx, 1);
-        setCart(cart);
-        renderCart();
-        if (window.updateCartFloat) window.updateCartFloat();
-      }
-
-      async function startWalletCheckout() {
-        const status = document.getElementById('checkout-status');
-        const checkoutBtn = document.getElementById('checkout-btn');
-        const cart = getCart();
-
-        if (!cart.length) {
-          status.textContent = 'Your cart is empty.';
-          return;
-        }
-
-        checkoutBtn.disabled = true;
-        status.textContent = 'Redirecting to secure checkout...';
-
-        try {
-          const res = await fetch('/.netlify/functions/create-checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cart })
-          });
-          const data = await res.json();
-
-          if (!res.ok || (!data.id && !data.url)) {
-            throw new Error(data.error || 'Could not create checkout session.');
-          }
-
-          if (data.url && /^https:\/\//i.test(data.url)) {
-            window.location.href = data.url;
-            return;
-          }
-
-          throw new Error('Secure checkout URL unavailable. Please try again.');
-        } catch (err) {
-          status.textContent = err.message || 'Checkout unavailable.';
-          checkoutBtn.disabled = false;
-        }
-      }
-
-      document.getElementById('checkout-btn').onclick = startWalletCheckout;
-      window.addEventListener('DOMContentLoaded', renderCart);
-    </script>
+    <p id="empty-cart-msg">your cart is empty.</p>
+    <div id="audioList" style="display:none"></div>
   </div>
   <div class="page-watermark">burnfolder.com</div>
+
+  <div class="bottom-progress-bar" id="bottomBar">
+    <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
+    <div class="bottom-bar-content">
+      <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+      <span class="song-title" id="songTitle">Track Title</span>
+      <div class="bottom-bar-controls">
+        <div class="volume-control" id="volumeControl">
+          <div class="speaker-icon" id="speakerIcon">♪</div>
+          <div class="volume-fader" id="volumeFader">
+            <div class="volume-track">
+              <div class="volume-fill" id="volumeFill"></div>
+            </div>
+          </div>
+        </div>
+        <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>
+        <div class="progress-bar-area" id="progressBarArea">
+          <div class="progress" id="progress"></div>
+          <div class="progress-playhead" id="progressPlayhead"></div>
+        </div>
+      </div>
+      <div class="loading-spinner" id="loadingSpinner"></div>
+    </div>
+  </div>
+
+  <script src="entries.js"></script>
+<script src="entry-renderer.js"></script>
+<script src="songs.js"></script>
+  <script src="stripe-publishable.js"></script>
+  <script src="spa-router.js"></script>
+  <script src="scripts.js?v=20260509c"></script>
+  <script>
+    let stripeClient = null;
+
+    function loadStripe() {
+      return new Promise((resolve, reject) => {
+        const pk = window.STRIPE_PUBLISHABLE_KEY;
+        if (!pk) {
+          reject(new Error('Stripe key missing.'));
+          return;
+        }
+        if (window.Stripe) {
+          stripeClient = stripeClient || window.Stripe(pk);
+          resolve();
+          return;
+        }
+
+        let script = document.querySelector('script[data-stripe-js="true"]');
+        if (!script) {
+          script = document.createElement('script');
+          script.src = 'https://js.stripe.com/v3/';
+          script.async = true;
+          script.dataset.stripeJs = 'true';
+          document.head.appendChild(script);
+        }
+
+        script.addEventListener('load', () => {
+          stripeClient = window.Stripe(pk);
+          resolve();
+        }, { once: true });
+
+        script.addEventListener('error', () => {
+          reject(new Error('Failed to load Stripe.'));
+        }, { once: true });
+      });
+    }
+
+    function getCart() {
+      return JSON.parse(localStorage.getItem('cart') || '[]');
+    }
+    function setCart(cart) {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    }
+    function renderCart() {
+      const cart = getCart();
+      const cartItemsDiv = document.getElementById('cart-items');
+      const cartTotalDiv = document.getElementById('cart-total');
+      const checkoutBtn = document.getElementById('checkout-btn');
+      const emptyMsg = document.getElementById('empty-cart-msg');
+      cartItemsDiv.innerHTML = '';
+      let total = 0;
+      if (cart.length === 0) {
+        cartTotalDiv.textContent = '';
+        checkoutBtn.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        if (window.updateCartFloat) window.updateCartFloat();
+        return;
+      }
+      emptyMsg.style.display = 'none';
+      checkoutBtn.style.display = 'inline-flex';
+      cart.forEach((item, idx) => {
+        total += item.price * item.qty;
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
+            <img src="${item.image}" alt="${item.name}" style="width:60px;vertical-align:middle;">
+            <span style="margin:0 12px 0 8px;">${item.name} $${item.price} qty: ${item.qty}</span>
+            <button type="button" class="icon-btn cart-line-remove" title="Remove" onclick="window.removeCartItemAt(${idx})">remove</button>
+          `;
+        cartItemsDiv.appendChild(div);
+      });
+      cartTotalDiv.textContent = `total: $${total}`;
+      if (window.updateCartFloat) window.updateCartFloat();
+    }
+
+    async function startWalletCheckout() {
+      const status = document.getElementById('checkout-status');
+      const checkoutBtn = document.getElementById('checkout-btn');
+      const cart = getCart();
+
+      if (!cart.length) {
+        status.textContent = 'your cart is empty.';
+        return;
+      }
+
+      checkoutBtn.disabled = true;
+      status.textContent = 'redirecting to secure checkout...';
+
+      try {
+        await loadStripe();
+        const res = await fetch('/.netlify/functions/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cart })
+        });
+        const data = await res.json();
+
+        if (!res.ok || (!data.id && !data.url)) {
+          throw new Error(data.error || 'Could not create checkout session.');
+        }
+
+        if (data.url && /^https:\/\//i.test(data.url)) {
+          window.location.href = data.url;
+          return;
+        }
+
+        throw new Error('Secure checkout URL unavailable. Please try again.');
+      } catch (err) {
+        status.textContent = err.message || 'checkout unavailable.';
+        checkoutBtn.disabled = false;
+      }
+    }
+
+    document.getElementById('checkout-btn').onclick = startWalletCheckout;
+    window.addEventListener('DOMContentLoaded', renderCart);
+    window.addEventListener('burnfolder-cart-changed', renderCart);
+  </script>
 </body>
 </html>

@@ -30,7 +30,7 @@ window.addEventListener('DOMContentLoaded', renderCheckout);
 
 // Stripe Elements integration
 const form = document.getElementById('checkout-form');
-const stripe = Stripe('pk_live_51TJGQcBKbG6lpNutrYNDhGV6aFM66hoqLakruHGC4omCXn0Nc9fXAqGzpqRIpq97v6tGP67Vx3vd1vpZbK1YkSks00ZFMq7fjN');
+const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
 const elements = stripe.elements();
 const card = elements.create('card', {
   style: {

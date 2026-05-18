@@ -29,7 +29,7 @@ jobs:
           fi
 
           # Keep welcome-email recent links synced with website source of truth.
-          ENTRY_LIST_JSON=$(node -e 'const fs=require("fs"); const vm=require("vm"); const ctx={window:{}}; vm.createContext(ctx); vm.runInContext(fs.readFileSync("songs.js","utf8"),ctx); const entries=Array.isArray(ctx.window.journalEntries)?ctx.window.journalEntries:[]; const valid=entries.filter((e)=>fs.existsSync(`${e}.html`)).slice(0,3); process.stdout.write(JSON.stringify(valid));')
+          ENTRY_LIST_JSON=$(node -e 'const fs=require("fs"); const vm=require("vm"); const ctx={window:{}}; vm.createContext(ctx); if(fs.existsSync("entries.js")) vm.runInContext(fs.readFileSync("entries.js","utf8"),ctx); vm.runInContext(fs.readFileSync("songs.js","utf8"),ctx); const entries=Array.isArray(ctx.window.journalEntries)?ctx.window.journalEntries:[]; const valid=entries.filter((e)=>fs.existsSync(`${e}.html`)).slice(0,3); process.stdout.write(JSON.stringify(valid));')
 
           RECENT_ENTRIES_HTML=$(echo "$ENTRY_LIST_JSON" | jq -r '
             if length == 0 then
