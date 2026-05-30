@@ -480,14 +480,6 @@ ${bodyParts.join('\n\n')}
     <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
     <span class="song-title" id="songTitle">Track Title</span>
     <div class="bottom-bar-controls">
-      <div class="volume-control" id="volumeControl">
-        <div class="speaker-icon" id="speakerIcon">&#9834;</div>
-        <div class="volume-fader" id="volumeFader">
-          <div class="volume-track">
-            <div class="volume-fill" id="volumeFill"></div>
-          </div>
-        </div>
-      </div>
       <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>
       <div class="progress-bar-area" id="progressBarArea">
         <div class="progress" id="progress"></div>
@@ -592,26 +584,37 @@ ${tracks.join(',\n')}
     }
 
     function renderAudioPreview(block) {
-      const row = document.createElement('div');
-      row.className = 'mux-audio-container';
+      const host = document.createElement('div');
+      const list = document.createElement('ol');
+      list.className = 'music-tracklist';
 
-      const title = document.createElement('span');
-      title.className = 'page-song-title';
-      title.setAttribute('role', 'button');
-      title.setAttribute('tabindex', '0');
+      const item = document.createElement('li');
+      item.className = 'music-tracklist-item';
+
+      const num = document.createElement('span');
+      num.className = 'music-track-num';
+      num.textContent = '1';
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'music-track-row';
+      row.disabled = true;
 
       const name = document.createElement('span');
-      name.className = 'audio-track-name';
+      name.className = 'music-track-title';
       name.textContent = block.title || 'untitled song';
 
       const duration = document.createElement('span');
-      duration.className = 'song-duration';
+      duration.className = 'music-track-duration';
       duration.textContent = '--:--';
 
-      title.appendChild(name);
-      title.appendChild(duration);
-      row.appendChild(title);
-      return row;
+      row.appendChild(name);
+      row.appendChild(duration);
+      item.appendChild(num);
+      item.appendChild(row);
+      list.appendChild(item);
+      host.appendChild(list);
+      return host;
     }
 
     function renderPreview(entry) {
@@ -1071,14 +1074,6 @@ ${bodyParts.join('\n\n')}
     <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
     <span class="song-title" id="songTitle">Track Title</span>
     <div class="bottom-bar-controls">
-      <div class="volume-control" id="volumeControl">
-        <div class="speaker-icon" id="speakerIcon">&#9834;</div>
-        <div class="volume-fader" id="volumeFader">
-          <div class="volume-track">
-            <div class="volume-fill" id="volumeFill"></div>
-          </div>
-        </div>
-      </div>
       <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>
       <div class="progress-bar-area" id="progressBarArea">
         <div class="progress" id="progress"></div>
@@ -1162,28 +1157,36 @@ ${tracks.join(',\n')}
     songList.className = 'entry-editor-song-preview';
     songList.style.marginTop = '48px';
 
-    entry.songs.forEach(song => {
-      const row = document.createElement('div');
-      row.className = 'mux-audio-container';
+    const list = document.createElement('ol');
+    list.className = 'music-tracklist';
+    entry.songs.forEach((song, index) => {
+      const item = document.createElement('li');
+      item.className = 'music-tracklist-item';
 
-      const title = document.createElement('span');
-      title.className = 'page-song-title';
-      title.setAttribute('role', 'button');
-      title.setAttribute('tabindex', '0');
+      const num = document.createElement('span');
+      num.className = 'music-track-num';
+      num.textContent = String(index + 1);
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'music-track-row';
+      row.disabled = true;
 
       const name = document.createElement('span');
-      name.className = 'audio-track-name';
+      name.className = 'music-track-title';
       name.textContent = song.title || 'untitled song';
 
       const duration = document.createElement('span');
-      duration.className = 'song-duration';
+      duration.className = 'music-track-duration';
       duration.textContent = '--:--';
 
-      title.appendChild(name);
-      title.appendChild(duration);
-      row.appendChild(title);
-      songList.appendChild(row);
+      row.appendChild(name);
+      row.appendChild(duration);
+      item.appendChild(num);
+      item.appendChild(row);
+      list.appendChild(item);
     });
+    songList.appendChild(list);
 
     wrap.appendChild(songList);
     els.preview.appendChild(wrap);

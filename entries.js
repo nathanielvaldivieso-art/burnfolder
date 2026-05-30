@@ -4,6 +4,21 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "5.29.26": {
+    date: "5.29.26",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "today i am working on sometimes.\n\n- working on the hook. going for fuzzy. the task is to pull out the air without harsh high end.\n\n\n- i am unsure if the 2nd verse needs drums. id really love for it to work since the technique is so interesting to me. i am programing to the vocal transients rather than the grid, then i will map the volume to the volume of the vocal. last, i will create a spectral expander that is sidechained to the vocal, so the drums take on the sonic profile of the vocal transient it is sharing space with. i want these drums to feel,shaped/glued to the vocal - in this way i can relate it back to the message of the verse, breaking away from the smooth predicability of the song, introducing some nerve.\n\noff we go.\n\n\n3 hours later - ended up adding some hits in the 1st verse that i realllly like. drums kind of worked out but not great. chorus sounds beautiful.\n\n\n"
+      },
+      {
+        type: "audio",
+        title: "SOMETIMES 5.29.26",
+        playbackId: "QHLaM4BLnpf4YbnycWlSEOQAHG700gWS9usr6fCR01HiE"
+      }
+    ]
+  },
   "5.17.26": {
     date: "5.17.26",
     blocks: [
@@ -20,11 +35,14 @@ window.entryDataByDate = {
           { title: "SOMETIMES 5.17.26", playbackId: "vOBG4TQZrJRqQiWIvubM4dvgBekslJdm2IUU71YMIbQ" },
           { title: "FIRE ESCAPE 4.26.26", playbackId: "D2PshEUdmfRgTJg1XlRaMrCANn8owIeZRJdc3Kt2ErM" },
           { title: "PHOTO NEGATIVE 4.7.26 v2", playbackId: "Q2018zZ00i02Tolfa81rLfTprWDfYU4e69Y01RcQjLrVbyg" },
-          { title: "IT DOESNT MATTER 4.30.26", playbackId: "QE4801I1iHbbAuF9hkgGzAzyq54zYkCjIT8ZktsBmQ7I" }
+          { title: "IT DOESNT MATTER 4.30.26 v2", playbackId: "QE4801I1iHbbAuF9hkgGzAzyq54zYkCjIT8ZktsBmQ7I" }
         ]
       }
     ]
   }
 };
 
-window.entryOrder = ["5.17.26"];
+window.entryOrder = ["5.29.26", "5.17.26"];
+
+// Featured on music.html (portfolio / release page)
+window.musicFeaturedRelease = { entryDate: "5.17.26", albumTitle: "PHOTO NEGATIVE" };

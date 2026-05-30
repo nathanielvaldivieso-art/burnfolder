@@ -160,60 +160,33 @@
 
     const songs = window.currentSongs;
 
-    // Helper: build a page-song-title row and wire it up
-    function makeSongRow(song, idx, idPrefix) {
-      const wrap = document.createElement('div');
-      wrap.className = 'mux-audio-container';
+    function trackDisplayTitle(song, inAlbum) {
+      if (typeof window.getTracklistDisplayTitle === 'function') {
+        return window.getTracklistDisplayTitle(song, { inAlbum: inAlbum });
+      }
+      return song.title;
+    }
 
-      const titleSpan = document.createElement('span');
-      titleSpan.className = 'page-song-title';
-      if (idPrefix) titleSpan.id = idPrefix + (idx + 1);
-      titleSpan.setAttribute('tabindex', '0');
-      titleSpan.setAttribute('role', 'button');
-      titleSpan.setAttribute('aria-label', 'Play ' + song.title);
-
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'audio-track-name';
-      nameSpan.textContent = song.title;
-
-      const durSpan = document.createElement('span');
-      durSpan.className = 'song-duration';
-      durSpan.textContent = '--:--';
-
-      titleSpan.appendChild(nameSpan);
-      titleSpan.appendChild(durSpan);
-
-      titleSpan.addEventListener('click', function() { playTrack(idx); });
-      titleSpan.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          if (typeof activeIdx !== 'undefined' && activeIdx === idx && typeof togglePlayPause === 'function') {
-            togglePlayPause();
-          } else {
-            playTrack(idx);
-          }
-        }
-      });
-
-      // Preload duration
-      const tmp = document.createElement('mux-player');
-      tmp.setAttribute('playback-id', song.playbackId);
-      tmp.style.display = 'none';
-      tmp.muted = true;
-      document.body.appendChild(tmp);
-      tmp.addEventListener('loadedmetadata', function() {
-        const d = tmp.duration;
-        if (d && !isNaN(d)) {
-          const m = Math.floor(d / 60);
-          const s = Math.floor(d % 60);
-          durSpan.textContent = m + ':' + (s < 10 ? '0' : '') + s;
-        }
-        tmp.remove();
-      }, { once: true });
-
-      wrap.appendChild(titleSpan);
-
-      return wrap;
+    function renderTracklist(container, songIdxPairs, inAlbum) {
+      if (typeof fillTracklistContainer !== 'function') return;
+      fillTracklistContainer(
+        container,
+        songIdxPairs.map(function(item) {
+          var idx = item.idx;
+          return {
+            song: item.song,
+            displayTitle: trackDisplayTitle(item.song, inAlbum),
+            onPlay: function() {
+              if (typeof activeIdx !== 'undefined' && activeIdx === idx && typeof togglePlayPause === 'function' && typeof activeMuxPlayer !== 'undefined' && activeMuxPlayer && !activeMuxPlayer.paused) {
+                togglePlayPause();
+              } else if (typeof playTrack === 'function') {
+                playTrack(idx);
+              }
+            }
+          };
+        })
+      );
+      if (typeof syncTracklistPlayback === 'function') syncTracklistPlayback();
     }
 
     function getSongsForContainer(container) {
@@ -234,14 +207,15 @@
       return songs.map((song, idx) => ({ song, idx }));
     }
 
+    if (pageKey === 'music' && typeof window.renderMusicPage === 'function') {
+      window.renderMusicPage();
+      return;
+    }
+
     const scopedAudioLists = Array.from(document.querySelectorAll('.entry-audio-list'));
     if (scopedAudioLists.length) {
-      scopedAudioLists.forEach((listEl, listIdx) => {
-        listEl.innerHTML = '';
-        getSongsForContainer(listEl).forEach(({ song, idx }) => {
-          const row = makeSongRow(song, idx, `pageSongTitle${listIdx}-`);
-          listEl.appendChild(row);
-        });
+      scopedAudioLists.forEach(function(listEl) {
+        renderTracklist(listEl, getSongsForContainer(listEl), !!listEl.dataset.album);
       });
       return;
     }
@@ -250,11 +224,13 @@
     const audioListEl = document.getElementById('audioList');
     if (!audioListEl || audioListEl.style.display === 'none') return;
 
-    audioListEl.innerHTML = '';
-    songs.forEach(function(song, idx) {
-      const row = makeSongRow(song, idx, 'pageSongTitle');
-      audioListEl.appendChild(row);
-    });
+    renderTracklist(
+      audioListEl,
+      songs.map(function(song, idx) {
+        return { song: song, idx: idx };
+      }),
+      false
+    );
   }
 
   function updateVideoListForPage() {

@@ -10,12 +10,7 @@ window.currentSongs = noAudioChromePages.has(fileName) ? [] : allSongs;
 
 // Dated entry pages: pull directly from the keyed catalog — no string matching needed
 if (fileName.match(/^\d+\.\d+\.\d+$/) && window.songsByPage) {
-  sessionStorage.removeItem('playbackState');
   window.currentSongs = window.songsByPage[fileName] || [];
-  if (window.globalMuxPlayer) {
-    window.globalMuxPlayer.pause();
-    window.globalMuxPlayer.removeAttribute('playback-id');
-  }
 }
 
 const audioList = document.getElementById('audioList');
@@ -272,11 +267,21 @@ function parseTrackDateValue(song) {
 
 function stripTrailingDate(title) {
   return String(title || '')
+    .replace(/\s+v\d+\s*$/i, '')
     .replace(/\s*\(\d{1,2}\.\d{1,2}\.\d{2}\)\s*$/i, '')
     .replace(/\s+\d{1,2}\.\d{1,2}\.\d{2}\s*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** Singles keep the dated title; album track rows drop the trailing date. */
+function getTracklistDisplayTitle(song, options = {}) {
+  if (!song || !song.title) return '';
+  const inAlbum = options.inAlbum === true || !!song.album;
+  return inAlbum ? stripTrailingDate(song.title) : song.title;
+}
+
+window.getTracklistDisplayTitle = getTracklistDisplayTitle;
 
 function getTrackGroupKey(title) {
   return stripTrailingDate(title).toLowerCase();
@@ -286,6 +291,415 @@ function getSongHubHref(song) {
   if (!song || !song.title) return 'song.html';
   return `song.html?song=${encodeURIComponent(getTrackGroupKey(song.title))}`;
 }
+
+function compareSongsBySortMode(a, b, sortMode) {
+  if (sortMode === 'az') {
+    const base = stripTrailingDate(a.title).localeCompare(stripTrailingDate(b.title), undefined, {
+      sensitivity: 'base',
+    });
+    if (base) return base;
+    return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+  }
+
+  const aDate = parseTrackDateValue(a);
+  const bDate = parseTrackDateValue(b);
+  if (aDate === bDate) {
+    return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+  }
+  return sortMode === 'oldest' ? aDate - bDate : bDate - aDate;
+}
+
+function getAlbumPlaybackIdsFromEntries() {
+  const ids = new Set();
+  const byDate = window.entryDataByDate;
+  if (!byDate || typeof byDate !== 'object') return ids;
+
+  Object.values(byDate).forEach((entry) => {
+    const blocks = entry && Array.isArray(entry.blocks) ? entry.blocks : [];
+    blocks.forEach((block) => {
+      if (!block || block.type !== 'album' || !Array.isArray(block.tracks)) return;
+      block.tracks.forEach((track) => {
+        if (track && track.playbackId) ids.add(track.playbackId);
+      });
+    });
+  });
+  return ids;
+}
+
+function resolveSongFromCatalog(playbackId, title) {
+  const all = Array.isArray(window.allSongs) ? window.allSongs : [];
+  const match = all.find((song) => song && song.playbackId === playbackId);
+  if (match) return match;
+  if (!playbackId) return null;
+  return { title: title || 'Track', playbackId, page: '' };
+}
+
+function buildMusicFamilies(sortMode) {
+  const albumPlaybackIds = getAlbumPlaybackIdsFromEntries();
+  const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
+  const families = new Map();
+
+  allSongs.forEach((song) => {
+    if (!song || !song.playbackId) return;
+    if (albumPlaybackIds.has(song.playbackId)) return;
+    if (song.album) return;
+
+    const key = getTrackGroupKey(song.title);
+    if (!families.has(key)) families.set(key, []);
+    const list = families.get(key);
+    if (!list.some((item) => item.playbackId === song.playbackId)) list.push(song);
+  });
+
+  return Array.from(families.entries())
+    .map(([key, versions]) => {
+      const sorted = [...versions].sort((a, b) => compareSongsBySortMode(a, b, sortMode));
+      const canonical = sorted[0];
+      return {
+        key,
+        baseTitle: stripTrailingDate(canonical.title),
+        versions: sorted,
+        canonical,
+        versionCount: sorted.length,
+        sortDate: parseTrackDateValue(canonical),
+      };
+    })
+    .sort((a, b) => {
+      if (sortMode === 'az') {
+        return a.baseTitle.localeCompare(b.baseTitle, undefined, { sensitivity: 'base' });
+      }
+      if (a.sortDate === b.sortDate) {
+        return a.baseTitle.localeCompare(b.baseTitle, undefined, { sensitivity: 'base' });
+      }
+      return sortMode === 'oldest' ? a.sortDate - b.sortDate : b.sortDate - a.sortDate;
+    });
+}
+
+function buildMusicAlbums(sortMode) {
+  const byDate = window.entryDataByDate;
+  if (!byDate || typeof byDate !== 'object') return [];
+
+  const albums = [];
+  const order = Array.isArray(window.entryOrder) ? window.entryOrder : Object.keys(byDate);
+
+  order.forEach((dateKey) => {
+    const entry = byDate[dateKey];
+    if (!entry || !Array.isArray(entry.blocks)) return;
+
+    entry.blocks.forEach((block) => {
+      if (!block || block.type !== 'album') return;
+      const tracks = (block.tracks || [])
+        .map((track) => resolveSongFromCatalog(track.playbackId, track.title))
+        .filter(Boolean);
+
+      albums.push({
+        title: block.title || 'Album',
+        coverArt: block.coverArt || '',
+        coverAlt: block.coverAlt || block.title || 'Album cover',
+        entryDate: dateKey,
+        tracks,
+        sortDate: parseTrackDateValue({ page: dateKey, title: dateKey }),
+      });
+    });
+  });
+
+  return albums.sort((a, b) => {
+    if (sortMode === 'az') {
+      return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+    }
+    if (a.sortDate === b.sortDate) {
+      return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+    }
+    return sortMode === 'oldest' ? a.sortDate - b.sortDate : b.sortDate - a.sortDate;
+  });
+}
+
+function preloadSongDuration(titleSpan, playbackId) {
+  const durSpan = titleSpan.querySelector('.song-duration');
+  if (!durSpan || !playbackId) return;
+
+  const tmp = document.createElement('mux-player');
+  tmp.setAttribute('playback-id', playbackId);
+  tmp.style.display = 'none';
+  tmp.muted = true;
+  document.body.appendChild(tmp);
+  tmp.addEventListener(
+    'loadedmetadata',
+    () => {
+      const d = tmp.duration;
+      if (d && !isNaN(d)) {
+        const m = Math.floor(d / 60);
+        const s = Math.floor(d % 60);
+        durSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+      tmp.remove();
+    },
+    { once: true }
+  );
+}
+
+function getFeaturedMusicRelease() {
+  const byDate = window.entryDataByDate;
+  if (!byDate || typeof byDate !== 'object') return null;
+
+  const featured = window.musicFeaturedRelease || {};
+  const order = Array.isArray(window.entryOrder) ? window.entryOrder : Object.keys(byDate);
+  const dates =
+    featured.entryDate && byDate[featured.entryDate] ? [featured.entryDate] : order;
+
+  for (const dateKey of dates) {
+    const entry = byDate[dateKey];
+    if (!entry || !Array.isArray(entry.blocks)) continue;
+
+    for (const block of entry.blocks) {
+      if (!block || block.type !== 'album') continue;
+      if (featured.albumTitle && block.title !== featured.albumTitle) continue;
+
+      const tracks = (block.tracks || [])
+        .map((track) => {
+          const song = resolveSongFromCatalog(track.playbackId, track.title);
+          if (!song) return null;
+          return { ...song, page: dateKey, album: block.title || undefined };
+        })
+        .filter(Boolean);
+
+      return {
+        title: block.title || 'Album',
+        coverArt: block.coverArt || '',
+        coverAlt: block.coverAlt || block.title || 'Album cover',
+        entryDate: dateKey,
+        tracks,
+      };
+    }
+  }
+
+  return null;
+}
+
+function playReleaseQueue(tracks, startIndex = 0) {
+  const queue = (tracks || []).filter((track) => track && track.playbackId);
+  if (!queue.length) return;
+
+  window.currentSongs = queue.slice();
+  activeQueue = queue.slice();
+  activeQueueIdx = startIndex;
+  activeSongOverride = queue[startIndex];
+  activeIdx = startIndex;
+  playQueuedTrack(startIndex);
+  syncTracklistPlayback();
+}
+
+function preloadTrackDuration(durEl, playbackId) {
+  if (!durEl || !playbackId) return;
+
+  const tmp = document.createElement('mux-player');
+  tmp.setAttribute('playback-id', playbackId);
+  tmp.style.display = 'none';
+  tmp.muted = true;
+  document.body.appendChild(tmp);
+  tmp.addEventListener(
+    'loadedmetadata',
+    () => {
+      const d = tmp.duration;
+      if (d && !isNaN(d)) {
+        const m = Math.floor(d / 60);
+        const s = Math.floor(d % 60);
+        durEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+      tmp.remove();
+    },
+    { once: true }
+  );
+}
+
+function buildTracklistItem(song, trackNum, onPlay, displayTitle) {
+  const item = document.createElement('li');
+  item.className = 'music-tracklist-item';
+
+  const num = document.createElement('span');
+  num.className = 'music-track-num';
+  num.textContent = String(trackNum);
+
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'music-track-row';
+  row.dataset.playbackId = song.playbackId;
+  const label = displayTitle != null ? displayTitle : song.title;
+  row.setAttribute('aria-label', `Play ${label}`);
+
+  const name = document.createElement('span');
+  name.className = 'music-track-title';
+  name.textContent = label;
+
+  const dur = document.createElement('span');
+  dur.className = 'music-track-duration';
+  dur.textContent = '--:--';
+
+  row.appendChild(name);
+  row.appendChild(dur);
+  row.addEventListener('click', onPlay);
+  preloadTrackDuration(dur, song.playbackId);
+
+  item.appendChild(num);
+  item.appendChild(row);
+  return item;
+}
+
+function fillTracklistContainer(container, entries) {
+  if (!container) return;
+  container.innerHTML = '';
+
+  const list = document.createElement('ol');
+  list.className = 'music-tracklist';
+
+  (entries || []).forEach((entry, index) => {
+    if (!entry || !entry.song) return;
+    list.appendChild(
+      buildTracklistItem(entry.song, index + 1, entry.onPlay, entry.displayTitle)
+    );
+  });
+
+  container.appendChild(list);
+}
+
+window.buildTracklistItem = buildTracklistItem;
+window.fillTracklistContainer = fillTracklistContainer;
+
+function syncTracklistPlayback() {
+  const activeSong = getActiveSong();
+  document.querySelectorAll('.music-track-row').forEach((row) => {
+    const isActive = !!(activeSong && row.dataset.playbackId === activeSong.playbackId);
+    const playing = isActive && activeMuxPlayer && !activeMuxPlayer.paused;
+    row.classList.toggle('is-active', isActive);
+    row.classList.toggle('is-playing', playing);
+  });
+
+  const playBtn = document.getElementById('musicPortfolioPlay');
+  if (!playBtn || !activeSong) return;
+
+  const portfolio = document.getElementById('musicPortfolio');
+  if (!portfolio || !portfolio.contains(playBtn)) return;
+
+  const onThisRelease = Array.from(portfolio.querySelectorAll('.music-track-row')).some(
+    (row) => row.dataset.playbackId === activeSong.playbackId
+  );
+  if (!onThisRelease) return;
+
+  const playing = !activeMuxPlayer.paused;
+  playBtn.classList.toggle('is-playing', playing);
+  playBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
+}
+
+window.syncTracklistPlayback = syncTracklistPlayback;
+
+function renderMusicPage() {
+  if (!document.body.classList.contains('page-music')) return;
+
+  const root = document.getElementById('musicPortfolio');
+  if (!root) return;
+
+  const release = getFeaturedMusicRelease();
+  root.innerHTML = '';
+
+  if (!release || !release.tracks.length) {
+    root.innerHTML = '<p class="music-portfolio-empty">No release yet.</p>';
+    return;
+  }
+
+  window.currentSongs = release.tracks.slice();
+  document.title = `${release.title} — burnfolder.com`;
+
+  const article = document.createElement('article');
+  article.className = 'music-release';
+
+  const hero = document.createElement('div');
+  hero.className = 'music-release-hero';
+
+  if (release.coverArt) {
+    const cover = document.createElement('img');
+    cover.className = 'music-release-cover';
+    cover.src = release.coverArt;
+    cover.alt = release.coverAlt;
+    hero.appendChild(cover);
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'music-release-meta';
+
+  const type = document.createElement('p');
+  type.className = 'music-release-type';
+  type.textContent = 'Album';
+
+  const title = document.createElement('h1');
+  title.className = 'music-release-title';
+  title.textContent = release.title;
+
+  const artist = document.createElement('p');
+  artist.className = 'music-release-artist';
+  artist.textContent = 'burnfolder';
+
+  const actions = document.createElement('div');
+  actions.className = 'music-release-actions';
+
+  const playBtn = document.createElement('button');
+  playBtn.type = 'button';
+  playBtn.className = 'music-release-play';
+  playBtn.id = 'musicPortfolioPlay';
+  playBtn.setAttribute('aria-label', 'Play album');
+  playBtn.innerHTML =
+    '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><polygon points="8,5 20,12 8,19" fill="currentColor"/></svg>';
+
+  playBtn.addEventListener('click', () => {
+    const activeSong = getActiveSong();
+    const onRelease =
+      activeSong && release.tracks.some((t) => t.playbackId === activeSong.playbackId);
+    if (onRelease && !activeMuxPlayer.paused) {
+      activeMuxPlayer.pause();
+      updateUI();
+      syncTracklistPlayback();
+      return;
+    }
+    if (onRelease && activeMuxPlayer.paused) {
+      activeMuxPlayer.play();
+      updateUI();
+      syncTracklistPlayback();
+      return;
+    }
+    playReleaseQueue(release.tracks, 0);
+  });
+
+  actions.appendChild(playBtn);
+  meta.appendChild(type);
+  meta.appendChild(title);
+  meta.appendChild(artist);
+  meta.appendChild(actions);
+  hero.appendChild(meta);
+  article.appendChild(hero);
+
+  const tracklistHost = document.createElement('div');
+  fillTracklistContainer(
+    tracklistHost,
+    release.tracks.map((song, index) => ({
+      song,
+      displayTitle: getTracklistDisplayTitle(song, { inAlbum: true }),
+      onPlay: () => playReleaseQueue(release.tracks, index),
+    }))
+  );
+  article.appendChild(tracklistHost.firstChild);
+
+  const entryLink = document.createElement('a');
+  entryLink.className = 'music-release-journal';
+  entryLink.href = `${release.entryDate}.html`;
+  entryLink.textContent = release.entryDate;
+  article.appendChild(entryLink);
+
+  root.appendChild(article);
+  syncTracklistPlayback();
+
+  const legacyList = document.getElementById('audioList');
+  if (legacyList) legacyList.innerHTML = '';
+}
+
+window.renderMusicPage = renderMusicPage;
 
 /** Journal entry page for this recording (`M.DD.YY.html`), if applicable. */
 function getEntryPageHref(song) {
@@ -341,6 +755,8 @@ function playTrackBySong(song) {
 
   activeSongOverride = song;
   activeIdx = -1;
+  activeQueue = [song];
+  activeQueueIdx = 0;
 
   activeMuxPlayer.pause();
   activeMuxPlayer.currentTime = 0;
@@ -535,51 +951,15 @@ function renderSongHubPage() {
       return sortMode === 'oldest' ? aDate - bDate : bDate - aDate;
     });
 
-    versionsEl.innerHTML = '';
-    sorted.forEach((song) => {
-      const row = document.createElement('div');
-      row.className = 'song-hub-version-row';
-
-      const info = document.createElement('div');
-      info.className = 'song-hub-version-info';
-
-      const songTitle = document.createElement('p');
-      songTitle.className = 'song-hub-version-title';
-      songTitle.textContent = song.title;
-
-      const meta = document.createElement('p');
-      meta.className = 'song-hub-version-meta';
-      const label = getTrackDateLabel(song) || 'undated';
-      const page = song.page ? ` | entry ${song.page}` : '';
-      meta.textContent = `${label}${page}`;
-
-      info.appendChild(songTitle);
-      info.appendChild(meta);
-
-      const actions = document.createElement('div');
-      actions.className = 'song-hub-version-actions';
-
-      const playBtn = document.createElement('button');
-      playBtn.type = 'button';
-      playBtn.className = 'icon-btn';
-      playBtn.textContent = 'Play';
-      playBtn.addEventListener('click', () => {
-        playTrackBySong(song);
-      });
-      actions.appendChild(playBtn);
-
-      if (song.page && /^\d/.test(song.page)) {
-        const entryLink = document.createElement('a');
-        entryLink.className = 'icon-btn';
-        entryLink.href = `${song.page}.html`;
-        entryLink.textContent = 'Open entry';
-        actions.appendChild(entryLink);
-      }
-
-      row.appendChild(info);
-      row.appendChild(actions);
-      versionsEl.appendChild(row);
-    });
+    fillTracklistContainer(
+      versionsEl,
+      sorted.map((song) => ({
+        song,
+        displayTitle: song.title,
+        onPlay: () => playTrackBySong(song),
+      }))
+    );
+    syncTracklistPlayback();
   };
 
   sortEl.onchange = renderVersions;
@@ -1247,10 +1627,21 @@ document.addEventListener('DOMContentLoaded', updateCartFloat);
 
 let activeIdx = null;
 let activeSongOverride = null;
+let activeQueue = [];
+let activeQueueIdx = null;
 
 function getActiveSong() {
   if (activeIdx === null) return null;
-  if (activeIdx >= 0 && window.currentSongs[activeIdx]) return window.currentSongs[activeIdx];
+  const currentPlaybackId = activeMuxPlayer ? activeMuxPlayer.getAttribute('playback-id') : '';
+  if (activeSongOverride && (!currentPlaybackId || activeSongOverride.playbackId === currentPlaybackId)) {
+    return activeSongOverride;
+  }
+  if (activeIdx >= 0 && window.currentSongs[activeIdx] && window.currentSongs[activeIdx].playbackId === currentPlaybackId) {
+    return window.currentSongs[activeIdx];
+  }
+  if (Array.isArray(window.allSongs) && currentPlaybackId) {
+    return window.allSongs.find(song => song.playbackId === currentPlaybackId) || null;
+  }
   return activeSongOverride;
 }
 
@@ -1274,8 +1665,10 @@ if (savedState && audioList) {
       ? window.allSongs.find(s => s.playbackId === state.playbackId)
       : null;
     if (songIndex !== -1) {
-      activeSongOverride = null;
+      activeSongOverride = window.currentSongs[songIndex];
       activeIdx = songIndex;
+      activeQueue = window.currentSongs.slice();
+      activeQueueIdx = songIndex;
       // Check if player already has this track loaded
       const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id');
       if (currentPlaybackId === state.playbackId) {
@@ -1305,6 +1698,8 @@ if (savedState && audioList) {
     } else if (fallbackSong) {
       activeSongOverride = fallbackSong;
       activeIdx = -1;
+      activeQueue = [fallbackSong];
+      activeQueueIdx = 0;
       setTimeout(() => {
         activeMuxPlayer.setAttribute('playback-id', fallbackSong.playbackId);
         activeMuxPlayer.setAttribute('metadata-video-title', fallbackSong.title);
@@ -1323,6 +1718,8 @@ if (savedState && audioList) {
       // If the saved song is not valid for this page, reset player state
       activeIdx = null;
       activeSongOverride = null;
+      activeQueue = [];
+      activeQueueIdx = null;
       if (window.globalMuxPlayer) {
         window.globalMuxPlayer.pause();
         window.globalMuxPlayer.removeAttribute('playback-id');
@@ -1365,69 +1762,33 @@ setInterval(() => {
 // Render song list — only when spa-router hasn't already populated it
 // (spa-router.js runs before scripts.js and calls updateAudioListForPage on load;
 //  if audioList already has children, skip to avoid duplicates)
-const didRenderInitially = !audioList || audioList.children.length > 0;
+const didRenderInitially =
+  document.body.classList.contains('page-music') ||
+  !audioList ||
+  audioList.children.length > 0;
 
-if (audioList && !didRenderInitially) {
-  window.currentSongs.forEach((song, idx) => {
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'page-song-title';
-    titleSpan.id = `pageSongTitle${idx+1}`;
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'audio-track-name';
-    nameSpan.textContent = song.title;
-    const durationSpan = document.createElement('span');
-    durationSpan.className = 'song-duration';
-    durationSpan.textContent = '--:--';
-    titleSpan.appendChild(nameSpan);
-    titleSpan.appendChild(durationSpan);
-    titleSpan.setAttribute('tabindex', '0');
-    titleSpan.setAttribute('role', 'button');
-    titleSpan.setAttribute('aria-label', `Play ${song.title}`);
-    titleSpan.addEventListener('click', () => { playTrack(idx); });
-    titleSpan.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        if (activeIdx === idx) { togglePlayPause(); } else { playTrack(idx); }
-      }
-    });
-    const container = document.createElement('div');
-    container.className = 'mux-audio-container';
-    container.appendChild(titleSpan);
-    audioList.appendChild(container);
-  });
+if (document.body.classList.contains('page-music')) {
+  renderMusicPage();
 }
 
-// Preload all track durations — skip if spa-router already did it via makeSongRow()
-if (!didRenderInitially) {
-window.currentSongs.forEach((song, idx) => {
-  const tempPlayer = document.createElement('mux-player');
-  tempPlayer.setAttribute('playback-id', song.playbackId);
-  tempPlayer.setAttribute('metadata-video-title', song.title);
-  tempPlayer.style.display = 'none';
-  tempPlayer.muted = true;
-  document.body.appendChild(tempPlayer);
-  
-  tempPlayer.addEventListener('loadedmetadata', () => {
-    const duration = tempPlayer.duration;
-    if (duration && !isNaN(duration)) {
-      const minutes = Math.floor(duration / 60);
-      const seconds = Math.floor(duration % 60);
-      const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      const durationEl = document.querySelector(`#pageSongTitle${idx + 1} .song-duration`);
-      if (durationEl) {
-        durationEl.textContent = formattedDuration;
-      }
-    }
-    // Remove temp player after getting duration
-    tempPlayer.remove();
-  }, { once: true });
-});
+if (audioList && !didRenderInitially) {
+  fillTracklistContainer(
+    audioList,
+    window.currentSongs.map((song, idx) => ({
+      song,
+      displayTitle: getTracklistDisplayTitle(song),
+      onPlay: () => {
+        if (activeIdx === idx && activeMuxPlayer && !activeMuxPlayer.paused) {
+          togglePlayPause();
+        } else {
+          playTrack(idx);
+        }
+      },
+    }))
+  );
 }
 
 function updateUI() {
-  document.querySelectorAll('.page-song-title').forEach((el, i) => {
-    el.classList.toggle('active', i === activeIdx && activeIdx >= 0 && !activeMuxPlayer.paused);
-  });
   const activeSong = getActiveSong();
   if (activeIdx !== null && activeSong) {
     if (!activeMuxPlayer.paused) {
@@ -1446,29 +1807,34 @@ function updateUI() {
     songTitleEl.textContent = '';
   }
   syncPlaybackChromeState();
+  syncTracklistPlayback();
 }
 
 function syncPlaybackChromeState() {
   const activeSong = getActiveSong();
   const barOn = bottomBar && bottomBar.style.display === 'block';
+  const active = activeIdx !== null && activeSong && barOn;
   const playing =
-    activeIdx !== null &&
-    activeSong &&
-    barOn &&
+    active &&
     !activeMuxPlayer.paused;
+  document.body.classList.toggle('playback-active', !!active);
   document.body.classList.toggle('playback-playing', !!playing);
 }
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
 
 function playTrack(idx) {
-  activeSongOverride = null;
+  const song = window.currentSongs[idx];
+  if (!song) return;
+  activeSongOverride = song;
+  activeQueue = window.currentSongs.slice();
+  activeQueueIdx = idx;
   activeMuxPlayer.pause();
   activeMuxPlayer.currentTime = 0;
   // Set playback-id — mux-player reacts to attribute changes automatically.
   // Do NOT call .load() after this; it resets the player to the previous src.
-  activeMuxPlayer.setAttribute('playback-id', window.currentSongs[idx].playbackId);
-  activeMuxPlayer.setAttribute('metadata-video-title', window.currentSongs[idx].title);
+  activeMuxPlayer.setAttribute('playback-id', song.playbackId);
+  activeMuxPlayer.setAttribute('metadata-video-title', song.title);
   activeIdx = idx;
   updateUI();
   
@@ -1492,6 +1858,28 @@ function playTrack(idx) {
     }
     bottomPlayBtn.focus();
   }, 100);
+}
+
+function playQueuedTrack(queueIdx) {
+  const song = activeQueue[queueIdx];
+  if (!song) return;
+
+  activeSongOverride = song;
+  activeQueueIdx = queueIdx;
+  activeIdx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
+
+  activeMuxPlayer.pause();
+  activeMuxPlayer.currentTime = 0;
+  activeMuxPlayer.setAttribute('playback-id', song.playbackId);
+  activeMuxPlayer.setAttribute('metadata-video-title', song.title);
+  updateUI();
+
+  const playPromise = activeMuxPlayer.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(() => {
+      bottomPlayBtn.click();
+    });
+  }
 }
 
 function togglePlayPause() {
@@ -1523,6 +1911,8 @@ closeBtn.addEventListener('click', () => {
     activeMuxPlayer.pause();
     activeIdx = null;
     activeSongOverride = null;
+    activeQueue = [];
+    activeQueueIdx = null;
     sessionStorage.removeItem('playbackState');
     closeVersionPicker();
     updateUI();
@@ -1548,9 +1938,9 @@ function updateProgress() {
 activeMuxPlayer.addEventListener('timeupdate', updateProgress);
 activeMuxPlayer.addEventListener('ended', () => {
   progressEl.style.width = '0%';
-  const nextIdx = activeIdx !== null && activeIdx >= 0 ? activeIdx + 1 : null;
-  if (nextIdx !== null && nextIdx < window.currentSongs.length) {
-    playTrack(nextIdx);
+  const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
+  if (nextIdx !== null && nextIdx < activeQueue.length) {
+    playQueuedTrack(nextIdx);
     return;
   }
   updateUI();
@@ -1570,9 +1960,9 @@ activeMuxPlayer.addEventListener('error', () => {
   if (activeSong) {
     console.warn(`Failed to load "${activeSong.title}".`, activeSong.playbackId);
   }
-  const nextIdx = activeIdx !== null && activeIdx >= 0 ? activeIdx + 1 : null;
-  if (nextIdx !== null && nextIdx < window.currentSongs.length) {
-    playTrack(nextIdx);
+  const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
+  if (nextIdx !== null && nextIdx < activeQueue.length) {
+    playQueuedTrack(nextIdx);
     return;
   }
   showLoading(false);
@@ -1753,210 +2143,19 @@ progressBarArea.addEventListener('touchcancel', () => {
   }
 });
 
-// Volume control functionality
-let currentVolume = 0.75; // Default volume at 75%
-
-function initializeVolumeControl() {
-  const volumeControl = document.getElementById('volumeControl');
-  const volumeFader = document.getElementById('volumeFader');
-  const volumeTrack = volumeFader?.querySelector('.volume-track');
-  const volumeFill = document.getElementById('volumeFill');
-  
-  if (volumeControl && activeMuxPlayer) {
-    // Set initial volume display and player volume
-    updateVolumeDisplay();
-    
-    // Set initial volume - access the underlying media element for mux-player
-    try {
-      const mediaElement = activeMuxPlayer.media || activeMuxPlayer;
-      if (mediaElement) {
-        mediaElement.volume = currentVolume;
-        mediaElement.muted = false;
-        console.log('Initial volume set to:', currentVolume);
-      }
-    } catch (error) {
-      console.log('Initial volume setting error:', error);
+function applyVolumeToPlayer() {
+  if (!activeMuxPlayer) return;
+  try {
+    const mediaElement = activeMuxPlayer.media || activeMuxPlayer;
+    if (mediaElement) {
+      mediaElement.volume = 1;
+      mediaElement.muted = false;
     }
-    
-    // Also set volume on any other audio elements after a delay
-    setTimeout(() => {
-      const audioElements = document.querySelectorAll('audio, video');
-      audioElements.forEach(element => {
-        try {
-          element.volume = currentVolume;
-          element.muted = false;
-        } catch (error) {
-          console.log('Initial audio element volume error:', error);
-        }
-      });
-    }, 500); // Delay to ensure elements are loaded
-    
-    // Keep fader visible while interacting
-    let faderTimeout;
-    
-    volumeControl.addEventListener('mouseenter', () => {
-      clearTimeout(faderTimeout);
-      volumeFader.classList.add('active');
-    });
-    
-    volumeControl.addEventListener('mouseleave', () => {
-      faderTimeout = setTimeout(() => {
-        volumeFader.classList.remove('active');
-      }, 300);
-    });
-    
-    // Handle volume track interactions (mouse and touch)
-    if (volumeTrack) {
-      let isDragging = false;
-      
-      const updateVolumeFromEvent = (e) => {
-        const rect = volumeTrack.getBoundingClientRect();
-        // Handle both mouse and touch events
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const y = clientY - rect.top;
-        const percent = Math.max(0, Math.min(1, 1 - (y / rect.height))); // Invert y for bottom-up
-        
-        currentVolume = percent;
-        updateVolumeDisplay();
-        
-        // Set volume on the active Mux player
-        if (activeMuxPlayer) {
-          try {
-            // For mux-player-audio, we need to access the underlying media element
-            const mediaElement = activeMuxPlayer.media || activeMuxPlayer;
-            if (mediaElement) {
-              mediaElement.volume = percent;
-              mediaElement.muted = false; // Ensure not muted
-              console.log('Volume set to:', percent);
-            }
-          } catch (error) {
-            console.log('Volume setting error:', error);
-          }
-        }
-        
-        // Also try to find any audio/video elements and set their volume
-        const audioElements = document.querySelectorAll('audio, video');
-        audioElements.forEach(element => {
-          try {
-            element.volume = percent;
-            element.muted = false;
-          } catch (error) {
-            console.log('Audio element volume error:', error);
-          }
-        });
-      };
-      
-      // Mouse events
-      volumeTrack.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        updateVolumeFromEvent(e);
-        e.preventDefault();
-      });
-      
-      volumeTrack.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-          updateVolumeFromEvent(e);
-        }
-      });
-      
-      document.addEventListener('mouseup', () => {
-        isDragging = false;
-      });
-      
-      // Touch events for mobile - show fader only when touching
-      volumeTrack.addEventListener('touchstart', (e) => {
-        isDragging = true;
-        clearTimeout(faderTimeout);
-        volumeFader.classList.add('active');
-        updateVolumeFromEvent(e);
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      
-      volumeTrack.addEventListener('touchmove', (e) => {
-        if (isDragging) {
-          updateVolumeFromEvent(e);
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      });
-      
-      volumeTrack.addEventListener('touchend', (e) => {
-        isDragging = false;
-        e.preventDefault();
-        // Hide fader after touch ends
-        faderTimeout = setTimeout(() => {
-          volumeFader.classList.remove('active');
-        }, 1000);
-      });
-      
-      // Speaker icon events to toggle fader
-      const speakerIcon = document.getElementById('speakerIcon');
-      if (speakerIcon) {
-        // Click event for desktop (toggle on/off)
-        speakerIcon.addEventListener('click', (e) => {
-          e.stopPropagation();
-          clearTimeout(faderTimeout);
-          
-          if (volumeFader.classList.contains('active')) {
-            // Hide fader
-            volumeFader.classList.remove('active');
-          } else {
-            // Show fader
-            volumeFader.classList.add('active');
-          }
-        });
-        
-        // Touch events for mobile (toggle on/off)
-        if ('ontouchstart' in window) {
-          speakerIcon.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            clearTimeout(faderTimeout);
-            
-            if (volumeFader.classList.contains('active')) {
-              // Hide fader
-              volumeFader.classList.remove('active');
-            } else {
-              // Show fader
-              volumeFader.classList.add('active');
-            }
-          });
-        }
-      }
-      
-      // Close volume fader when clicking/touching outside
-      document.addEventListener('click', (e) => {
-        if (!volumeControl.contains(e.target)) {
-          volumeFader.classList.remove('active');
-          clearTimeout(faderTimeout);
-        }
-      });
-      
-      if ('ontouchstart' in window) {
-        document.addEventListener('touchstart', (e) => {
-          if (!volumeControl.contains(e.target)) {
-            volumeFader.classList.remove('active');
-            clearTimeout(faderTimeout);
-          }
-        });
-      }
-      
-      // Fallback click event for volume track (for non-touch devices)
-      volumeTrack.addEventListener('click', (e) => {
-        if (!isDragging) {
-          updateVolumeFromEvent(e);
-        }
-      });
-    }
+  } catch (_) {
+    /* ignore */
   }
 }
 
-function updateVolumeDisplay() {
-  const volumeFill = document.getElementById('volumeFill');
-  
-  if (volumeFill) {
-    const fillHeight = (currentVolume * 100) + '%';
-    volumeFill.style.height = fillHeight;
-  }
+function initializeVolumeControl() {
+  applyVolumeToPlayer();
 }

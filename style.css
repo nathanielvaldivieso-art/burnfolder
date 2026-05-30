@@ -559,7 +559,7 @@ p, h1, .song-title, .page-annotation {
   max-width: 480px;
 }
 
-.entry-editor-song-preview .page-song-title {
+.entry-editor-song-preview .music-track-row {
   cursor: default;
 }
 
@@ -660,6 +660,7 @@ body.index-home .newsletter-popup {
   transition: transform 0.22s ease, opacity 0.2s ease, visibility 0.2s ease;
 }
 
+body.playback-active.index-home .newsletter-popup,
 body.playback-playing.index-home .newsletter-popup {
   transform: translateY(110%);
   opacity: 0;
@@ -749,90 +750,209 @@ body.index-home .newsletter-popup #statusMessage {
   min-height: 14px;
 }
 
-/* ── song listing (tracks read like catalog lines, not player chrome) ── */
+/* ── sitewide tracklist (release-page player rows) ── */
 
-.mux-audio-container {
+.music-tracklist {
+  list-style: none;
   margin: 0;
   padding: 0;
-  max-width: 360px;
+  border-top: 1px solid var(--c-gray);
 }
 
-.page-song-title {
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 8px 0 10px 14px;
-  border: none;
-  border-left: 2px solid #d4d4d4;
-  border-radius: 0;
-  font-size: 0.88em;
-  font-family: monospace;
-  font-weight: normal;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1.55;
-  background: transparent !important;
-  cursor: pointer;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+.music-tracklist-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--c-gray);
+}
+
+.music-track-num {
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.4;
+  text-align: right;
+}
+
+.music-track-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 14px 8px 14px 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.music-track-row:hover,
+.music-track-row:focus {
+  background: rgba(0, 0, 0, 0.04);
+  outline: none;
+}
+
+.music-track-row.is-active .music-track-title {
+  font-weight: 600;
+}
+
+.music-tracklist-item:has(.is-playing) .music-track-num {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.music-track-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-track-duration {
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.45;
+  min-width: 2.5em;
+  text-align: right;
+}
+
+#audioList .music-tracklist,
+.entry-audio-list .music-tracklist {
+  margin-top: 12px;
+}
+
+body.page-music .music-portfolio-wrap {
+  max-width: 640px;
+  padding-bottom: 160px;
+}
+
+body.page-music .music-release-hero {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: end;
+  margin-bottom: 36px;
+}
+
+body.page-music .music-release-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
+}
+
+body.page-music .music-release-type {
+  margin: 0;
+  font-size: 0.72em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+body.page-music .music-release-title {
+  margin: 8px 0 0;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+body.page-music .music-release-artist {
+  margin: 6px 0 0;
+  font-family: monospace;
+  font-size: 0.9em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+body.page-music .music-release-actions {
+  margin-top: 20px;
+}
+
+body.page-music .music-release-play {
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: #000;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 0 3px;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+body.page-music .music-release-play:hover,
+body.page-music .music-release-play:focus {
+  opacity: 0.82;
+  transform: scale(1.04);
+}
+
+body.page-music .music-release-play.is-playing {
+  padding-left: 0;
+}
+
+body.page-music .music-release-play.is-playing svg {
+  display: none;
+}
+
+body.page-music .music-release-play.is-playing::before,
+body.page-music .music-release-play.is-playing::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 16px;
+  background: currentColor;
+}
+
+body.page-music .music-release-play.is-playing::before {
+  margin-right: 5px;
+}
+
+body.page-music .music-release-journal {
+  display: inline-block;
+  margin-top: 28px;
+  font-family: monospace;
+  font-size: 0.85em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: #000;
   text-decoration: none;
-  outline: none;
-  opacity: 0.78;
-  transition: opacity 0.15s ease, border-color 0.15s ease;
+  opacity: 0.45;
 }
 
-.page-song-title:hover {
-  opacity: 1;
-  border-left-color: #000;
-}
-
-.page-song-title:focus {
+body.page-music .music-release-journal:hover,
+body.page-music .music-release-journal:focus {
   opacity: 1;
 }
 
-.page-song-title:focus-visible {
-  outline: 1px solid #000;
-  outline-offset: 3px;
-}
-
-.page-song-title.active {
-  opacity: 1;
-  border-left-color: #000;
-}
-
-.audio-track-name {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.song-duration {
-  flex: 0 0 auto;
-  font-size: 0.72em;
-  opacity: 0.34;
-  letter-spacing: 0.04em;
+body.page-music .music-portfolio-empty {
   margin: 0;
-  padding-top: 0.15em;
-  font-variant-numeric: tabular-nums;
+  opacity: 0.5;
 }
 
-.page-song-title.active .song-duration {
-  opacity: 0.48;
+@media (max-width: 520px) {
+  body.page-music .music-release-hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  body.page-music .music-release-cover {
+    max-width: 220px;
+  }
 }
 
-body.page-music .music-audio-list {
-  margin-top: 24px;
-}
-
-#audioList .mux-audio-container + .mux-audio-container {
-  margin-top: 22px;
-}
-
-body.page-music #audioList .mux-audio-container + .mux-audio-container {
-  margin-top: 18px;
+#songHubVersions .music-tracklist {
+  margin-top: 8px;
 }
 
 /* ── watermark ── */
@@ -1514,10 +1634,6 @@ body.checkout-open {
 .bottom-progress-bar:hover .close-btn { display: block; }
 .close-btn:hover { opacity: 1; }
 
-.speaker-icon { display: none; }
-.volume-control { display: none !important; }
-.volume-fader { display: none; }
-
 .loading-spinner {
   width: 8px;
   height: 8px;
@@ -1702,11 +1818,13 @@ h1 { display: none; }
     opacity: 0.25;
   }
 
-  .mux-audio-container {
+  .music-tracklist,
+  #audioList .music-tracklist,
+  .entry-audio-list .music-tracklist {
     max-width: calc(100vw - 40px);
   }
 
-  .page-song-title,
+  .music-track-row,
   #entries li a {
     width: 100%;
     max-width: none;
