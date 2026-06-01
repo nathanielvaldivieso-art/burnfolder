@@ -294,12 +294,60 @@ p, h1, .song-title, .page-annotation {
   letter-spacing: 0.01em;
 }
 
+.page-annotation mark {
+  background: #e8e8e8;
+  color: inherit;
+}
+
+.entry-spacing {
+  width: 100%;
+  max-width: 360px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  flex-shrink: 0;
+}
+
+.entry-spacing--sm {
+  height: 32px;
+}
+
+.entry-spacing--md {
+  height: 64px;
+}
+
+.entry-spacing--lg {
+  height: 120px;
+}
+
 /* ── local entry editor ── */
 
 .entry-editor-page {
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+.entry-editor-page .entry-block-card {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
+.entry-editor-page .entry-block-handle {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+.entry-editor-page .entry-editor-field input,
+.entry-editor-page .entry-editor-field textarea,
+.entry-editor-page .entry-spacing-size-select,
+.entry-editor-page .entry-editor-output-group textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
   user-select: text;
 }
 
@@ -460,6 +508,27 @@ p, h1, .song-title, .page-annotation {
 
 .entry-block-fields .entry-editor-field:first-child {
   margin-top: 0;
+}
+
+.entry-editor-field textarea.entry-textarea {
+  min-height: 120px;
+}
+
+.entry-spacing-size-select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  font-size: 0.88em;
+  padding: 9px 10px;
+}
+
+.entry-spacing-size-select:focus {
+  outline: 1px solid #000;
+  outline-offset: 2px;
 }
 
 .entry-editor-empty {

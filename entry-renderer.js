@@ -1,11 +1,67 @@
 (function() {
   'use strict';
 
-  function appendTextWithBreaks(parent, value) {
-    String(value || '').split('\n').forEach((line, index) => {
+  function isEntryTextHtml(value) {
+    return /<(?:br|mark)\b/i.test(String(value || ''));
+  }
+
+  function sanitizeEntryTextHtml(html) {
+    const root = document.createElement('div');
+    const template = document.createElement('template');
+    template.innerHTML = String(html || '');
+
+    function copyChildren(source, target) {
+      source.childNodes.forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE) {
+          target.appendChild(child.cloneNode());
+          return;
+        }
+        if (child.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = child.tagName;
+        if (tag === 'BR') {
+          target.appendChild(document.createElement('br'));
+        } else if (tag === 'MARK') {
+          const mark = document.createElement('mark');
+          copyChildren(child, mark);
+          if (mark.childNodes.length) target.appendChild(mark);
+        } else if (tag === 'DIV' || tag === 'P') {
+          if (target.childNodes.length) target.appendChild(document.createElement('br'));
+          copyChildren(child, target);
+        } else {
+          copyChildren(child, target);
+        }
+      });
+    }
+
+    copyChildren(template.content, root);
+    while (root.lastChild && root.lastChild.nodeName === 'BR') {
+      root.removeChild(root.lastChild);
+    }
+    return root.innerHTML;
+  }
+
+  function renderTextIntoElement(parent, value) {
+    const text = String(value || '');
+    if (!text.trim()) return;
+
+    if (isEntryTextHtml(text)) {
+      parent.innerHTML = sanitizeEntryTextHtml(text);
+      return;
+    }
+
+    text.split('\n').forEach((line, index) => {
       if (index > 0) parent.appendChild(document.createElement('br'));
       parent.appendChild(document.createTextNode(line));
     });
+  }
+
+  function appendTextWithBreaks(parent, value) {
+    renderTextIntoElement(parent, value);
+  }
+
+  function normalizeSpacingSize(size) {
+    return size === 'sm' || size === 'lg' ? size : 'md';
   }
 
   function renderAudioSlot(parent, block) {
@@ -23,10 +79,18 @@
   }
 
   function renderBlock(block, entry, wrap) {
+    if (block.type === 'spacing') {
+      const spacer = document.createElement('div');
+      spacer.className = `entry-spacing entry-spacing--${normalizeSpacingSize(block.size)}`;
+      spacer.setAttribute('aria-hidden', 'true');
+      wrap.appendChild(spacer);
+      return;
+    }
+
     if (block.type === 'text' && block.text) {
       const p = document.createElement('p');
       p.className = 'page-annotation';
-      appendTextWithBreaks(p, block.text);
+      renderTextIntoElement(p, block.text);
       wrap.appendChild(p);
     }
 
@@ -101,6 +165,10 @@
     return true;
   }
 
+  window.sanitizeEntryTextHtml = sanitizeEntryTextHtml;
+  window.isEntryTextHtml = isEntryTextHtml;
+  window.renderTextIntoElement = renderTextIntoElement;
+  window.normalizeSpacingSize = normalizeSpacingSize;
   window.renderDataEntryPage = renderDataEntryPage;
   renderDataEntryPage();
 })();

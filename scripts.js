@@ -334,6 +334,30 @@ function resolveSongFromCatalog(playbackId, title) {
   return { title: title || 'Track', playbackId, page: '' };
 }
 
+/** Music page album slots: newest catalog version per song name; entry pages keep frozen album data. */
+function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate) {
+  if (!track || !track.playbackId) return null;
+
+  const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
+  const groupKey = getTrackGroupKey(track.title);
+  const candidates = allSongs.filter(
+    (song) => song && song.playbackId && getTrackGroupKey(song.title) === groupKey
+  );
+
+  if (!candidates.length) {
+    const fallback = resolveSongFromCatalog(track.playbackId, track.title);
+    if (!fallback) return null;
+    return { ...fallback, page: entryDate, album: albumTitle || undefined };
+  }
+
+  const newest = [...candidates].sort((a, b) => compareSongsBySortMode(a, b, 'newest'))[0];
+  return {
+    ...newest,
+    page: newest.page || entryDate,
+    album: albumTitle || undefined,
+  };
+}
+
 function buildMusicFamilies(sortMode) {
   const albumPlaybackIds = getAlbumPlaybackIdsFromEntries();
   const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
@@ -454,8 +478,12 @@ function getFeaturedMusicRelease() {
       if (!block || block.type !== 'album') continue;
       if (featured.albumTitle && block.title !== featured.albumTitle) continue;
 
+      const useLatestVersions = featured.useLatestVersions !== false;
       const tracks = (block.tracks || [])
         .map((track) => {
+          if (useLatestVersions) {
+            return resolveNewestVersionForAlbumSlot(track, block.title || '', dateKey);
+          }
           const song = resolveSongFromCatalog(track.playbackId, track.title);
           if (!song) return null;
           return { ...song, page: dateKey, album: block.title || undefined };

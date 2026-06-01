@@ -48,6 +48,20 @@
       return escapeHtml(value).replace(/\n/g, '<br>');
     }
 
+    function renderTextBlockHtml(value) {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return '';
+      if (window.isEntryTextHtml && window.isEntryTextHtml(trimmed)) {
+        return window.sanitizeEntryTextHtml(trimmed);
+      }
+      return textToHtml(trimmed);
+    }
+
+    function spacingBlockHtml(block) {
+      const size = window.normalizeSpacingSize ? window.normalizeSpacingSize(block.size) : 'md';
+      return `  <div class="entry-spacing entry-spacing--${size}" aria-hidden="true"></div>`;
+    }
+
     function setStatus(message) {
       if (!blockEls.status) return;
       blockEls.status.textContent = message;
@@ -60,6 +74,7 @@
     function createBlock(type, data) {
       const base = { id: makeId(), type };
       if (type === 'text') return { ...base, text: data && data.text ? data.text : '' };
+      if (type === 'spacing') return { ...base, size: data && data.size ? data.size : 'md' };
       if (type === 'image') return { ...base, src: data && data.src ? data.src : '', alt: data && data.alt ? data.alt : '' };
       if (type === 'video') return { ...base, playbackId: data && data.playbackId ? data.playbackId : '', title: data && data.title ? data.title : '' };
       if (type === 'album') {
@@ -184,12 +199,64 @@
       return fieldWrap;
     }
 
+    function htmlToPlainEditorText(value) {
+      const raw = String(value || '');
+      if (!raw || !window.isEntryTextHtml || !window.isEntryTextHtml(raw)) return raw;
+
+      const root = document.createElement('div');
+      root.innerHTML = window.sanitizeEntryTextHtml(raw);
+      return root.innerText.replace(/\u00a0/g, ' ');
+    }
+
+    function makeSpacingFields(block) {
+      const fieldWrap = document.createElement('div');
+      fieldWrap.className = 'entry-editor-field';
+
+      const label = document.createElement('label');
+      label.textContent = 'spacing size';
+      label.setAttribute('for', `spacing-size-${block.id}`);
+
+      const select = document.createElement('select');
+      select.id = `spacing-size-${block.id}`;
+      select.className = 'entry-spacing-size-select';
+
+      [
+        { value: 'sm', label: 'small' },
+        { value: 'md', label: 'medium' },
+        { value: 'lg', label: 'large' }
+      ].forEach(option => {
+        const el = document.createElement('option');
+        el.value = option.value;
+        el.textContent = option.label;
+        select.appendChild(el);
+      });
+
+      select.value = window.normalizeSpacingSize
+        ? window.normalizeSpacingSize(block.size)
+        : (block.size === 'sm' || block.size === 'lg' ? block.size : 'md');
+      select.addEventListener('change', () => updateBlock(block.id, 'size', select.value));
+
+      fieldWrap.appendChild(label);
+      fieldWrap.appendChild(select);
+      return fieldWrap;
+    }
+
     function makeBlockFields(block) {
       const fields = document.createElement('div');
       fields.className = 'entry-block-fields';
 
       if (block.type === 'text') {
-        fields.appendChild(makeField(block, 'text', 'text', 'textarea'));
+        const textField = makeField(block, 'text', 'text', 'textarea');
+        const textarea = textField.querySelector('textarea');
+        if (textarea) {
+          const plain = htmlToPlainEditorText(block.text);
+          textarea.value = plain;
+          block.text = plain;
+          textarea.classList.add('entry-textarea');
+        }
+        fields.appendChild(textField);
+      } else if (block.type === 'spacing') {
+        fields.appendChild(makeSpacingFields(block));
       } else if (block.type === 'image') {
         fields.appendChild(makeField(block, 'image path', 'src', 'input'));
         fields.appendChild(makeField(block, 'alt text', 'alt', 'input'));
@@ -298,7 +365,7 @@
       if (!entryBlocks.length) {
         const empty = document.createElement('p');
         empty.className = 'entry-editor-empty';
-        empty.textContent = 'add a text, photo, audio, or video block to start.';
+        empty.textContent = 'add a text, spacing, photo, audio, or video block to start.';
         blockEls.blocks.appendChild(empty);
         return;
       }
@@ -306,7 +373,6 @@
       entryBlocks.forEach((block, index) => {
         const card = document.createElement('article');
         card.className = 'entry-block-card';
-        card.draggable = true;
         card.dataset.blockId = block.id;
 
         const top = document.createElement('div');
@@ -315,6 +381,7 @@
         const handle = document.createElement('button');
         handle.className = 'entry-block-handle';
         handle.type = 'button';
+        handle.draggable = true;
         handle.textContent = 'drag';
         handle.setAttribute('aria-label', `Drag ${block.type} block`);
 
@@ -355,14 +422,14 @@
         card.appendChild(top);
         card.appendChild(makeBlockFields(block));
 
-        card.addEventListener('dragstart', event => {
+        handle.addEventListener('dragstart', event => {
           draggingBlockId = block.id;
           card.classList.add('is-dragging');
           event.dataTransfer.effectAllowed = 'move';
           event.dataTransfer.setData('text/plain', block.id);
         });
 
-        card.addEventListener('dragend', () => {
+        handle.addEventListener('dragend', () => {
           draggingBlockId = null;
           card.classList.remove('is-dragging');
           blockEls.blocks.querySelectorAll('.entry-block-card').forEach(item => item.classList.remove('is-drop-target'));
@@ -394,7 +461,11 @@
 
     function blockToHtml(block) {
       if (block.type === 'text' && block.text.trim()) {
-        return `  <p class="page-annotation">${textToHtml(block.text.trim())}</p>`;
+        return `  <p class="page-annotation">${renderTextBlockHtml(block.text)}</p>`;
+      }
+
+      if (block.type === 'spacing') {
+        return spacingBlockHtml(block);
       }
 
       if (block.type === 'image' && block.src.trim()) {
@@ -526,6 +597,12 @@ ${tracks.join(',\n')}
 
     function cleanBlockForData(block) {
       if (block.type === 'text') return { type: 'text', text: block.text || '' };
+      if (block.type === 'spacing') {
+        return {
+          type: 'spacing',
+          size: window.normalizeSpacingSize ? window.normalizeSpacingSize(block.size) : 'md'
+        };
+      }
       if (block.type === 'image') return { type: 'image', src: block.src || '', alt: block.alt || '' };
       if (block.type === 'audio') return { type: 'audio', title: block.title || '', playbackId: block.playbackId || '' };
       if (block.type === 'video') return { type: 'video', title: block.title || '', playbackId: block.playbackId || '' };
@@ -576,13 +653,6 @@ ${tracks.join(',\n')}
       }, null, 2);
     }
 
-    function appendTextWithBreaks(parent, value) {
-      String(value || '').split('\n').forEach((line, index) => {
-        if (index > 0) parent.appendChild(document.createElement('br'));
-        parent.appendChild(document.createTextNode(line));
-      });
-    }
-
     function renderAudioPreview(block) {
       const host = document.createElement('div');
       const list = document.createElement('ol');
@@ -629,10 +699,22 @@ ${tracks.join(',\n')}
       wrap.appendChild(id);
 
       entry.blocks.forEach(block => {
+        if (block.type === 'spacing') {
+          const spacer = document.createElement('div');
+          const size = window.normalizeSpacingSize ? window.normalizeSpacingSize(block.size) : 'md';
+          spacer.className = `entry-spacing entry-spacing--${size}`;
+          spacer.setAttribute('aria-hidden', 'true');
+          wrap.appendChild(spacer);
+        }
+
         if (block.type === 'text' && block.text.trim()) {
           const p = document.createElement('p');
           p.className = 'page-annotation';
-          appendTextWithBreaks(p, block.text.trim());
+          if (window.renderTextIntoElement) {
+            window.renderTextIntoElement(p, block.text.trim());
+          } else {
+            p.textContent = block.text.trim();
+          }
           wrap.appendChild(p);
         }
 
@@ -855,6 +937,7 @@ ${tracks.join(',\n')}
     }
 
     document.getElementById('addTextBlockBtn').addEventListener('click', () => addBlock('text'));
+    document.getElementById('addSpacingBlockBtn').addEventListener('click', () => addBlock('spacing'));
     document.getElementById('addImageBlockBtn').addEventListener('click', () => addBlock('image'));
     document.getElementById('addAudioBlockBtn').addEventListener('click', () => addBlock('audio'));
     document.getElementById('addAlbumBlockBtn').addEventListener('click', () => addBlock('album'));

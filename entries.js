@@ -4,6 +4,25 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "6.1.26": {
+    date: "6.1.26",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "today i am working on IT DOESNT MATTER. Re-recording the vocals on the second part to really rip. i want to sound like its tenderly falling apart.\n\nthe drums, and really everything, needs to fall apart when the verse ends. im looking for a total up is down moment."
+      },
+      {
+        type: "spacing",
+        size: "sm"
+      },
+      {
+        type: "audio",
+        title: "IT DOESNT MATTER 6.1.26",
+        playbackId: "iXmdxu00o8eIqB5dnlU3GhViTvtcw3Q5y4I8xDyFYhEQ"
+      }
+    ]
+  },
   "5.29.26": {
     date: "5.29.26",
     blocks: [
@@ -42,7 +61,13 @@ window.entryDataByDate = {
   }
 };
 
-window.entryOrder = ["5.29.26", "5.17.26"];
+window.entryOrder = ["6.1.26", "5.29.26", "5.17.26"];
 
-// Featured on music.html (portfolio / release page)
-window.musicFeaturedRelease = { entryDate: "5.17.26", albumTitle: "PHOTO NEGATIVE" };
+// Featured on music.html — track order/cover from this album; playback picks newest
+// version of each song sitewide (e.g. singles from later entries). Entry pages keep
+// the album block as posted. Set useLatestVersions: false to freeze the music page.
+window.musicFeaturedRelease = {
+  entryDate: "5.17.26",
+  albumTitle: "PHOTO NEGATIVE",
+  useLatestVersions: true
+};
