@@ -14,10 +14,14 @@
   function getMuxApiBase() {
     const cfg = window.BurnfolderStudioConfig || {};
     if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
-    if (location.port === '8888' || location.hostname.endsWith('.netlify.app')) {
-      return '/.netlify/functions';
-    }
-    return 'http://localhost:8888/.netlify/functions';
+    // Any deployed origin (custom domain or *.netlify.app) serves functions at
+    // the same origin. Only a separate local dev server (e.g. Live Server on
+    // :5500) needs to reach `netlify dev` on :8888.
+    const host = location.hostname;
+    const isLocalDevServer =
+      (host === 'localhost' || host === '127.0.0.1') && location.port && location.port !== '8888';
+    if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
+    return '/.netlify/functions';
   }
 
   function needsStudioAuth(url) {

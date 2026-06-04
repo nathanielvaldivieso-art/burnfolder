@@ -7,11 +7,12 @@
     const cfg = window.BurnfolderStudioConfig || {};
     if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
 
-    if (location.port === '8888' || location.hostname.endsWith('.netlify.app')) {
-      return '/.netlify/functions';
-    }
+    const host = location.hostname;
+    const isLocalDevServer =
+      (host === 'localhost' || host === '127.0.0.1') && location.port && location.port !== '8888';
+    if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
 
-    return 'http://localhost:8888/.netlify/functions';
+    return '/.netlify/functions';
   }
 
   function parseJson(res) {
