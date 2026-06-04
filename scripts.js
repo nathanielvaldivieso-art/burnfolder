@@ -242,12 +242,20 @@ function createTipUI() {
   });
 }
 
+function songVersionsApi() {
+  return typeof window !== 'undefined' ? window.BurnfolderSongVersions : null;
+}
+
 function extractDateFromText(text) {
+  const sv = songVersionsApi();
+  if (sv) return sv.extractDateFromText(text);
   const match = String(text || '').match(/(?:\(|\s)(\d{1,2}\.\d{1,2}\.\d{2})(?:\)|\s|$)/);
   return match ? match[1] : null;
 }
 
 function getTrackDateLabel(song) {
+  const sv = songVersionsApi();
+  if (sv) return sv.getTrackDateLabel(song);
   const fromTitle = extractDateFromText(song && song.title);
   if (fromTitle) return fromTitle;
   if (song && /^\d+\.\d+\.\d+$/.test(song.page || '')) return song.page;
@@ -255,17 +263,19 @@ function getTrackDateLabel(song) {
 }
 
 function parseTrackDateValue(song) {
+  const sv = songVersionsApi();
+  if (sv) return sv.parseTrackDateValue(song);
   const label = getTrackDateLabel(song);
   if (!label) return -Infinity;
-
   const [monthRaw, dayRaw, yearRaw] = label.split('.').map(Number);
   if (![monthRaw, dayRaw, yearRaw].every(Number.isFinite)) return -Infinity;
-
   const year = 2000 + yearRaw;
   return new Date(year, monthRaw - 1, dayRaw).getTime();
 }
 
 function stripTrailingDate(title) {
+  const sv = songVersionsApi();
+  if (sv) return sv.stripTrailingDate(title);
   return String(title || '')
     .replace(/\s+v\d+\s*$/i, '')
     .replace(/\s*\(\d{1,2}\.\d{1,2}\.\d{2}\)\s*$/i, '')
@@ -284,15 +294,23 @@ function getTracklistDisplayTitle(song, options = {}) {
 window.getTracklistDisplayTitle = getTracklistDisplayTitle;
 
 function getTrackGroupKey(title) {
+  const sv = songVersionsApi();
+  if (sv) return sv.getTrackGroupKey(title);
   return stripTrailingDate(title).toLowerCase();
 }
 
 function getSongHubHref(song) {
+  const ctx = window.BurnfolderPlaybackContext;
+  if (ctx && ctx.songHubHref) return ctx.songHubHref(song);
+  const sv = songVersionsApi();
+  if (sv) return sv.getSongHubHref(song);
   if (!song || !song.title) return 'song.html';
   return `song.html?song=${encodeURIComponent(getTrackGroupKey(song.title))}`;
 }
 
 function compareSongsBySortMode(a, b, sortMode) {
+  const sv = songVersionsApi();
+  if (sv) return sv.compareSongsBySortMode(a, b, sortMode);
   if (sortMode === 'az') {
     const base = stripTrailingDate(a.title).localeCompare(stripTrailingDate(b.title), undefined, {
       sensitivity: 'base',
@@ -300,7 +318,6 @@ function compareSongsBySortMode(a, b, sortMode) {
     if (base) return base;
     return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
   }
-
   const aDate = parseTrackDateValue(a);
   const bDate = parseTrackDateValue(b);
   if (aDate === bDate) {
@@ -539,9 +556,26 @@ function preloadTrackDuration(durEl, playbackId) {
   );
 }
 
+let siteVersionCycle = null;
+
+function getSiteVersionCycle() {
+  const sv = songVersionsApi();
+  if (!sv) return null;
+  if (!siteVersionCycle) {
+    siteVersionCycle = sv.createVersionCycle(
+      Array.isArray(window.allSongs) ? window.allSongs : []
+    );
+  }
+  return siteVersionCycle;
+}
+
 function buildTracklistItem(song, trackNum, onPlay, displayTitle) {
   const item = document.createElement('li');
   item.className = 'music-tracklist-item';
+
+  const cycle = getSiteVersionCycle();
+  const selected = cycle ? cycle.getSelected(song) : song;
+  const canCycle = cycle ? cycle.hasMultiple(song) : false;
 
   const num = document.createElement('span');
   num.className = 'music-track-num';
@@ -550,22 +584,64 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle) {
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'music-track-row';
-  row.dataset.playbackId = song.playbackId;
-  const label = displayTitle != null ? displayTitle : song.title;
-  row.setAttribute('aria-label', `Play ${label}`);
 
   const name = document.createElement('span');
-  name.className = 'music-track-title';
-  name.textContent = label;
+  name.className = 'music-track-title' + (canCycle ? ' is-version-cycle' : '');
 
   const dur = document.createElement('span');
   dur.className = 'music-track-duration';
   dur.textContent = '--:--';
 
+  function syncRow() {
+    const current = cycle ? cycle.getSelected(song) : song;
+    const label = cycle
+      ? cycle.labelFor(song)
+      : displayTitle != null
+        ? songVersionsApi()
+          ? songVersionsApi().normalizeTrackTitle(displayTitle)
+          : displayTitle
+        : songVersionsApi()
+          ? songVersionsApi().normalizeTrackTitle(song.title)
+          : song.title;
+    row.dataset.playbackId = current.playbackId;
+    row.setAttribute('aria-label', 'Play ' + label);
+    name.textContent = label;
+    if (!dur.dataset.loaded) {
+      preloadTrackDuration(dur, current.playbackId);
+      dur.dataset.loaded = '1';
+    }
+  }
+
+  syncRow();
+
+  row.addEventListener('click', (e) => {
+    if (e.target.closest('.is-version-cycle')) return;
+    const toPlay = cycle ? cycle.getSelected(song) : song;
+    if (typeof onPlay === 'function') onPlay(toPlay, song);
+  });
+
+  if (canCycle) {
+    name.setAttribute('role', 'button');
+    name.setAttribute('tabindex', '0');
+    name.setAttribute('aria-label', 'Toggle version');
+    const onCycle = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      cycle.cycle(song);
+      delete dur.dataset.loaded;
+      dur.textContent = '--:--';
+      syncRow();
+      playTrackBySong(cycle.getSelected(song));
+      if (typeof syncTracklistPlayback === 'function') syncTracklistPlayback();
+    };
+    name.addEventListener('click', onCycle);
+    name.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') onCycle(e);
+    });
+  }
+
   row.appendChild(name);
   row.appendChild(dur);
-  row.addEventListener('click', onPlay);
-  preloadTrackDuration(dur, song.playbackId);
 
   item.appendChild(num);
   item.appendChild(row);
@@ -590,6 +666,7 @@ function fillTracklistContainer(container, entries) {
 }
 
 window.buildTracklistItem = buildTracklistItem;
+window.playTrackBySong = playTrackBySong;
 window.fillTracklistContainer = fillTracklistContainer;
 
 function syncTracklistPlayback() {
@@ -709,7 +786,7 @@ function renderMusicPage() {
     release.tracks.map((song, index) => ({
       song,
       displayTitle: getTracklistDisplayTitle(song, { inAlbum: true }),
-      onPlay: () => playReleaseQueue(release.tracks, index),
+      onPlay: (toPlay) => playTrackBySong(toPlay || song),
     }))
   );
   article.appendChild(tracklistHost.firstChild);
@@ -731,6 +808,8 @@ window.renderMusicPage = renderMusicPage;
 
 /** Journal entry page for this recording (`M.DD.YY.html`), if applicable. */
 function getEntryPageHref(song) {
+  const ctx = window.BurnfolderPlaybackContext;
+  if (ctx && ctx.entryHref) return ctx.entryHref(song);
   if (!song) return '';
   let p = song.page != null ? String(song.page).trim() : '';
   if (!p || !/^\d+\.\d+\.\d+$/.test(p)) {
@@ -745,6 +824,11 @@ function getEntryPageHref(song) {
 function getVersionCandidatesForActiveSong() {
   const activeSong = getActiveSong();
   if (!activeSong) return [];
+  const ctx = window.BurnfolderPlaybackContext;
+  if (ctx && ctx.versionsForActive) {
+    const extra = Array.isArray(window.currentSongs) ? window.currentSongs : [];
+    return ctx.versionsForActive(activeSong, extra);
+  }
   const groupKey = getTrackGroupKey(activeSong.title);
   const source = Array.isArray(window.allSongs) && window.allSongs.length ? window.allSongs : window.currentSongs;
 
@@ -758,12 +842,9 @@ function getVersionCandidatesForActiveSong() {
     byPlaybackId.set(activeSong.playbackId, activeSong);
   }
 
-  return Array.from(byPlaybackId.values()).sort((a, b) => {
-    const aDate = parseTrackDateValue(a);
-    const bDate = parseTrackDateValue(b);
-    if (aDate !== bDate) return bDate - aDate;
-    return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
-  });
+  const sv = songVersionsApi();
+  if (sv) return sv.sortVersions(Array.from(byPlaybackId.values()), 'newest');
+  return Array.from(byPlaybackId.values()).sort((a, b) => compareSongsBySortMode(a, b, 'newest'));
 }
 
 function closeVersionPicker() {
@@ -781,33 +862,7 @@ function playTrackBySong(song) {
     return;
   }
 
-  activeSongOverride = song;
-  activeIdx = -1;
-  activeQueue = [song];
-  activeQueueIdx = 0;
-
-  activeMuxPlayer.pause();
-  activeMuxPlayer.currentTime = 0;
-  activeMuxPlayer.setAttribute('playback-id', song.playbackId);
-  activeMuxPlayer.setAttribute('metadata-video-title', song.title);
-  updateUI();
-
-  setTimeout(() => {
-    initializeVolumeControl();
-  }, 100);
-
-  const playPromise = activeMuxPlayer.play();
-  if (playPromise !== undefined) {
-    playPromise.catch(() => {
-      bottomPlayBtn.click();
-    });
-  }
-  setTimeout(() => {
-    if (activeMuxPlayer.paused) {
-      bottomPlayBtn.click();
-    }
-    bottomPlayBtn.focus();
-  }, 100);
+  startPlayback(song, [song], 0);
 }
 
 function renderVersionPicker() {
@@ -877,13 +932,16 @@ function toggleVersionPicker() {
 
 function createVersionPickerUI() {
   if (!songTitleEl || !songTitleEl.parentElement || document.getElementById('versionPickerMenu')) return;
+  if (window.BurnfolderStreamNowPlaying) return;
 
-  songTitleWrap = document.createElement('div');
-  songTitleWrap.className = 'song-title-wrap';
-
-  const parent = songTitleEl.parentElement;
-  parent.insertBefore(songTitleWrap, songTitleEl);
-  songTitleWrap.appendChild(songTitleEl);
+  songTitleWrap = songTitleEl.closest('.song-title-wrap');
+  if (!songTitleWrap) {
+    songTitleWrap = document.createElement('div');
+    songTitleWrap.className = 'song-title-wrap';
+    const parent = songTitleEl.parentElement;
+    parent.insertBefore(songTitleWrap, songTitleEl);
+    songTitleWrap.appendChild(songTitleEl);
+  }
 
   songTitleEl.classList.add('song-title-trigger');
   songTitleEl.setAttribute('tabindex', '0');
@@ -955,7 +1013,13 @@ function renderSongHubPage() {
   const targetKey = requestedSongKey || fallbackKey;
 
   const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
-  const matchingVersions = allSongs.filter((song) => getTrackGroupKey(song.title) === targetKey);
+  const sv = songVersionsApi();
+  const catalog = sv
+    ? sv.mergeSongCatalog(allSongs, [])
+    : allSongs;
+  const matchingVersions = sv
+    ? sv.collectVersionsByGroupKey(catalog, targetKey)
+    : allSongs.filter((song) => getTrackGroupKey(song.title) === targetKey);
 
   if (!matchingVersions.length) {
     titleEl.textContent = 'Song';
@@ -964,27 +1028,22 @@ function renderSongHubPage() {
     return;
   }
 
-  const baseTitle = stripTrailingDate(matchingVersions[0].title);
+  const baseTitle = sv ? sv.getBaseTitle(matchingVersions) : stripTrailingDate(matchingVersions[0].title);
   titleEl.textContent = baseTitle;
   subtitleEl.textContent = `${matchingVersions.length} version${matchingVersions.length === 1 ? '' : 's'}`;
 
   const renderVersions = () => {
     const sortMode = sortEl.value || 'newest';
-    const sorted = [...matchingVersions].sort((a, b) => {
-      const aDate = parseTrackDateValue(a);
-      const bDate = parseTrackDateValue(b);
-      if (aDate === bDate) {
-        return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
-      }
-      return sortMode === 'oldest' ? aDate - bDate : bDate - aDate;
-    });
+    const sorted = sv
+      ? sv.sortVersions(matchingVersions, sortMode)
+      : [...matchingVersions].sort((a, b) => compareSongsBySortMode(a, b, sortMode));
 
     fillTracklistContainer(
       versionsEl,
       sorted.map((song) => ({
         song,
         displayTitle: song.title,
-        onPlay: () => playTrackBySong(song),
+        onPlay: (toPlay) => playTrackBySong(toPlay || song),
       }))
     );
     syncTracklistPlayback();
@@ -1805,11 +1864,14 @@ if (audioList && !didRenderInitially) {
     window.currentSongs.map((song, idx) => ({
       song,
       displayTitle: getTracklistDisplayTitle(song),
-      onPlay: () => {
-        if (activeIdx === idx && activeMuxPlayer && !activeMuxPlayer.paused) {
+      onPlay: (toPlay) => {
+        const target = toPlay || song;
+        const activeSong = getActiveSong();
+        const sameTrack = activeSong && activeSong.playbackId === target.playbackId;
+        if (sameTrack && activeMuxPlayer && !activeMuxPlayer.paused) {
           togglePlayPause();
         } else {
-          playTrack(idx);
+          playTrackBySong(target);
         }
       },
     }))
@@ -1818,14 +1880,21 @@ if (audioList && !didRenderInitially) {
 
 function updateUI() {
   const activeSong = getActiveSong();
-  if (activeIdx !== null && activeSong) {
+  if (activeSong) {
     if (!activeMuxPlayer.paused) {
       bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>';
     } else {
       bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
     }
-    songTitleEl.textContent = activeSong.title;
-    songTitleEl.setAttribute('aria-label', `menu for ${activeSong.title}`);
+    const titleLabel =
+      window.BurnfolderPlaybackContext && window.BurnfolderPlaybackContext.displayTitleForPlayback
+        ? window.BurnfolderPlaybackContext.displayTitleForPlayback(
+            activeSong,
+            window.currentSongs
+          )
+        : activeSong.title;
+    songTitleEl.textContent = titleLabel;
+    songTitleEl.setAttribute('aria-label', `menu for ${titleLabel}`);
     renderVersionPicker();
     bottomBar.style.display = 'block';
     bottomPlayBtn.focus();
@@ -1841,7 +1910,7 @@ function updateUI() {
 function syncPlaybackChromeState() {
   const activeSong = getActiveSong();
   const barOn = bottomBar && bottomBar.style.display === 'block';
-  const active = activeIdx !== null && activeSong && barOn;
+  const active = !!activeSong && barOn;
   const playing =
     active &&
     !activeMuxPlayer.paused;
@@ -1851,83 +1920,113 @@ function syncPlaybackChromeState() {
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
 
-function playTrack(idx) {
-  const song = window.currentSongs[idx];
-  if (!song) return;
+let siteMuxPlayback = null;
+
+function getSiteMuxPlayback() {
+  if (!siteMuxPlayback && activeMuxPlayer && window.BurnfolderMuxPlayback) {
+    siteMuxPlayback = window.BurnfolderMuxPlayback.create({
+      getPlayer: () => activeMuxPlayer,
+      bindEnded: false,
+      onPlayBlocked: () => {
+        if (bottomPlayBtn) bottomPlayBtn.click();
+      },
+      onStateChange: () => {
+        updateUI();
+        syncPlaybackChromeState();
+        syncTracklistPlayback();
+      },
+      onAfterStart: () => {
+        if (bottomPlayBtn) bottomPlayBtn.focus();
+      }
+    });
+  }
+  return siteMuxPlayback;
+}
+
+function startPlayback(song, queueSongs, queueIdx) {
+  if (!song || !song.playbackId || !activeMuxPlayer) return;
+
   activeSongOverride = song;
-  activeQueue = window.currentSongs.slice();
-  activeQueueIdx = idx;
-  activeMuxPlayer.pause();
-  activeMuxPlayer.currentTime = 0;
-  // Set playback-id — mux-player reacts to attribute changes automatically.
-  // Do NOT call .load() after this; it resets the player to the previous src.
-  activeMuxPlayer.setAttribute('playback-id', song.playbackId);
-  activeMuxPlayer.setAttribute('metadata-video-title', song.title);
-  activeIdx = idx;
+  activeQueue = Array.isArray(queueSongs) && queueSongs.length ? queueSongs.slice() : [song];
+  activeQueueIdx = typeof queueIdx === 'number' ? queueIdx : 0;
+  activeIdx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
+  if (activeIdx === -1) activeIdx = null;
+
+  const engine = getSiteMuxPlayback();
+  if (engine) {
+    engine.startPlayback(song, activeQueue, activeQueueIdx);
+  } else {
+    activeMuxPlayer.pause();
+    activeMuxPlayer.currentTime = 0;
+    activeMuxPlayer.setAttribute('playback-id', song.playbackId);
+    activeMuxPlayer.setAttribute('metadata-video-title', song.title);
+    const playPromise = activeMuxPlayer.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        if (bottomPlayBtn) bottomPlayBtn.click();
+      });
+    }
+    setTimeout(() => {
+      if (activeMuxPlayer.paused && bottomPlayBtn) bottomPlayBtn.click();
+      if (bottomPlayBtn) bottomPlayBtn.focus();
+    }, 100);
+  }
+
   updateUI();
-  
-  // Initialize volume control when track starts
   setTimeout(() => {
     initializeVolumeControl();
   }, 100);
-  
-  // Try to play directly
-  const playPromise = activeMuxPlayer.play();
-  if (playPromise !== undefined) {
-    playPromise.catch(() => {
-      // Fallback: dispatch synthetic click to play/pause button
-      bottomPlayBtn.click();
-    });
-  }
-  // Fallback: dispatch synthetic click after short delay if still paused
-  setTimeout(() => {
-    if (activeMuxPlayer.paused) {
-      bottomPlayBtn.click();
-    }
-    bottomPlayBtn.focus();
-  }, 100);
 }
+
+function playTrack(idx) {
+  const song = window.currentSongs[idx];
+  if (!song) return;
+  startPlayback(song, window.currentSongs, idx);
+}
+
+function playTrackQueue(queueSongs, queueStartIdx) {
+  if (!Array.isArray(queueSongs) || !queueSongs.length) return;
+  const start = typeof queueStartIdx === 'number' ? queueStartIdx : 0;
+  const song = queueSongs[start];
+  if (!song) return;
+  startPlayback(song, queueSongs, start);
+}
+
+window.playTrackQueue = playTrackQueue;
 
 function playQueuedTrack(queueIdx) {
   const song = activeQueue[queueIdx];
   if (!song) return;
-
-  activeSongOverride = song;
-  activeQueueIdx = queueIdx;
-  activeIdx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
-
-  activeMuxPlayer.pause();
-  activeMuxPlayer.currentTime = 0;
-  activeMuxPlayer.setAttribute('playback-id', song.playbackId);
-  activeMuxPlayer.setAttribute('metadata-video-title', song.title);
-  updateUI();
-
-  const playPromise = activeMuxPlayer.play();
-  if (playPromise !== undefined) {
-    playPromise.catch(() => {
-      bottomPlayBtn.click();
-    });
-  }
+  startPlayback(song, activeQueue, queueIdx);
 }
 
 function togglePlayPause() {
-  if (activeIdx !== null) {
-    if (activeMuxPlayer.paused) {
-      activeMuxPlayer.play();
-    } else {
-      activeMuxPlayer.pause();
-    }
-    updateUI();
-    bottomPlayBtn.focus();
+  if (!getActiveSong()) return;
+  if (activeMuxPlayer.paused) {
+    activeMuxPlayer.play();
+  } else {
+    activeMuxPlayer.pause();
   }
+  updateUI();
+  bottomPlayBtn.focus();
 }
 
 bottomPlayBtn.addEventListener('click', () => {
   togglePlayPause();
 });
 
+function isTypingTarget(target) {
+  const el = target && target.nodeType === 1 ? target : null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return Boolean(el.closest('[contenteditable="true"]'));
+}
+
 document.addEventListener('keydown', (e) => {
-  if ((e.code === 'Space' || e.key === ' ') && activeIdx !== null && bottomBar.style.display === 'block') {
+  if ((e.code === 'Space' || e.key === ' ') && getActiveSong() && bottomBar.style.display === 'block') {
+    if (isTypingTarget(e.target)) return;
     e.preventDefault();
     togglePlayPause();
     bottomPlayBtn.focus();
@@ -1935,7 +2034,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 closeBtn.addEventListener('click', () => {
-  if (activeIdx !== null) {
+  if (getActiveSong()) {
     activeMuxPlayer.pause();
     activeIdx = null;
     activeSongOverride = null;
@@ -1952,7 +2051,7 @@ function showLoading(show) {
 }
 
 function updateProgress() {
-  if (activeIdx !== null) {
+  if (getActiveSong()) {
     if (activeMuxPlayer.duration) {
       const percent = (activeMuxPlayer.currentTime / activeMuxPlayer.duration) * 100;
       progressEl.style.width = percent + '%';

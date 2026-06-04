@@ -232,3 +232,69 @@ Each track on the music page no longer shows the entry date inline; use the **no
 ## Admin / add-song
 
 - `admin.html` was removed. `netlify/functions/add-song.js` returns 403 — add catalog entries by editing `songs.js` in git.
+
+---
+
+# burnfolder/studio — the artist OS
+
+`/studio` is a **private, single-user admin app** — the artist's operating system. It is
+**not** part of the public archive and does **not** follow the public site's "archival
+coldness." burnfolder.com is the gallery; `/studio` is the workshop behind it.
+
+## Purpose
+A customized daily / on-the-go tool to run the whole practice from one place:
+- **Streaming** — private listening + version management of the Mux library (`stream.html`).
+- **Projects / albums** — group tracks into named, cover-arted sets (streaming-service style).
+- **Entries** — compose dated journal entries and publish them to burnfolder.com.
+- **Link sharing** — `untitled.stream`-style shareable links/pages for tracks & sets *(planned)*.
+- **File sharing** — drop a file, get a link *(planned)*.
+- **Day plans / journaling** — private planner + journal, separate from public entries *(planned)*.
+- **Content / marketing plans** — scheduling pipeline for posts/campaigns *(planned)*.
+- **Analytics** — plays, top tracks, traffic *(planned)*.
+- **Orders / merch / shipping** — Stripe + Shippo order surface *(planned)*.
+
+## Studio design language
+Distinct from the public site, but same **identity tokens**: monospace, square corners
+(`border-radius: 0`), grayscale (black/white/`#c8c8c8`), lowercase labels. The difference:
+studio is **interactive and app-like** — it may use hover states, drag-and-drop, tabs,
+panels, inline editing, and richer affordances that the public archive forbids. Priority
+order for studio: **intuitive → sleek → secure**, all while staying mobile-first / PWA.
+
+## Studio architecture (current)
+- **Pages:** `studio/index.html` (entry editor + Mux library), `studio/stream.html`
+  (stream + projects), `studio/stream-song.html`, `studio/files.html`. `editor.html`
+  redirects to `index.html`.
+- **Auth gate (`studio/js/studio-auth.js`):** client login screen; the studio password is
+  `STUDIO_API_SECRET`. Token kept in `sessionStorage`; `window.fetch` is wrapped to attach
+  `Authorization: Bearer <token>` to any URL containing `/mux-` or `/studio-state`. The
+  login check (`/studio-auth-check`) uses the *native* fetch to avoid a deadlock.
+- **Server gate (`netlify/functions/lib/studio-auth.js`):** `requireStudioAccess(event)`
+  enforces the bearer on every studio function. In production with no secret set, functions
+  return 503 (locked). Dev bypass when no secret + non-production.
+- **Mux functions:** `mux-create-upload`, `mux-upload-status`, `mux-list-assets`,
+  `mux-delete-asset` — all bearer-gated. The Mux library is the cloud source of truth for
+  songs/videos.
+- **Personal cloud (`netlify/functions/studio-state.js` + `studio/js/cloud-state.js`):**
+  single-user key/value store on **Netlify Blobs** (store `studio-state`, strong
+  consistency), bearer-gated. Classic CJS function → must call `connectLambda(event)` before
+  `getStore()`. Model is **last-write-wins**: pull latest on load, push (debounced) on change,
+  flush on `pagehide`/tab-hide. Keys in use: `stack`, `stackMeta`, `drafts`, `notes`.
+  - `stream-shared.js` syncs the project/album; `drafts.js` syncs entry drafts;
+    `journal-store.js` syncs journal notes (IndexedDB mirror of cloud key `notes`).
+  - A **cloud status indicator** (`cloud-state.js` → `.studio-sync`) and a **lock
+    button** (`studio-auth.js` → `.studio-lock-btn`) are injected into `.studio-main-nav`
+    (`.studio-nav-tools` cluster). `cloud-state.js` dispatches `burnfolder-cloud-state`
+    (`syncing`/`synced`/`offline`).
+- **PWA:** `studio/manifest.webmanifest` + `studio/sw.js` (HTML network-first; `/studio/js/`
+  cached network-first; non-GET skipped). Cache-bust JS with `?v=YYYYMMDD<letter>`.
+
+## Studio conventions
+- **Single user.** No multi-user/RLS. The old `studio/supabase/schema.sql` is **unused** —
+  the personal cloud is Netlify Blobs, not Supabase.
+- **Everything authored syncs through `cloud-state.js`** (don't add new localStorage-only
+  authored state — wire it to a `studio-state` key so it follows the artist across devices).
+- **Never commit secrets.** `STUDIO_API_SECRET`, Mux tokens, Stripe keys live in Netlify env
+  (and local `.env`, gitignored) — never in the repo.
+- **Bump cache versions** on every studio JS/HTML change (`?v=...`) or the PWA serves stale code.
+- **Publishing to burnfolder.com is still manual** (publish panel → download/copy files →
+  git commit → deploy). That hand-off is intentional for now.

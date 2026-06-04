@@ -1,0 +1,11 @@
+{
+  "name": "burnfolder stream",
+  "short_name": "stream",
+  "description": "Play and stack tracks from your burnfolder library",
+  "start_url": "./stream.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary"
+}

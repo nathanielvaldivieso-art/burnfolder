@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="stream">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>stream — burnfolder studio</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="css/studio.css?v=20260604z5">
+</head>
+<body class="studio-page studio-stream-page">
+  <header class="site-header studio-header">
+    <a href="index.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="index.html" class="studio-main-nav-link page-nav" data-nav="entry">entry</a>
+      <a href="stream.html" class="studio-main-nav-link page-nav" data-nav="stream">stream</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-stream-layout">
+    <p class="page-id">stream</p>
+
+    <div class="studio-stream-toolbar studio-stream-toolbar--minimal">
+      <div id="streamFilters" class="studio-stream-filters" aria-label="Filter"></div>
+      <span id="streamCount" class="studio-stream-count"></span>
+    </div>
+
+    <details class="studio-stream-upload-details">
+      <summary>+ add music</summary>
+      <div id="streamUpload" class="studio-stream-upload"></div>
+      <div id="editorUploadQueue" class="studio-upload-queue-host"></div>
+    </details>
+
+    <div id="streamVideoStage" class="stream-video-stage" hidden aria-label="Video"></div>
+    <div id="streamList" class="studio-stream-list" aria-live="polite"></div>
+    <p class="studio-stream-status" id="streamStatus" aria-live="polite"></p>
+  </main>
+
+  <div class="bottom-progress-bar" id="bottomBar" style="display: none;" role="region" aria-label="Now playing">
+    <button type="button" class="close-btn" id="streamNowPlayingClose" aria-label="Close Now Playing">✕</button>
+    <div class="bottom-bar-content">
+      <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+      <div class="song-title-wrap">
+        <span class="song-title" id="streamNowPlayingTitle">—</span>
+      </div>
+      <div class="bottom-bar-controls">
+        <button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>
+        <div class="progress-bar-area" id="progressBarArea">
+          <div class="progress" id="progress"></div>
+          <div class="progress-playhead" id="progressPlayhead"></div>
+        </div>
+      </div>
+      <div class="loading-spinner" id="loadingSpinner"></div>
+    </div>
+  </div>
+
+  <script src="../entries.js?v=20260604y"></script>
+  <script src="../songs.js?v=20260604y"></script>
+  <script src="../shared/song-versions.js?v=20260604y"></script>
+  <script src="js/asset-cloud.js?v=20260604y"></script>
+  <script src="../shared/mux-display-name.js?v=20260604y"></script>
+  <script src="js/mux-naming.js?v=20260604y"></script>
+  <script src="js/studio-auth.js?v=20260604z5"></script>
+  <script src="js/cloud-state.js?v=20260604z5"></script>
+  <script src="js/mux-client.js?v=20260604y"></script>
+  <script src="js/studio-mux-lib.js?v=20260604y"></script>
+  <script src="../shared/mux-playback.js?v=20260604y"></script>
+  <script src="../shared/playback-context.js?v=20260604y"></script>
+  <script src="../shared/version-picker.js?v=20260604y"></script>
+  <script src="../shared/now-playing-bar.js?v=20260604y"></script>
+  <script src="js/stream-shared.js?v=20260604z4"></script>
+  <script src="js/upload-queue.js?v=20260604y"></script>
+  <script src="js/cloud-ui.js?v=20260604z2"></script>
+  <script src="js/stream-player.js?v=20260604y"></script>
+  <script src="js/stream-now-playing.js?v=20260604y"></script>
+  <script src="js/stream-page.js?v=20260604z4"></script>
+  <script>
+    (function () {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (reg) {
+            reg.unregister();
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

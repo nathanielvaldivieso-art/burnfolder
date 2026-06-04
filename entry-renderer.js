@@ -41,18 +41,24 @@
     return root.innerHTML;
   }
 
+  function textBlockHasRenderableContent(text) {
+    const raw = String(text || '');
+    return raw.length > 0 && (raw.trim().length > 0 || raw.includes('\n'));
+  }
+
   function renderTextIntoElement(parent, value) {
     const text = String(value || '');
-    if (!text.trim()) return;
+    if (!textBlockHasRenderableContent(text)) return;
 
-    if (isEntryTextHtml(text)) {
-      parent.innerHTML = sanitizeEntryTextHtml(text);
+    const trimmed = text.trim();
+    if (trimmed && isEntryTextHtml(trimmed)) {
+      parent.innerHTML = sanitizeEntryTextHtml(trimmed);
       return;
     }
 
     text.split('\n').forEach((line, index) => {
       if (index > 0) parent.appendChild(document.createElement('br'));
-      parent.appendChild(document.createTextNode(line));
+      if (line.length) parent.appendChild(document.createTextNode(line));
     });
   }
 
@@ -67,9 +73,12 @@
   function renderAudioSlot(parent, block) {
     const slot = document.createElement('div');
     slot.className = 'entry-audio-list';
-    slot.style.marginTop = block.type === 'album' ? '24px' : '48px';
+    slot.style.marginTop = block.type === 'album' || block.type === 'playlist' ? '12px' : '20px';
 
-    if (block.type === 'album' && block.title) {
+    const playlistKey = block.playlistId || block.id;
+    if (block.type === 'playlist' && playlistKey) {
+      slot.dataset.playlist = playlistKey;
+    } else if (block.type === 'album' && block.title) {
       slot.dataset.album = block.title;
     } else if (block.playbackId) {
       slot.dataset.playbackId = block.playbackId;
@@ -89,7 +98,8 @@
 
     if (block.type === 'text' && block.text) {
       const p = document.createElement('p');
-      p.className = 'page-annotation';
+      const size = block.textSize === 'sm' || block.textSize === 'lg' ? block.textSize : 'md';
+      p.className = size === 'md' ? 'page-annotation' : `page-annotation entry-text--${size}`;
       renderTextIntoElement(p, block.text);
       wrap.appendChild(p);
     }
@@ -127,6 +137,34 @@
 
       renderAudioSlot(album, block);
       wrap.appendChild(album);
+    }
+
+    if (block.type === 'playlist' && Array.isArray(block.tracks) && block.tracks.length) {
+      const hasTitle = !!(block.title && String(block.title).trim());
+      const hasCover = !!(block.coverArt && String(block.coverArt).trim());
+      const playlist = document.createElement('div');
+      playlist.className = 'entry-playlist';
+      if (hasCover) playlist.classList.add('entry-playlist--has-cover');
+      if (hasTitle) playlist.classList.add('entry-playlist--has-title');
+      if (!hasCover && !hasTitle) playlist.classList.add('entry-playlist--minimal');
+
+      if (hasCover) {
+        const cover = document.createElement('img');
+        cover.src = String(block.coverArt).trim();
+        cover.alt = (block.coverAlt && String(block.coverAlt).trim()) || (hasTitle ? block.title : 'cover art');
+        cover.className = 'entry-playlist-cover';
+        playlist.appendChild(cover);
+      }
+
+      if (hasTitle) {
+        const title = document.createElement('p');
+        title.className = 'entry-playlist-title';
+        title.textContent = block.title;
+        playlist.appendChild(title);
+      }
+
+      renderAudioSlot(playlist, block);
+      wrap.appendChild(playlist);
     }
 
     if (block.type === 'video' && block.playbackId) {
@@ -168,6 +206,7 @@
   window.sanitizeEntryTextHtml = sanitizeEntryTextHtml;
   window.isEntryTextHtml = isEntryTextHtml;
   window.renderTextIntoElement = renderTextIntoElement;
+  window.textBlockHasRenderableContent = textBlockHasRenderableContent;
   window.normalizeSpacingSize = normalizeSpacingSize;
   window.renderDataEntryPage = renderDataEntryPage;
   renderDataEntryPage();

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>song — stream</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="css/studio.css?v=20260604z5">
+</head>
+<body class="studio-page studio-stream-page studio-song-page">
+  <header class="site-header studio-header">
+    <a href="stream.html" class="site-brand">stream</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="index.html" class="studio-main-nav-link page-nav" data-nav="entry">entry</a>
+      <a href="stream.html" class="studio-main-nav-link page-nav is-active" data-nav="stream">stream</a>
+    </nav>
+  </header>
+
+  <div class="page-wrap studio-song-hub song-hub-page" id="songMain" hidden>
+    <p class="page-id">song</p>
+
+    <h2 class="song-hub-title" id="songHubTitle">Song</h2>
+    <p class="song-hub-subtitle" id="songHubSubtitle">—</p>
+
+    <div id="songVideoHero" class="studio-song-video-hero" hidden></div>
+
+    <div class="song-hub-panel">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Versions</p>
+        <label class="song-hub-sort-label" for="songHubSort">Sort</label>
+        <select id="songHubSort" class="song-hub-sort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      <div class="song-hub-versions" id="songHubVersions"></div>
+    </div>
+
+    <div class="song-hub-panel studio-song-actions-panel">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Tools</p>
+      </div>
+      <div class="studio-song-actions">
+        <button type="button" class="icon-btn" id="songStackBtn" disabled>stack</button>
+        <a class="icon-btn" id="songEntryBtn" href="index.html">entry</a>
+        <a class="icon-btn" id="songSiteBtn" href="#" hidden>site</a>
+        <button type="button" class="icon-btn" id="songCopyBtn">copy id</button>
+        <button type="button" class="icon-btn" id="songDeleteBtn" hidden>delete</button>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="studio-stream-status studio-song-status" id="songStatus" aria-live="polite"></p>
+
+  <div class="bottom-progress-bar" id="bottomBar" style="display: none;" role="region" aria-label="Now playing">
+    <button type="button" class="close-btn" id="streamNowPlayingClose" aria-label="Close Now Playing">✕</button>
+    <div class="bottom-bar-content">
+      <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+      <div class="song-title-wrap">
+        <span class="song-title" id="streamNowPlayingTitle">—</span>
+      </div>
+      <div class="bottom-bar-controls">
+        <button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>
+        <div class="progress-bar-area" id="progressBarArea">
+          <div class="progress" id="progress"></div>
+          <div class="progress-playhead" id="progressPlayhead"></div>
+        </div>
+      </div>
+      <div class="loading-spinner" id="loadingSpinner"></div>
+    </div>
+  </div>
+
+  <script src="../entries.js?v=20260604t"></script>
+  <script src="../songs.js?v=20260604t"></script>
+  <script src="../shared/song-versions.js?v=20260604y"></script>
+  <script src="js/asset-cloud.js?v=20260604t"></script>
+  <script src="../shared/mux-display-name.js?v=20260604t"></script>
+  <script src="js/mux-naming.js?v=20260604t"></script>
+  <script src="js/studio-auth.js?v=20260604z5"></script>
+  <script src="js/cloud-state.js?v=20260604z5"></script>
+  <script src="js/mux-client.js?v=20260604t"></script>
+  <script src="js/studio-mux-lib.js?v=20260604t"></script>
+  <script src="../shared/mux-playback.js?v=20260604t"></script>
+  <script src="../shared/playback-context.js?v=20260604t"></script>
+  <script src="../shared/version-picker.js?v=20260604t"></script>
+  <script src="../shared/now-playing-bar.js?v=20260604t"></script>
+  <script src="js/stream-shared.js?v=20260604z4"></script>
+  <script src="js/stream-player.js?v=20260604t"></script>
+  <script src="js/stream-now-playing.js?v=20260604t"></script>
+  <script src="js/stream-song-page.js?v=20260604t"></script>
+</body>
+</html>

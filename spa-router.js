@@ -176,9 +176,16 @@
           return {
             song: item.song,
             displayTitle: trackDisplayTitle(item.song, inAlbum),
-            onPlay: function() {
-              if (typeof activeIdx !== 'undefined' && activeIdx === idx && typeof togglePlayPause === 'function' && typeof activeMuxPlayer !== 'undefined' && activeMuxPlayer && !activeMuxPlayer.paused) {
+            onPlay: function(toPlay) {
+              var target = toPlay || item.song;
+              var active = typeof getActiveSong === 'function' ? getActiveSong() : null;
+              var sameTrack = active && active.playbackId === target.playbackId;
+              if (sameTrack && typeof togglePlayPause === 'function' && typeof activeMuxPlayer !== 'undefined' && activeMuxPlayer && !activeMuxPlayer.paused) {
                 togglePlayPause();
+              } else if (typeof playTrackBySong === 'function') {
+                playTrackBySong(target);
+              } else if (typeof startPlayback === 'function') {
+                startPlayback(idx);
               } else if (typeof playTrack === 'function') {
                 playTrack(idx);
               }
@@ -190,6 +197,12 @@
     }
 
     function getSongsForContainer(container) {
+      if (container.dataset.playlist) {
+        return songs
+          .map((song, idx) => ({ song, idx }))
+          .filter(item => item.song.playlist === container.dataset.playlist);
+      }
+
       if (container.dataset.album) {
         return songs
           .map((song, idx) => ({ song, idx }))
@@ -215,7 +228,11 @@
     const scopedAudioLists = Array.from(document.querySelectorAll('.entry-audio-list'));
     if (scopedAudioLists.length) {
       scopedAudioLists.forEach(function(listEl) {
-        renderTracklist(listEl, getSongsForContainer(listEl), !!listEl.dataset.album);
+        renderTracklist(
+          listEl,
+          getSongsForContainer(listEl),
+          !!(listEl.dataset.album || listEl.dataset.playlist)
+        );
       });
       return;
     }
