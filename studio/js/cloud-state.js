@@ -53,12 +53,25 @@
     emitStatus(ok ? 'synced' : 'offline');
   }
 
+  function logFailure(label, key, res, bodyText) {
+    const status = res ? res.status : 'network';
+    console.warn(
+      '[cloud] ' + label + ' "' + key + '" failed (' + status + '): ' +
+      (bodyText || '(no response body — request did not reach the server)')
+    );
+  }
+
   function get(key) {
     return whenReady().then(function () {
       begin();
       return fetch(getApiBase() + '/studio-state?key=' + encodeURIComponent(key))
         .then(function (res) {
-          if (!res.ok) throw new Error('cloud read failed (' + res.status + ')');
+          if (!res.ok) {
+            return res.text().then(function (txt) {
+              logFailure('read', key, res, txt);
+              throw new Error('cloud read failed (' + res.status + ')');
+            });
+          }
           return res.json();
         })
         .then(function (data) {
@@ -66,6 +79,9 @@
           return data && 'value' in data ? data.value : null;
         })
         .catch(function (err) {
+          if (!err || !/cloud read failed/.test(err.message || '')) {
+            logFailure('read', key, null, err && err.message);
+          }
           settle(false);
           throw err;
         });
@@ -83,12 +99,20 @@
         body: JSON.stringify({ key: key, value: value }),
         keepalive: !!keepalive
       }).then(function (res) {
-        if (!res.ok) throw new Error('cloud write failed (' + res.status + ')');
+        if (!res.ok) {
+          return res.text().then(function (txt) {
+            logFailure('write', key, res, txt);
+            throw new Error('cloud write failed (' + res.status + ')');
+          });
+        }
         return res.json();
       }).then(function (data) {
         settle(true);
         return data;
       }).catch(function (err) {
+        if (!err || !/cloud write failed/.test(err.message || '')) {
+          logFailure('write', key, null, err && err.message);
+        }
         settle(false);
         throw err;
       });
