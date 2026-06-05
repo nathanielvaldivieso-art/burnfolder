@@ -5,6 +5,7 @@
 
   const muxShared = window.BurnfolderStudioMux;
   const MUX_PLAYBACK_MIME = 'application/x-burnfolder-mux-playback';
+  const MUX_ASSET_MIME = 'application/x-burnfolder-mux-asset';
 
   window.STUDIO_MUX_PLAYBACK_MIME = MUX_PLAYBACK_MIME;
 
@@ -34,11 +35,12 @@
       window.BurnfolderStreamShared && window.BurnfolderStreamShared.resolveMediaKind
         ? window.BurnfolderStreamShared.resolveMediaKind(item)
         : item.kind || 'audio';
+    const label = muxFileLabel(item);
     return {
       id: 'mux-' + item.playbackId,
       kind: kind,
-      name: item.passthrough,
-      displayTitle: item.displayTitle || item.passthrough,
+      name: label,
+      displayTitle: label,
       muxPlaybackId: item.playbackId,
       muxPassthrough: item.passthrough,
       muxAssetId: item.muxAssetId
@@ -127,6 +129,7 @@
 
       li.addEventListener('dragstart', function (event) {
         event.dataTransfer.setData(MUX_PLAYBACK_MIME, item.playbackId);
+        if (item.muxAssetId) event.dataTransfer.setData(MUX_ASSET_MIME, item.muxAssetId);
         event.dataTransfer.setData('text/plain', label);
         event.dataTransfer.effectAllowed = 'copy';
         li.classList.add('is-dragging');
@@ -483,18 +486,22 @@
       preview.classList.remove('is-drop-target');
 
       const label = event.dataTransfer.getData('text/plain') || '';
+      const muxAssetId = event.dataTransfer.getData(MUX_ASSET_MIME) || '';
 
       whenEditorReady(function (api) {
-        const item = muxLibraryCache.find(function (a) {
-          return a.playbackId === playbackId;
-        });
+        const item = muxAssetId
+          ? findMuxItem(muxAssetId)
+          : muxLibraryCache.find(function (a) {
+              return a.playbackId === playbackId;
+            });
         const asset = item
           ? muxItemToAsset(item)
           : {
               kind: 'audio',
               displayTitle: label,
               name: label,
-              muxPlaybackId: playbackId
+              muxPlaybackId: playbackId,
+              muxAssetId: muxAssetId || undefined
             };
 
         const playlistBlockId =

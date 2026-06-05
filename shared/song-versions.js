@@ -522,6 +522,16 @@
     function getSelected(song) {
       const versions = versionsForSong(song);
       if (!versions.length) return song;
+
+      const explicitId = song && song.playbackId ? String(song.playbackId).trim() : '';
+      if (explicitId) {
+        const pinned = versions.find(function (v) {
+          return v.playbackId === explicitId;
+        });
+        if (pinned) return pinned;
+        if (song.title) return song;
+      }
+
       const key = groupKeyFor(song);
       const id = selectedByGroup.get(key);
       if (!id) return versions[0];

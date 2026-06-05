@@ -237,7 +237,8 @@
     const canonical = preferredDisplayTitle(item, ctx);
     return Object.assign({}, item, {
       muxCanonicalTitle: canonical,
-      muxDisplayTitle: canonical
+      muxDisplayTitle: canonical,
+      displayTitle: canonical
     });
   }
 

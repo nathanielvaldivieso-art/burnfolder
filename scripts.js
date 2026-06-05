@@ -569,13 +569,15 @@ function getSiteVersionCycle() {
   return siteVersionCycle;
 }
 
-function buildTracklistItem(song, trackNum, onPlay, displayTitle) {
+function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
+  const opts = options || {};
+  const freezePlayback = opts.freezePlayback === true;
   const item = document.createElement('li');
   item.className = 'music-tracklist-item';
 
-  const cycle = getSiteVersionCycle();
+  const cycle = freezePlayback ? null : getSiteVersionCycle();
   const selected = cycle ? cycle.getSelected(song) : song;
-  const canCycle = cycle ? cycle.hasMultiple(song) : false;
+  const canCycle = !freezePlayback && cycle ? cycle.hasMultiple(song) : false;
 
   const num = document.createElement('span');
   num.className = 'music-track-num';
@@ -593,16 +595,24 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle) {
   dur.textContent = '--:--';
 
   function syncRow() {
-    const current = cycle ? cycle.getSelected(song) : song;
-    const label = cycle
-      ? cycle.labelFor(song)
-      : displayTitle != null
+    const current = freezePlayback ? song : cycle ? cycle.getSelected(song) : song;
+    const label = freezePlayback
+      ? displayTitle != null
         ? songVersionsApi()
           ? songVersionsApi().normalizeTrackTitle(displayTitle)
           : displayTitle
         : songVersionsApi()
           ? songVersionsApi().normalizeTrackTitle(song.title)
-          : song.title;
+          : song.title
+      : cycle
+        ? cycle.labelFor(song)
+        : displayTitle != null
+          ? songVersionsApi()
+            ? songVersionsApi().normalizeTrackTitle(displayTitle)
+            : displayTitle
+          : songVersionsApi()
+            ? songVersionsApi().normalizeTrackTitle(song.title)
+            : song.title;
     row.dataset.playbackId = current.playbackId;
     row.setAttribute('aria-label', 'Play ' + label);
     name.textContent = label;
@@ -648,7 +658,7 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle) {
   return item;
 }
 
-function fillTracklistContainer(container, entries) {
+function fillTracklistContainer(container, entries, options) {
   if (!container) return;
   container.innerHTML = '';
 
@@ -658,7 +668,7 @@ function fillTracklistContainer(container, entries) {
   (entries || []).forEach((entry, index) => {
     if (!entry || !entry.song) return;
     list.appendChild(
-      buildTracklistItem(entry.song, index + 1, entry.onPlay, entry.displayTitle)
+      buildTracklistItem(entry.song, index + 1, entry.onPlay, entry.displayTitle, options)
     );
   });
 

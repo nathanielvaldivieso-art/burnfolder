@@ -53,6 +53,9 @@
     const dateEl = document.getElementById('entryDate');
     const date = dateEl ? String(dateEl.value || '').trim() : '';
     const api = window.burnfolderEntryEditorApi;
+    if (api && typeof api.getPublishPayload === 'function') {
+      return api.getPublishPayload();
+    }
     if (api && typeof api.getBlocks === 'function') {
       return { date: date, blocks: api.getBlocks() };
     }
@@ -190,6 +193,31 @@
       }
     });
 
+    function requestPublish(payload, republish) {
+      const authReady =
+        window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.whenReady
+          ? window.BurnfolderStudioAuth.whenReady()
+          : Promise.resolve();
+
+      return authReady.then(function () {
+        return fetch(getFunctionsBase() + '/studio-publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: payload.date,
+            blocks: payload.blocks,
+            republish: republish === true
+          })
+        });
+      }).then(function (res) {
+        return res.json().catch(function () {
+          return {};
+        }).then(function (data) {
+          return { ok: res.ok, status: res.status, data: data };
+        });
+      });
+    }
+
     function publishLive() {
       refreshArtifacts();
       const payload = gatherEntryPayload();
@@ -216,29 +244,21 @@
       }
       setStatus('publishing ' + payload.date + '…');
 
-      const authReady =
-        window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.whenReady
-          ? window.BurnfolderStudioAuth.whenReady()
-          : Promise.resolve();
-
-      authReady
-        .then(function () {
-          return fetch(getFunctionsBase() + '/studio-publish', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              date: payload.date,
-              blocks: payload.blocks,
-              republish: false
-            })
-          });
-        })
-        .then(function (res) {
-          return res.json().catch(function () {
-            return {};
-          }).then(function (data) {
-            return { ok: res.ok, status: res.status, data: data };
-          });
+      requestPublish(payload, false)
+        .then(function (result) {
+          if (!result.ok && result.status === 409) {
+            const msg = (result.data && result.data.message) || 'An entry for this date already exists.';
+            if (
+              !window.confirm(
+                msg + '\n\nReplace the live entry with this draft? Subscribers are not re-emailed on republish.'
+              )
+            ) {
+              throw new Error('publish cancelled');
+            }
+            setStatus('republishing ' + payload.date + '…');
+            return requestPublish(payload, true);
+          }
+          return result;
         })
         .then(function (result) {
           if (!result.ok) {
@@ -250,6 +270,10 @@
           }
         })
         .catch(function (err) {
+          if (err && err.message === 'publish cancelled') {
+            setStatus('publish cancelled');
+            return;
+          }
           setStatus(err.message || 'publish failed');
         })
         .finally(function () {

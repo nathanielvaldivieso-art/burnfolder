@@ -32,6 +32,15 @@
     return size === 'sm' || size === 'lg' ? size : 'md';
   }
 
+  function normalizeTextSize(size) {
+    return size === 'sm' || size === 'lg' ? size : 'md';
+  }
+
+  function textParagraphClass(block) {
+    const size = normalizeTextSize(block && block.textSize);
+    return size === 'md' ? 'page-annotation' : 'page-annotation entry-text--' + size;
+  }
+
   function textToHtml(value) {
     return escapeHtml(value).replace(/\n/g, '<br>');
   }
@@ -57,7 +66,13 @@
   }
 
   function cleanBlockForData(block) {
-    if (block.type === 'text') return { type: 'text', text: block.text || '' };
+    if (block.type === 'text') {
+      return {
+        type: 'text',
+        text: block.text || '',
+        textSize: normalizeTextSize(block.textSize)
+      };
+    }
     if (block.type === 'spacing') {
       return { type: 'spacing', size: normalizeSpacingSize(block.size) };
     }
@@ -153,7 +168,7 @@
 
   function blockToHtml(block) {
     if (block.type === 'text' && textBlockHasRenderableContent(block.text)) {
-      return `  <p class="page-annotation">${renderTextBlockHtml(block.text)}</p>`;
+      return `  <p class="${textParagraphClass(block)}">${renderTextBlockHtml(block.text)}</p>`;
     }
     if (block.type === 'spacing') return spacingBlockHtml(block);
     if (block.type === 'image' && block.src && String(block.src).trim()) {

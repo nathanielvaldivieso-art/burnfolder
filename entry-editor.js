@@ -1291,7 +1291,8 @@ ${tracks.join(',\n')}
                 }
               }
             };
-          })
+          }),
+          { freezePlayback: true }
         );
       });
 
@@ -2614,6 +2615,13 @@ ${tracks.join(',\n')}
         },
         getBlocks: function () {
           return entryBlocks.slice();
+        },
+        getPublishPayload: function () {
+          const entry = gatherEntry();
+          return {
+            date: entry.date,
+            blocks: entry.blocks.map(cleanBlockForData)
+          };
         }
       };
 
