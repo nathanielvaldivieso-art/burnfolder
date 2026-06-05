@@ -11,6 +11,12 @@
 
   let muxLibraryCache = [];
   let contextMuxAssetId = null;
+  let libraryPanel = null;
+
+  const STACK_ALBUM_MIME =
+    window.STUDIO_ALBUM_STACK_MIME || 'application/x-burnfolder-album-stack';
+  const ALBUM_TRACK_MIME =
+    window.STUDIO_ALBUM_TRACK_MIME || 'application/x-burnfolder-album-track';
 
   function setStatus(msg) {
     if (window.studioEditorSetStatus) window.studioEditorSetStatus(msg);
@@ -68,95 +74,71 @@
     if (menu) menu.value = '';
   }
 
+  function insertStackToEntry() {
+    const shared = window.BurnfolderStreamShared;
+    if (!shared) return;
+    const tracks = shared.loadStack();
+    if (!tracks.length) {
+      setStatus('project is empty');
+      return;
+    }
+    const meta = shared.loadStackMeta();
+    whenEditorReady(function (api) {
+      if (typeof api.insertStackPlaylist === 'function') {
+        api.insertStackPlaylist({
+          title: meta.title || '',
+          coverArt: meta.coverArt || '',
+          coverAlt: meta.coverAlt || '',
+          tracks: tracks.map(function (track) {
+            return {
+              title: track.title || '',
+              playbackId: track.playbackId || ''
+            };
+          })
+        });
+      } else {
+        const block = api.addBlock('playlist', {
+          title: meta.title || '',
+          coverArt: meta.coverArt || '',
+          coverAlt: meta.coverAlt || '',
+          tracks: tracks.map(function (track) {
+            return {
+              title: track.title || '',
+              playbackId: track.playbackId || ''
+            };
+          })
+        });
+        if (block && api.selectPlaylist) api.selectPlaylist(block.id);
+      }
+      setStatus('project added to entry');
+    });
+  }
+
   function renderEditorMuxGrid(assets) {
-    const grid = document.getElementById('editorMuxGrid');
-    if (!grid) return;
-
-    grid.innerHTML = '';
-    grid.classList.add('studio-editor-mux-list');
-
-    if (!assets.length) {
-      grid.innerHTML = '<p class="studio-empty">upload above — files appear here.</p>';
+    if (!libraryPanel && window.BurnfolderEditorLibraryPanel) {
+      const grid = document.getElementById('editorMuxGrid');
+      libraryPanel = window.BurnfolderEditorLibraryPanel.mount({
+        gridEl: grid,
+        getLibrary: function () {
+          return muxLibraryCache;
+        },
+        labelForItem: muxFileLabel,
+        onInsertStack: insertStackToEntry,
+        onInsertTrack: insertMuxItem,
+        onSelectItem: function (item) {
+          contextMuxAssetId = item.muxAssetId;
+        },
+        onStatus: setStatus
+      });
+    }
+    if (libraryPanel) {
+      libraryPanel.render(assets);
       return;
     }
 
-    const shared = window.BurnfolderStreamShared;
-    const tracklist = document.createElement('ol');
-    tracklist.className = 'music-tracklist entry-audio-list studio-editor-mux-tracklist';
-
-    assets.forEach(function (item, index) {
-      const label = muxFileLabel(item);
-      const kind = item.kind === 'video' ? 'video' : 'audio';
-      const duration =
-        shared && shared.formatDuration ? shared.formatDuration(item.duration) : '';
-
-      const li = document.createElement('li');
-      li.className = 'music-tracklist-item studio-editor-mux-item';
-      if (contextMuxAssetId && item.muxAssetId === contextMuxAssetId) {
-        li.classList.add('is-selected');
-      }
-      li.draggable = true;
-      li.title = label + ' — double-click: new song · drag: drop on page or stack';
-      li.dataset.muxAssetId = item.muxAssetId || '';
-
-      const num = document.createElement('span');
-      num.className = 'music-track-num';
-      num.textContent = String(index + 1);
-
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'music-track-row';
-      row.dataset.playbackId = item.playbackId || '';
-      row.setAttribute('aria-label', 'Add ' + label);
-
-      const name = document.createElement('span');
-      name.className = 'music-track-title';
-      name.textContent = label;
-      if (kind === 'video') {
-        const flag = document.createElement('span');
-        flag.className = 'studio-stream-video-flag';
-        flag.textContent = '▶';
-        flag.setAttribute('aria-hidden', 'true');
-        name.appendChild(flag);
-      }
-
-      const dur = document.createElement('span');
-      dur.className = 'music-track-duration';
-      dur.textContent = duration || '--:--';
-
-      row.appendChild(name);
-      row.appendChild(dur);
-
-      li.addEventListener('dragstart', function (event) {
-        event.dataTransfer.setData(MUX_PLAYBACK_MIME, item.playbackId);
-        if (item.muxAssetId) event.dataTransfer.setData(MUX_ASSET_MIME, item.muxAssetId);
-        event.dataTransfer.setData('text/plain', label);
-        event.dataTransfer.effectAllowed = 'copy';
-        li.classList.add('is-dragging');
-      });
-
-      li.addEventListener('dragend', function () {
-        li.classList.remove('is-dragging');
-      });
-
-      li.addEventListener('dblclick', function () {
-        insertMuxItem(item);
-      });
-
-      row.addEventListener('click', function (event) {
-        event.preventDefault();
-        contextMuxAssetId = item.muxAssetId;
-        tracklist.querySelectorAll('.studio-editor-mux-item').forEach(function (el) {
-          el.classList.toggle('is-selected', el.dataset.muxAssetId === contextMuxAssetId);
-        });
-      });
-
-      li.appendChild(num);
-      li.appendChild(row);
-      tracklist.appendChild(li);
-    });
-
-    grid.appendChild(tracklist);
+    const grid = document.getElementById('editorMuxGrid');
+    if (!grid) return;
+    grid.innerHTML = '<p class="studio-empty">library unavailable</p>';
   }
 
   function deleteContextMuxItem() {
@@ -408,19 +390,33 @@
     if (!payload || !Array.isArray(payload.tracks) || !payload.tracks.length) return;
 
     whenEditorReady(function (api) {
-      const block = api.addBlock('playlist', {
-        title: payload.title || '',
-        coverArt: payload.coverArt || '',
-        coverAlt: payload.coverAlt || '',
-        tracks: payload.tracks.map(function (track) {
-          return {
-            title: track.title || '',
-            playbackId: track.playbackId || ''
-          };
-        })
-      });
+      if (typeof api.insertStackPlaylist === 'function') {
+        api.insertStackPlaylist({
+          title: payload.title || '',
+          coverArt: payload.coverArt || '',
+          coverAlt: payload.coverAlt || '',
+          tracks: payload.tracks.map(function (track) {
+            return {
+              title: track.title || '',
+              playbackId: track.playbackId || ''
+            };
+          })
+        });
+      } else {
+        const block = api.addBlock('playlist', {
+          title: payload.title || '',
+          coverArt: payload.coverArt || '',
+          coverAlt: payload.coverAlt || '',
+          tracks: payload.tracks.map(function (track) {
+            return {
+              title: track.title || '',
+              playbackId: track.playbackId || ''
+            };
+          })
+        });
+        if (block && api.selectPlaylist) api.selectPlaylist(block.id);
+      }
       window.localStorage.removeItem('burnfolderPendingStack');
-      if (block && api.selectPlaylist) api.selectPlaylist(block.id);
       setStatus('stack added to entry');
       if (window.history && window.history.replaceState) {
         const url = new URL(window.location.href);
@@ -460,6 +456,34 @@
     });
   }
 
+  function assetFromDrag(event) {
+    const playbackId =
+      event.dataTransfer.getData(MUX_PLAYBACK_MIME) ||
+      event.dataTransfer.getData(
+        window.BurnfolderStreamShared
+          ? window.BurnfolderStreamShared.MUX_MIME
+          : MUX_PLAYBACK_MIME
+      ) ||
+      event.dataTransfer.getData(ALBUM_TRACK_MIME);
+    if (!playbackId) return null;
+
+    const label = event.dataTransfer.getData('text/plain') || '';
+    const muxAssetId = event.dataTransfer.getData(MUX_ASSET_MIME) || '';
+    const item = muxAssetId
+      ? findMuxItem(muxAssetId)
+      : muxLibraryCache.find(function (a) {
+          return a.playbackId === playbackId;
+        });
+    if (item) return muxItemToAsset(item);
+    return {
+      kind: 'audio',
+      displayTitle: label,
+      name: label,
+      muxPlaybackId: playbackId,
+      muxAssetId: muxAssetId || undefined
+    };
+  }
+
   function mountPreviewDrop() {
     const preview = document.getElementById('entryPreview');
     if (!preview) return;
@@ -467,7 +491,14 @@
     preview.addEventListener('dragover', function (event) {
       const types = event.dataTransfer && event.dataTransfer.types;
       if (!types) return;
-      if (Array.from(types).indexOf(MUX_PLAYBACK_MIME) < 0) return;
+      const typeList = Array.from(types);
+      const accepts =
+        typeList.indexOf(MUX_PLAYBACK_MIME) >= 0 ||
+        typeList.indexOf(STACK_ALBUM_MIME) >= 0 ||
+        typeList.indexOf(ALBUM_TRACK_MIME) >= 0 ||
+        (window.BurnfolderStreamShared &&
+          typeList.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0);
+      if (!accepts) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       preview.classList.add('is-drop-target');
@@ -479,30 +510,22 @@
     });
 
     preview.addEventListener('drop', function (event) {
+      const stackDrop = event.dataTransfer.getData(STACK_ALBUM_MIME);
+      const albumTrackId = event.dataTransfer.getData(ALBUM_TRACK_MIME);
       const playbackId = event.dataTransfer.getData(MUX_PLAYBACK_MIME);
-      if (!playbackId) return;
+      if (!stackDrop && !albumTrackId && !playbackId) return;
 
       event.preventDefault();
       preview.classList.remove('is-drop-target');
 
-      const label = event.dataTransfer.getData('text/plain') || '';
-      const muxAssetId = event.dataTransfer.getData(MUX_ASSET_MIME) || '';
-
       whenEditorReady(function (api) {
-        const item = muxAssetId
-          ? findMuxItem(muxAssetId)
-          : muxLibraryCache.find(function (a) {
-              return a.playbackId === playbackId;
-            });
-        const asset = item
-          ? muxItemToAsset(item)
-          : {
-              kind: 'audio',
-              displayTitle: label,
-              name: label,
-              muxPlaybackId: playbackId,
-              muxAssetId: muxAssetId || undefined
-            };
+        if (stackDrop) {
+          insertStackToEntry();
+          return;
+        }
+
+        const asset = assetFromDrag(event);
+        if (!asset) return;
 
         const playlistBlockId =
           typeof api.getPlaylistBlockIdAtPoint === 'function'

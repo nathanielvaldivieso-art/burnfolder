@@ -215,7 +215,7 @@
       .then(function () {
         shared.removeFromStack(item.playbackId);
         if (player) player.stop();
-        window.location.href = 'stream.html';
+        window.location.href = shared.isVideoItem(item) ? 'video.html' : 'stream.html';
       })
       .catch(function (err) {
         setStatus(err.message || 'delete failed');

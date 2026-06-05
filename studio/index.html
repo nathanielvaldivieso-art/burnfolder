@@ -6,15 +6,16 @@
   <title>burnfolder studio</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="css/studio.css?v=20260604z14">
+  <link rel="stylesheet" href="css/studio.css?v=20260604z22">
 </head>
 <body class="studio-page entry-editor-page studio-editor-page">
   <header class="site-header studio-header">
     <span class="site-brand">burnfolder studio</span>
     <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
-      <a href="index.html" class="studio-main-nav-link" data-nav="entry" id="studioEntryNavLink">entry</a>
-      <a href="stream.html" class="studio-main-nav-link" data-nav="stream">stream</a>
-      <a href="journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry" id="studioEntryNavLink">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
       <span id="studioEditorNav" class="studio-editor-nav" hidden>
         <label class="studio-nav-label" for="studioDraftSelect">open</label>
         <select id="studioDraftSelect" class="studio-draft-select" aria-label="Open entry"></select>
@@ -27,7 +28,7 @@
 
   <main id="studioHome" class="page-wrap studio-home">
     <p class="page-id">entry</p>
-    <p class="studio-lede">Design journal pages here. Day plans and reminders live in <a href="journal.html">journal</a>. Uploads and projects live in <a href="stream.html">stream</a>.</p>
+    <p class="studio-lede">Design journal pages here. Day plans and reminders live in <a href="/studio/journal.html">journal</a>. Music and video uploads live in <a href="/studio/stream.html">music</a> and <a href="/studio/video.html">video</a>.</p>
 
     <section class="studio-hub-new" aria-label="New entry">
       <div class="studio-new-draft">
@@ -73,7 +74,8 @@
           <summary>tips</summary>
           <ul class="studio-help-list">
             <li>drop a file on the page to add a song; drop on a stack to add inside it</li>
-            <li>drag song onto song center to combine into a stack</li>
+            <li>drag song onto song in the library to build a project — same as stream</li>
+            <li>drag the whole project onto the page, or tap entry in the library</li>
             <li>drag the move handle to reorder; click a stack to edit in the sidebar</li>
           </ul>
         </details>
@@ -121,7 +123,7 @@
             <button type="button" class="icon-btn studio-sidebar-refresh" id="editorMuxRefreshBtn">refresh</button>
           </div>
           <div id="editorMuxGrid" class="studio-editor-mux-list" aria-live="polite"></div>
-          <p class="studio-sidebar-hint">double-click a file to add · drag onto page or stack</p>
+          <p class="studio-sidebar-hint">project matches stream · drag whole project or tracks onto page</p>
           <select id="editorMuxMenu" class="studio-add-menu studio-editor-mux-menu" hidden aria-hidden="true" tabindex="-1">
             <option value="">more…</option>
             <option value="delete">delete from mux</option>
@@ -186,6 +188,8 @@
 
   <p class="entry-editor-status studio-global-status" id="studioEditorStatus" aria-live="polite"></p>
 
+  <script src="../shared/media-session.js?v=20260604z16"></script>
+  <script src="../shared/playback-recall.js?v=20260604z16"></script>
   <script src="js/drafts.js?v=20260604z4"></script>
   <script src="js/studio-hub.js"></script>
   <script src="js/studio-bridge.js"></script>
@@ -197,7 +201,7 @@
   <script src="../shared/mux-display-name.js?v=20260604t"></script>
   <script src="js/asset-cloud.js?v=20260604t"></script>
   <script src="js/mux-naming.js?v=20260604t"></script>
-  <script src="js/studio-auth.js?v=20260604z9"></script>
+  <script src="js/studio-auth.js?v=20260604z24"></script>
   <script src="js/cloud-state.js?v=20260604z7"></script>
   <script src="js/mux-client.js?v=20260604z6"></script>
   <script src="js/studio-mux-lib.js?v=20260604t"></script>
@@ -205,13 +209,18 @@
   <script src="../shared/playback-context.js?v=20260604t"></script>
   <script src="../shared/version-picker.js?v=20260604t"></script>
   <script src="../stripe-publishable.js"></script>
-  <script src="../shared/mux-playback.js?v=20260604z8"></script>
+  <script src="../shared/playback-prefetch.js?v=20260604z18"></script>
+  <script src="../shared/mux-playback.js?v=20260604z18"></script>
+  <script src="js/studio-playback-shell.js?v=20260604z16"></script>
+  <script src="js/studio-spa-router.js?v=20260604z24"></script>
   <script src="../scripts.js?v=20260604t"></script>
+  <script src="js/studio-scripts-bridge.js?v=20260604z16"></script>
   <script src="../entry-editor.js"></script>
   <script src="js/publish-panel.js?v=20260604z14"></script>
   <script src="js/editor-post.js?v=20260604z9"></script>
   <script src="js/upload-queue.js?v=20260604t"></script>
   <script src="js/cloud-ui.js?v=20260604t"></script>
-  <script src="js/editor-workspace.js?v=20260604z13"></script>
+  <script src="js/editor-library-panel.js?v=20260604z19"></script>
+  <script src="js/editor-workspace.js?v=20260604z19"></script>
 </body>
 </html>

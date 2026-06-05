@@ -1546,6 +1546,91 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   opacity: 1;
 }
 
+/* video page — thumbnail grid */
+
+.studio-video-grid-wrap {
+  max-width: 960px;
+}
+
+.studio-video-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 14px 12px;
+}
+
+.studio-video-card {
+  min-width: 0;
+}
+
+.studio-video-card-btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #000;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.studio-video-card-btn:hover {
+  background: #f8f8f8;
+}
+
+.studio-video-card-btn:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.studio-video-card-thumb {
+  display: block;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #ececec;
+}
+
+.studio-video-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.studio-video-card-duration {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 5px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+}
+
+.studio-video-card-title {
+  display: block;
+  padding: 8px 8px 10px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.studio-video-card.is-expanded .studio-video-card-btn {
+  border-width: 2px;
+}
+
+.studio-video-card.is-expanded .studio-video-card-title {
+  font-weight: bold;
+}
+
 .studio-stream-tracklist {
   margin-bottom: 24px;
 }
@@ -2376,7 +2461,8 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   font-weight: bold;
 }
 
-.studio-stream-row.is-stack-drop-target {
+.studio-stream-row.is-stack-drop-target,
+.music-tracklist-item.is-stack-drop-target {
   background: #eee;
   outline: 2px solid #000;
   outline-offset: -2px;
@@ -2531,6 +2617,24 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
 .studio-stream-row-video {
   width: 100%;
   margin-top: 8px;
+}
+
+/* Global playback shell — persists across studio SPA navigation */
+
+.studio-global-playback {
+  position: relative;
+  z-index: 300;
+}
+
+.studio-global-playback .bottom-progress-bar {
+  z-index: 300;
+}
+
+body.stream-playback-active .studio-global-playback ~ *,
+body.stream-playback-active.studio-journal-page .page-wrap,
+body.stream-playback-active.studio-editor-page .studio-entry-layout,
+body.stream-playback-active .studio-home {
+  padding-bottom: 56px;
 }
 
 /* stream playback bar — same bottom-progress-bar as burnfolder.com */
@@ -3029,8 +3133,17 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
 }
 
 /* studio login gate (production) */
-body.studio-locked > :not(.studio-auth-gate) {
+body.studio-page:not(.studio-ready):not(.studio-locked) {
+  opacity: 0;
+}
+
+body.studio-locked #studio-spa-content,
+body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   visibility: hidden;
+}
+
+#studio-spa-content {
+  min-height: 100vh;
 }
 
 .studio-auth-gate {

@@ -3,10 +3,10 @@
 
   const LAST_DRAFT_KEY = 'burnfolderStudioLastDraftId';
 
-  const statusEl = document.getElementById('studioHubStatus');
-  const listRoot = document.getElementById('draftList');
-  const newBtn = document.getElementById('newDraftBtn');
-  const newDate = document.getElementById('newDraftDate');
+  let statusEl = document.getElementById('studioHubStatus');
+  let listRoot = document.getElementById('draftList');
+  let newBtn = document.getElementById('newDraftBtn');
+  let newDate = document.getElementById('newDraftDate');
 
   function setStatus(msg) {
     if (statusEl) statusEl.textContent = msg || '';
@@ -67,7 +67,8 @@
 
     if (newDate && !newDate.value) newDate.value = todayKey();
 
-    if (newBtn) {
+    if (newBtn && !newBtn.dataset.bound) {
+      newBtn.dataset.bound = '1';
       newBtn.addEventListener('click', function () {
         const dateKey = String((newDate && newDate.value) || '').trim() || todayKey();
         if (!window.BurnfolderDrafts) {
@@ -96,5 +97,13 @@
     });
   }
 
-  boot();
+  window.studioInitEntryHub = function () {
+    listRoot = document.getElementById('draftList');
+    statusEl = document.getElementById('studioHubStatus');
+    newBtn = document.getElementById('newDraftBtn');
+    newDate = document.getElementById('newDraftDate');
+    boot();
+  };
+
+  window.studioInitEntryHub();
 })();

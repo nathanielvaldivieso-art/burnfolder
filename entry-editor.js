@@ -381,6 +381,62 @@
       return true;
     }
 
+    function insertTrackAtPlaylistIndex(blockId, trackData, insertIndex) {
+      const block = getTracksBlock(blockId);
+      if (!block || block.type !== 'playlist') return false;
+
+      const title = String(trackData.title || '').trim();
+      const playbackId = String(trackData.playbackId || '').trim();
+      if (!playbackId) return false;
+
+      ensureBlockTrackIds(block);
+      block.tracks = block.tracks.filter(function (track) {
+        return String(track.playbackId || '').trim();
+      });
+
+      let insertAt = insertIndex;
+      if (insertAt < 0) insertAt = 0;
+      if (insertAt > block.tracks.length) insertAt = block.tracks.length;
+
+      block.tracks.splice(insertAt, 0, {
+        id: makeId(),
+        title: title,
+        playbackId: playbackId
+      });
+
+      updateAll();
+      selectStudioPlaylist(blockId, { scroll: false });
+      setStatus('added to stack');
+      return true;
+    }
+
+    function insertStackPlaylist(data) {
+      const payload = data || {};
+      const tracks = (payload.tracks || [])
+        .filter(function (track) {
+          return track && String(track.playbackId || '').trim();
+        })
+        .map(function (track) {
+          return {
+            id: makeId(),
+            title: track.title || '',
+            playbackId: track.playbackId || ''
+          };
+        });
+      if (!tracks.length) return null;
+
+      const block = pushBlock(
+        createBlock('playlist', {
+          title: payload.title || '',
+          coverArt: payload.coverArt || '',
+          coverAlt: payload.coverAlt || '',
+          tracks: tracks
+        })
+      );
+      selectStudioPlaylist(block.id);
+      return block;
+    }
+
     function normalizeLoadedBlock(block) {
       const copy = { ...block, id: block.id || makeId() };
       if (copy.type === 'playlist') {
@@ -1301,6 +1357,90 @@ ${tracks.join(',\n')}
       }
 
       attachStudioPlaylistTracklistReorder(wrap, entry);
+      attachStudioPreviewMuxTrackDrops(wrap);
+    }
+
+    function attachStudioPreviewMuxTrackDrops(wrap) {
+      if (!isStudioEditor()) return;
+
+      const muxMime =
+        window.STUDIO_MUX_PLAYBACK_MIME ||
+        (window.BurnfolderStreamShared && window.BurnfolderStreamShared.MUX_MIME) ||
+        'application/x-burnfolder-mux-playback';
+      const albumTrackMime =
+        window.STUDIO_ALBUM_TRACK_MIME || 'application/x-burnfolder-album-track';
+
+      function trackFromDrag(event) {
+        const playbackId =
+          event.dataTransfer.getData(muxMime) ||
+          event.dataTransfer.getData(albumTrackMime);
+        if (!playbackId) return null;
+        const label = event.dataTransfer.getData('text/plain') || '';
+        return { title: label, playbackId: playbackId };
+      }
+
+      function acceptsMuxDrag(event) {
+        const types = event.dataTransfer && event.dataTransfer.types;
+        if (!types) return false;
+        const list = Array.from(types);
+        return list.indexOf(muxMime) >= 0 || list.indexOf(albumTrackMime) >= 0;
+      }
+
+      wrap.querySelectorAll('.entry-audio-list[data-playlist]').forEach(function (container) {
+        const playlistKey = container.dataset.playlist;
+        const block = getPlaylistBlock(playlistKey);
+        if (!block) return;
+
+        ensureBlockTrackIds(block);
+        const tracksWithPlayback = block.tracks.filter(function (track) {
+          return String(track.playbackId || '').trim();
+        });
+
+        container.querySelectorAll('.music-tracklist-item').forEach(function (itemEl, index) {
+          if (itemEl.classList.contains('studio-track-drop-end')) return;
+
+          itemEl.addEventListener('dragover', function (event) {
+            if (!acceptsMuxDrag(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = 'copy';
+            itemEl.classList.add('is-stack-drop-target');
+          });
+
+          itemEl.addEventListener('dragleave', function (event) {
+            if (itemEl.contains(event.relatedTarget)) return;
+            itemEl.classList.remove('is-stack-drop-target');
+          });
+
+          itemEl.addEventListener('drop', function (event) {
+            if (!acceptsMuxDrag(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            itemEl.classList.remove('is-stack-drop-target');
+
+            const trackData = trackFromDrag(event);
+            if (!trackData) return;
+
+            const rect = itemEl.getBoundingClientRect();
+            const before = event.clientY < rect.top + rect.height / 2;
+            let insertIndex = index;
+            if (!before) insertIndex += 1;
+            if (insertIndex > tracksWithPlayback.length) {
+              insertIndex = tracksWithPlayback.length;
+            }
+
+            const blockIndex = block.tracks.findIndex(function (track) {
+              return track.id === tracksWithPlayback[index].id;
+            });
+            if (blockIndex < 0) {
+              appendTrackToPlaylist(block.id, trackData);
+              return;
+            }
+
+            insertTrackAtPlaylistIndex(block.id, trackData, before ? blockIndex : blockIndex + 1);
+          });
+        });
+      });
     }
 
     function clearPlaylistTrackDropMarkers(container) {
@@ -2069,6 +2209,10 @@ ${tracks.join(',\n')}
 
     const STUDIO_MUX_PLAYBACK_MIME =
       window.STUDIO_MUX_PLAYBACK_MIME || 'application/x-burnfolder-mux-playback';
+    const STUDIO_ALBUM_STACK_MIME =
+      window.STUDIO_ALBUM_STACK_MIME || 'application/x-burnfolder-album-stack';
+    const STUDIO_ALBUM_TRACK_MIME =
+      window.STUDIO_ALBUM_TRACK_MIME || 'application/x-burnfolder-album-track';
     const STUDIO_PLAYLIST_TRACK_MIME = 'application/x-burnfolder-playlist-track';
     let studioPlaylistTrackDragId = null;
 
@@ -2180,7 +2324,14 @@ ${tracks.join(',\n')}
         playlistEl.addEventListener('dragover', function (event) {
           const types = event.dataTransfer && event.dataTransfer.types;
           if (!types) return;
-          if (Array.from(types).indexOf(STUDIO_MUX_PLAYBACK_MIME) < 0) return;
+          const typeList = Array.from(types);
+          const accepts =
+            typeList.indexOf(STUDIO_MUX_PLAYBACK_MIME) >= 0 ||
+            typeList.indexOf(STUDIO_ALBUM_TRACK_MIME) >= 0 ||
+            typeList.indexOf(STUDIO_ALBUM_STACK_MIME) >= 0 ||
+            (window.BurnfolderStreamShared &&
+              typeList.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0);
+          if (!accepts) return;
           if (!isPointInElement(event.clientX, event.clientY, playlistEl)) return;
           event.preventDefault();
           event.stopPropagation();
@@ -2194,12 +2345,44 @@ ${tracks.join(',\n')}
         });
 
         playlistEl.addEventListener('drop', function (event) {
-          const playbackId = event.dataTransfer.getData(STUDIO_MUX_PLAYBACK_MIME);
-          if (!playbackId) return;
+          const stackDrop = event.dataTransfer.getData(STUDIO_ALBUM_STACK_MIME);
+          const playbackId =
+            event.dataTransfer.getData(STUDIO_MUX_PLAYBACK_MIME) ||
+            event.dataTransfer.getData(STUDIO_ALBUM_TRACK_MIME) ||
+            (window.BurnfolderStreamShared
+              ? event.dataTransfer.getData(window.BurnfolderStreamShared.MUX_MIME)
+              : '');
+          if (!stackDrop && !playbackId) return;
           if (!isPointInElement(event.clientX, event.clientY, playlistEl)) return;
           event.preventDefault();
           event.stopPropagation();
           shell.classList.remove('is-playlist-drop-target');
+
+          if (stackDrop) {
+            const shared = window.BurnfolderStreamShared;
+            if (!shared) return;
+            const tracks = shared.loadStack();
+            const meta = shared.loadStackMeta();
+            tracks.forEach(function (track) {
+              appendTrackToPlaylist(shell.dataset.blockId, {
+                title: track.title || '',
+                playbackId: track.playbackId || ''
+              });
+            });
+            const block = entryBlocks.find(function (item) {
+              return item.id === shell.dataset.blockId;
+            });
+            if (block && block.type === 'playlist') {
+              if (meta.title && !block.title) block.title = meta.title;
+              if (meta.coverArt && !block.coverArt) {
+                block.coverArt = meta.coverArt;
+                block.coverAlt = meta.coverAlt || meta.title || '';
+              }
+              updateAll();
+            }
+            setStatus('project merged into stack');
+            return;
+          }
 
           const label =
             event.dataTransfer.getData('text/plain') ||
@@ -2575,6 +2758,9 @@ ${tracks.join(',\n')}
           return entryBlocks.find(function (b) {
             return b.id === blockId;
           });
+        },
+        insertStackPlaylist: function (data) {
+          return insertStackPlaylist(data);
         },
         selectPlaylist: function (blockId) {
           selectStudioPlaylist(blockId || null);

@@ -1,20 +1,30 @@
 (function () {
   'use strict';
 
-  const playback = window.BurnfolderMuxPlayback
+  const localPlayback = window.BurnfolderMuxPlayback
     ? window.BurnfolderMuxPlayback.create({
         playerId: 'activeMuxPlayer',
-        onPlayBlocked: function () {
-          const btn = document.getElementById('streamPlayPause');
-          if (btn) btn.click();
+        recall: true,
+        restoreRecall: false,
+        artist: 'burnfolder',
+        album: 'stream',
+        onPlayBlocked: function (player) {
+          if (player) player.play().catch(function () {});
         },
         onStateChange: function (detail) {
-          window.dispatchEvent(
-            new CustomEvent('burnfolder-stream-playback', { detail: detail })
-          );
+          window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
         }
       })
     : null;
+
+  function engine() {
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell && typeof shell.getEngine === 'function') {
+      const shared = shell.getEngine();
+      if (shared) return shared;
+    }
+    return localPlayback;
+  }
 
   function songFromItem(item) {
     if (!item || !item.playbackId) return null;
@@ -40,9 +50,10 @@
 
   function playItem(item) {
     const song = songFromItem(item);
-    if (!song || song.kind === 'video') return false;
-    if (!playback) return false;
-    return playback.playTrackQueue([song], 0);
+    const playback = engine();
+    if (!song || song.kind === 'video' || !playback) return false;
+    if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
+    return playback.playTrackQueue([song], 0, { immediatePlay: true });
   }
 
   function playQueue(items, startIdx) {
@@ -51,29 +62,37 @@
       .filter(function (s) {
         return s && s.playbackId && s.kind !== 'video';
       });
+    const playback = engine();
     if (!songs.length || !playback) return false;
-    return playback.playTrackQueue(songs, startIdx || 0);
+    if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
+    return playback.playTrackQueue(songs, startIdx || 0, { immediatePlay: true });
   }
 
   window.BurnfolderStreamPlayer = {
     playItem: playItem,
     playQueue: playQueue,
     togglePause: function () {
+      const playback = engine();
       if (playback) playback.togglePlayPause();
     },
     stop: function () {
+      const playback = engine();
       if (playback) playback.stop();
     },
     isPlayingPlaybackId: function (id) {
+      const playback = engine();
       return playback ? playback.isPlayingPlaybackId(id) : false;
     },
     isActivePlaybackId: function (id) {
+      const playback = engine();
       return playback ? playback.isActivePlaybackId(id) : false;
     },
     getActiveSong: function () {
+      const playback = engine();
       return playback ? playback.getActiveSong() : null;
     },
-    /** Same engine the main site uses (for stack / advanced use). */
-    engine: playback
+    engine: function () {
+      return engine();
+    }
   };
 })();

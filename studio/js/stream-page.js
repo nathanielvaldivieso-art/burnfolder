@@ -1,12 +1,12 @@
 (function () {
   'use strict';
 
-  const listRoot = document.getElementById('streamList');
-  const videoStage = document.getElementById('streamVideoStage');
-  const filterRoot = document.getElementById('streamFilters');
-  const statusEl = document.getElementById('streamStatus');
-  const uploadRoot = document.getElementById('streamUpload');
-  const countEl = document.getElementById('streamCount');
+  let listRoot = document.getElementById('streamList');
+  let videoStage = document.getElementById('streamVideoStage');
+  let filterRoot = document.getElementById('streamFilters');
+  let statusEl = document.getElementById('streamStatus');
+  let uploadRoot = document.getElementById('streamUpload');
+  let countEl = document.getElementById('streamCount');
 
   function showBlocker(message) {
     if (listRoot) {
@@ -33,13 +33,35 @@
 
   let libraryCache = [];
   let streamVersionCycle = null;
-  let activeFilter = 'all';
   let stackDock = null;
   let dragMuxId = null;
   let expandedVideoId = null;
   let albumExpanded = true;
   let albumDragId = null;
   const ALBUM_TRACK_MIME = 'application/x-burnfolder-album-track';
+
+  function streamMode() {
+    const mode = document.body && document.body.dataset.streamMode;
+    return mode === 'video' ? 'video' : 'audio';
+  }
+
+  function isVideoPage() {
+    return streamMode() === 'video';
+  }
+
+  function isAudioPage() {
+    return !isVideoPage();
+  }
+
+  function syncActiveFilter() {
+    return streamMode();
+  }
+
+  function countLabel(n) {
+    if (!n) return '';
+    if (isVideoPage()) return n + (n === 1 ? ' video' : ' videos');
+    return n + (n === 1 ? ' song' : ' songs');
+  }
 
   function setStatus(msg) {
     if (statusEl) statusEl.textContent = msg || '';
@@ -283,23 +305,15 @@
 
   function filteredAssets() {
     return libraryCache.filter(function (item) {
-      const kind = shared.resolveMediaKind(item);
-      if (activeFilter === 'all') return true;
-      return kind === activeFilter;
+      if (isVideoPage()) return shared.isVideoItem(item);
+      return !shared.isVideoItem(item);
     });
   }
 
   function listCounts() {
     const items = filteredAssets();
-    const audio = dedupeAudioItems(
-      items.filter(function (item) {
-        return !shared.isVideoItem(item);
-      })
-    );
-    const video = items.filter(shared.isVideoItem);
-    if (activeFilter === 'audio') return audio.length;
-    if (activeFilter === 'video') return video.length;
-    return audio.length + video.length;
+    if (isVideoPage()) return items.length;
+    return dedupeAudioItems(items).length;
   }
 
   function toggleAudioItem(item) {
@@ -428,10 +442,10 @@
 
   function updateVideoRowExpandedState() {
     if (!listRoot) return;
-    listRoot.querySelectorAll('.studio-stream-video-item').forEach(function (li) {
-      const id = li.getAttribute('data-playback-id');
+    listRoot.querySelectorAll('.studio-stream-video-item, .studio-video-card').forEach(function (el) {
+      const id = el.getAttribute('data-playback-id');
       const on = !!id && id === expandedVideoId;
-      li.classList.toggle('is-expanded', on);
+      el.classList.toggle('is-expanded', on);
     });
   }
 
@@ -465,26 +479,14 @@
     openStreamVideo(item);
   }
 
-  function preloadTrackDuration(durEl, playbackId) {
+  function preloadTrackDuration(durEl, playbackId, knownSeconds) {
+    const pf = window.BurnfolderPlaybackPrefetch;
+    if (pf) {
+      pf.requestDuration(durEl, playbackId, knownSeconds);
+      return;
+    }
     if (!durEl || !playbackId) return;
-    const tmp = document.createElement('mux-player');
-    tmp.setAttribute('playback-id', playbackId);
-    tmp.style.display = 'none';
-    tmp.muted = true;
-    document.body.appendChild(tmp);
-    tmp.addEventListener(
-      'loadedmetadata',
-      function () {
-        const d = tmp.duration;
-        if (d && !isNaN(d)) {
-          const m = Math.floor(d / 60);
-          const s = Math.floor(d % 60);
-          durEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
-        }
-        tmp.remove();
-      },
-      { once: true }
-    );
+    durEl.textContent = '--:--';
   }
 
   function syncStreamTracklistPlayback() {
@@ -541,12 +543,19 @@
       row.classList.toggle('is-active', !!(player && player.isActivePlaybackId(playable.playbackId)));
       row.classList.toggle('is-playing', !!(player && player.isPlayingPlaybackId(playable.playbackId)));
       if (!shared.formatDuration(playable.duration) && !dur.dataset.loaded) {
-        preloadTrackDuration(dur, playable.playbackId);
+        preloadTrackDuration(dur, playable.playbackId, playable.duration);
         dur.dataset.loaded = '1';
       }
     }
 
     syncRow();
+
+    const pf = window.BurnfolderPlaybackPrefetch;
+    if (pf) {
+      pf.attachRow(row, function () {
+        return selectedPlayableItem(item).playbackId;
+      });
+    }
 
     row.addEventListener('click', function (event) {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -614,47 +623,51 @@
     return li;
   }
 
-  function buildVideoTrackItem(item, trackNum) {
+  function buildVideoCardItem(item) {
     const isExpanded = expandedVideoId === item.playbackId;
     const fullTitle = shared.muxFileLabel(item);
     const label = versionsApi
       ? versionsApi.stripTrailingDate(fullTitle) || fullTitle
       : fullTitle;
     const duration = shared.formatDuration(item.duration);
+    const thumb = shared.thumbnailUrl(item.playbackId);
 
     const li = document.createElement('li');
-    li.className = 'music-tracklist-item studio-stream-track-item studio-stream-video-item';
+    li.className = 'studio-video-card studio-stream-video-item';
     li.setAttribute('data-playback-id', item.playbackId || '');
     if (isExpanded) li.classList.add('is-expanded');
 
-    const num = document.createElement('span');
-    num.className = 'music-track-num';
-    num.textContent = String(trackNum);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'studio-video-card-btn';
+    btn.dataset.playbackId = item.playbackId || '';
+    btn.setAttribute('aria-label', (isExpanded ? 'Close ' : 'Play ') + label);
 
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'music-track-row';
-    row.dataset.playbackId = item.playbackId || '';
-    row.setAttribute('aria-label', (isExpanded ? 'Close ' : 'Play ') + label);
+    const thumbWrap = document.createElement('span');
+    thumbWrap.className = 'studio-video-card-thumb';
+    if (thumb) {
+      const img = document.createElement('img');
+      img.src = thumb;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      thumbWrap.appendChild(img);
+    }
+    if (duration) {
+      const dur = document.createElement('span');
+      dur.className = 'studio-video-card-duration';
+      dur.textContent = duration;
+      thumbWrap.appendChild(dur);
+    }
 
-    const name = document.createElement('span');
-    name.className = 'music-track-title';
-    name.textContent = label;
+    const title = document.createElement('span');
+    title.className = 'studio-video-card-title';
+    title.textContent = label;
 
-    const flag = document.createElement('span');
-    flag.className = 'studio-stream-video-flag';
-    flag.textContent = '▶';
-    flag.setAttribute('aria-hidden', 'true');
-    name.appendChild(flag);
+    btn.appendChild(thumbWrap);
+    btn.appendChild(title);
 
-    const dur = document.createElement('span');
-    dur.className = 'music-track-duration';
-    dur.textContent = duration || '--:--';
-
-    row.appendChild(name);
-    row.appendChild(dur);
-
-    row.addEventListener('click', function (event) {
+    btn.addEventListener('click', function (event) {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
         window.location.href = shared.songPageUrl(item);
         return;
@@ -662,8 +675,7 @@
       toggleVideoExpand(item);
     });
 
-    li.appendChild(num);
-    li.appendChild(row);
+    li.appendChild(btn);
     return li;
   }
 
@@ -965,28 +977,6 @@
     if (!listRoot) return;
     const items = filteredAssets();
     listRoot.innerHTML = '';
-    let audioItems = dedupeAudioItems(
-      items.filter(function (item) {
-        return !shared.isVideoItem(item);
-      })
-    );
-
-    // Songs that are now in the project live in the album group — hide them
-    // from the flat list so each track shows in exactly one place.
-    const groupedKeys = stackGroupKeys();
-    if (groupedKeys.size) {
-      audioItems = audioItems.filter(function (item) {
-        return !groupedKeys.has(groupKeyForItem(item));
-      });
-    }
-
-    // Most recently played first; never-played keep their existing order.
-    audioItems.sort(function (a, b) {
-      return playRecency(b) - playRecency(a);
-    });
-
-    const videoItems = items.filter(shared.isVideoItem);
-    listRoot.classList.toggle('has-video', videoItems.length > 0);
 
     if (!libraryCache.length) {
       listRoot.innerHTML = '<p class="studio-empty">+</p>';
@@ -997,50 +987,59 @@
       return;
     }
 
-    if (activeFilter !== 'video') {
-      const albumGroup = buildAlbumGroup();
-      if (albumGroup) listRoot.appendChild(albumGroup);
+    if (isVideoPage()) {
+      const videoItems = items.filter(shared.isVideoItem);
+      listRoot.classList.remove('has-video');
+      listRoot.classList.add('studio-video-grid-wrap');
+      const grid = document.createElement('ul');
+      grid.className = 'studio-video-grid';
+      videoItems.forEach(function (item) {
+        grid.appendChild(buildVideoCardItem(item));
+      });
+      listRoot.appendChild(grid);
+      syncVideoStage();
+      return;
     }
 
-    if (audioItems.length || videoItems.length) {
+    listRoot.classList.remove('studio-video-grid-wrap');
+    let audioItems = dedupeAudioItems(items.filter(function (item) {
+      return !shared.isVideoItem(item);
+    }));
+
+    const groupedKeys = stackGroupKeys();
+    if (groupedKeys.size) {
+      audioItems = audioItems.filter(function (item) {
+        return !groupedKeys.has(groupKeyForItem(item));
+      });
+    }
+
+    audioItems.sort(function (a, b) {
+      return playRecency(b) - playRecency(a);
+    });
+
+    listRoot.classList.remove('has-video');
+
+    const albumGroup = buildAlbumGroup();
+    if (albumGroup) listRoot.appendChild(albumGroup);
+
+    if (audioItems.length) {
       const tracklist = document.createElement('ol');
       tracklist.className = 'music-tracklist entry-audio-list studio-stream-tracklist';
       let n = 0;
       audioItems.forEach(function (item) {
         tracklist.appendChild(buildAudioTrackItem(item, (n += 1)));
       });
-      videoItems.forEach(function (item) {
-        tracklist.appendChild(buildVideoTrackItem(item, (n += 1)));
-      });
       listRoot.appendChild(tracklist);
     }
 
     syncStreamTracklistPlayback();
-    syncVideoStage();
+    if (videoStage) shared.clearStreamVideo(videoStage);
   }
 
   function mountFilters() {
     if (!filterRoot) return;
     filterRoot.innerHTML = '';
-    [
-      { id: 'all', label: 'all' },
-      { id: 'audio', label: '♫' },
-      { id: 'video', label: '▶' }
-    ].forEach(function (filter) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'studio-stream-filter page-nav';
-      btn.textContent = filter.label;
-      btn.setAttribute('aria-label', filter.id);
-      if (activeFilter === filter.id) btn.classList.add('is-active');
-      btn.addEventListener('click', function () {
-        activeFilter = filter.id;
-        closeExpandedVideo();
-        mountFilters();
-        renderList();
-      });
-      filterRoot.appendChild(btn);
-    });
+    filterRoot.hidden = true;
   }
 
   function syncNowPlayingCatalog() {
@@ -1066,10 +1065,14 @@
     upgradeProjectTracksToNewest();
     syncNowPlayingCatalog();
     const n = listCounts();
-    if (countEl) countEl.textContent = n ? n + (n === 1 ? ' song' : ' songs') : '';
+    if (countEl) countEl.textContent = countLabel(n);
     if (statusMsg !== undefined) setStatus(statusMsg);
     mountFilters();
     renderList();
+    const pf = window.BurnfolderPlaybackPrefetch;
+    if (pf && isAudioPage()) {
+      pf.warmLibraryItems(libraryCache, shared.isVideoItem, 6);
+    }
     if (stackDock) stackDock.refresh();
     return libraryCache;
   }
@@ -1088,7 +1091,7 @@
     upgradeProjectTracksToNewest();
     if (countEl) {
       const n = listCounts();
-      countEl.textContent = n ? n + (n === 1 ? ' song' : ' songs') : '';
+      countEl.textContent = countLabel(n);
     }
     setStatus('');
     mountFilters();
@@ -1113,6 +1116,9 @@
         return libraryCache;
       });
   }
+
+  if (!window.__studioStreamPageBound) {
+    window.__studioStreamPageBound = true;
 
   if (uploadRoot && window.BurnfolderCloudUI) {
     window.BurnfolderCloudUI.mountUploadZone(uploadRoot, {
@@ -1154,10 +1160,40 @@
     }
     refreshLibrary({ silent: true });
   });
+  }
 
-  document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-    link.classList.toggle('is-active', link.getAttribute('data-nav') === 'stream');
-  });
+  function bindDomRefs() {
+    listRoot = document.getElementById('streamList');
+    videoStage = document.getElementById('streamVideoStage');
+    filterRoot = document.getElementById('streamFilters');
+    statusEl = document.getElementById('streamStatus');
+    uploadRoot = document.getElementById('streamUpload');
+    countEl = document.getElementById('streamCount');
+  }
 
-  refreshLibrary();
+  window.studioInitStreamPage = function () {
+    bindDomRefs();
+    if (!listRoot || !shared) return;
+    syncActiveFilter();
+    document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
+      const nav = link.getAttribute('data-nav');
+      if (isVideoPage()) {
+        link.classList.toggle('is-active', nav === 'video');
+        link.classList.toggle('page-nav', nav === 'video');
+      } else {
+        link.classList.toggle('is-active', nav === 'stream');
+        link.classList.toggle('page-nav', nav === 'stream');
+      }
+    });
+    if (isVideoPage()) {
+      expandedVideoId = null;
+    } else if (videoStage) {
+      shared.clearStreamVideo(videoStage);
+      expandedVideoId = null;
+    }
+    refreshLibrary();
+  };
+
+  bindDomRefs();
+  if (listRoot) window.studioInitStreamPage();
 })();

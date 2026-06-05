@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="stream">
+  <meta name="apple-mobile-web-app-title" content="video">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>stream — burnfolder studio</title>
+  <title>video — burnfolder studio</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="css/studio.css?v=20260604z22">
+  <link rel="stylesheet" href="css/studio.css?v=20260604z23">
 </head>
-<body class="studio-page studio-stream-page studio-stream-page--audio" data-stream-mode="audio">
+<body class="studio-page studio-stream-page studio-stream-page--video" data-stream-mode="video">
   <header class="site-header studio-header">
     <a href="/studio/index.html" class="site-brand">burnfolder studio</a>
     <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
@@ -26,18 +26,19 @@
   </header>
 
   <main class="page-wrap studio-stream-layout">
-    <p class="page-id">music</p>
+    <p class="page-id">video</p>
 
     <div class="studio-stream-toolbar studio-stream-toolbar--minimal">
       <span id="streamCount" class="studio-stream-count"></span>
     </div>
 
     <details class="studio-stream-upload-details">
-      <summary>+ add music</summary>
+      <summary>+ add video</summary>
       <div id="streamUpload" class="studio-stream-upload"></div>
       <div id="editorUploadQueue" class="studio-upload-queue-host"></div>
     </details>
 
+    <div id="streamVideoStage" class="stream-video-stage" hidden aria-label="Video"></div>
     <div id="streamList" class="studio-stream-list" aria-live="polite"></div>
     <p class="studio-stream-status" id="streamStatus" aria-live="polite"></p>
   </main>
@@ -66,7 +67,7 @@
   <script src="js/cloud-ui.js?v=20260604z2"></script>
   <script src="js/stream-player.js?v=20260604z8"></script>
   <script src="js/stream-now-playing.js?v=20260604y"></script>
-  <script src="js/stream-page.js?v=20260604z20"></script>
+  <script src="js/stream-page.js?v=20260604z23"></script>
   <script>
     (function () {
       if ('serviceWorker' in navigator) {

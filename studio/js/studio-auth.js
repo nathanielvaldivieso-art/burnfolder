@@ -76,6 +76,7 @@
   function markReady() {
     ready = true;
     document.body.classList.remove('studio-locked');
+    document.body.classList.add('studio-ready');
     const gate = document.getElementById('studioAuthGate');
     if (gate) gate.remove();
     mountLockButton();
@@ -107,7 +108,7 @@
   }
 
   function showLoginGate() {
-    document.body.classList.add('studio-locked');
+    document.body.classList.add('studio-ready', 'studio-locked');
 
     const gate = document.createElement('div');
     gate.id = 'studioAuthGate';
@@ -157,16 +158,32 @@
   function boot() {
     const existing = getToken();
     if (existing) {
-      verifyToken(existing).then(function (ok) {
-        if (ok) {
-          markReady();
-          return;
-        }
+      let settled = false;
+      const timeout = window.setTimeout(function () {
+        if (settled) return;
+        settled = true;
         sessionStorage.removeItem(SESSION_KEY);
         showLoginGate();
-      }).catch(function () {
-        showLoginGate();
-      });
+      }, 8000);
+
+      verifyToken(existing)
+        .then(function (ok) {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          if (ok) {
+            markReady();
+            return;
+          }
+          sessionStorage.removeItem(SESSION_KEY);
+          showLoginGate();
+        })
+        .catch(function () {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          showLoginGate();
+        });
       return;
     }
     showLoginGate();
@@ -191,6 +208,9 @@
 
   window.BurnfolderStudioAuth = {
     whenReady: whenReady,
+    isReady: function () {
+      return ready;
+    },
     getAuthHeaders: getAuthHeaders,
     logout: logout
   };

@@ -533,27 +533,14 @@ function playReleaseQueue(tracks, startIndex = 0) {
   syncTracklistPlayback();
 }
 
-function preloadTrackDuration(durEl, playbackId) {
+function preloadTrackDuration(durEl, playbackId, knownSeconds) {
+  const pf = window.BurnfolderPlaybackPrefetch;
+  if (pf) {
+    pf.requestDuration(durEl, playbackId, knownSeconds);
+    return;
+  }
   if (!durEl || !playbackId) return;
-
-  const tmp = document.createElement('mux-player');
-  tmp.setAttribute('playback-id', playbackId);
-  tmp.style.display = 'none';
-  tmp.muted = true;
-  document.body.appendChild(tmp);
-  tmp.addEventListener(
-    'loadedmetadata',
-    () => {
-      const d = tmp.duration;
-      if (d && !isNaN(d)) {
-        const m = Math.floor(d / 60);
-        const s = Math.floor(d % 60);
-        durEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-      }
-      tmp.remove();
-    },
-    { once: true }
-  );
+  durEl.textContent = '--:--';
 }
 
 let siteVersionCycle = null;
@@ -624,6 +611,14 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
 
   syncRow();
 
+  const pf = window.BurnfolderPlaybackPrefetch;
+  if (pf) {
+    pf.attachRow(row, function () {
+      const current = freezePlayback ? song : cycle ? cycle.getSelected(song) : song;
+      return current && current.playbackId;
+    });
+  }
+
   row.addEventListener('click', (e) => {
     if (e.target.closest('.is-version-cycle')) return;
     const toPlay = cycle ? cycle.getSelected(song) : song;
@@ -673,6 +668,16 @@ function fillTracklistContainer(container, entries, options) {
   });
 
   container.appendChild(list);
+
+  const pf = window.BurnfolderPlaybackPrefetch;
+  if (pf && entries && entries.length) {
+    pf.prefetchList(
+      entries.map(function (entry) {
+        return entry && entry.song && entry.song.playbackId;
+      }),
+      6
+    );
+  }
 }
 
 window.buildTracklistItem = buildTracklistItem;
@@ -1937,8 +1942,18 @@ function getSiteMuxPlayback() {
     siteMuxPlayback = window.BurnfolderMuxPlayback.create({
       getPlayer: () => activeMuxPlayer,
       bindEnded: false,
-      onPlayBlocked: () => {
-        if (bottomPlayBtn) bottomPlayBtn.click();
+      recall: true,
+      restoreRecall: true,
+      artist: 'burnfolder',
+      album: 'burnfolder.com',
+      artworkForSong: function (song) {
+        if (window.BurnfolderMediaSession && window.BurnfolderMediaSession.defaultArtworkForPlaybackId) {
+          return window.BurnfolderMediaSession.defaultArtworkForPlaybackId(song && song.playbackId);
+        }
+        return [];
+      },
+      onPlayBlocked: (player) => {
+        if (player) player.play().catch(() => {});
       },
       onStateChange: () => {
         updateUI();
@@ -1964,7 +1979,7 @@ function startPlayback(song, queueSongs, queueIdx) {
 
   const engine = getSiteMuxPlayback();
   if (engine) {
-    engine.startPlayback(song, activeQueue, activeQueueIdx);
+    engine.startPlayback(song, activeQueue, activeQueueIdx, { immediatePlay: true });
   } else {
     activeMuxPlayer.pause();
     activeMuxPlayer.currentTime = 0;

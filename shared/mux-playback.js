@@ -5,6 +5,9 @@
 (function (root) {
   'use strict';
 
+  const recallApi = root.BurnfolderPlaybackRecall;
+  const mediaSessionApi = root.BurnfolderMediaSession;
+
   function resolvePlayer(playerOrId) {
     if (!playerOrId) return null;
     if (typeof playerOrId === 'string') return document.getElementById(playerOrId);
@@ -15,7 +18,8 @@
     if (!song || !song.playbackId) return null;
     return {
       title: String(song.title || song.displayTitle || 'untitled').trim(),
-      playbackId: String(song.playbackId).trim()
+      playbackId: String(song.playbackId).trim(),
+      coverArt: song.coverArt || null
     };
   }
 
@@ -31,13 +35,21 @@
     let activeQueue = [];
     let activeQueueIdx = 0;
     let endedBound = false;
+    let positionBound = false;
+    let recallTimer = null;
+    let mediaActionsBound = false;
 
-    function notify() {
+    function notify(extra) {
       const player = getPlayer();
-      const detail = {
-        song: activeSong,
-        playing: !!(activeSong && player && !player.paused)
-      };
+      const detail = Object.assign(
+        {
+          song: activeSong,
+          playing: !!(activeSong && player && !player.paused),
+          queue: activeQueue.slice(),
+          queueIdx: activeQueueIdx
+        },
+        extra || {}
+      );
       if (typeof opts.onStateChange === 'function') {
         opts.onStateChange(detail);
       }
@@ -46,15 +58,96 @@
       } catch (e) {
         /* noop */
       }
+      syncMediaSession(detail);
+      scheduleRecallSave();
     }
 
-    function retryPlay(player, song) {
-      if (!player || !song) return;
-      if (typeof opts.onPlayBlocked === 'function') {
-        opts.onPlayBlocked(player, song);
+    function scheduleRecallSave() {
+      if (opts.recall === false || !recallApi) return;
+      window.clearTimeout(recallTimer);
+      recallTimer = window.setTimeout(persistRecall, 350);
+    }
+
+    function persistRecall() {
+      if (opts.recall === false || !recallApi || !activeSong) return;
+      const player = getPlayer();
+      recallApi.save({
+        song: activeSong,
+        queue: activeQueue,
+        queueIdx: activeQueueIdx,
+        currentTime: player ? player.currentTime : 0,
+        wasPlaying: !!(player && !player.paused)
+      });
+    }
+
+    function syncMediaSession(detail) {
+      if (!mediaSessionApi) return;
+      const player = getPlayer();
+      if (!detail.song) {
+        mediaSessionApi.setPlaybackState(false);
         return;
       }
-      player.play().catch(function () {});
+      mediaSessionApi.setMetadata(detail.song, detail, {
+        artist: opts.artist,
+        album: opts.album,
+        artworkForSong: opts.artworkForSong
+      });
+      mediaSessionApi.setPositionState(player);
+    }
+
+    function bindMediaSessionActions() {
+      if (!mediaSessionApi || mediaActionsBound) return;
+      mediaActionsBound = true;
+      mediaSessionApi.bindActions({
+        play: function () {
+          togglePlayPause(true);
+        },
+        pause: function () {
+          togglePlayPause(false);
+        },
+        previoustrack: function () {
+          if (activeQueueIdx > 0) {
+            playQueuedTrack(activeQueueIdx - 1);
+            return;
+          }
+          const player = getPlayer();
+          if (player) {
+            player.currentTime = 0;
+            notify();
+          }
+        },
+        nexttrack: function () {
+          if (activeQueueIdx + 1 < activeQueue.length) {
+            playQueuedTrack(activeQueueIdx + 1);
+          }
+        },
+        seekbackward: null,
+        seekforward: null
+      });
+    }
+
+    function bindPositionUpdates(player) {
+      if (!player || positionBound || !mediaSessionApi) return;
+      positionBound = true;
+      player.addEventListener('timeupdate', function () {
+        if (!activeSong) return;
+        mediaSessionApi.setPositionState(player);
+        scheduleRecallSave();
+      });
+    }
+
+    function retryPlay(player, song, allowBlockedFallback) {
+      if (!player || !song) return;
+      const playPromise = player.play();
+      if (playPromise === undefined) return;
+      playPromise.catch(function () {
+        if (allowBlockedFallback === false) return;
+        if (typeof opts.onPlayBlocked === 'function') {
+          opts.onPlayBlocked(player, song);
+          return;
+        }
+        player.play().catch(function () {});
+      });
     }
 
     function bindEnded(player) {
@@ -63,19 +156,38 @@
       player.addEventListener('ended', function () {
         const nextIdx = activeQueueIdx + 1;
         if (nextIdx < activeQueue.length) {
-          playQueuedTrack(nextIdx);
+          playQueuedTrack(nextIdx, { immediatePlay: true });
         } else {
-          notify();
+          notify({ playing: false });
         }
       });
       player.addEventListener('play', notify);
       player.addEventListener('pause', notify);
+      bindPositionUpdates(player);
     }
 
-    function startPlayback(song, queueSongs, queueIdx) {
+    function applyRecallPosition(player, recall) {
+      if (!player || !recall || !recall.currentTime) return;
+      const seek = function () {
+        try {
+          player.currentTime = recall.currentTime;
+        } catch (e) {
+          /* noop */
+        }
+      };
+      if (player.readyState >= 1) seek();
+      else player.addEventListener('loadedmetadata', seek, { once: true });
+    }
+
+    function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
       const player = getPlayer();
       const normalized = normalizeSong(song);
       if (!player || !normalized) return false;
+
+      const startOpts = playbackOpts || {};
+      const immediatePlay =
+        startOpts.immediatePlay !== false &&
+        !(startOpts.recall && startOpts.recall.wasPlaying === false);
 
       activeSong = normalized;
       activeQueue =
@@ -85,11 +197,19 @@
       activeQueueIdx = typeof queueIdx === 'number' ? queueIdx : 0;
 
       bindEnded(player);
+      bindMediaSessionActions();
 
-      player.pause();
-      player.currentTime = 0;
-      player.setAttribute('playback-id', normalized.playbackId);
+      const sameSource = player.getAttribute('playback-id') === normalized.playbackId;
+      if (!sameSource) {
+        player.pause();
+        player.currentTime = 0;
+        player.setAttribute('playback-id', normalized.playbackId);
+      }
       player.setAttribute('metadata-video-title', normalized.title);
+
+      if (root.BurnfolderPlaybackPrefetch) {
+        root.BurnfolderPlaybackPrefetch.setActivePlayer(player);
+      }
 
       notify();
 
@@ -101,56 +221,73 @@
         ) {
           return;
         }
-        const playPromise = player.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(function () {
-            retryPlay(player, normalized);
-          });
-        }
+        retryPlay(player, normalized, true);
+      }
+
+      // iOS requires play() during the tap handler — don't wait for canplay first.
+      if (immediatePlay) {
+        retryPlay(player, normalized, false);
       }
 
       function onMediaReady() {
-        ensurePlaying();
+        if (startOpts.recall && startOpts.recall.currentTime) {
+          applyRecallPosition(player, startOpts.recall);
+        }
+        if (startOpts.recall && startOpts.recall.wasPlaying === false) {
+          player.pause();
+          notify({ playing: false });
+          return;
+        }
+        if (player.paused) ensurePlaying();
       }
 
       player.addEventListener('canplay', onMediaReady, { once: true });
       player.addEventListener('loadedmetadata', onMediaReady, { once: true });
-      ensurePlaying();
 
       window.setTimeout(function () {
         if (
           player.paused &&
           activeSong &&
-          activeSong.playbackId === normalized.playbackId
+          activeSong.playbackId === normalized.playbackId &&
+          !(startOpts.recall && startOpts.recall.wasPlaying === false)
         ) {
-          retryPlay(player, normalized);
+          ensurePlaying();
         }
         if (typeof opts.onAfterStart === 'function') {
           opts.onAfterStart(player, normalized);
         }
+        persistRecall();
       }, 100);
+
+      if (root.BurnfolderPlaybackPrefetch) {
+        root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
+        root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId);
+      }
 
       return true;
     }
 
-    function playTrackQueue(queueSongs, queueStartIdx) {
+    function playTrackQueue(queueSongs, queueStartIdx, playbackOpts) {
       if (!Array.isArray(queueSongs) || !queueSongs.length) return false;
       const start = typeof queueStartIdx === 'number' ? queueStartIdx : 0;
       const song = normalizeSong(queueSongs[start]);
       if (!song) return false;
-      return startPlayback(song, queueSongs, start);
+      return startPlayback(song, queueSongs, start, playbackOpts);
     }
 
-    function playQueuedTrack(queueIdx) {
+    function playQueuedTrack(queueIdx, playbackOpts) {
       const song = activeQueue[queueIdx];
       if (!song) return false;
-      return startPlayback(song, activeQueue, queueIdx);
+      const trackOpts = playbackOpts || {};
+      if (trackOpts.immediatePlay == null) trackOpts.immediatePlay = true;
+      return startPlayback(song, activeQueue, queueIdx, trackOpts);
     }
 
-    function togglePlayPause() {
+    function togglePlayPause(forcePlay) {
       const player = getPlayer();
       if (!player || !activeSong) return;
-      if (player.paused) {
+      const shouldPlay = typeof forcePlay === 'boolean' ? forcePlay : player.paused;
+      if (shouldPlay) {
         player.play().catch(function () {
           retryPlay(player, activeSong);
         });
@@ -169,8 +306,29 @@
         player.pause();
         player.removeAttribute('playback-id');
       }
+      if (recallApi && opts.recall !== false) recallApi.clear();
       notify();
       return true;
+    }
+
+    function restoreRecall(recallOpts) {
+      if (opts.recall === false || !recallApi) return false;
+      const maxAge = recallOpts && recallOpts.maxAgeMs ? recallOpts.maxAgeMs : 1000 * 60 * 60 * 12;
+      const recall = recallApi.load(maxAge);
+      if (!recall || !recall.song) return false;
+      const queue = recall.queue && recall.queue.length ? recall.queue : [recall.song];
+      let idx = recall.queueIdx;
+      if (idx < 0 || idx >= queue.length) idx = 0;
+      return startPlayback(recall.song, queue, idx, {
+        recall: Object.assign({}, recall, { wasPlaying: false }),
+        immediatePlay: false
+      });
+    }
+
+    if (opts.restoreRecall !== false && recallApi) {
+      window.setTimeout(function () {
+        if (!activeSong) restoreRecall(opts.recallOptions);
+      }, 0);
     }
 
     return {
@@ -179,8 +337,16 @@
       playQueuedTrack: playQueuedTrack,
       togglePlayPause: togglePlayPause,
       stop: stop,
+      restoreRecall: restoreRecall,
+      persistRecall: persistRecall,
       getActiveSong: function () {
         return activeSong;
+      },
+      getActiveQueue: function () {
+        return activeQueue.slice();
+      },
+      getActiveQueueIdx: function () {
+        return activeQueueIdx;
       },
       isPlayingPlaybackId: function (id) {
         const player = getPlayer();

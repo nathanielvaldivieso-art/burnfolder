@@ -4,12 +4,12 @@
   const store = window.BurnfolderJournalDays;
   if (!store) return;
 
-  const dateInput = document.getElementById('journalDateKey');
-  const journalBody = document.getElementById('journalBody');
-  const journalPlan = document.getElementById('journalPlan');
-  const checklistEl = document.getElementById('journalChecklist');
-  const recentList = document.getElementById('journalRecentList');
-  const statusEl = document.getElementById('journalStatus');
+  let dateInput = document.getElementById('journalDateKey');
+  let journalBody = document.getElementById('journalBody');
+  let journalPlan = document.getElementById('journalPlan');
+  let checklistEl = document.getElementById('journalChecklist');
+  let recentList = document.getElementById('journalRecentList');
+  let statusEl = document.getElementById('journalStatus');
 
   let activeDate = store.todayKey();
   let currentDay = null;
@@ -257,6 +257,18 @@
   markNav();
   bindFields();
   bindNav();
+
+  window.studioInitJournalPage = function () {
+    dateInput = document.getElementById('journalDateKey');
+    journalBody = document.getElementById('journalBody');
+    journalPlan = document.getElementById('journalPlan');
+    checklistEl = document.getElementById('journalChecklist');
+    recentList = document.getElementById('journalRecentList');
+    statusEl = document.getElementById('journalStatus');
+    markNav();
+    loadDay(activeDate || store.todayKey());
+  };
+
   loadDay(store.todayKey());
 
   window.addEventListener('burnfolder-journal-synced', function () {

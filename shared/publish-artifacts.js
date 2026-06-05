@@ -284,6 +284,7 @@ ${bodyParts.join('\n\n')}
 <script src="stripe-publishable.js"></script>
 <script src="spa-router.js"></script>
 <script src="shared/song-versions.js?v=${version}"></script>
+<script src="shared/playback-prefetch.js?v=${version}"></script>
 <script src="shared/mux-playback.js?v=${version}"></script>
 <script src="scripts.js?v=${version}"></script>
 </body>
