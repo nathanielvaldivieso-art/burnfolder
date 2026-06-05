@@ -60,6 +60,10 @@
       onStatus: window.studioEditorSetStatus,
       onDraftMeta: window.studioEditorRenderMeta
     });
+
+    if (typeof window.studioInitEditorWorkspace === 'function') {
+      window.studioInitEditorWorkspace();
+    }
   }
 
   function boot() {

@@ -1,8 +1,6 @@
 (function () {
   'use strict';
 
-  if (!window.studioEditorReady) return;
-
   const muxShared = window.BurnfolderStudioMux;
   const MUX_PLAYBACK_MIME = 'application/x-burnfolder-mux-playback';
   const MUX_ASSET_MIME = 'application/x-burnfolder-mux-asset';
@@ -12,6 +10,10 @@
   let muxLibraryCache = [];
   let contextMuxAssetId = null;
   let libraryPanel = null;
+  let libraryPanelGrid = null;
+  let draftNavBound = false;
+  let toolbarBound = false;
+  let assetsChangedBound = false;
 
   const STACK_ALBUM_MIME =
     window.STUDIO_ALBUM_STACK_MIME || 'application/x-burnfolder-album-stack';
@@ -115,8 +117,15 @@
   }
 
   function renderEditorMuxGrid(assets) {
+    const grid = document.getElementById('editorMuxGrid');
+    if (!grid) return;
+
+    if (!libraryPanel || libraryPanelGrid !== grid) {
+      libraryPanelGrid = grid;
+      libraryPanel = null;
+    }
+
     if (!libraryPanel && window.BurnfolderEditorLibraryPanel) {
-      const grid = document.getElementById('editorMuxGrid');
       libraryPanel = window.BurnfolderEditorLibraryPanel.mount({
         gridEl: grid,
         getLibrary: function () {
@@ -136,8 +145,6 @@
       return;
     }
 
-    const grid = document.getElementById('editorMuxGrid');
-    if (!grid) return;
     grid.innerHTML = '<p class="studio-empty">library unavailable</p>';
   }
 
@@ -231,7 +238,8 @@
     const refreshBtn = document.getElementById('editorMuxRefreshBtn');
     const menu = document.getElementById('editorMuxMenu');
 
-    if (refreshBtn) {
+    if (refreshBtn && !refreshBtn.dataset.bound) {
+      refreshBtn.dataset.bound = '1';
       refreshBtn.addEventListener('click', function () {
         setStatus('refreshing…');
         loadMuxLibrary().then(function (assets) {
@@ -240,7 +248,8 @@
       });
     }
 
-    if (menu) {
+    if (menu && !menu.dataset.bound) {
+      menu.dataset.bound = '1';
       menu.addEventListener('change', function () {
         const action = menu.value;
         if (!action) return;
@@ -263,23 +272,27 @@
       });
     }
 
-    document.addEventListener('keydown', function (event) {
-      if ((event.key === 'Delete' || event.key === 'Backspace') && contextMuxAssetId) {
-        const active = document.activeElement;
-        if (
-          active &&
-          (active.tagName === 'INPUT' ||
-            active.tagName === 'TEXTAREA' ||
-            active.isContentEditable)
-        ) {
-          return;
+    if (!document.body.dataset.editorLibraryKeysBound) {
+      document.body.dataset.editorLibraryKeysBound = '1';
+      document.addEventListener('keydown', function (event) {
+        if ((event.key === 'Delete' || event.key === 'Backspace') && contextMuxAssetId) {
+          const active = document.activeElement;
+          if (
+            active &&
+            (active.tagName === 'INPUT' ||
+              active.tagName === 'TEXTAREA' ||
+              active.isContentEditable)
+          ) {
+            return;
+          }
+          const menuEl = document.getElementById('editorMuxMenu');
+          if (menuEl) {
+            menuEl.value = 'delete';
+            menuEl.dispatchEvent(new Event('change'));
+          }
         }
-        if (menu) {
-          menu.value = 'delete';
-          menu.dispatchEvent(new Event('change'));
-        }
-      }
-    });
+      });
+    }
 
     loadMuxLibrary();
   }
@@ -290,6 +303,13 @@
   }
 
   function mountDraftNav() {
+    if (draftNavBound) {
+      if (typeof window.studioRefreshDraftSelect === 'function') {
+        window.studioRefreshDraftSelect(window.studioEditorDraftId);
+      }
+      return;
+    }
+
     const select = document.getElementById('studioDraftSelect');
     const newBtn = document.getElementById('studioNewDraftBtn');
     const newDate = document.getElementById('studioNewDraftDate');
@@ -341,9 +361,13 @@
     }
 
     window.studioRefreshDraftSelect(window.studioEditorDraftId);
+    draftNavBound = true;
   }
 
   function mountToolbar() {
+    if (toolbarBound) return;
+    toolbarBound = true;
+
     const addTextBtn = document.getElementById('studioAddTextBtn');
     if (addTextBtn) {
       addTextBtn.addEventListener('click', function () {
@@ -484,21 +508,73 @@
     };
   }
 
+  function previewAcceptsDrag(event) {
+    const types = event.dataTransfer && event.dataTransfer.types;
+    if (!types) return false;
+    const typeList = Array.from(types);
+    return (
+      typeList.indexOf('Files') >= 0 ||
+      typeList.indexOf(MUX_PLAYBACK_MIME) >= 0 ||
+      typeList.indexOf(STACK_ALBUM_MIME) >= 0 ||
+      typeList.indexOf(ALBUM_TRACK_MIME) >= 0 ||
+      (window.BurnfolderStreamShared &&
+        typeList.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0)
+    );
+  }
+
+  function insertUploadedFiles(fileList) {
+    const cloud = window.BurnfolderAssetCloud;
+    if (!cloud || !fileList || !fileList.length) return;
+
+    function runUpload() {
+      const files = Array.from(fileList);
+      setStatus(files.length === 1 ? 'uploading 1 file…' : 'uploading ' + files.length + ' files…');
+
+      cloud
+        .addFiles(files, {
+          onFileSuccess: function (asset) {
+            whenEditorReady(function (api) {
+              api.insertAsset({
+                kind: asset.kind,
+                displayTitle: asset.displayTitle || asset.name,
+                name: asset.name,
+                muxPlaybackId: asset.muxPlaybackId,
+                muxPassthrough: asset.muxPassthrough,
+                muxAssetId: asset.muxAssetId
+              });
+              setStatus('added song');
+            });
+            loadMuxLibrary();
+          },
+          onFileError: function (file, err) {
+            setStatus(err.message || 'upload failed');
+          }
+        })
+        .then(function (added) {
+          if (added.length) {
+            setStatus(added.length === 1 ? 'added song' : added.length + ' songs added');
+            loadMuxLibrary();
+          }
+        })
+        .catch(function (err) {
+          setStatus(err.message || 'upload failed');
+        });
+    }
+
+    if (window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.whenReady) {
+      window.BurnfolderStudioAuth.whenReady().then(runUpload);
+      return;
+    }
+    runUpload();
+  }
+
   function mountPreviewDrop() {
     const preview = document.getElementById('entryPreview');
-    if (!preview) return;
+    if (!preview || preview.dataset.previewDropBound === '1') return;
+    preview.dataset.previewDropBound = '1';
 
     preview.addEventListener('dragover', function (event) {
-      const types = event.dataTransfer && event.dataTransfer.types;
-      if (!types) return;
-      const typeList = Array.from(types);
-      const accepts =
-        typeList.indexOf(MUX_PLAYBACK_MIME) >= 0 ||
-        typeList.indexOf(STACK_ALBUM_MIME) >= 0 ||
-        typeList.indexOf(ALBUM_TRACK_MIME) >= 0 ||
-        (window.BurnfolderStreamShared &&
-          typeList.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0);
-      if (!accepts) return;
+      if (!previewAcceptsDrag(event)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       preview.classList.add('is-drop-target');
@@ -510,10 +586,25 @@
     });
 
     preview.addEventListener('drop', function (event) {
+      const typeList = Array.from((event.dataTransfer && event.dataTransfer.types) || []);
+      const hasFiles = typeList.indexOf('Files') >= 0;
+
+      if (hasFiles && event.dataTransfer.files && event.dataTransfer.files.length) {
+        event.preventDefault();
+        preview.classList.remove('is-drop-target');
+        insertUploadedFiles(event.dataTransfer.files);
+        return;
+      }
+
       const stackDrop = event.dataTransfer.getData(STACK_ALBUM_MIME);
       const albumTrackId = event.dataTransfer.getData(ALBUM_TRACK_MIME);
-      const playbackId = event.dataTransfer.getData(MUX_PLAYBACK_MIME);
-      if (!stackDrop && !albumTrackId && !playbackId) return;
+      const playbackId =
+        event.dataTransfer.getData(MUX_PLAYBACK_MIME) ||
+        (window.BurnfolderStreamShared
+          ? event.dataTransfer.getData(window.BurnfolderStreamShared.MUX_MIME)
+          : '') ||
+        albumTrackId;
+      if (!stackDrop && !playbackId) return;
 
       event.preventDefault();
       preview.classList.remove('is-drop-target');
@@ -560,14 +651,25 @@
     });
   }
 
-  window.addEventListener('burnfolder-assets-changed', function () {
-    loadMuxLibrary();
-  });
+  function bindAssetsChanged() {
+    if (assetsChangedBound) return;
+    assetsChangedBound = true;
+    window.addEventListener('burnfolder-assets-changed', function () {
+      loadMuxLibrary();
+    });
+  }
 
-  mountDraftNav();
-  mountEditorLibrary();
-  mountSidebarUpload();
-  mountPreviewDrop();
-  mountToolbar();
-  applyQueryInserts();
+  window.studioInitEditorWorkspace = function () {
+    mountSidebarUpload();
+    if (window.studioEditorReady) {
+      mountPreviewDrop();
+      mountEditorLibrary();
+      mountDraftNav();
+      mountToolbar();
+      applyQueryInserts();
+    }
+    bindAssetsChanged();
+  };
+
+  window.studioInitEditorWorkspace();
 })();

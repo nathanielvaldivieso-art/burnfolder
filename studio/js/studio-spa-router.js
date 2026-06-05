@@ -34,7 +34,19 @@
     stream: STREAM_PAGE_SCRIPTS,
     video: STREAM_PAGE_SCRIPTS,
     journal: ['js/journal-day-store.js', 'js/journal-page.js'],
-    entry: ['js/drafts.js', 'js/studio-hub.js']
+    entry: [
+      'js/drafts.js',
+      'js/studio-hub.js',
+      'js/asset-cloud.js',
+      'js/mux-naming.js',
+      'js/mux-client.js',
+      'js/studio-mux-lib.js',
+      'js/stream-shared.js',
+      'js/upload-queue.js',
+      'js/cloud-ui.js',
+      'js/editor-library-panel.js',
+      'js/editor-workspace.js'
+    ]
   };
 
   let contentRoot = null;
@@ -200,6 +212,9 @@
       window.studioInitJournalPage();
     } else if (pageKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
       window.studioInitEntryHub();
+    }
+    if (pageKey === 'entry' && typeof window.studioInitEditorWorkspace === 'function') {
+      window.studioInitEditorWorkspace();
     }
     markNav(pageKey);
   }

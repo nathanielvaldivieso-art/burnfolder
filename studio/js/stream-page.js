@@ -1117,10 +1117,8 @@
       });
   }
 
-  if (!window.__studioStreamPageBound) {
-    window.__studioStreamPageBound = true;
-
-  if (uploadRoot && window.BurnfolderCloudUI) {
+  function mountStreamUploadZone() {
+    if (!uploadRoot || !window.BurnfolderCloudUI) return;
     window.BurnfolderCloudUI.mountUploadZone(uploadRoot, {
       onStatus: setStatus,
       onFileSuccess: prependUploadedAsset,
@@ -1129,6 +1127,9 @@
       }
     });
   }
+
+  if (!window.__studioStreamPageBound) {
+    window.__studioStreamPageBound = true;
 
   if (window.BurnfolderStreamStackDock) {
     stackDock = window.BurnfolderStreamStackDock.mount({
@@ -1173,6 +1174,7 @@
 
   window.studioInitStreamPage = function () {
     bindDomRefs();
+    mountStreamUploadZone();
     if (!listRoot || !shared) return;
     syncActiveFilter();
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
