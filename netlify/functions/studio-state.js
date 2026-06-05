@@ -11,9 +11,9 @@ function corsHeaders() {
 const KEY_PATTERN = /^[a-z][a-zA-Z0-9_-]{0,48}$/;
 
 function getStateStore() {
-  // Strong consistency so a write on one device is immediately visible on the
-  // next read from another device (last-write-wins sync).
-  return getStore({ name: 'studio-state', consistency: 'strong' });
+  // Match subscribe.js: default consistency works on classic Netlify Functions.
+  // (consistency: 'strong' requires uncachedEdgeURL, which this env lacks.)
+  return getStore('studio-state');
 }
 
 exports.handler = async function (event) {
