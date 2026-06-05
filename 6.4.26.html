@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6.4.26</title>
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <a href="index.html" class="site-brand">burnfolder.com</a>
+  <nav class="site-nav" aria-label="Primary">
+    <a href="music.html" class="page-nav">music</a>
+    <a href="content.html" class="page-nav">video</a>
+    <a href="shop.html" class="page-nav">shop</a>
+  </nav>
+  <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
+</header>
+
+<div class="page-wrap">
+  <p class="page-id">6.4.26</p>
+
+  <p class="page-annotation">working a lot on the backend for the site. things that make posting easier to do on the go/without a laptop</p>
+
+  <p class="page-annotation">also been working on PHOTO NEGATIVE.. going for volatile..</p>
+
+  <div class="entry-audio-list" data-playback-id="tS3vdPK00kl3uYc4dkD768jAeLWC955pOFWoLxYag3bI"></div>
+</div>
+
+<div class="page-watermark">6.4.26</div>
+
+<!-- bottom player - do not modify -->
+<div class="bottom-progress-bar" id="bottomBar">
+  <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">&times;</div>
+  <div class="bottom-bar-content">
+    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <span class="song-title" id="songTitle">Track Title</span>
+    <div class="bottom-bar-controls">
+      <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>
+      <div class="progress-bar-area" id="progressBarArea">
+        <div class="progress" id="progress"></div>
+        <div class="progress-playhead" id="progressPlayhead"></div>
+      </div>
+    </div>
+    <div class="loading-spinner" id="loadingSpinner"></div>
+  </div>
+</div>
+<script src="entries.js"></script>
+<script src="entry-renderer.js"></script>
+<script src="songs.js"></script>
+<script src="stripe-publishable.js"></script>
+<script src="spa-router.js"></script>
+<script src="shared/song-versions.js?v=20260601a"></script>
+<script src="shared/mux-playback.js?v=20260601a"></script>
+<script src="scripts.js?v=20260601a"></script>
+</body>
+</html>
