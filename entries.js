@@ -4,6 +4,21 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "6.5.26": {
+    "date": "6.5.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "color grading today. I want that real trendy super saturated I do artistic instagram content type look. also hey its summer",
+        "textSize": "md"
+      },
+      {
+        "type": "video",
+        "title": "investigating(6.5.26)",
+        "playbackId": "00HgbKrx012S5slRcR02XabeA8ZpurTa8RYuxJgmXrAbt00"
+      }
+    ]
+  },
   "6.4.26": {
     "date": "6.4.26",
     "blocks": [
@@ -94,7 +109,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
