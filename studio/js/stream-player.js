@@ -4,6 +4,10 @@
   const playback = window.BurnfolderMuxPlayback
     ? window.BurnfolderMuxPlayback.create({
         playerId: 'activeMuxPlayer',
+        onPlayBlocked: function () {
+          const btn = document.getElementById('streamPlayPause');
+          if (btn) btn.click();
+        },
         onStateChange: function (detail) {
           window.dispatchEvent(
             new CustomEvent('burnfolder-stream-playback', { detail: detail })

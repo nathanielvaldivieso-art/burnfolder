@@ -473,6 +473,7 @@
     pushStackToEntry: pushStackToEntry,
     findInLibrary: findInLibrary,
     muxFileLabel: muxFileLabel,
+    stackItemFromLibrary: stackItemFromLibrary,
     hydrateStackFromCloud: hydrateStackFromCloud
   };
 

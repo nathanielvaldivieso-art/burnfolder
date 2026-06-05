@@ -29,7 +29,7 @@
     // Mux management calls and the personal-cloud state store need the bearer.
     // The login check carries the password in its body and must NOT route
     // through the auth wrapper.
-    return u.indexOf('/mux-') > -1 || u.indexOf('/studio-state') > -1;
+    return u.indexOf('/mux-') > -1 || u.indexOf('/studio-state') > -1 || u.indexOf('/studio-publish') > -1;
   }
 
   function getToken() {

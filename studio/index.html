@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>burnfolder studio</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="css/studio.css?v=20260604z5">
+  <link rel="stylesheet" href="css/studio.css?v=20260604z14">
 </head>
 <body class="studio-page entry-editor-page studio-editor-page">
   <header class="site-header studio-header">
@@ -14,6 +14,7 @@
     <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
       <a href="index.html" class="studio-main-nav-link" data-nav="entry" id="studioEntryNavLink">entry</a>
       <a href="stream.html" class="studio-main-nav-link" data-nav="stream">stream</a>
+      <a href="journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
       <span id="studioEditorNav" class="studio-editor-nav" hidden>
         <label class="studio-nav-label" for="studioDraftSelect">open</label>
         <select id="studioDraftSelect" class="studio-draft-select" aria-label="Open entry"></select>
@@ -26,19 +27,22 @@
 
   <main id="studioHome" class="page-wrap studio-home">
     <p class="page-id">entry</p>
-    <p class="studio-lede">build journal pages on your computer, then publish to burnfolder.com when ready. uploads live in <a href="stream.html">stream</a>.</p>
+    <p class="studio-lede">Design journal pages here. Day plans and reminders live in <a href="journal.html">journal</a>. Uploads and projects live in <a href="stream.html">stream</a>.</p>
 
-    <p class="entry-editor-section-title">new entry</p>
-    <div class="studio-new-draft">
-      <div class="entry-editor-field">
-        <label for="newDraftDate">date / filename key</label>
-        <input id="newDraftDate" type="text" placeholder="6.1.26" spellcheck="false">
+    <section class="studio-hub-new" aria-label="New entry">
+      <div class="studio-new-draft">
+        <div class="entry-editor-field studio-hub-date-field">
+          <label for="newDraftDate">date</label>
+          <input id="newDraftDate" type="text" placeholder="6.4.26" spellcheck="false" inputmode="decimal">
+        </div>
+        <button class="icon-btn studio-hub-create-btn" id="newDraftBtn" type="button">create</button>
       </div>
-      <button class="icon-btn" id="newDraftBtn" type="button">create &amp; open</button>
-    </div>
+    </section>
 
-    <p class="entry-editor-section-title">entries on this computer</p>
-    <div id="draftList" class="studio-draft-list"></div>
+    <section class="studio-hub-list" aria-label="Your entries">
+      <p class="entry-editor-section-title">entries</p>
+      <div id="draftList" class="studio-draft-list"></div>
+    </section>
     <p class="entry-editor-status studio-status" id="studioHubStatus" aria-live="polite"></p>
   </main>
 
@@ -49,26 +53,28 @@
       <div class="studio-entry-columns">
       <section class="studio-entry-main" aria-label="Entry preview">
         <div class="studio-entry-toolbar">
-          <div class="entry-editor-field studio-entry-date-field">
-            <label for="entryDate">date</label>
-            <input id="entryDate" type="text" placeholder="6.1.26" spellcheck="false">
+          <div class="studio-entry-toolbar-start">
+            <div class="entry-editor-field studio-entry-date-field">
+              <label for="entryDate">date</label>
+              <input id="entryDate" type="text" placeholder="6.4.26" spellcheck="false" inputmode="decimal">
+            </div>
+            <div class="studio-text-tools" aria-label="Text size">
+              <button type="button" class="icon-btn studio-tool-btn" data-text-size="sm" title="Small text" aria-label="Small text">S</button>
+              <button type="button" class="icon-btn studio-tool-btn is-active" data-text-size="md" title="Medium text" aria-label="Medium text">M</button>
+              <button type="button" class="icon-btn studio-tool-btn" data-text-size="lg" title="Large text" aria-label="Large text">L</button>
+              <button type="button" class="icon-btn studio-tool-btn studio-tool-add-text" id="studioAddTextBtn">+ text</button>
+            </div>
           </div>
-          <div class="studio-text-tools" aria-label="Text size">
-            <span class="studio-tool-label">text</span>
-            <button type="button" class="icon-btn studio-tool-btn" data-text-size="sm" title="Small text">S</button>
-            <button type="button" class="icon-btn studio-tool-btn is-active" data-text-size="md" title="Medium text">M</button>
-            <button type="button" class="icon-btn studio-tool-btn" data-text-size="lg" title="Large text">L</button>
-            <button type="button" class="icon-btn studio-tool-btn" id="studioAddTextBtn">+ text</button>
+          <div class="studio-entry-toolbar-end">
+            <button type="button" class="icon-btn studio-publish-live-btn" id="publishLiveBtn">publish</button>
           </div>
         </div>
         <details class="studio-help">
-          <summary>how stacks work</summary>
+          <summary>tips</summary>
           <ul class="studio-help-list">
-            <li>drop a file <strong>on</strong> a stack to add inside it; drop on empty page for a new song</li>
-            <li>drag one song onto another’s <strong>center</strong> to combine into a stack</li>
-            <li>drag the <strong>move</strong> handle to reorder blocks; drag track rows inside a stack to reorder tracks</li>
-            <li><strong>×</strong> on a track removes it; <strong>delete</strong> removes the whole block</li>
-            <li>stack <strong>cover</strong> and <strong>name</strong> are set on the stack in the page (drop or choose image)</li>
+            <li>drop a file on the page to add a song; drop on a stack to add inside it</li>
+            <li>drag song onto song center to combine into a stack</li>
+            <li>drag the move handle to reorder; click a stack to edit in the sidebar</li>
           </ul>
         </details>
         <div class="studio-preview-frame" id="studioPreviewFrame">
@@ -96,89 +102,78 @@
       </section>
 
       <aside class="studio-entry-sidebar" aria-label="Sources">
-        <section class="studio-stack-panel" aria-label="Stack editor">
+        <section class="studio-sidebar-section studio-stack-panel" aria-label="Stack editor">
           <p class="studio-sidebar-title">stack</p>
           <div id="studioBlockInspector" class="studio-block-inspector" aria-live="polite">
-            <p class="studio-inspector-empty">click a stack in the page to edit tracks, title, or cover.</p>
+            <p class="studio-inspector-empty">Select a stack on the page to edit tracks, title, or cover.</p>
           </div>
         </section>
 
-        <p class="studio-sidebar-title">library</p>
-        <div id="editorSidebarUpload" class="studio-cloud-drop-wrap studio-sidebar-drop"></div>
-        <div id="editorUploadQueue" class="studio-upload-queue-host"></div>
+        <section class="studio-sidebar-section" aria-label="Upload">
+          <p class="studio-sidebar-title">upload</p>
+          <div id="editorSidebarUpload" class="studio-cloud-drop-wrap studio-sidebar-drop"></div>
+          <div id="editorUploadQueue" class="studio-upload-queue-host"></div>
+        </section>
 
-        <div class="studio-library-heading">
-          <p class="studio-source-label">files</p>
-          <button type="button" class="icon-btn" id="editorMuxRefreshBtn">refresh</button>
-        </div>
-        <div id="editorMuxGrid" class="studio-editor-mux-grid" aria-live="polite"></div>
-        <p class="studio-sidebar-hint">double-click → new song · drop on page or into a stack</p>
-        <select id="editorMuxMenu" class="studio-add-menu studio-editor-mux-menu" hidden aria-hidden="true" tabindex="-1">
-          <option value="">more…</option>
-          <option value="delete">delete from mux</option>
-          <option value="refresh">refresh list</option>
-        </select>
-
-        <div class="studio-journal-compose">
-          <p class="studio-source-label">new note</p>
-          <input id="journalNewTitle" type="text" class="studio-journal-compose-title" placeholder="title" spellcheck="false">
-          <textarea id="journalNewBody" class="studio-journal-compose-body entry-textarea" rows="3" placeholder="write a note…" spellcheck="true"></textarea>
-          <button type="button" class="icon-btn" id="journalSaveBtn">save note</button>
-        </div>
-
-        <div class="studio-add-picker">
-          <label class="studio-add-picker-label" for="editorJournalSelect">note</label>
-          <select id="editorJournalSelect" class="studio-add-select" disabled>
-            <option value="">loading…</option>
-          </select>
-          <div class="studio-add-picker-actions">
-            <button type="button" class="icon-btn" id="editorJournalAddBtn" disabled>add</button>
+        <section class="studio-sidebar-section" aria-label="Library">
+          <div class="studio-library-heading">
+            <p class="studio-sidebar-title">library</p>
+            <button type="button" class="icon-btn studio-sidebar-refresh" id="editorMuxRefreshBtn">refresh</button>
           </div>
-        </div>
-
+          <div id="editorMuxGrid" class="studio-editor-mux-list" aria-live="polite"></div>
+          <p class="studio-sidebar-hint">double-click a file to add · drag onto page or stack</p>
+          <select id="editorMuxMenu" class="studio-add-menu studio-editor-mux-menu" hidden aria-hidden="true" tabindex="-1">
+            <option value="">more…</option>
+            <option value="delete">delete from mux</option>
+            <option value="refresh">refresh list</option>
+          </select>
+        </section>
       </aside>
       </div>
 
       <div class="studio-entry-advanced">
         <details class="studio-advanced-details">
-          <summary>export &amp; publish</summary>
+          <summary>export &amp; manual publish</summary>
           <div class="studio-advanced-inner studio-advanced-grid">
             <section class="entry-editor-output-panel" aria-label="Generated output">
+              <p class="studio-advanced-label">copy for git</p>
               <div class="entry-editor-output-group">
                 <div class="entry-editor-output-heading">
-                  <span>entries.js entry</span>
+                  <span>entries.js</span>
                   <button class="icon-btn" data-copy-target="entryDataOutput" type="button">copy</button>
                 </div>
-                <textarea id="entryDataOutput" rows="6" spellcheck="false"></textarea>
+                <textarea id="entryDataOutput" rows="5" spellcheck="false"></textarea>
               </div>
               <div class="entry-editor-output-group">
                 <div class="entry-editor-output-heading">
-                  <span>entry html</span>
+                  <span>html</span>
                   <button class="icon-btn" data-copy-target="entryHtmlOutput" type="button">copy</button>
                 </div>
-                <textarea id="entryHtmlOutput" rows="8" spellcheck="false"></textarea>
+                <textarea id="entryHtmlOutput" rows="6" spellcheck="false"></textarea>
               </div>
-              <div class="entry-editor-actions">
+              <div class="entry-editor-actions studio-export-actions">
                 <button class="icon-btn" id="copyPackageBtn" type="button">copy package</button>
-                <button class="icon-btn" id="downloadPackageBtn" type="button">download package</button>
-                <button class="icon-btn" id="copyHtmlBtn" type="button">copy html</button>
-                <button class="icon-btn" id="downloadHtmlBtn" type="button">download html</button>
+                <button class="icon-btn" id="downloadPackageBtn" type="button">download</button>
               </div>
             </section>
 
-            <section class="entry-editor-output-panel studio-publish-panel" aria-label="Publish">
-              <div class="entry-editor-actions">
-                <button class="icon-btn" id="publishRefreshBtn" type="button">refresh publish</button>
-                <button class="icon-btn" id="publishDownloadZipBtn" type="button">download publish zip</button>
+            <section class="entry-editor-output-panel studio-publish-panel" aria-label="Publish options">
+              <p class="studio-advanced-label">without going live</p>
+              <div class="entry-editor-actions studio-export-actions">
+                <button class="icon-btn" id="publishRefreshBtn" type="button">refresh</button>
+                <button class="icon-btn" id="publishDownloadZipBtn" type="button">download zip</button>
                 <button class="icon-btn" id="publishMarkPublishedBtn" type="button">mark published</button>
               </div>
               <ul id="publishChecklist" class="studio-publish-checklist"></ul>
-              <div class="entry-editor-output-group">
-                <textarea id="publishEntriesSnippet" rows="6" spellcheck="false" readonly></textarea>
-              </div>
-              <div class="entry-editor-output-group">
-                <textarea id="publishHtmlSnippet" rows="8" spellcheck="false" readonly></textarea>
-              </div>
+              <details class="studio-publish-snippet-details">
+                <summary>preview files</summary>
+                <div class="entry-editor-output-group">
+                  <textarea id="publishEntriesSnippet" rows="4" spellcheck="false" readonly></textarea>
+                </div>
+                <div class="entry-editor-output-group">
+                  <textarea id="publishHtmlSnippet" rows="5" spellcheck="false" readonly></textarea>
+                </div>
+              </details>
             </section>
           </div>
         </details>
@@ -202,7 +197,7 @@
   <script src="../shared/mux-display-name.js?v=20260604t"></script>
   <script src="js/asset-cloud.js?v=20260604t"></script>
   <script src="js/mux-naming.js?v=20260604t"></script>
-  <script src="js/studio-auth.js?v=20260604z6"></script>
+  <script src="js/studio-auth.js?v=20260604z9"></script>
   <script src="js/cloud-state.js?v=20260604z7"></script>
   <script src="js/mux-client.js?v=20260604z6"></script>
   <script src="js/studio-mux-lib.js?v=20260604t"></script>
@@ -210,14 +205,13 @@
   <script src="../shared/playback-context.js?v=20260604t"></script>
   <script src="../shared/version-picker.js?v=20260604t"></script>
   <script src="../stripe-publishable.js"></script>
-  <script src="../shared/mux-playback.js?v=20260604t"></script>
+  <script src="../shared/mux-playback.js?v=20260604z8"></script>
   <script src="../scripts.js?v=20260604t"></script>
   <script src="../entry-editor.js"></script>
-  <script src="js/publish-panel.js"></script>
-  <script src="js/editor-post.js"></script>
+  <script src="js/publish-panel.js?v=20260604z9"></script>
+  <script src="js/editor-post.js?v=20260604z9"></script>
   <script src="js/upload-queue.js?v=20260604t"></script>
   <script src="js/cloud-ui.js?v=20260604t"></script>
-  <script src="js/journal-store.js?v=20260604z5"></script>
-  <script src="js/editor-workspace.js?v=20260604z2"></script>
+  <script src="js/editor-workspace.js?v=20260604z13"></script>
 </body>
 </html>

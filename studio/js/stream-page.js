@@ -72,12 +72,71 @@
   }
 
   function playRecency(item) {
+    if (!item) return 0;
     const log = loadPlayLog();
     let best = 0;
-    [item && item.playbackId, selectedPlayableItem(item).playbackId].forEach(function (id) {
+    if (!versionsApi) {
+      return log[item.playbackId] || 0;
+    }
+    const catalog = streamVersionCatalog();
+    const versions = versionsApi.getVersionsForReference(catalog, catalogSongFromItem(item), 'newest');
+    (versions.length ? versions : [catalogSongFromItem(item)]).forEach(function (song) {
+      const id = song && song.playbackId;
       if (id && log[id] && log[id] > best) best = log[id];
     });
     return best;
+  }
+
+  function resolveStackTrackItem(track) {
+    if (!track || !track.playbackId) return track;
+    const libItem = shared.findInLibrary(libraryCache, track.playbackId) || track;
+    if (!versionsApi) return libItem;
+    const catalog = streamVersionCatalog();
+    const newest = versionsApi.resolveNewestSongInCatalog(
+      catalog,
+      catalogSongFromItem(libItem),
+      itemLabel
+    );
+    if (!newest || !newest.playbackId) return libItem;
+    return shared.findInLibrary(libraryCache, newest.playbackId) || libraryItemFromSong(newest, libItem);
+  }
+
+  /** When a newer dated version lands in Mux, swap project slots to it in place. */
+  function upgradeProjectTracksToNewest() {
+    if (!versionsApi) return false;
+    const list = shared.loadStack();
+    if (!list.length) return false;
+
+    const seenGroupKeys = new Set();
+    const next = [];
+    let changed = false;
+
+    list.forEach(function (track) {
+      const resolved = resolveStackTrackItem(track);
+      if (!resolved || !resolved.playbackId) return;
+
+      const title = itemLabel(resolved);
+      const groupKey = versionsApi.getTrackGroupKey(title);
+      if (groupKey && seenGroupKeys.has(groupKey)) {
+        if (track.playbackId !== resolved.playbackId) changed = true;
+        return;
+      }
+      if (groupKey) seenGroupKeys.add(groupKey);
+
+      const upgraded = shared.stackItemFromLibrary(resolved);
+      if (
+        track.playbackId !== upgraded.playbackId ||
+        track.title !== upgraded.title
+      ) {
+        changed = true;
+      }
+      next.push(upgraded);
+    });
+
+    if (changed) {
+      shared.saveStack(next);
+    }
+    return changed;
   }
 
   function groupKeyForItem(item) {
@@ -609,9 +668,7 @@
   }
 
   function albumItems() {
-    return shared.loadStack().map(function (t) {
-      return shared.findInLibrary(libraryCache, t.playbackId) || t;
-    });
+    return shared.loadStack().map(resolveStackTrackItem);
   }
 
   function playAlbum(index) {
@@ -632,6 +689,7 @@
   }
 
   function buildAlbumTrackItem(track, index) {
+    const resolved = resolveStackTrackItem(track);
     const li = document.createElement('li');
     li.className = 'music-tracklist-item studio-stream-track-item studio-stream-album-track';
     li.draggable = true;
@@ -648,8 +706,8 @@
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'music-track-row';
-    row.dataset.playbackId = track.playbackId || '';
-    const label = track.title || 'untitled';
+    row.dataset.playbackId = resolved.playbackId || '';
+    const label = itemLabel(resolved) || track.title || 'untitled';
     row.setAttribute('aria-label', 'Play ' + label);
 
     const name = document.createElement('span');
@@ -658,13 +716,12 @@
 
     const dur = document.createElement('span');
     dur.className = 'music-track-duration';
-    const libItem = shared.findInLibrary(libraryCache, track.playbackId);
-    dur.textContent = (libItem && shared.formatDuration(libItem.duration)) || '--:--';
+    dur.textContent = shared.formatDuration(resolved.duration) || '--:--';
 
     row.appendChild(name);
     row.appendChild(dur);
-    row.classList.toggle('is-active', !!(player && player.isActivePlaybackId(track.playbackId)));
-    row.classList.toggle('is-playing', !!(player && player.isPlayingPlaybackId(track.playbackId)));
+    row.classList.toggle('is-active', !!(player && player.isActivePlaybackId(resolved.playbackId)));
+    row.classList.toggle('is-playing', !!(player && player.isPlayingPlaybackId(resolved.playbackId)));
     row.addEventListener('click', function () {
       playAlbum(index);
     });
@@ -1006,6 +1063,7 @@
   function applyLibrary(assets, statusMsg) {
     libraryCache = shared.normalizeLibrary(assets);
     resetStreamVersionCycle();
+    upgradeProjectTracksToNewest();
     syncNowPlayingCatalog();
     const n = listCounts();
     if (countEl) countEl.textContent = n ? n + (n === 1 ? ' song' : ' songs') : '';
@@ -1027,6 +1085,7 @@
     }
     libraryCache = shared.normalizeLibrary([item].concat(libraryCache));
     resetStreamVersionCycle();
+    upgradeProjectTracksToNewest();
     if (countEl) {
       const n = listCounts();
       countEl.textContent = n ? n + (n === 1 ? ' song' : ' songs') : '';

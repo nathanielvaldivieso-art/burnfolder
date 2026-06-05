@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>journal — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="css/studio.css?v=20260604z15">
+</head>
+<body class="studio-page studio-journal-page">
+  <header class="site-header studio-header">
+    <a href="index.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="index.html" class="studio-main-nav-link page-nav" data-nav="entry">entry</a>
+      <a href="stream.html" class="studio-main-nav-link page-nav" data-nav="stream">stream</a>
+      <a href="journal.html" class="studio-main-nav-link page-nav" data-nav="journal">journal</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-journal-layout">
+    <p class="page-id">journal</p>
+
+    <div class="studio-journal-date-nav" aria-label="Day">
+      <button type="button" class="icon-btn studio-journal-shift" id="journalPrevDay" aria-label="Previous day">←</button>
+      <label class="studio-journal-date-field">
+        <span class="studio-journal-date-label">day</span>
+        <input id="journalDateKey" type="text" inputmode="decimal" spellcheck="false" placeholder="6.4.26">
+      </label>
+      <button type="button" class="icon-btn studio-journal-shift" id="journalNextDay" aria-label="Next day">→</button>
+      <button type="button" class="icon-btn" id="journalTodayBtn">today</button>
+    </div>
+
+    <section class="studio-journal-section" aria-labelledby="journalSectionTitle">
+      <h2 class="studio-journal-section-title" id="journalSectionTitle">journal</h2>
+      <textarea id="journalBody" class="studio-journal-textarea" rows="8" placeholder="write for this day…" spellcheck="true"></textarea>
+    </section>
+
+    <section class="studio-journal-section" aria-labelledby="planSectionTitle">
+      <h2 class="studio-journal-section-title" id="planSectionTitle">day plan</h2>
+      <textarea id="journalPlan" class="studio-journal-textarea studio-journal-textarea--compact" rows="5" placeholder="what matters today…" spellcheck="true"></textarea>
+    </section>
+
+    <section class="studio-journal-section" aria-labelledby="checklistSectionTitle">
+      <h2 class="studio-journal-section-title" id="checklistSectionTitle">checklist</h2>
+      <ul id="journalChecklist" class="studio-journal-checklist" aria-label="Checklist"></ul>
+    </section>
+
+    <section class="studio-journal-section studio-journal-recent" aria-labelledby="recentDaysTitle">
+      <h2 class="studio-journal-section-title" id="recentDaysTitle">recent days</h2>
+      <ul id="journalRecentList" class="studio-journal-recent-list"></ul>
+    </section>
+
+    <p class="studio-journal-status" id="journalStatus" aria-live="polite"></p>
+  </main>
+
+  <script src="js/studio-auth.js?v=20260604z9"></script>
+  <script src="js/cloud-state.js?v=20260604z7"></script>
+  <script src="js/journal-day-store.js?v=20260604z14"></script>
+  <script src="js/journal-page.js?v=20260604z15"></script>
+</body>
+</html>

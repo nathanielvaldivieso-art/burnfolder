@@ -93,12 +93,29 @@
 
       notify();
 
-      const playPromise = player.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(function () {
-          retryPlay(player, normalized);
-        });
+      function ensurePlaying() {
+        if (
+          !activeSong ||
+          activeSong.playbackId !== normalized.playbackId ||
+          !player.paused
+        ) {
+          return;
+        }
+        const playPromise = player.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(function () {
+            retryPlay(player, normalized);
+          });
+        }
       }
+
+      function onMediaReady() {
+        ensurePlaying();
+      }
+
+      player.addEventListener('canplay', onMediaReady, { once: true });
+      player.addEventListener('loadedmetadata', onMediaReady, { once: true });
+      ensurePlaying();
 
       window.setTimeout(function () {
         if (

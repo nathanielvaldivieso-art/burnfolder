@@ -39,6 +39,26 @@
     };
   }
 
+  function getFunctionsBase() {
+    const cfg = window.BurnfolderStudioConfig || {};
+    if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
+    const host = location.hostname;
+    const isLocalDevServer =
+      (host === 'localhost' || host === '127.0.0.1') && location.port && location.port !== '8888';
+    if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
+    return '/.netlify/functions';
+  }
+
+  function gatherEntryPayload() {
+    const dateEl = document.getElementById('entryDate');
+    const date = dateEl ? String(dateEl.value || '').trim() : '';
+    const api = window.burnfolderEntryEditorApi;
+    if (api && typeof api.getBlocks === 'function') {
+      return { date: date, blocks: api.getBlocks() };
+    }
+    return { date: date, blocks: [] };
+  }
+
   window.initBurnfolderPublishPanel = function (opts) {
     const els = {
       entries: document.getElementById('publishEntriesSnippet'),
@@ -48,7 +68,8 @@
       checklist: document.getElementById('publishChecklist'),
       refreshBtn: document.getElementById('publishRefreshBtn'),
       zipBtn: document.getElementById('publishDownloadZipBtn'),
-      markBtn: document.getElementById('publishMarkPublishedBtn')
+      markBtn: document.getElementById('publishMarkPublishedBtn'),
+      liveBtn: document.getElementById('publishLiveBtn')
     };
 
     function setStatus(msg) {
@@ -168,6 +189,78 @@
         });
       }
     });
+
+    function publishLive() {
+      refreshArtifacts();
+      const payload = gatherEntryPayload();
+      if (!payload.date) {
+        setStatus('set a date / filename key first');
+        return;
+      }
+      if (!payload.blocks || !payload.blocks.length) {
+        setStatus('add at least one block to the entry');
+        return;
+      }
+
+      const confirmMsg =
+        'Publish "' +
+        payload.date +
+        '" to burnfolder.com?\n\n' +
+        'This commits to GitHub, deploys the site, and emails subscribers.';
+
+      if (!window.confirm(confirmMsg)) return;
+
+      if (els.liveBtn) {
+        els.liveBtn.disabled = true;
+        els.liveBtn.textContent = 'publishing…';
+      }
+      setStatus('publishing ' + payload.date + '…');
+
+      const authReady =
+        window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.whenReady
+          ? window.BurnfolderStudioAuth.whenReady()
+          : Promise.resolve();
+
+      authReady
+        .then(function () {
+          return fetch(getFunctionsBase() + '/studio-publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: payload.date,
+              blocks: payload.blocks,
+              republish: false
+            })
+          });
+        })
+        .then(function (res) {
+          return res.json().catch(function () {
+            return {};
+          }).then(function (data) {
+            return { ok: res.ok, status: res.status, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            throw new Error((result.data && result.data.message) || 'Publish failed (' + result.status + ')');
+          }
+          setStatus('live — ' + (result.data.publishUrl || payload.date + '.html'));
+          if (opts.onPublishLive) {
+            return Promise.resolve(opts.onPublishLive(result.data));
+          }
+        })
+        .catch(function (err) {
+          setStatus(err.message || 'publish failed');
+        })
+        .finally(function () {
+          if (els.liveBtn) {
+            els.liveBtn.disabled = false;
+            els.liveBtn.textContent = 'publish';
+          }
+        });
+    }
+
+    if (els.liveBtn) els.liveBtn.addEventListener('click', publishLive);
 
     window.setTimeout(refreshArtifacts, 800);
 

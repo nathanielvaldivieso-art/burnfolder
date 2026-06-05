@@ -29,7 +29,7 @@
     listRoot.innerHTML = '';
 
     if (!items.length) {
-      listRoot.innerHTML = '<p class="studio-empty">no entries yet — create one below.</p>';
+      listRoot.innerHTML = '<p class="studio-empty">no entries yet — pick a date above.</p>';
       return;
     }
 
@@ -37,9 +37,16 @@
       const link = document.createElement('a');
       link.className = 'studio-draft-link';
       link.href = 'index.html?id=' + encodeURIComponent(draft.id);
-      let label = draft.date_key;
-      if (draft.status === 'published') label += ' · published';
-      link.textContent = label;
+      const date = document.createElement('span');
+      date.className = 'studio-draft-date';
+      date.textContent = draft.date_key || 'untitled';
+      link.appendChild(date);
+      if (draft.status === 'published') {
+        const tag = document.createElement('span');
+        tag.className = 'studio-draft-tag';
+        tag.textContent = 'published';
+        link.appendChild(tag);
+      }
       link.addEventListener('click', function (event) {
         event.preventDefault();
         openDraft(draft.id);

@@ -9,7 +9,6 @@
   window.STUDIO_MUX_PLAYBACK_MIME = MUX_PLAYBACK_MIME;
 
   let muxLibraryCache = [];
-  let journalNotesCache = [];
   let contextMuxAssetId = null;
 
   function setStatus(msg) {
@@ -54,34 +53,12 @@
     return muxShared ? muxShared.findMuxItem(muxLibraryCache, id) : null;
   }
 
-  function findJournalNote(id) {
-    return journalNotesCache.find(function (note) {
-      return note.id === id;
-    });
-  }
-
   function insertMuxItem(item) {
     if (!item) return;
     whenEditorReady(function (api) {
       api.insertAsset(muxItemToAsset(item));
           setStatus('added song');
     });
-  }
-
-  function insertJournalNote(note) {
-    if (!note) return;
-    whenEditorReady(function (api) {
-      api.insertJournal(note);
-      setStatus('added note');
-    });
-  }
-
-  function updateJournalPickerButtons() {
-    const select = document.getElementById('editorJournalSelect');
-    const addBtn = document.getElementById('editorJournalAddBtn');
-    const hasSelection = select && select.value && !select.disabled;
-
-    if (addBtn) addBtn.disabled = !hasSelection;
   }
 
   function resetMuxMenu() {
@@ -94,110 +71,89 @@
     if (!grid) return;
 
     grid.innerHTML = '';
+    grid.classList.add('studio-editor-mux-list');
 
     if (!assets.length) {
       grid.innerHTML = '<p class="studio-empty">upload above — files appear here.</p>';
       return;
     }
 
-    assets.forEach(function (item) {
+    const shared = window.BurnfolderStreamShared;
+    const tracklist = document.createElement('ol');
+    tracklist.className = 'music-tracklist entry-audio-list studio-editor-mux-tracklist';
+
+    assets.forEach(function (item, index) {
       const label = muxFileLabel(item);
       const kind = item.kind === 'video' ? 'video' : 'audio';
-      const thumb =
-        muxShared && muxShared.muxThumbnailUrl
-          ? muxShared.muxThumbnailUrl(item.playbackId)
-          : '';
+      const duration =
+        shared && shared.formatDuration ? shared.formatDuration(item.duration) : '';
 
-      const tile = document.createElement('div');
-      tile.className = 'studio-editor-mux-tile';
-      tile.draggable = true;
-      tile.title = label + ' — double-click: new song · drag: drop on page or stack';
-      tile.dataset.muxAssetId = item.muxAssetId;
-
-      const cover = document.createElement('div');
-      cover.className = 'studio-editor-mux-tile-cover';
-
-      const kindTag = document.createElement('span');
-      kindTag.className = 'studio-editor-mux-kind';
-      kindTag.textContent = kind;
-      cover.appendChild(kindTag);
-
-      if (thumb) {
-        const img = document.createElement('img');
-        img.src = thumb;
-        img.alt = '';
-        img.loading = 'lazy';
-        cover.appendChild(img);
-      } else {
-        const glyph = document.createElement('span');
-        glyph.className = 'studio-editor-mux-glyph';
-        glyph.textContent = kind === 'video' ? '▶' : '♫';
-        cover.appendChild(glyph);
+      const li = document.createElement('li');
+      li.className = 'music-tracklist-item studio-editor-mux-item';
+      if (contextMuxAssetId && item.muxAssetId === contextMuxAssetId) {
+        li.classList.add('is-selected');
       }
+      li.draggable = true;
+      li.title = label + ' — double-click: new song · drag: drop on page or stack';
+      li.dataset.muxAssetId = item.muxAssetId || '';
+
+      const num = document.createElement('span');
+      num.className = 'music-track-num';
+      num.textContent = String(index + 1);
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'music-track-row';
+      row.dataset.playbackId = item.playbackId || '';
+      row.setAttribute('aria-label', 'Add ' + label);
 
       const name = document.createElement('span');
-      name.className = 'studio-editor-mux-name';
+      name.className = 'music-track-title';
       name.textContent = label;
+      if (kind === 'video') {
+        const flag = document.createElement('span');
+        flag.className = 'studio-stream-video-flag';
+        flag.textContent = '▶';
+        flag.setAttribute('aria-hidden', 'true');
+        name.appendChild(flag);
+      }
 
-      tile.appendChild(cover);
-      tile.appendChild(name);
+      const dur = document.createElement('span');
+      dur.className = 'music-track-duration';
+      dur.textContent = duration || '--:--';
 
-      tile.addEventListener('dragstart', function (event) {
+      row.appendChild(name);
+      row.appendChild(dur);
+
+      li.addEventListener('dragstart', function (event) {
         event.dataTransfer.setData(MUX_PLAYBACK_MIME, item.playbackId);
         event.dataTransfer.setData('text/plain', label);
         event.dataTransfer.effectAllowed = 'copy';
-        tile.classList.add('is-dragging');
+        li.classList.add('is-dragging');
       });
 
-      tile.addEventListener('dragend', function () {
-        tile.classList.remove('is-dragging');
+      li.addEventListener('dragend', function () {
+        li.classList.remove('is-dragging');
       });
 
-      tile.addEventListener('dblclick', function () {
+      li.addEventListener('dblclick', function () {
         insertMuxItem(item);
       });
 
-      tile.addEventListener('click', function () {
+      row.addEventListener('click', function (event) {
+        event.preventDefault();
         contextMuxAssetId = item.muxAssetId;
+        tracklist.querySelectorAll('.studio-editor-mux-item').forEach(function (el) {
+          el.classList.toggle('is-selected', el.dataset.muxAssetId === contextMuxAssetId);
+        });
       });
 
-      grid.appendChild(tile);
-    });
-  }
-
-  function renderJournalDropdown(notes) {
-    const select = document.getElementById('editorJournalSelect');
-    if (!select) return;
-
-    journalNotesCache = notes || [];
-    select.innerHTML = '';
-
-    if (!journalNotesCache.length) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'no saved notes';
-      select.appendChild(opt);
-      select.disabled = true;
-      updateJournalPickerButtons();
-      return;
-    }
-
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'choose a note…';
-    select.appendChild(placeholder);
-
-    journalNotesCache.forEach(function (note) {
-      const opt = document.createElement('option');
-      opt.value = note.id;
-      const title = (note.title && String(note.title).trim()) || 'untitled note';
-      const preview = (note.body && String(note.body).trim()) || '';
-      opt.textContent = preview ? title + ' — ' + preview.replace(/\s+/g, ' ').slice(0, 40) : title;
-      select.appendChild(opt);
+      li.appendChild(num);
+      li.appendChild(row);
+      tracklist.appendChild(li);
     });
 
-    select.disabled = false;
-    updateJournalPickerButtons();
+    grid.appendChild(tracklist);
   }
 
   function deleteContextMuxItem() {
@@ -286,35 +242,6 @@
       });
   }
 
-  function loadJournalList() {
-    const select = document.getElementById('editorJournalSelect');
-    if (!window.BurnfolderJournal || !window.BurnfolderJournal.listNotes) {
-      if (select) {
-        select.innerHTML = '<option value="">journal unavailable</option>';
-        select.disabled = true;
-      }
-      updateJournalPickerButtons();
-      return Promise.resolve([]);
-    }
-
-    if (select) {
-      select.disabled = true;
-      select.innerHTML = '<option value="">loading…</option>';
-    }
-    updateJournalPickerButtons();
-
-    return window.BurnfolderJournal.listNotes()
-      .then(function (notes) {
-        renderJournalDropdown(notes);
-        return notes;
-      })
-      .catch(function (err) {
-        renderJournalDropdown([]);
-        setStatus(err.message || 'could not load notes');
-        return [];
-      });
-  }
-
   function mountEditorLibrary() {
     const refreshBtn = document.getElementById('editorMuxRefreshBtn');
     const menu = document.getElementById('editorMuxMenu');
@@ -372,64 +299,9 @@
     loadMuxLibrary();
   }
 
-  function mountJournalPicker() {
-    const select = document.getElementById('editorJournalSelect');
-    const addBtn = document.getElementById('editorJournalAddBtn');
-
-    if (select) {
-      select.addEventListener('change', updateJournalPickerButtons);
-    }
-
-    if (addBtn && select) {
-      addBtn.addEventListener('click', function () {
-        const noteId = select.value;
-        if (!noteId) {
-          setStatus('choose a note first');
-          return;
-        }
-        const note = findJournalNote(noteId);
-        if (note) {
-          insertJournalNote(note);
-          return;
-        }
-        window.BurnfolderJournal.getNote(noteId).then(function (fetched) {
-          if (fetched) insertJournalNote(fetched);
-        });
-      });
-    }
-
-    loadJournalList();
-  }
-
   function todayKey() {
     const now = new Date();
     return now.getMonth() + 1 + '.' + now.getDate() + '.' + String(now.getFullYear()).slice(-2);
-  }
-
-  function mountJournalCompose() {
-    const saveBtn = document.getElementById('journalSaveBtn');
-    const titleInput = document.getElementById('journalNewTitle');
-    const bodyInput = document.getElementById('journalNewBody');
-    if (!saveBtn || !window.BurnfolderJournal) return;
-
-    saveBtn.addEventListener('click', function () {
-      window.BurnfolderJournal.createNote(titleInput.value, bodyInput.value)
-        .then(function (note) {
-          titleInput.value = '';
-          bodyInput.value = '';
-          return loadJournalList().then(function () {
-            if (note && note.id) {
-              const select = document.getElementById('editorJournalSelect');
-              if (select) select.value = note.id;
-              updateJournalPickerButtons();
-            }
-            setStatus('saved note');
-          });
-        })
-        .catch(function (err) {
-          setStatus(err.message || 'could not save note');
-        });
-    });
   }
 
   function mountDraftNav() {
@@ -558,16 +430,10 @@
   function applyQueryInserts() {
     const params = new URLSearchParams(window.location.search);
     const assetId = params.get('insertAsset');
-    const journalId = params.get('insertJournal');
     applyPendingStackFromStream();
-    if (!assetId && !journalId) return;
+    if (!assetId) return;
 
     whenEditorReady(function (api) {
-      if (journalId) {
-        window.BurnfolderJournal.getNote(journalId).then(function (note) {
-          if (note) api.insertJournal(note);
-        });
-      }
       if (assetId) {
         window.BurnfolderAssetCloud.getAsset(assetId).then(function (row) {
           if (row && row.muxPlaybackId) {
@@ -669,9 +535,7 @@
   });
 
   mountDraftNav();
-  mountJournalCompose();
   mountEditorLibrary();
-  mountJournalPicker();
   mountSidebarUpload();
   mountPreviewDrop();
   mountToolbar();

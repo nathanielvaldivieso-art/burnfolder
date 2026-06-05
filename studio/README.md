@@ -40,6 +40,24 @@ How it works:
 
 > The old `supabase/schema.sql` is unused — the personal cloud uses Netlify Blobs.
 
+## Publish live (Phase A)
+
+From the entry editor, **export & publish → publish live** commits a new dated entry
+to GitHub (`entries.js` + `M.DD.YY.html`), triggers Netlify deploy, and the usual
+new-entry subscriber email.
+
+Requirements on Netlify:
+
+- `STUDIO_API_SECRET` — same studio password (already set).
+- `GITHUB_TOKEN` — personal access token or fine-grained token with **Contents: Read
+  and write** on the `burnfolder` repo. (The newsletter subscribe function may
+  already use this token; publish needs write access to `entries.js` and entry HTML.)
+
+Phase A supports **text, Mux audio/video, album/playlist blocks** (playback ids only).
+Image blocks and `IMAGES/` cover art are rejected until Phase B.
+
+Publishing an existing date is blocked (409). Republish support can be added later.
+
 ## Legacy URL
 
 `studio/editor.html` redirects to `index.html` (same `?id=` draft links still work).

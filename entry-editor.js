@@ -2805,16 +2805,24 @@ ${tracks.join(',\n')}
 
     const refreshPreviewBtn = document.getElementById('refreshPreviewBtn');
     if (refreshPreviewBtn) refreshPreviewBtn.addEventListener('click', updateAll);
-    document.getElementById('copyHtmlBtn').addEventListener('click', async () => {
-      await copyText(blockEls.htmlOutput.value);
-      setStatus('copied html');
-    });
-    document.getElementById('copyPackageBtn').addEventListener('click', async () => {
-      await copyText(buildEntryPackage(gatherEntry()));
-      setStatus('copied entry package');
-    });
-    document.getElementById('downloadPackageBtn').addEventListener('click', downloadEntryPackage);
-    document.getElementById('downloadHtmlBtn').addEventListener('click', downloadHtml);
+    const copyHtmlBtn = document.getElementById('copyHtmlBtn');
+    if (copyHtmlBtn) {
+      copyHtmlBtn.addEventListener('click', async () => {
+        await copyText(blockEls.htmlOutput.value);
+        setStatus('copied html');
+      });
+    }
+    const copyPackageBtn = document.getElementById('copyPackageBtn');
+    if (copyPackageBtn) {
+      copyPackageBtn.addEventListener('click', async () => {
+        await copyText(buildEntryPackage(gatherEntry()));
+        setStatus('copied entry package');
+      });
+    }
+    const downloadPackageBtn = document.getElementById('downloadPackageBtn');
+    if (downloadPackageBtn) downloadPackageBtn.addEventListener('click', downloadEntryPackage);
+    const downloadHtmlBtn = document.getElementById('downloadHtmlBtn');
+    if (downloadHtmlBtn) downloadHtmlBtn.addEventListener('click', downloadHtml);
     const saveHtmlBtn = document.getElementById('saveHtmlBtn');
     if (saveHtmlBtn) {
       saveHtmlBtn.addEventListener('click', () => {
@@ -3281,15 +3289,23 @@ ${tracks.join(',\n')}
     updateAll();
   });
 
-  document.getElementById('refreshPreviewBtn').addEventListener('click', updateAll);
-  document.getElementById('copyHtmlBtn').addEventListener('click', async () => {
-    await copyText(els.htmlOutput.value);
-    setStatus('copied html');
-  });
-  document.getElementById('downloadHtmlBtn').addEventListener('click', downloadHtml);
-  document.getElementById('saveHtmlBtn').addEventListener('click', () => {
-    saveHtmlFile().catch(() => setStatus('could not save html'));
-  });
+  const refreshPreviewBtnLegacy = document.getElementById('refreshPreviewBtn');
+  if (refreshPreviewBtnLegacy) refreshPreviewBtnLegacy.addEventListener('click', updateAll);
+  const copyHtmlBtnLegacy = document.getElementById('copyHtmlBtn');
+  if (copyHtmlBtnLegacy) {
+    copyHtmlBtnLegacy.addEventListener('click', async () => {
+      await copyText(els.htmlOutput.value);
+      setStatus('copied html');
+    });
+  }
+  const downloadHtmlBtnLegacy = document.getElementById('downloadHtmlBtn');
+  if (downloadHtmlBtnLegacy) downloadHtmlBtnLegacy.addEventListener('click', downloadHtml);
+  const saveHtmlBtnLegacy = document.getElementById('saveHtmlBtn');
+  if (saveHtmlBtnLegacy) {
+    saveHtmlBtnLegacy.addEventListener('click', () => {
+      saveHtmlFile().catch(() => setStatus('could not save html'));
+    });
+  }
 
   document.querySelectorAll('[data-copy-target]').forEach(button => {
     button.addEventListener('click', async () => {
