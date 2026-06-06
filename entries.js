@@ -84,7 +84,7 @@ window.entryDataByDate = {
       {
         "type": "album",
         "title": "PHOTO NEGATIVE",
-        "coverArt": "IMAGES/CLASSIC NEGATIVE.jpg",
+        "coverArt": "IMAGES/PHOTO-NEGATIVE-COVER.png",
         "coverAlt": "PHOTO NEGATIVE",
         "tracks": [
           {

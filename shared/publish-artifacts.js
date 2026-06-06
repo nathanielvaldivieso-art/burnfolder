@@ -349,6 +349,7 @@ ${tracks.join(',\n')}
         `merge entries.js snippet for "${normalized.date}"`,
         `save ${normalized.date}.html to repo root`,
         `update window.journalEntries in songs.js (newest first)`,
+        `video blocks in entries.js appear on the video page automatically`,
         `deploy burnfolder.com on Netlify`,
         `confirm ${normalized.date}.html loads on production`,
         `newsletter: GitHub Action should email subscribers with link to publishUrl`
