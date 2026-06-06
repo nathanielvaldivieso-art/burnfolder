@@ -31,7 +31,7 @@ const entrySongsByPage = Object.fromEntries(
 const manualSongsByPage = {
 
   "5.8.26": [
-    { title: "fire escape 4.26.26", playbackId: "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc" }
+    { title: "FIRE ESCAPE 4.26.26", playbackId: "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc" }
   ],
 
   "4.30.26": [
@@ -47,7 +47,7 @@ const manualSongsByPage = {
   ],
 
   "11.29.25": [
-    { title: "fire escape 11.29.25", playbackId: "ph01iN9TPgERZhYIUPQpQqk6ZXNQEXaMxzK01n7Yb9JhE" }
+    { title: "FIRE ESCAPE 11.29.25", playbackId: "ph01iN9TPgERZhYIUPQpQqk6ZXNQEXaMxzK01n7Yb9JhE" }
   ],
 
   "11.28.25": [
