@@ -324,11 +324,43 @@
     const playable = selectedPlayableItem(item);
     const id = playable.playbackId;
     if (player.isActivePlaybackId(id)) {
-      player.togglePause();
+      if (player.isPlayingPlaybackId(id)) {
+        player.togglePause();
+      } else {
+        player.playItem(playable);
+      }
       return;
     }
     recordPlay(id);
     player.playItem(playable);
+  }
+
+  /** iOS needs play() inside the touch gesture; click alone often loads without playing. */
+  function bindTouchPlay(el, handler) {
+    let touchHandledAt = 0;
+    let touchMoved = false;
+
+    el.addEventListener('touchstart', function () {
+      touchMoved = false;
+    }, { passive: true });
+
+    el.addEventListener('touchmove', function () {
+      touchMoved = true;
+    }, { passive: true });
+
+    el.addEventListener('touchend', function (event) {
+      if (touchMoved) return;
+      touchHandledAt = Date.now();
+      handler(event);
+    });
+
+    el.addEventListener('click', function (event) {
+      if (Date.now() - touchHandledAt < 500) {
+        event.preventDefault();
+        return;
+      }
+      handler(event);
+    });
   }
 
   function deleteSongFromMux(item) {
@@ -557,7 +589,7 @@
       });
     }
 
-    row.addEventListener('click', function (event) {
+    bindTouchPlay(row, function (event) {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
         window.location.href = shared.songPageUrl(selectedPlayableItem(item));
         return;
@@ -570,6 +602,9 @@
 
     let longPressTimer = null;
     row.addEventListener('touchstart', function () {
+      if (player && player.primeItem) {
+        player.primeItem(selectedPlayableItem(item));
+      }
       longPressTimer = window.setTimeout(function () {
         shared.addToStack(selectedPlayableItem(item));
         renderList();
@@ -734,9 +769,14 @@
     row.appendChild(dur);
     row.classList.toggle('is-active', !!(player && player.isActivePlaybackId(resolved.playbackId)));
     row.classList.toggle('is-playing', !!(player && player.isPlayingPlaybackId(resolved.playbackId)));
-    row.addEventListener('click', function () {
+    bindTouchPlay(row, function () {
       playAlbum(index);
     });
+    row.addEventListener('touchstart', function () {
+      const items = albumItems();
+      const track = items[index];
+      if (player && player.primeItem && track) player.primeItem(track);
+    }, { passive: true });
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';

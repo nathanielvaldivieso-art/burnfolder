@@ -68,9 +68,17 @@
     return playback.playTrackQueue(songs, startIdx || 0, { immediatePlay: true });
   }
 
+  function primeItem(item) {
+    const song = songFromItem(item);
+    const playback = engine();
+    if (!song || song.kind === 'video' || !playback || !playback.primeTrack) return false;
+    return playback.primeTrack(song);
+  }
+
   window.BurnfolderStreamPlayer = {
     playItem: playItem,
     playQueue: playQueue,
+    primeItem: primeItem,
     togglePause: function () {
       const playback = engine();
       if (playback) playback.togglePlayPause();

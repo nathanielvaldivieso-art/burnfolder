@@ -2291,6 +2291,18 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   .studio-stream-page .music-track-row:focus {
     background: transparent;
   }
+
+  /* First tap on iOS was revealing delete/remove and stealing the click. */
+  .studio-stream-track-item:focus-within .studio-stream-track-delete,
+  .studio-stream-album-track:focus-within .studio-stream-album-track-remove {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.studio-stream-album-track .music-track-row {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .studio-stream-track-delete:hover {

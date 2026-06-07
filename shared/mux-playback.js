@@ -38,6 +38,7 @@
     let positionBound = false;
     let recallTimer = null;
     let mediaActionsBound = false;
+    let queueAdvanceLock = false;
 
     function notify(extra) {
       const player = getPlayer();
@@ -150,20 +151,69 @@
       });
     }
 
+    function advanceThresholdSec() {
+      /* iOS throttles timeupdate when locked — advance slightly early. */
+      if (typeof document !== 'undefined' && document.hidden) return 1;
+      return 0.5;
+    }
+
+    function maybeAdvanceQueue(player) {
+      if (queueAdvanceLock || !player || !activeSong || player.paused) return false;
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(duration) || duration <= 0) return false;
+      if (!Number.isFinite(current) || current < 0) return false;
+      const remaining = duration - current;
+      if (remaining > advanceThresholdSec()) return false;
+
+      const nextIdx = activeQueueIdx + 1;
+      if (nextIdx >= activeQueue.length) return false;
+
+      queueAdvanceLock = true;
+      playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
+      return true;
+    }
+
+    function advanceQueueAfterEnd(player) {
+      const nextIdx = activeQueueIdx + 1;
+      if (nextIdx < activeQueue.length) {
+        queueAdvanceLock = true;
+        playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
+      } else {
+        notify({ playing: false });
+      }
+    }
+
     function bindEnded(player) {
       if (opts.bindEnded === false || !player || endedBound) return;
       endedBound = true;
       player.addEventListener('ended', function () {
-        const nextIdx = activeQueueIdx + 1;
-        if (nextIdx < activeQueue.length) {
-          playQueuedTrack(nextIdx, { immediatePlay: true });
-        } else {
-          notify({ playing: false });
-        }
+        advanceQueueAfterEnd(player);
       });
-      player.addEventListener('play', notify);
+      player.addEventListener('timeupdate', function () {
+        maybeAdvanceQueue(player);
+      });
+      player.addEventListener('play', function () {
+        queueAdvanceLock = false;
+        notify();
+      });
       player.addEventListener('pause', notify);
       bindPositionUpdates(player);
+
+      if (typeof document !== 'undefined' && !player.dataset.queueVisibilityBound) {
+        player.dataset.queueVisibilityBound = '1';
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) {
+            maybeAdvanceQueue(player);
+            return;
+          }
+          if (player.ended) {
+            advanceQueueAfterEnd(player);
+            return;
+          }
+          maybeAdvanceQueue(player);
+        });
+      }
     }
 
     function applyRecallPosition(player, recall) {
@@ -182,8 +232,12 @@
     function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
       const player = getPlayer();
       const normalized = normalizeSong(song);
-      if (!player || !normalized) return false;
+      if (!player || !normalized) {
+        queueAdvanceLock = false;
+        return false;
+      }
 
+      queueAdvanceLock = false;
       const startOpts = playbackOpts || {};
       const immediatePlay =
         startOpts.immediatePlay !== false &&
@@ -201,8 +255,10 @@
 
       const sameSource = player.getAttribute('playback-id') === normalized.playbackId;
       if (!sameSource) {
-        player.pause();
-        player.currentTime = 0;
+        if (!startOpts.seamlessAdvance) {
+          player.pause();
+          player.currentTime = 0;
+        }
         player.setAttribute('playback-id', normalized.playbackId);
       }
       player.setAttribute('metadata-video-title', normalized.title);
@@ -264,6 +320,17 @@
         root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId);
       }
 
+      return true;
+    }
+
+    function primeTrack(song) {
+      const player = getPlayer();
+      const normalized = normalizeSong(song);
+      if (!player || !normalized) return false;
+      if (player.getAttribute('playback-id') === normalized.playbackId) return true;
+      player.setAttribute('preload', 'auto');
+      player.setAttribute('playback-id', normalized.playbackId);
+      player.setAttribute('metadata-video-title', normalized.title);
       return true;
     }
 
@@ -335,6 +402,7 @@
       startPlayback: startPlayback,
       playTrackQueue: playTrackQueue,
       playQueuedTrack: playQueuedTrack,
+      primeTrack: primeTrack,
       togglePlayPause: togglePlayPause,
       stop: stop,
       restoreRecall: restoreRecall,

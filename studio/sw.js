@@ -1,5 +1,5 @@
 /* Stream PWA — always fetch fresh HTML; cache static assets lightly. */
-const CACHE = 'burnfolder-stream-v3';
+const CACHE = 'burnfolder-stream-v4';
 
 self.addEventListener('install', function (event) {
   self.skipWaiting();
