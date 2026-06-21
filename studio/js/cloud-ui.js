@@ -53,10 +53,10 @@
       }
 
       function handleFiles(fileList) {
-        if (!fileList || !fileList.length) return;
+        const files = Array.from(fileList || []);
+        if (!files.length) return;
 
         function runUpload() {
-          const files = Array.from(fileList);
           const total = files.length;
           let ok = 0;
           let fail = 0;

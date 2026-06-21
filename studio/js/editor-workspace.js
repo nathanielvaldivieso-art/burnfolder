@@ -524,10 +524,10 @@
 
   function insertUploadedFiles(fileList) {
     const cloud = window.BurnfolderAssetCloud;
-    if (!cloud || !fileList || !fileList.length) return;
+    const files = Array.from(fileList || []);
+    if (!cloud || !files.length) return;
 
     function runUpload() {
-      const files = Array.from(fileList);
       setStatus(files.length === 1 ? 'uploading 1 file…' : 'uploading ' + files.length + ' files…');
 
       cloud

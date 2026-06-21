@@ -2305,6 +2305,122 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Mobile touch targets — easier to hit play, toggle, and bar controls */
+@media (max-width: 600px) {
+  .studio-stream-page .studio-stream-album-play {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .studio-stream-page .studio-stream-album-toggle {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .studio-stream-page .studio-stream-album-action {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .studio-stream-page .studio-stream-album-actions {
+    gap: 4px;
+  }
+
+  .studio-stream-page .studio-stream-album-cover {
+    width: 56px;
+    height: 56px;
+  }
+
+  .studio-stream-page .studio-stream-album-track {
+    grid-template-columns: 28px 28px minmax(0, 1fr) auto;
+  }
+
+  .studio-stream-page .studio-stream-album-track-handle {
+    font-size: 18px;
+    width: 28px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .studio-stream-page .studio-stream-album-track-remove {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .studio-stream-page .studio-stream-upload-details summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: 12px;
+    padding: 8px 0;
+  }
+
+  .studio-global-playback .bottom-progress-bar {
+    height: 56px;
+    padding: 0 52px 0 20px;
+  }
+
+  .studio-global-playback .bottom-play-pause-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  body.stream-playback-active .studio-global-playback ~ *,
+  body.stream-playback-active.studio-journal-page .page-wrap,
+  body.stream-playback-active.studio-editor-page .studio-entry-layout,
+  body.stream-playback-active .studio-home {
+    padding-bottom: 64px;
+  }
+
+  body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
+    bottom: 56px;
+  }
+
+  .stream-stack-action {
+    min-height: 44px;
+    padding: 8px 10px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+@media (hover: none) {
+  .studio-global-playback .bottom-progress-bar .close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    right: 6px;
+    font-size: 16px;
+    opacity: 0.5;
+    padding: 0;
+  }
+}
+
 .studio-stream-track-delete:hover {
   opacity: 1;
   text-decoration: underline;
