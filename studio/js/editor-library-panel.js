@@ -21,6 +21,7 @@
     };
     const onInsertStack = options.onInsertStack;
     const onInsertTrack = options.onInsertTrack;
+    const onDropToEntry = options.onDropToEntry;
     const onStatus = options.onStatus || function () {};
 
     const shared = root.BurnfolderStreamShared;
@@ -63,6 +64,17 @@
 
       if (result.type === 'cancel') {
         render();
+        return;
+      }
+
+      if (result.type === 'entryInsert') {
+        const dragged = resolveDraggedItem(payload.id);
+        if (!dragged) return;
+        if (typeof onDropToEntry === 'function') {
+          onDropToEntry(dragged, result);
+        } else if (typeof onInsertTrack === 'function') {
+          onInsertTrack(dragged);
+        }
         return;
       }
 
@@ -500,6 +512,20 @@
 
       row.addEventListener('click', function (event) {
         event.preventDefault();
+        if (
+          li.dataset.studioJustDragged === '1' ||
+          li.dataset.studioDragging === '1' ||
+          li.dataset.studioDragHold === '1'
+        ) {
+          return;
+        }
+        const coarse =
+          window.matchMedia &&
+          window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+        if (coarse && typeof onInsertTrack === 'function') {
+          onInsertTrack(item);
+          return;
+        }
         if (options.onSelectItem) options.onSelectItem(item);
       });
 
@@ -507,6 +533,38 @@
       li.appendChild(num);
       li.appendChild(row);
       return li;
+    }
+
+    function buildSongVersionGroup(group, trackNumRef) {
+      const section = document.createElement('section');
+      section.className = 'studio-editor-song-group';
+
+      const heading = document.createElement('h3');
+      heading.className = 'studio-editor-song-group-title';
+      heading.textContent = group.baseTitle;
+      section.appendChild(heading);
+
+      const tracklist = document.createElement('ol');
+      tracklist.className =
+        'music-tracklist entry-audio-list studio-editor-mux-tracklist studio-editor-song-group-tracks';
+
+      group.items.forEach(function (item) {
+        trackNumRef.n += 1;
+        tracklist.appendChild(buildLibraryTrackItem(item, trackNumRef.n));
+      });
+
+      section.appendChild(tracklist);
+      return section;
+    }
+
+    function organizeVisibleAudio(items) {
+      if (!versionsApi || !items.length) return items.map(function (item) {
+        return { type: 'single', items: [item] };
+      });
+      return versionsApi.organizeLibraryItemsBySong(items, {
+        labelForItem: labelForItem,
+        versionSort: 'newest'
+      });
     }
 
     function render(assets) {
@@ -538,19 +596,49 @@
           })
         : audioItems;
       const videoItems = list.filter(shared.isVideoItem);
+      const organizedAudio = organizeVisibleAudio(visibleAudio);
 
-      if (visibleAudio.length || videoItems.length) {
-        const tracklist = document.createElement('ol');
-        tracklist.className =
-          'music-tracklist entry-audio-list studio-editor-mux-tracklist studio-stream-library-drop';
-        let n = 0;
-        visibleAudio.forEach(function (item) {
-          tracklist.appendChild(buildLibraryTrackItem(item, (n += 1)));
+      if (organizedAudio.length || videoItems.length) {
+        const trackNumRef = { n: 0 };
+        let singlesTracklist = null;
+
+        function ensureSinglesTracklist() {
+          if (singlesTracklist) return singlesTracklist;
+          singlesTracklist = document.createElement('ol');
+          singlesTracklist.className =
+            'music-tracklist entry-audio-list studio-editor-mux-tracklist studio-stream-library-drop';
+          return singlesTracklist;
+        }
+
+        function flushSinglesTracklist() {
+          if (!singlesTracklist || !singlesTracklist.children.length) return;
+          gridEl.appendChild(singlesTracklist);
+          singlesTracklist = null;
+        }
+
+        organizedAudio.forEach(function (row) {
+          if (row.type === 'group') {
+            flushSinglesTracklist();
+            gridEl.appendChild(buildSongVersionGroup(row, trackNumRef));
+            return;
+          }
+          row.items.forEach(function (item) {
+            trackNumRef.n += 1;
+            ensureSinglesTracklist().appendChild(buildLibraryTrackItem(item, trackNumRef.n));
+          });
         });
-        videoItems.forEach(function (item) {
-          tracklist.appendChild(buildLibraryTrackItem(item, (n += 1)));
-        });
-        gridEl.appendChild(tracklist);
+        flushSinglesTracklist();
+
+        if (videoItems.length) {
+          const videoTracklist = document.createElement('ol');
+          videoTracklist.className =
+            'music-tracklist entry-audio-list studio-editor-mux-tracklist studio-stream-library-drop';
+          videoItems.forEach(function (item) {
+            trackNumRef.n += 1;
+            videoTracklist.appendChild(buildLibraryTrackItem(item, trackNumRef.n));
+          });
+          gridEl.appendChild(videoTracklist);
+        }
       } else if (hasAlbumGroup) {
         const shelf = document.createElement('div');
         shelf.className = 'studio-stream-library-shelf studio-stream-library-drop';

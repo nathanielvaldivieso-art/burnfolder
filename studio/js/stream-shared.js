@@ -5,6 +5,7 @@
   const STACK_META_KEY = 'burnfolderStreamStackMeta';
   const GROUPS_KEY = 'burnfolderStreamGroups';
   const PENDING_STACK_KEY = 'burnfolderPendingStack';
+  const CLOUD_PENDING_STACK_KEY = 'pendingStack';
   const LAST_DRAFT_KEY = 'burnfolderStudioLastDraftId';
   const MUX_MIME = 'application/x-burnfolder-mux-playback';
   const CLOUD_STACK_KEY = 'stack';
@@ -601,19 +602,51 @@
     const stack = tracks || loadStack();
     if (!stack.length) return false;
     const m = meta || loadStackMeta();
-    window.localStorage.setItem(
-      PENDING_STACK_KEY,
-      JSON.stringify({
-        title: m.title || '',
-        coverArt: m.coverArt || '',
-        coverAlt: m.coverAlt || '',
-        tracks: stack.map(function (t) {
-          return { title: t.title, playbackId: t.playbackId };
-        })
+    const payload = {
+      title: m.title || '',
+      coverArt: m.coverArt || '',
+      coverAlt: m.coverAlt || '',
+      tracks: stack.map(function (t) {
+        return { title: t.title, playbackId: t.playbackId };
       })
-    );
+    };
+    window.localStorage.setItem(PENDING_STACK_KEY, JSON.stringify(payload));
+    cloudPut(CLOUD_PENDING_STACK_KEY, payload);
     window.location.href = editorHrefForStack();
     return true;
+  }
+
+  function readPendingStack() {
+    const cs = window.BurnfolderCloudState;
+    if (cs && cs.get) {
+      return cs.get(CLOUD_PENDING_STACK_KEY).then(function (cloud) {
+        if (cloud && Array.isArray(cloud.tracks) && cloud.tracks.length) return cloud;
+        try {
+          const raw = window.localStorage.getItem(PENDING_STACK_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }).catch(function () {
+        try {
+          const raw = window.localStorage.getItem(PENDING_STACK_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e2) {
+          return null;
+        }
+      });
+    }
+    try {
+      const raw = window.localStorage.getItem(PENDING_STACK_KEY);
+      return Promise.resolve(raw ? JSON.parse(raw) : null);
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  function clearPendingStack() {
+    window.localStorage.removeItem(PENDING_STACK_KEY);
+    cloudPut(CLOUD_PENDING_STACK_KEY, null);
   }
 
   function findInLibrary(cache, id) {
@@ -662,6 +695,8 @@
     stackPageUrl: stackPageUrl,
     editorHrefSingle: editorHrefSingle,
     pushStackToEntry: pushStackToEntry,
+    readPendingStack: readPendingStack,
+    clearPendingStack: clearPendingStack,
     findInLibrary: findInLibrary,
     muxFileLabel: muxFileLabel,
     stackItemFromLibrary: stackItemFromLibrary,

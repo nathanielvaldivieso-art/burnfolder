@@ -50,6 +50,51 @@
     );
   }
 
+  function entryPreviewDropAt(clientX, clientY, hit) {
+    const el = hit || hitElementAt(clientX, clientY);
+    if (!el) return null;
+    if (el.closest('#editorMuxGrid, .studio-entry-sidebar, .studio-editor-mux-list')) return null;
+
+    const preview = el.closest(
+      '#entryPreview, .studio-entry-preview, .studio-preview-frame, #studioPreviewFrame'
+    );
+    if (!preview) return null;
+
+    let playlistBlockId = null;
+    const playlistShell = el.closest('.studio-preview-bubble[data-block-type="playlist"]');
+    if (playlistShell && playlistShell.dataset.blockId) {
+      playlistBlockId = playlistShell.dataset.blockId;
+    } else {
+      const playlists = document.querySelectorAll(
+        '.studio-preview-bubble[data-block-type="playlist"] .entry-playlist'
+      );
+      for (let i = 0; i < playlists.length; i += 1) {
+        const playlistEl = playlists[i];
+        const rect = playlistEl.getBoundingClientRect();
+        if (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom
+        ) {
+          const shell = playlistEl.closest('.studio-preview-bubble[data-block-type="playlist"]');
+          if (shell && shell.dataset.blockId) {
+            playlistBlockId = shell.dataset.blockId;
+            break;
+          }
+        }
+      }
+    }
+
+    return {
+      type: 'entryInsert',
+      targetEl: preview,
+      playlistBlockId: playlistBlockId,
+      clientX: clientX,
+      clientY: clientY
+    };
+  }
+
   const MIN_DROP_MOVE_PX = 18;
 
   function hitElementAt(clientX, clientY) {
@@ -112,7 +157,7 @@
   function clearTargets() {
     document
       .querySelectorAll(
-        '.is-merge-target, .is-drop-target, .is-drop-before, .is-drop-after, .is-eject-target'
+        '.is-merge-target, .is-drop-target, .is-drop-before, .is-drop-after, .is-eject-target, .is-playlist-drop-target'
       )
       .forEach(function (el) {
         el.classList.remove(
@@ -120,7 +165,8 @@
           'is-drop-target',
           'is-drop-before',
           'is-drop-after',
-          'is-eject-target'
+          'is-eject-target',
+          'is-playlist-drop-target'
         );
       });
   }
@@ -239,6 +285,9 @@
     if (active.kind === 'library') {
       if (!hit) return null;
 
+      const entryDrop = entryPreviewDropAt(clientX, clientY, hit);
+      if (entryDrop) return entryDrop;
+
       if (hit.closest('.studio-dnd-landing-zone')) {
         return { type: 'landing' };
       }
@@ -281,6 +330,9 @@
     }
 
     if (active.kind === 'album') {
+      const entryDrop = entryPreviewDropAt(clientX, clientY, hit);
+      if (entryDrop) return entryDrop;
+
       if (
         albumTrack &&
         albumTrack !== active.el &&
@@ -365,6 +417,21 @@
       });
     } else if (result.type === 'delete') {
       if (result.targetEl) result.targetEl.classList.add('is-drop-target');
+    } else if (result.type === 'entryInsert') {
+      if (result.targetEl) {
+        result.targetEl.classList.add('is-drop-target');
+        const frame = result.targetEl.closest('.studio-preview-frame');
+        if (frame && frame !== result.targetEl) frame.classList.add('is-drop-target');
+      }
+      if (result.playlistBlockId) {
+        document
+          .querySelectorAll('.studio-preview-bubble[data-block-type="playlist"]')
+          .forEach(function (shell) {
+            if (shell.dataset.blockId === result.playlistBlockId) {
+              shell.classList.add('is-playlist-drop-target');
+            }
+          });
+      }
     }
   }
 

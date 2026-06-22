@@ -80,6 +80,22 @@ jobs:
             echo "No new entries found"
           fi
 
+      - name: Wait for Netlify deploy
+        if: steps.check.outputs.has_new == 'true'
+        run: |
+          echo "Waiting for production deploy before sending subscriber emails…"
+          for i in $(seq 1 36); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "https://burnfolder.com/")
+            if [ "$code" = "200" ]; then
+              sleep 45
+              echo "Site responded — proceeding with notifications."
+              exit 0
+            fi
+            echo "Attempt $i: site not ready yet ($code)"
+            sleep 10
+          done
+          echo "Deploy wait timed out — sending emails anyway."
+
       - name: Get subscriber list
         if: steps.check.outputs.has_new == 'true'
         id: subscribers

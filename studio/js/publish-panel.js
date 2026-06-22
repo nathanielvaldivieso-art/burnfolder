@@ -83,11 +83,12 @@
       const publishUrl = 'https://burnfolder.com/' + date + '.html';
       return [
         'merge entries.js snippet for "' + date + '"',
-        'save ' + date + '.html to repo root',
-        'update window.journalEntries in songs.js (newest first)',
+        'save ' + date + '.html shell (body renders from entries.js)',
+        'songs.js / journalEntries derive from entries.js automatically',
+        'copy any IMAGES/ files into repo root if needed',
         'deploy burnfolder.com on Netlify',
-        'confirm ' + date + '.html loads on production',
-        'newsletter: GitHub Action emails subscribers with ' + publishUrl
+        'confirm ' + publishUrl + ' loads on production',
+        'newsletter: GitHub Action emails subscribers after deploy'
       ];
     }
 
@@ -206,6 +207,7 @@
           body: JSON.stringify({
             date: payload.date,
             blocks: payload.blocks,
+            assets: payload.assets || [],
             republish: republish === true
           })
         });
@@ -216,6 +218,53 @@
           return { ok: res.ok, status: res.status, data: data };
         });
       });
+    }
+
+    function flushBeforePublish() {
+      const tasks = [];
+      if (window.burnfolderStudio && typeof window.burnfolderStudio.flushDraft === 'function') {
+        tasks.push(window.burnfolderStudio.flushDraft());
+      }
+      if (window.BurnfolderCloudState && typeof window.BurnfolderCloudState.flush === 'function') {
+        tasks.push(window.BurnfolderCloudState.flush('drafts'));
+      }
+      return Promise.all(tasks);
+    }
+
+    function collectPublishAssets(blocks) {
+      if (window.BurnfolderAssetCloud && typeof window.BurnfolderAssetCloud.collectPublishAssets === 'function') {
+        return window.BurnfolderAssetCloud.collectPublishAssets(blocks);
+      }
+      return Promise.resolve([]);
+    }
+
+    function waitForLivePage(url, dateKey) {
+      const target = url || ('https://burnfolder.com/' + dateKey + '.html');
+      const attempts = 24;
+      let delay = 2500;
+
+      function probe(left) {
+        return fetch(target, { method: 'GET', cache: 'no-store', mode: 'cors' })
+          .then(function (res) {
+            if (res.ok) return target;
+            if (left <= 1) throw new Error('deploy still in progress — check ' + target + ' in a minute');
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, delay);
+            }).then(function () {
+              return probe(left - 1);
+            });
+          })
+          .catch(function (err) {
+            if (left <= 1) throw err;
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, delay);
+            }).then(function () {
+              return probe(left - 1);
+            });
+          });
+      }
+
+      return probe(attempts);
     }
 
     function publishLive() {
@@ -244,7 +293,13 @@
       }
       setStatus('publishing ' + payload.date + '…');
 
-      requestPublish(payload, false)
+      flushBeforePublish()
+        .then(function () {
+          return collectPublishAssets(payload.blocks);
+        })
+        .then(function (assets) {
+          return requestPublish(Object.assign({}, payload, { assets: assets }), false);
+        })
         .then(function (result) {
           if (!result.ok && result.status === 409) {
             const msg = (result.data && result.data.message) || 'An entry for this date already exists.';
@@ -256,7 +311,9 @@
               throw new Error('publish cancelled');
             }
             setStatus('republishing ' + payload.date + '…');
-            return requestPublish(payload, true);
+            return collectPublishAssets(payload.blocks).then(function (assets) {
+              return requestPublish(Object.assign({}, payload, { assets: assets }), true);
+            });
           }
           return result;
         })
@@ -264,10 +321,14 @@
           if (!result.ok) {
             throw new Error((result.data && result.data.message) || 'Publish failed (' + result.status + ')');
           }
-          setStatus('live — ' + (result.data.publishUrl || payload.date + '.html'));
-          if (opts.onPublishLive) {
-            return Promise.resolve(opts.onPublishLive(result.data));
-          }
+          const publishUrl = (result.data && result.data.publishUrl) || ('https://burnfolder.com/' + payload.date + '.html');
+          setStatus('committed — waiting for deploy…');
+          return waitForLivePage(publishUrl, payload.date).then(function (liveUrl) {
+            setStatus('live — ' + liveUrl);
+            if (opts.onPublishLive) {
+              return Promise.resolve(opts.onPublishLive(result.data));
+            }
+          });
         })
         .catch(function (err) {
           if (err && err.message === 'publish cancelled') {

@@ -3,14 +3,22 @@
 
   const LAST_DRAFT_KEY = 'burnfolderStudioLastDraftId';
 
-  const gate = document.getElementById('studioEditorGate');
-  const home = document.getElementById('studioHome');
-  const shell = document.getElementById('studioEditorShell');
-  const editorNav = document.getElementById('studioEditorNav');
-  const statusEl = document.getElementById('studioEditorStatus');
-  const draftMeta = document.getElementById('studioDraftMeta');
+  let gate = null;
+  let home = null;
+  let shell = null;
+  let editorNav = null;
+
+  function refreshDom() {
+    gate = document.getElementById('studioEditorGate');
+    home = document.getElementById('studioHome');
+    shell = document.getElementById('studioEditorShell');
+    editorNav = document.getElementById('studioEditorNav');
+  }
+
+  refreshDom();
 
   window.studioEditorSetStatus = function (message, kind) {
+    const statusEl = document.getElementById('studioEditorStatus');
     if (window.BurnfolderStudioStatus) {
       window.BurnfolderStudioStatus.set(statusEl, message, kind);
       return;
@@ -19,6 +27,7 @@
   };
 
   window.studioEditorRenderMeta = function (row) {
+    const draftMeta = document.getElementById('studioDraftMeta');
     if (!row || !draftMeta) return;
     draftMeta.textContent = row.date_key + ' · ' + row.status;
     if (typeof window.studioRefreshDraftSelect === 'function') {
@@ -26,12 +35,8 @@
     }
   };
 
-  function todayKey() {
-    const now = new Date();
-    return now.getMonth() + 1 + '.' + now.getDate() + '.' + String(now.getFullYear()).slice(-2);
-  }
-
   function showHome() {
+    refreshDom();
     if (gate) {
       gate.hidden = true;
     }
@@ -46,7 +51,46 @@
     });
   }
 
+  function mountEditor(draftId) {
+    window.installBurnfolderStudioBridge({
+      draftId: draftId,
+      onStatus: window.studioEditorSetStatus,
+      onDraftMeta: window.studioEditorRenderMeta
+    });
+
+    if (typeof window.studioInitEntryEditorDom === 'function') {
+      window.studioInitEntryEditorDom();
+    }
+
+    if (typeof window.studioReloadEntryDraft === 'function') {
+      window.studioReloadEntryDraft();
+    }
+
+    if (typeof window.studioInitEditorWorkspace === 'function') {
+      window.studioInitEditorWorkspace();
+    }
+
+    if (typeof window.studioInitEditorPost === 'function') {
+      window.studioInitEditorPost();
+    }
+  }
+
+  function loadEditorBundle() {
+    if (typeof window.studioLoadEditorBundle === 'function') {
+      return window.studioLoadEditorBundle();
+    }
+    return Promise.resolve();
+  }
+
   function openEditor(draftId) {
+    refreshDom();
+    const alreadyOpen =
+      window.studioEditorReady &&
+      window.studioEditorDraftId === draftId &&
+      shell &&
+      !shell.hidden;
+    if (alreadyOpen) return;
+
     window.localStorage.setItem(LAST_DRAFT_KEY, draftId);
     if (gate) gate.hidden = true;
     if (home) home.hidden = true;
@@ -59,15 +103,15 @@
       link.classList.toggle('is-active', link.getAttribute('data-nav') === 'entry');
     });
 
-    window.installBurnfolderStudioBridge({
-      draftId: draftId,
-      onStatus: window.studioEditorSetStatus,
-      onDraftMeta: window.studioEditorRenderMeta
-    });
+    window.studioEditorSetStatus('loading editor…', 'working');
 
-    if (typeof window.studioInitEditorWorkspace === 'function') {
-      window.studioInitEditorWorkspace();
-    }
+    loadEditorBundle()
+      .then(function () {
+        mountEditor(draftId);
+      })
+      .catch(function (err) {
+        window.studioEditorSetStatus((err && err.message) || 'could not load editor', 'error');
+      });
   }
 
   function boot() {
@@ -82,8 +126,19 @@
     showHome();
   }
 
+  if (!window.__studioDraftSyncBound) {
+    window.__studioDraftSyncBound = true;
+    window.addEventListener('burnfolder-drafts-synced', function () {
+      if (!window.studioEditorReady || !window.studioEditorDraftId) return;
+      window.studioEditorSetStatus('drafts synced from cloud — reload if another device edited', 'warning');
+    });
+  }
+
+  window.studioInitEditorGate = boot;
   window.studioEditorOpenDraft = openEditor;
   window.studioEditorShowHome = showHome;
 
-  boot();
+  if (document.getElementById('studioHome')) {
+    boot();
+  }
 })();

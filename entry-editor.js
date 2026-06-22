@@ -6,15 +6,35 @@
     const LEGACY_STORAGE_KEY = 'burnfolderEntryEditorDraft';
     const BLOCK_SCRIPT_VERSION = '20260509c';
     const blockEls = {
-      date: document.getElementById('entryDate'),
-      blocks: document.getElementById('entryBlocks'),
-      preview: document.getElementById('entryPreview'),
-      dataOutput: document.getElementById('entryDataOutput'),
-      htmlOutput: document.getElementById('entryHtmlOutput'),
-      songsOutput: document.getElementById('songsEntryOutput'),
-      journalOutput: document.getElementById('journalEntryOutput'),
-      status: document.getElementById('entryEditorStatus')
+      date: null,
+      blocks: null,
+      preview: null,
+      dataOutput: null,
+      htmlOutput: null,
+      songsOutput: null,
+      journalOutput: null,
+      status: null
     };
+
+    function refreshBlockEditorDom() {
+      blockEls.date = document.getElementById('entryDate');
+      blockEls.blocks = document.getElementById('entryBlocks');
+      blockEls.preview = document.getElementById('entryPreview');
+      blockEls.dataOutput = document.getElementById('entryDataOutput');
+      blockEls.htmlOutput = document.getElementById('entryHtmlOutput');
+      blockEls.songsOutput = document.getElementById('songsEntryOutput');
+      blockEls.journalOutput = document.getElementById('journalEntryOutput');
+      blockEls.status = document.getElementById('entryEditorStatus');
+    }
+
+    function bindBlockEditorEvents() {
+      if (blockEls.date && blockEls.date.dataset.editorBound !== '1') {
+        blockEls.date.dataset.editorBound = '1';
+        blockEls.date.addEventListener('input', updateAll);
+      }
+    }
+
+    refreshBlockEditorDom();
     let entryBlocks = [];
     let draggingBlockId = null;
     const STUDIO_BLOCK_DRAG_MIME = 'application/x-burnfolder-block';
@@ -2310,6 +2330,27 @@ ${tracks.join(',\n')}
     }
 
     function attachStudioPlaylistEditing(wrap) {
+      function handlePreviewTap(event, shell) {
+        if (
+          event.target.closest(
+            '.studio-bubble-drag, .studio-bubble-delete, .studio-playlist-track-delete, .music-track-row, .music-tracklist, button, a, input, textarea, select'
+          )
+        ) {
+          return;
+        }
+        if (shell && shell.dataset.blockType === 'playlist') {
+          selectStudioPlaylist(shell.dataset.blockId);
+          return;
+        }
+        if (!event.target.closest('.studio-preview-bubble')) {
+          selectStudioPlaylist(null);
+        }
+      }
+
+      if (window.BurnfolderStudioTap && window.BurnfolderStudioTap.on) {
+        window.BurnfolderStudioTap.on(wrap, '.studio-preview-bubble', handlePreviewTap);
+      }
+
       wrap.addEventListener('click', function (event) {
         if (!event.target.closest('.studio-preview-bubble')) {
           selectStudioPlaylist(null);
@@ -2996,54 +3037,95 @@ ${tracks.join(',\n')}
       updateAll();
     }
 
-    [
-      ['addTextBlockBtn', 'text'],
-      ['addSpacingBlockBtn', 'spacing'],
-      ['addImageBlockBtn', 'image'],
-      ['addAudioBlockBtn', 'audio'],
-      ['addAlbumBlockBtn', 'album'],
-      ['addVideoBlockBtn', 'video']
-    ].forEach(function (pair) {
-      const btn = document.getElementById(pair[0]);
-      if (btn) btn.addEventListener('click', function () { addBlock(pair[1]); });
-    });
+    function bindBlockEditorStaticControls() {
+      [
+        ['addTextBlockBtn', 'text'],
+        ['addSpacingBlockBtn', 'spacing'],
+        ['addImageBlockBtn', 'image'],
+        ['addAudioBlockBtn', 'audio'],
+        ['addAlbumBlockBtn', 'album'],
+        ['addVideoBlockBtn', 'video']
+      ].forEach(function (pair) {
+        const btn = document.getElementById(pair[0]);
+        if (!btn || btn.dataset.editorBound === '1') return;
+        btn.dataset.editorBound = '1';
+        btn.addEventListener('click', function () {
+          addBlock(pair[1]);
+        });
+      });
 
-    const refreshPreviewBtn = document.getElementById('refreshPreviewBtn');
-    if (refreshPreviewBtn) refreshPreviewBtn.addEventListener('click', updateAll);
-    const copyHtmlBtn = document.getElementById('copyHtmlBtn');
-    if (copyHtmlBtn) {
-      copyHtmlBtn.addEventListener('click', async () => {
-        await copyText(blockEls.htmlOutput.value);
-        setStatus('copied html');
+      const refreshPreviewBtn = document.getElementById('refreshPreviewBtn');
+      if (refreshPreviewBtn && refreshPreviewBtn.dataset.editorBound !== '1') {
+        refreshPreviewBtn.dataset.editorBound = '1';
+        refreshPreviewBtn.addEventListener('click', updateAll);
+      }
+
+      const copyHtmlBtn = document.getElementById('copyHtmlBtn');
+      if (copyHtmlBtn && copyHtmlBtn.dataset.editorBound !== '1') {
+        copyHtmlBtn.dataset.editorBound = '1';
+        copyHtmlBtn.addEventListener('click', async function () {
+          await copyText(blockEls.htmlOutput.value);
+          setStatus('copied html');
+        });
+      }
+
+      const copyPackageBtn = document.getElementById('copyPackageBtn');
+      if (copyPackageBtn && copyPackageBtn.dataset.editorBound !== '1') {
+        copyPackageBtn.dataset.editorBound = '1';
+        copyPackageBtn.addEventListener('click', async function () {
+          await copyText(buildEntryPackage(gatherEntry()));
+          setStatus('copied entry package');
+        });
+      }
+
+      const downloadPackageBtn = document.getElementById('downloadPackageBtn');
+      if (downloadPackageBtn && downloadPackageBtn.dataset.editorBound !== '1') {
+        downloadPackageBtn.dataset.editorBound = '1';
+        downloadPackageBtn.addEventListener('click', downloadEntryPackage);
+      }
+
+      const downloadHtmlBtn = document.getElementById('downloadHtmlBtn');
+      if (downloadHtmlBtn && downloadHtmlBtn.dataset.editorBound !== '1') {
+        downloadHtmlBtn.dataset.editorBound = '1';
+        downloadHtmlBtn.addEventListener('click', downloadHtml);
+      }
+
+      const saveHtmlBtn = document.getElementById('saveHtmlBtn');
+      if (saveHtmlBtn && saveHtmlBtn.dataset.editorBound !== '1') {
+        saveHtmlBtn.dataset.editorBound = '1';
+        saveHtmlBtn.addEventListener('click', function () {
+          saveHtmlFile().catch(function () {
+            setStatus('could not save html');
+          });
+        });
+      }
+
+      document.querySelectorAll('[data-copy-target]').forEach(function (button) {
+        if (button.dataset.editorBound === '1') return;
+        button.dataset.editorBound = '1';
+        button.addEventListener('click', async function () {
+          const target = document.getElementById(button.dataset.copyTarget);
+          await copyText(target.value);
+          setStatus('copied');
+        });
       });
     }
-    const copyPackageBtn = document.getElementById('copyPackageBtn');
-    if (copyPackageBtn) {
-      copyPackageBtn.addEventListener('click', async () => {
-        await copyText(buildEntryPackage(gatherEntry()));
-        setStatus('copied entry package');
-      });
-    }
-    const downloadPackageBtn = document.getElementById('downloadPackageBtn');
-    if (downloadPackageBtn) downloadPackageBtn.addEventListener('click', downloadEntryPackage);
-    const downloadHtmlBtn = document.getElementById('downloadHtmlBtn');
-    if (downloadHtmlBtn) downloadHtmlBtn.addEventListener('click', downloadHtml);
-    const saveHtmlBtn = document.getElementById('saveHtmlBtn');
-    if (saveHtmlBtn) {
-      saveHtmlBtn.addEventListener('click', () => {
-        saveHtmlFile().catch(() => setStatus('could not save html'));
-      });
-    }
 
-    document.querySelectorAll('[data-copy-target]').forEach(button => {
-      button.addEventListener('click', async () => {
-        const target = document.getElementById(button.dataset.copyTarget);
-        await copyText(target.value);
-        setStatus('copied');
-      });
-    });
+    let blockEditorBootPromise = null;
+    let blockEditorBootToken = 0;
 
-    blockEls.date.addEventListener('input', updateAll);
+    function finishBlockEditorBootFallback() {
+      loadDraft();
+      if (
+        document.body.classList.contains('studio-editor-page') &&
+        !entryBlocks.length
+      ) {
+        entryBlocks.push(createBlock('text', { text: '', textSize: 'md' }));
+      }
+      renderEditorBlocks();
+      updateAll();
+      publishEntryEditorApi();
+    }
 
     async function bootBlockEditor() {
       if (window.burnfolderStudio && typeof window.burnfolderStudio.loadInitialDraft === 'function') {
@@ -3076,18 +3158,44 @@ ${tracks.join(',\n')}
       publishEntryEditorApi();
     }
 
-    bootBlockEditor().catch(() => {
-      loadDraft();
-      if (
-        document.body.classList.contains('studio-editor-page') &&
-        !entryBlocks.length
-      ) {
-        entryBlocks.push(createBlock('text', { text: '', textSize: 'md' }));
-      }
-      renderEditorBlocks();
-      updateAll();
-      publishEntryEditorApi();
-    });
+    function runBlockEditorBoot() {
+      refreshBlockEditorDom();
+      bindBlockEditorEvents();
+      bindBlockEditorStaticControls();
+
+      blockEditorBootToken += 1;
+      const token = blockEditorBootToken;
+
+      blockEditorBootPromise = bootBlockEditor()
+        .catch(function () {
+          if (token !== blockEditorBootToken) return;
+          finishBlockEditorBootFallback();
+        })
+        .finally(function () {
+          if (token === blockEditorBootToken) {
+            blockEditorBootPromise = null;
+          }
+        });
+
+      return blockEditorBootPromise;
+    }
+
+    window.studioReloadEntryDraft = function () {
+      blockEditorBootToken += 1;
+      blockEditorBootPromise = null;
+      return runBlockEditorBoot();
+    };
+
+    window.studioInitEntryEditorDom = function () {
+      if (!document.getElementById('entryBlocks')) return Promise.resolve();
+      refreshBlockEditorDom();
+      bindBlockEditorEvents();
+      bindBlockEditorStaticControls();
+      return Promise.resolve();
+    };
+
+    window.__studioBlockEditorLoaded = true;
+    runBlockEditorBoot();
     return;
   }
 

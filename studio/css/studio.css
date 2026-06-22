@@ -414,18 +414,33 @@ body.studio-has-player .page-watermark {
 }
 
 .studio-draft-list .studio-draft-link {
-  display: block;
-  padding: 10px 0 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 12px 14px;
   border-left: 1px solid #000;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   color: #000;
   text-decoration: none;
   font-family: inherit;
   font-size: 14px;
+  transition: opacity 0.12s ease, background 0.12s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .studio-draft-list .studio-draft-link:hover {
   opacity: 0.6;
+}
+
+.studio-draft-list .studio-draft-link:active,
+.studio-draft-list .studio-draft-link.is-opening {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .studio-empty {
@@ -2510,7 +2525,8 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
 /* Mobile touch targets — easier to hit play, toggle, and bar controls */
 @media (max-width: 600px) {
-  .studio-stream-page .studio-stream-album-play {
+  .studio-stream-page .studio-stream-album-play,
+  .studio-editor-page .studio-stream-album-play {
     width: 44px;
     height: 44px;
     font-size: 15px;
@@ -2519,7 +2535,8 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     justify-content: center;
   }
 
-  .studio-stream-page .studio-stream-album-toggle {
+  .studio-stream-page .studio-stream-album-toggle,
+  .studio-editor-page .studio-stream-album-toggle {
     width: 44px;
     height: 44px;
     font-size: 18px;
@@ -2529,7 +2546,8 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     flex-shrink: 0;
   }
 
-  .studio-stream-page .studio-stream-album-action {
+  .studio-stream-page .studio-stream-album-action,
+  .studio-editor-page .studio-stream-album-action {
     min-height: 44px;
     padding: 0 10px;
     font-size: 12px;
@@ -2538,20 +2556,24 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     justify-content: center;
   }
 
-  .studio-stream-page .studio-stream-album-actions {
+  .studio-stream-page .studio-stream-album-actions,
+  .studio-editor-page .studio-stream-album-actions {
     gap: 4px;
   }
 
-  .studio-stream-page .studio-stream-album-cover {
+  .studio-stream-page .studio-stream-album-cover,
+  .studio-editor-page .studio-stream-album-cover {
     width: 56px;
     height: 56px;
   }
 
-  .studio-stream-page .studio-stream-album-track {
+  .studio-stream-page .studio-stream-album-track,
+  .studio-editor-page .studio-stream-album-track {
     grid-template-columns: 28px 28px minmax(0, 1fr) auto;
   }
 
-  .studio-stream-page .studio-stream-album-track-handle {
+  .studio-stream-page .studio-stream-album-track-handle,
+  .studio-editor-page .studio-stream-album-track-handle {
     font-size: 18px;
     width: 28px;
     min-height: 44px;
@@ -2561,7 +2583,8 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     padding: 0;
   }
 
-  .studio-stream-page .studio-stream-album-track-remove {
+  .studio-stream-page .studio-stream-album-track-remove,
+  .studio-editor-page .studio-stream-album-track-remove {
     min-width: 44px;
     min-height: 44px;
     font-size: 20px;
@@ -3254,7 +3277,8 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
 }
 
 .studio-editor-mux-item {
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 18px 24px minmax(0, 1fr);
+  align-items: center;
   cursor: grab;
   user-select: none;
 }
@@ -3276,6 +3300,24 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
   margin-left: 6px;
   font-size: 0.85em;
   opacity: 0.45;
+}
+
+.studio-editor-song-group {
+  margin: 14px 0 6px;
+}
+
+.studio-editor-song-group-title {
+  margin: 0 0 6px 2px;
+  font-size: 0.78em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: normal;
+  opacity: 0.72;
+}
+
+.studio-editor-song-group-tracks {
+  margin: 0;
+  padding: 0;
 }
 
 /* ── playlist track reorder ── */
@@ -3597,17 +3639,6 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
 
 .studio-hub-list .entry-editor-section-title {
   margin-top: 0;
-}
-
-.studio-draft-list .studio-draft-link {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0 12px 14px;
-  border-left: 1px solid #000;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  transition: opacity 0.12s ease;
 }
 
 .studio-draft-date {
@@ -5013,4 +5044,141 @@ body.studio-song-designer-page .page-wrap {
 
 .song-hub-panel--share .song-hub-panel-top {
   margin-bottom: 0;
+}
+
+/* ── Mobile studio UX ── */
+
+@media (max-width: 600px) {
+  .studio-home.page-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.studio-has-player .studio-home.page-wrap,
+  body.stream-playback-active .studio-home.page-wrap {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .studio-header {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .studio-header-nav.studio-main-nav {
+    gap: 4px 12px;
+  }
+
+  .studio-main-nav-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .studio-hub-create-btn,
+  #newDraftBtn,
+  #studioNewDraftBtn,
+  .studio-publish-live-btn,
+  .icon-btn {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .studio-hub-date-field input,
+  #newDraftDate,
+  #studioNewDraftDate,
+  #entryDate {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .studio-draft-list .studio-draft-link {
+    min-height: 52px;
+    padding: 14px 12px 14px 14px;
+    font-size: 16px;
+  }
+
+  .studio-new-draft {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .studio-hub-create-btn,
+  #newDraftBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .studio-hub-list {
+    margin-bottom: 8px;
+  }
+
+  .studio-editor-page .studio-editor-mux-item {
+    min-height: 52px;
+  }
+
+  .studio-editor-page .studio-track-grip {
+    min-width: 28px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .studio-editor-page .music-track-row {
+    min-height: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .studio-lede {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .studio-entry-layout {
+    padding: 16px 16px calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .studio-entry-toolbar {
+    gap: 10px;
+  }
+
+  .studio-tool-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .studio-preview-bubble {
+    touch-action: manipulation;
+  }
+
+  .studio-preview-bubble:active {
+    outline: 2px solid rgba(0, 0, 0, 0.15);
+    outline-offset: 2px;
+  }
+
+  .studio-spa-status {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: 16px;
+    right: 16px;
+    text-align: center;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .studio-draft-list .studio-draft-link:active,
+  .studio-main-nav-link:active,
+  .icon-btn:active {
+    opacity: 1;
+  }
+
+  .studio-stream-page .music-track-row:active {
+    background: rgba(0, 0, 0, 0.06);
+  }
 }

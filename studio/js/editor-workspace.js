@@ -11,8 +11,6 @@
   let contextMuxAssetId = null;
   let libraryPanel = null;
   let libraryPanelGrid = null;
-  let draftNavBound = false;
-  let toolbarBound = false;
   let assetsChangedBound = false;
 
   const STACK_ALBUM_MIME =
@@ -153,6 +151,28 @@
         labelForItem: muxFileLabel,
         onInsertStack: insertStackToEntry,
         onInsertTrack: insertMuxItem,
+        onDropToEntry: function (item, result) {
+          whenEditorReady(function (api) {
+            const asset = muxItemToAsset(item);
+            let playlistBlockId = result && result.playlistBlockId ? result.playlistBlockId : null;
+            if (
+              !playlistBlockId &&
+              result &&
+              typeof result.clientX === 'number' &&
+              typeof api.getPlaylistBlockIdAtPoint === 'function'
+            ) {
+              playlistBlockId = api.getPlaylistBlockIdAtPoint(result.clientX, result.clientY);
+            }
+            if (playlistBlockId && typeof api.appendToPlaylist === 'function') {
+              if (api.appendToPlaylist(playlistBlockId, asset)) {
+                setStatus('added to group', 'success');
+                return;
+              }
+            }
+            api.insertAsset(asset);
+            setStatus('added song');
+          });
+        },
         onSelectItem: function (item) {
           contextMuxAssetId = item.muxAssetId;
         },
@@ -317,34 +337,38 @@
   }
 
   function todayKey() {
+    if (window.BurnfolderStudioDates) return window.BurnfolderStudioDates.todayKey();
     const now = new Date();
     return now.getMonth() + 1 + '.' + now.getDate() + '.' + String(now.getFullYear()).slice(-2);
   }
 
   function mountDraftNav() {
-    if (draftNavBound) {
-      if (typeof window.studioRefreshDraftSelect === 'function') {
-        window.studioRefreshDraftSelect(window.studioEditorDraftId);
-      }
-      return;
-    }
-
     const select = document.getElementById('studioDraftSelect');
     const newBtn = document.getElementById('studioNewDraftBtn');
     const newDate = document.getElementById('studioNewDraftDate');
     if (!select || !window.BurnfolderDrafts) return;
 
+    if (select.dataset.bound === '1') {
+      if (typeof window.studioRefreshDraftSelect === 'function') {
+        window.studioRefreshDraftSelect(window.studioEditorDraftId);
+      }
+      return;
+    }
+    select.dataset.bound = '1';
+
     if (newDate && !newDate.value) newDate.value = todayKey();
 
     window.studioRefreshDraftSelect = function (currentId) {
+      const selectEl = document.getElementById('studioDraftSelect');
+      if (!selectEl || !window.BurnfolderDrafts) return;
       window.BurnfolderDrafts.listDrafts().then(function (items) {
-        const prev = select.value;
-        select.innerHTML = '';
+        const prev = selectEl.value;
+        selectEl.innerHTML = '';
         if (!items.length) {
           const opt = document.createElement('option');
           opt.value = '';
           opt.textContent = 'no entries';
-          select.appendChild(opt);
+          selectEl.appendChild(opt);
           return;
         }
         items.forEach(function (draft) {
@@ -356,7 +380,7 @@
           if (currentId ? draft.id === currentId : draft.id === prev) {
             opt.selected = true;
           }
-          select.appendChild(opt);
+          selectEl.appendChild(opt);
         });
       });
     };
@@ -367,7 +391,7 @@
     });
 
     if (newBtn) {
-      newBtn.addEventListener('click', function () {
+      const activateNewDraft = function () {
         const dateKey = String((newDate && newDate.value) || '').trim() || todayKey();
         if (!validateDateField(newDate)) return;
         setStatus('creating…', 'working');
@@ -376,7 +400,16 @@
         }).catch(function (err) {
           setStatus(err.message || 'could not create entry', 'error');
         });
-      });
+      };
+
+      if (!newBtn.dataset.bound) {
+        newBtn.dataset.bound = '1';
+        if (window.BurnfolderStudioTap && window.BurnfolderStudioTap.bind) {
+          window.BurnfolderStudioTap.bind(newBtn, activateNewDraft);
+        } else {
+          newBtn.addEventListener('click', activateNewDraft);
+        }
+      }
     }
 
     [newDate, document.getElementById('entryDate')].forEach(function (input) {
@@ -388,15 +421,12 @@
     });
 
     window.studioRefreshDraftSelect(window.studioEditorDraftId);
-    draftNavBound = true;
   }
 
   function mountToolbar() {
-    if (toolbarBound) return;
-    toolbarBound = true;
-
     const addTextBtn = document.getElementById('studioAddTextBtn');
-    if (addTextBtn) {
+    if (addTextBtn && addTextBtn.dataset.bound !== '1') {
+      addTextBtn.dataset.bound = '1';
       addTextBtn.addEventListener('click', function () {
         whenEditorReady(function (api) {
           api.addText('', { textSize: getActiveTextSize() });
@@ -406,6 +436,8 @@
     }
 
     document.querySelectorAll('[data-text-size]').forEach(function (btn) {
+      if (btn.dataset.bound === '1') return;
+      btn.dataset.bound = '1';
       btn.addEventListener('click', function () {
         const size = btn.getAttribute('data-text-size');
         setActiveTextSize(size);
@@ -431,49 +463,53 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get('createStack') !== '1') return;
 
-    let payload = null;
-    try {
-      const raw = window.localStorage.getItem('burnfolderPendingStack');
-      if (raw) payload = JSON.parse(raw);
-    } catch (e) {
-      payload = null;
-    }
-    if (!payload || !Array.isArray(payload.tracks) || !payload.tracks.length) return;
+    const readPending =
+      window.BurnfolderStreamShared && window.BurnfolderStreamShared.readPendingStack
+        ? window.BurnfolderStreamShared.readPendingStack()
+        : Promise.resolve(null);
 
-    whenEditorReady(function (api) {
-      if (typeof api.insertStackPlaylist === 'function') {
-        api.insertStackPlaylist({
-          title: payload.title || '',
-          coverArt: payload.coverArt || '',
-          coverAlt: payload.coverAlt || '',
-          tracks: payload.tracks.map(function (track) {
-            return {
-              title: track.title || '',
-              playbackId: track.playbackId || ''
-            };
-          })
-        });
-      } else {
-        const block = api.addBlock('playlist', {
-          title: payload.title || '',
-          coverArt: payload.coverArt || '',
-          coverAlt: payload.coverAlt || '',
-          tracks: payload.tracks.map(function (track) {
-            return {
-              title: track.title || '',
-              playbackId: track.playbackId || ''
-            };
-          })
-        });
-        if (block && api.selectPlaylist) api.selectPlaylist(block.id);
-      }
-      window.localStorage.removeItem('burnfolderPendingStack');
-      setStatus('group added to entry', 'success');
-      if (window.history && window.history.replaceState) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('createStack');
-        window.history.replaceState({}, '', url.pathname + url.search);
-      }
+    readPending.then(function (payload) {
+      if (!payload || !Array.isArray(payload.tracks) || !payload.tracks.length) return;
+
+      whenEditorReady(function (api) {
+        if (typeof api.insertStackPlaylist === 'function') {
+          api.insertStackPlaylist({
+            title: payload.title || '',
+            coverArt: payload.coverArt || '',
+            coverAlt: payload.coverAlt || '',
+            tracks: payload.tracks.map(function (track) {
+              return {
+                title: track.title || '',
+                playbackId: track.playbackId || ''
+              };
+            })
+          });
+        } else {
+          const block = api.addBlock('playlist', {
+            title: payload.title || '',
+            coverArt: payload.coverArt || '',
+            coverAlt: payload.coverAlt || '',
+            tracks: payload.tracks.map(function (track) {
+              return {
+                title: track.title || '',
+                playbackId: track.playbackId || ''
+              };
+            })
+          });
+          if (block && api.selectPlaylist) api.selectPlaylist(block.id);
+        }
+        if (window.BurnfolderStreamShared && window.BurnfolderStreamShared.clearPendingStack) {
+          window.BurnfolderStreamShared.clearPendingStack();
+        } else {
+          window.localStorage.removeItem('burnfolderPendingStack');
+        }
+        setStatus('group added to entry', 'success');
+        if (window.history && window.history.replaceState) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('createStack');
+          window.history.replaceState({}, '', url.pathname + url.search);
+        }
+      });
     });
   }
 

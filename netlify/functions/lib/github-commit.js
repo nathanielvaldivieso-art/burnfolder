@@ -48,7 +48,7 @@ async function fileExists(octokit, cfg, path) {
  * Commit one or more text files to main in a single commit.
  * files: [{ path, content }]
  */
-async function commitFiles(message, files) {
+  async function commitFiles(message, files) {
   const octokit = createOctokit();
   const cfg = getRepoConfig();
 
@@ -67,10 +67,15 @@ async function commitFiles(message, files) {
 
   const treeEntries = await Promise.all(
     files.map(async function (file) {
+      const encoding = file.encoding || 'utf8';
+      const blobContent =
+        encoding === 'base64'
+          ? String(file.content || '')
+          : Buffer.from(String(file.content || ''), 'utf8').toString('base64');
       const blob = await octokit.git.createBlob({
         owner: cfg.owner,
         repo: cfg.repo,
-        content: Buffer.from(file.content, 'utf8').toString('base64'),
+        content: blobContent,
         encoding: 'base64'
       });
       return {

@@ -19,18 +19,28 @@ function parseBody(event) {
   }
 }
 
-function validatePhaseA(blocks) {
+function validatePublishBlocks(blocks, assetPathSet) {
   for (let i = 0; i < (blocks || []).length; i++) {
     const block = blocks[i];
     if (!block || !block.type) continue;
 
     if (block.type === 'image' && block.src && String(block.src).trim()) {
-      return 'Phase A publish cannot upload image files yet. Remove image blocks first.';
+      const src = String(block.src).trim();
+      if (/^https?:\/\//i.test(src)) continue;
+      if (/^IMAGES\//i.test(src)) {
+        if (block.assetId && !assetPathSet.has(src)) {
+          return 'Image "' + src + '" is not in the publish bundle. Re-open the entry and publish again.';
+        }
+        continue;
+      }
+      return 'Image blocks need a studio upload (IMAGES/…) or an https URL.';
     }
 
     const cover = block.coverArt && String(block.coverArt).trim();
     if (cover && /^IMAGES\//i.test(cover)) {
-      return 'Phase A publish cannot upload cover art files yet. Remove album cover images first.';
+      if (block.coverAssetId && !assetPathSet.has(cover)) {
+        return 'Cover art "' + cover + '" is not in the publish bundle. Re-open the entry and publish again.';
+      }
     }
 
     if (block.type === 'audio' || block.type === 'video') {
@@ -49,6 +59,14 @@ function validatePhaseA(blocks) {
     }
   }
   return null;
+}
+
+function normalizeAssetPaths(assets) {
+  const set = new Set();
+  (assets || []).forEach(function (asset) {
+    if (asset && asset.path) set.add(String(asset.path).trim());
+  });
+  return set;
 }
 
 exports.handler = async function (event) {
@@ -78,6 +96,7 @@ exports.handler = async function (event) {
 
   const date = typeof body.date === 'string' ? body.date.trim() : '';
   const blocks = Array.isArray(body.blocks) ? body.blocks : null;
+  const assets = Array.isArray(body.assets) ? body.assets : [];
   const republish = body.republish === true;
 
   if (!DATE_PATTERN.test(date)) {
@@ -96,7 +115,8 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Too many blocks in entry' }) };
   }
 
-  const phaseError = validatePhaseA(blocks);
+  const assetPathSet = normalizeAssetPaths(assets);
+  const phaseError = validatePublishBlocks(blocks, assetPathSet);
   if (phaseError) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: phaseError }) };
   }
@@ -163,10 +183,19 @@ exports.handler = async function (event) {
 
     const nextEntriesJs = entriesFile.serializeEntriesJs(parsed);
 
-    const commit = await github.commitFiles('Publish studio entry ' + date, [
+    const commitFiles = [
       { path: htmlPath, content: artifacts.entryHtml },
       { path: 'entries.js', content: nextEntriesJs }
-    ]);
+    ];
+
+    assets.forEach(function (asset) {
+      const path = asset && asset.path ? String(asset.path).trim() : '';
+      const base64 = asset && asset.base64 ? String(asset.base64).trim() : '';
+      if (!path || !base64 || !/^IMAGES\//i.test(path)) return;
+      commitFiles.push({ path: path, content: base64, encoding: 'base64' });
+    });
+
+    const commit = await github.commitFiles('Publish studio entry ' + date, commitFiles);
 
     return {
       statusCode: 200,

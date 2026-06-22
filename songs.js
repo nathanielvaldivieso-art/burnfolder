@@ -56,8 +56,22 @@ const manualSongsByPage = {
 
 };
 
+function manualSongsNotInEntries() {
+  const out = {};
+  Object.keys(manualSongsByPage).forEach(function (date) {
+    if (date === 'archive') {
+      out[date] = manualSongsByPage[date];
+      return;
+    }
+    if (!window.entryDataByDate || !window.entryDataByDate[date]) {
+      out[date] = manualSongsByPage[date];
+    }
+  });
+  return out;
+}
+
 window.songsByPage = {
-  ...manualSongsByPage,
+  ...manualSongsNotInEntries(),
   ...entrySongsByPage
 };
 
@@ -68,11 +82,13 @@ window.allSongs = Object.entries(window.songsByPage)
   .flatMap(([page, tracks]) => tracks.map(t => ({ ...t, page })));
 
 // ── Journal entries ────────────────────────────────────────────────────────────
-// Single source of truth for the index entry list and spa-router.
-// Newest first. Add new date keys here when creating new entry pages.
+// Derived from entries.js order; legacy dates kept only until migrated.
 // ──────────────────────────────────────────────────────────────────────────────
 const dataEntryOrder = Array.isArray(window.entryOrder) ? window.entryOrder : Object.keys(window.entryDataByDate || {});
-window.journalEntries = Array.from(new Set([...dataEntryOrder, "5.8.26", "4.30.26", "2.25.26", "11.29.25", "11.28.25"]));
+const legacyJournalDates = ["5.8.26", "4.30.26", "2.25.26", "11.29.25", "11.28.25"].filter(function (date) {
+  return dataEntryOrder.indexOf(date) < 0 && (!window.entryDataByDate || !window.entryDataByDate[date]);
+});
+window.journalEntries = Array.from(new Set([].concat(dataEntryOrder, legacyJournalDates)));
 
 function getVideosFromEntry(entry) {
   return (entry.blocks || []).flatMap(block => {
@@ -97,8 +113,18 @@ const manualVideosByPage = {
   ]
 };
 
+function manualVideosNotInEntries() {
+  const out = {};
+  Object.keys(manualVideosByPage).forEach(function (date) {
+    if (!window.entryDataByDate || !window.entryDataByDate[date]) {
+      out[date] = manualVideosByPage[date];
+    }
+  });
+  return out;
+}
+
 window.videosByPage = {
-  ...manualVideosByPage,
+  ...manualVideosNotInEntries(),
   ...entryVideosByPage
 };
 

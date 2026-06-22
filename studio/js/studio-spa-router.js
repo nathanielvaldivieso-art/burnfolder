@@ -40,28 +40,17 @@
     journal: ['js/journal-day-store.js', 'js/journal-page.js'],
     entry: [
       'js/drafts.js',
+      '../shared/studio-tap.js',
       'js/studio-hub.js',
       'js/studio-bridge.js',
-      'js/editor-gate.js',
-      'js/asset-cloud.js',
-      '../shared/cover-art.js',
-      'js/mux-naming.js',
-      'js/mux-client.js',
-      'js/studio-mux-lib.js',
-      'js/stream-shared.js',
-      'js/upload-queue.js',
-      'js/cloud-ui.js',
-      'js/studio-scripts-bridge.js',
-      '../entry-editor.js',
-      'js/publish-panel.js',
-      'js/editor-post.js',
-      'js/editor-library-panel.js',
-      'js/editor-workspace.js'
+      'js/studio-editor-loader.js',
+      'js/editor-gate.js'
     ]
   };
 
   let contentRoot = null;
   let loading = false;
+  let pendingNavigation = null;
   const loadedScripts = new Set();
 
   function shellReady() {
@@ -106,7 +95,7 @@
   }
 
   function versionQuery() {
-    const v = window.BurnfolderStudioVersion || '20260621a';
+    const v = window.BurnfolderStudioVersion || '20260626d';
     return '?v=' + v;
   }
 
@@ -236,8 +225,36 @@
     markNav(pageKey);
   }
 
+  function entryShellLive() {
+    return document.getElementById('studioHome') && document.getElementById('studioEditorShell');
+  }
+
+  function finishEntryNavigation(target, push) {
+    if (push !== false) {
+      history.pushState(
+        { studioSpa: true, pageKey: 'entry' },
+        '',
+        target.href
+      );
+    }
+
+    runPageInit('entry');
+
+    const draftId = new URL(target.href, window.location.href).searchParams.get('id');
+    if (draftId && typeof window.studioEditorOpenDraft === 'function') {
+      window.studioEditorOpenDraft(draftId);
+    } else if (typeof window.studioEditorShowHome === 'function') {
+      window.studioEditorShowHome();
+    }
+
+    window.scrollTo(0, 0);
+  }
+
   async function loadPage(url, push) {
-    if (loading) return;
+    if (loading) {
+      pendingNavigation = { url: url, push: push };
+      return;
+    }
     loading = true;
     document.body.classList.add('studio-spa-loading');
     const banner = statusBanner();
@@ -250,6 +267,11 @@
       const target = resolveStudioNavigation(url);
       if (!target) {
         window.location.href = url;
+        return;
+      }
+
+      if (target.pageKey === 'entry' && entryShellLive()) {
+        finishEntryNavigation(target, push);
         return;
       }
 
@@ -284,6 +306,13 @@
       }
 
       await loadPageScripts(target.pageKey);
+
+      if (target.pageKey === 'entry' && window.__studioBlockEditorLoaded) {
+        if (typeof window.studioInitEntryEditorDom === 'function') {
+          window.studioInitEntryEditorDom();
+        }
+      }
+
       runPageInit(target.pageKey);
       restoreSessionBodyClasses();
 
@@ -311,6 +340,12 @@
       document.body.classList.remove('studio-spa-loading');
       const banner = statusBanner();
       if (banner) banner.hidden = true;
+
+      if (pendingNavigation) {
+        const next = pendingNavigation;
+        pendingNavigation = null;
+        loadPage(next.url, next.push);
+      }
     }
   }
 
@@ -321,6 +356,7 @@
   function onLinkClick(event) {
     const link = event.target.closest('a[href]');
     if (!link || link.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    if (link.classList.contains('studio-draft-link')) return;
     const href = link.getAttribute('href');
     const target = resolveStudioNavigation(href);
     if (!target) return;
@@ -360,6 +396,9 @@
 
     const currentKey = pageKeyFromPath(window.location.pathname);
     if (currentKey) markNav(currentKey);
+    if (currentKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
+      window.studioInitEntryHub();
+    }
   }
 
   function pageKeyFromPath(pathname) {

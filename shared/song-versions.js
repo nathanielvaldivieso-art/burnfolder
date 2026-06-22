@@ -571,6 +571,69 @@
     };
   }
 
+  /**
+   * Group library rows by song name. Groups and singles sort A–Z by base title;
+   * multiple versions within a group sort by embedded date (newest first by default).
+   */
+  function organizeLibraryItemsBySong(items, options) {
+    const opts = options || {};
+    const labelFn =
+      opts.labelForItem ||
+      function (item) {
+        return item.displayTitle || item.passthrough || 'untitled';
+      };
+    const versionSort = opts.versionSort || 'newest';
+
+    const groups = new Map();
+    const noKey = [];
+
+    (items || []).forEach(function (item) {
+      if (!item) return;
+      const song = libraryItemToSong(item, labelFn(item));
+      const key = getTrackGroupKey(song.title);
+      if (!key) {
+        noKey.push(item);
+        return;
+      }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ item: item, song: song });
+    });
+
+    const rows = [];
+
+    noKey.forEach(function (item) {
+      rows.push({
+        type: 'single',
+        baseTitle: labelFn(item),
+        items: [item]
+      });
+    });
+
+    groups.forEach(function (entries) {
+      entries.sort(function (a, b) {
+        return compareSongsBySortMode(a.song, b.song, versionSort);
+      });
+      const baseTitle = stripTrailingDate(entries[0].song.title) || labelFn(entries[0].item);
+      if (entries.length === 1) {
+        rows.push({ type: 'single', baseTitle: baseTitle, items: [entries[0].item] });
+        return;
+      }
+      rows.push({
+        type: 'group',
+        baseTitle: baseTitle,
+        items: entries.map(function (entry) {
+          return entry.item;
+        })
+      });
+    });
+
+    rows.sort(function (a, b) {
+      return a.baseTitle.localeCompare(b.baseTitle, undefined, { sensitivity: 'base' });
+    });
+
+    return rows;
+  }
+
   function fillVersionTracklist(container, versions, options) {
     const opts = options || {};
     if (!container) return;
@@ -647,6 +710,7 @@
     pickNewestSong: pickNewestSong,
     dedupeLibraryItemsToNewest: dedupeLibraryItemsToNewest,
     dedupeToOneRowPerSong: dedupeToOneRowPerSong,
+    organizeLibraryItemsBySong: organizeLibraryItemsBySong,
     resolveNewestSongInCatalog: resolveNewestSongInCatalog,
     displayTitleForSong: displayTitleForSong,
     displayTitleForSongInCatalog: displayTitleForSongInCatalog,

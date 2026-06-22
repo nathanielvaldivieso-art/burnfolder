@@ -13,7 +13,17 @@
 })(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : {}, function () {
   'use strict';
 
-  const SCRIPT_VERSION = '20260601a';
+  let SCRIPT_VERSION = '20260626d';
+  try {
+    const siteVersion = require('./site-version.js');
+    if (siteVersion && siteVersion.SITE_SCRIPT_VERSION) {
+      SCRIPT_VERSION = siteVersion.SITE_SCRIPT_VERSION;
+    }
+  } catch (e) {
+    if (typeof globalThis !== 'undefined' && globalThis.BurnfolderSiteVersion) {
+      SCRIPT_VERSION = globalThis.BurnfolderSiteVersion;
+    }
+  }
 
   function escapeHtml(value) {
     return String(value || '')
@@ -224,17 +234,6 @@
 
   function buildEntryHtml(entry, scriptVersion) {
     const version = scriptVersion || SCRIPT_VERSION;
-    const blocks = entry.blocks || [];
-    const bodyParts = [`  <p class="page-id">${escapeHtml(entry.date)}</p>`];
-
-    blocks.forEach(block => {
-      const html = blockToHtml(block);
-      if (html) bodyParts.push(html);
-    });
-
-    if (!blocks.some(block => block.type === 'audio' || block.type === 'album' || block.type === 'playlist')) {
-      bodyParts.push('  <div id="audioList" style="margin-top: 48px;"></div>');
-    }
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -261,7 +260,7 @@
 </header>
 
 <div class="page-wrap">
-${bodyParts.join('\n\n')}
+  <!-- body rendered from entries.js by entry-renderer.js -->
 </div>
 
 <div class="page-watermark">${escapeHtml(entry.date)}</div>
@@ -286,8 +285,9 @@ ${bodyParts.join('\n\n')}
 <script src="entry-renderer.js"></script>
 <script src="songs.js"></script>
 <script src="stripe-publishable.js"></script>
+<script src="shared/media-session.js?v=${version}"></script>
+<script src="shared/playback-recall.js?v=${version}"></script>
 <script src="spa-router.js"></script>
-<script src="shared/song-versions.js?v=${version}"></script>
 <script src="shared/playback-prefetch.js?v=${version}"></script>
 <script src="shared/mux-playback.js?v=${version}"></script>
 <script src="scripts.js?v=${version}"></script>
@@ -352,12 +352,12 @@ ${tracks.join(',\n')}
       publishUrl: `https://burnfolder.com/${normalized.date}.html`,
       checklist: [
         `merge entries.js snippet for "${normalized.date}"`,
-        `save ${normalized.date}.html to repo root`,
-        `update window.journalEntries in songs.js (newest first)`,
-        `video blocks in entries.js appear on the video page automatically`,
+        `save ${normalized.date}.html shell to repo root (body comes from entries.js)`,
+        `songs.js / journalEntries derive from entries.js automatically`,
+        `copy any IMAGES/ files referenced in blocks into repo root`,
         `deploy burnfolder.com on Netlify`,
         `confirm ${normalized.date}.html loads on production`,
-        `newsletter: GitHub Action should email subscribers with link to publishUrl`
+        `newsletter: GitHub Action emails subscribers after deploy`
       ]
     };
   }

@@ -424,6 +424,66 @@
     return Promise.resolve();
   }
 
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const result = String(reader.result || '');
+        const comma = result.indexOf(',');
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = function () {
+        reject(reader.error || new Error('could not read file'));
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function readAssetForPublish(id, blobKey) {
+    const key = blobKey || 'blob';
+    return getAsset(id).then(function (row) {
+      if (!row) return null;
+      const blob = row[key];
+      if (!blob) return null;
+      return blobToBase64(blob).then(function (base64) {
+        return {
+          path: row.publicPath || suggestPublicPath(row.name),
+          base64: base64,
+          mime: row.mime || 'application/octet-stream'
+        };
+      });
+    });
+  }
+
+  function collectPublishAssets(blocks) {
+    const assetIds = new Set();
+    (blocks || []).forEach(function (block) {
+      if (!block) return;
+      if (block.type === 'image' && block.assetId) assetIds.add(String(block.assetId).trim());
+      if (block.coverAssetId) assetIds.add(String(block.coverAssetId).trim());
+    });
+
+    const ids = Array.from(assetIds).filter(Boolean);
+    if (!ids.length) return Promise.resolve([]);
+
+    const seen = new Set();
+    return Promise.all(
+      ids.map(function (id) {
+        return readAssetForPublish(id, 'blob').then(function (primary) {
+          if (primary) return primary;
+          return readAssetForPublish(id, 'coverBlob');
+        });
+      })
+    ).then(function (rows) {
+      return rows.filter(function (row) {
+        if (!row || !row.path || !row.base64) return false;
+        if (seen.has(row.path)) return false;
+        seen.add(row.path);
+        return true;
+      });
+    });
+  }
+
   window.BurnfolderAssetCloud = {
     addFiles: addFiles,
     registerImageFile: registerImageFile,
@@ -443,6 +503,7 @@
     copyText: copyText,
     suggestPublicPath: suggestPublicPath,
     formatBytes: formatBytes,
-    emitAssetsChanged: emitAssetsChanged
+    emitAssetsChanged: emitAssetsChanged,
+    collectPublishAssets: collectPublishAssets
   };
 })();
