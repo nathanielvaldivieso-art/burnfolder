@@ -71,6 +71,8 @@
       kind: row.kind || 'other',
       displayTitle: row.displayTitle || defaultDisplayTitle(row.name),
       notes: row.notes || '',
+      songGroupKey: row.songGroupKey || '',
+      songTitle: row.songTitle || '',
       muxPassthrough: row.muxPassthrough || null,
       muxPlaybackId: row.muxPlaybackId || null,
       muxAssetId: row.muxAssetId || null,
@@ -112,7 +114,7 @@
     return 'processing';
   }
 
-  function uploadToMuxAndRegister(db, file, onProgress) {
+  function uploadToMuxAndRegister(db, file, onProgress, meta) {
     if (!isMuxableFile(file)) {
       return Promise.reject(
         new Error('only audio and video upload to mux (not images or project files)')
@@ -123,15 +125,20 @@
       return Promise.reject(new Error('mux unavailable — run netlify dev from the repo root'));
     }
 
+    const options = meta && typeof meta === 'object' ? meta : {};
+    const muxFileName = options.fileName || file.name;
+
     const record = {
       id: makeId(),
       name: file.name,
       mime: file.type || 'application/octet-stream',
       size: file.size,
       createdAt: new Date().toISOString(),
-      publicPath: suggestPublicPath(file.name),
+      publicPath: suggestPublicPath(muxFileName),
       kind: detectKind(file),
-      displayTitle: defaultDisplayTitle(file.name),
+      displayTitle: options.displayTitle || defaultDisplayTitle(muxFileName),
+      songGroupKey: String(options.songGroupKey || '').trim(),
+      songTitle: String(options.songTitle || '').trim(),
       notes: ''
     };
 
@@ -139,7 +146,7 @@
 
     return window.BurnfolderMux
       .uploadFileToMux(file, {
-        fileName: file.name,
+        fileName: muxFileName,
         onProgress: function (patch) {
           if (!onProgress) return;
           onProgress(patch.percent || 0, muxProgressToPhase(patch.percent, patch.message));
@@ -174,9 +181,12 @@
         chain = chain.then(function () {
           if (cbs.onFileStart) cbs.onFileStart(file, index, files.length);
 
+          const meta =
+            typeof cbs.fileMeta === 'function' ? cbs.fileMeta(file, index, files.length) : null;
+
           return uploadToMuxAndRegister(db, file, function (pct, phase) {
             if (cbs.onProgress) cbs.onProgress(file, pct, phase, index, files.length);
-          })
+          }, meta)
             .then(function (saved) {
               results.push(saved);
               if (cbs.onFileSuccess) cbs.onFileSuccess(saved, index, files.length);
@@ -263,10 +273,14 @@
     });
   }
 
-  function registerImageFile(file) {
+  function registerImageFile(file, options) {
     if (!file || detectKind(file) !== 'image') {
       return Promise.reject(new Error('choose an image file (jpg, png, webp, gif)'));
     }
+
+    const opts = options || {};
+    const publicPath = opts.publicPath || suggestPublicPath(file.name);
+    const displayTitle = opts.displayTitle || defaultDisplayTitle(file.name);
 
     return openDb().then(function (db) {
       const record = {
@@ -275,9 +289,9 @@
         mime: file.type || 'image/jpeg',
         size: file.size,
         createdAt: new Date().toISOString(),
-        publicPath: suggestPublicPath(file.name),
+        publicPath: publicPath,
         kind: 'image',
-        displayTitle: defaultDisplayTitle(file.name),
+        displayTitle: displayTitle,
         notes: '',
         blob: file
       };

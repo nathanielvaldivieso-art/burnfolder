@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>album — burnfolder.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="style.css?v=20260625f">
+</head>
+<body>
+  <header class="site-header">
+    <a href="index.html" class="site-brand">burnfolder.com</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="music.html" class="page-nav">music</a>
+      <a href="content.html" class="page-nav">video</a>
+      <a href="shop.html" class="page-nav">shop</a>
+    </nav>
+    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
+  </header>
+
+  <div class="page-wrap" id="albumHubPage">
+    <p class="page-id">album hub</p>
+
+    <div class="song-hub-header">
+      <div class="song-hub-header-text">
+        <h2 class="song-hub-title" data-album-field="title">Album</h2>
+        <p class="song-hub-subtitle" data-album-field="subtitle">—</p>
+      </div>
+    </div>
+
+    <div data-album-panel="cover" class="song-hub-cover-wrap" hidden>
+      <img data-album-field="cover" class="song-hub-cover-image" alt="">
+    </div>
+
+    <div data-album-panel="video" class="song-hub-panel" hidden>
+      <div data-album-field="video-hero" class="song-hub-video-hero"></div>
+    </div>
+
+    <div class="song-hub-panel">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Tracks</p>
+      </div>
+      <div data-album-field="tracklist"></div>
+    </div>
+
+    <div data-album-panel="thoughts" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Thoughts</p>
+      </div>
+      <div class="song-hub-notes" data-album-field="thoughts"></div>
+    </div>
+
+    <div data-album-panel="compiled-lyrics" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Lyrics</p>
+      </div>
+      <div data-album-field="compiled-lyrics"></div>
+    </div>
+
+    <div data-album-panel="compiled-notes" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Notes</p>
+      </div>
+      <div data-album-field="compiled-notes"></div>
+    </div>
+
+    <div data-album-panel="visuals" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Visuals</p>
+      </div>
+      <div class="song-hub-content-grid" data-album-field="visuals-grid"></div>
+    </div>
+  </div>
+
+  <div id="audioList" style="display: none;"></div>
+  <div class="page-watermark">album</div>
+
+  <div class="bottom-progress-bar" id="bottomBar">
+    <div class="bottom-progress-track">
+      <div class="bottom-progress-fill" id="bottomProgressFill"></div>
+    </div>
+    <div class="bottom-bar-inner">
+      <button type="button" class="bottom-play-btn" id="bottomPlayBtn" aria-label="Play/Pause">
+        <svg class="bottom-play-icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><polygon points="8,5 20,12 8,19" fill="currentColor"/></svg>
+        <svg class="bottom-pause-icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" hidden><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>
+      </button>
+      <div class="bottom-track-info">
+        <span class="bottom-track-title" id="bottomTrackTitle">—</span>
+      </div>
+      <span class="bottom-time" id="bottomTime">0:00</span>
+    </div>
+  </div>
+
+  <script src="songs.js?v=20260625f"></script>
+  <script src="song-pages.js?v=20260625f"></script>
+  <script src="album-pages.js?v=20260625f"></script>
+  <script src="shared/song-versions.js?v=20260625f"></script>
+  <script src="shared/song-page-render.js?v=20260625f"></script>
+  <script src="shared/album-page-render.js?v=20260625f"></script>
+  <script src="scripts.js?v=20260625f"></script>
+</body>
+</html>

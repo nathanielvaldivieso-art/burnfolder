@@ -3,11 +3,13 @@
 
   const STACK_KEY = 'burnfolderStreamStack';
   const STACK_META_KEY = 'burnfolderStreamStackMeta';
+  const GROUPS_KEY = 'burnfolderStreamGroups';
   const PENDING_STACK_KEY = 'burnfolderPendingStack';
   const LAST_DRAFT_KEY = 'burnfolderStudioLastDraftId';
   const MUX_MIME = 'application/x-burnfolder-mux-playback';
   const CLOUD_STACK_KEY = 'stack';
   const CLOUD_STACK_META_KEY = 'stackMeta';
+  const CLOUD_GROUPS_KEY = 'groups';
 
   function muxLib() {
     return window.BurnfolderStudioMux;
@@ -27,33 +29,191 @@
     const cs = window.BurnfolderCloudState;
     if (!cs || !cs.get) return Promise.resolve();
     return Promise.all([
+      cs.get(CLOUD_GROUPS_KEY).catch(function () { return undefined; }),
       cs.get(CLOUD_STACK_KEY).catch(function () { return undefined; }),
       cs.get(CLOUD_STACK_META_KEY).catch(function () { return undefined; })
     ]).then(function (results) {
-      const stack = results[0];
-      const meta = results[1];
-      let stackChanged = false;
-      let metaChanged = false;
+      const cloudGroups = results[0];
+      const stack = results[1];
+      const meta = results[2];
+      let groupsChanged = false;
 
-      if (Array.isArray(stack)) {
-        window.localStorage.setItem(STACK_KEY, JSON.stringify(stack));
-        stackChanged = true;
+      if (Array.isArray(cloudGroups) && cloudGroups.length) {
+        window.localStorage.setItem(GROUPS_KEY, JSON.stringify(cloudGroups));
+        syncLegacyFromGroups(cloudGroups);
+        groupsChanged = true;
+      } else if (cloudGroups === null) {
+        const localGroups = loadGroups();
+        if (localGroups.length) cloudPut(CLOUD_GROUPS_KEY, localGroups);
+      } else if (Array.isArray(stack) && stack.length) {
+        const migrated = [{
+          id: genGroupId(),
+          tracks: stack,
+          meta: meta && typeof meta === 'object' ? normalizeMeta(meta) : emptyMeta()
+        }];
+        window.localStorage.setItem(GROUPS_KEY, JSON.stringify(migrated));
+        syncLegacyFromGroups(migrated);
+        cloudPut(CLOUD_GROUPS_KEY, migrated);
+        groupsChanged = true;
       } else if (stack === null) {
-        const localStack = loadStack();
-        if (localStack.length) cloudPut(CLOUD_STACK_KEY, localStack);
+        const localGroups = loadGroups();
+        if (localGroups.length) cloudPut(CLOUD_GROUPS_KEY, localGroups);
       }
 
-      if (meta && typeof meta === 'object') {
-        window.localStorage.setItem(STACK_META_KEY, JSON.stringify(meta));
-        metaChanged = true;
-      } else if (meta === null) {
-        const localMeta = loadStackMeta();
-        if (localMeta.title || localMeta.coverArt) cloudPut(CLOUD_STACK_META_KEY, localMeta);
+      if (groupsChanged) {
+        window.dispatchEvent(new CustomEvent('burnfolder-stack-changed'));
+        window.dispatchEvent(new CustomEvent('burnfolder-stack-meta-changed'));
       }
-
-      if (stackChanged) window.dispatchEvent(new CustomEvent('burnfolder-stack-changed'));
-      if (metaChanged) window.dispatchEvent(new CustomEvent('burnfolder-stack-meta-changed'));
     });
+  }
+
+  function emptyMeta() {
+    return { title: '', coverArt: '', coverAlt: '', coverAssetId: '' };
+  }
+
+  function normalizeMeta(parsed) {
+    return {
+      title: parsed && typeof parsed.title === 'string' ? parsed.title : '',
+      coverArt: parsed && typeof parsed.coverArt === 'string' ? parsed.coverArt : '',
+      coverAlt: parsed && typeof parsed.coverAlt === 'string' ? parsed.coverAlt : '',
+      coverAssetId: parsed && typeof parsed.coverAssetId === 'string' ? parsed.coverAssetId : ''
+    };
+  }
+
+  function genGroupId() {
+    return (
+      'g_' +
+      Date.now().toString(36) +
+      '_' +
+      Math.random().toString(36).slice(2, 8)
+    );
+  }
+
+  function normalizeGroup(group) {
+    if (!group || typeof group !== 'object') return null;
+    const tracks = Array.isArray(group.tracks) ? group.tracks : [];
+    return {
+      id: typeof group.id === 'string' && group.id ? group.id : genGroupId(),
+      tracks: tracks,
+      meta: normalizeMeta(group.meta)
+    };
+  }
+
+  function readLegacyStack() {
+    try {
+      const raw = window.localStorage.getItem(STACK_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function readLegacyStackMeta() {
+    try {
+      const raw = window.localStorage.getItem(STACK_META_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return normalizeMeta(parsed);
+    } catch (e) {
+      return emptyMeta();
+    }
+  }
+
+  function syncLegacyFromGroups(groups) {
+    const first = groups && groups[0];
+    if (first) {
+      window.localStorage.setItem(STACK_KEY, JSON.stringify(first.tracks || []));
+      window.localStorage.setItem(STACK_META_KEY, JSON.stringify(first.meta || emptyMeta()));
+      cloudPut(CLOUD_STACK_KEY, first.tracks || []);
+      cloudPut(CLOUD_STACK_META_KEY, first.meta || emptyMeta());
+    } else {
+      window.localStorage.setItem(STACK_KEY, '[]');
+      window.localStorage.setItem(STACK_META_KEY, JSON.stringify(emptyMeta()));
+      cloudPut(CLOUD_STACK_KEY, []);
+      cloudPut(CLOUD_STACK_META_KEY, emptyMeta());
+    }
+  }
+
+  function loadGroups() {
+    try {
+      const raw = window.localStorage.getItem(GROUPS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          if (!parsed.length) return [];
+          const groups = parsed.map(normalizeGroup).filter(Boolean);
+          if (groups.length) return groups;
+        }
+      }
+    } catch (e) {
+      /* fall through */
+    }
+    const legacy = readLegacyStack();
+    if (!legacy.length) return [];
+    const migrated = [{ id: genGroupId(), tracks: legacy, meta: readLegacyStackMeta() }];
+    saveGroups(migrated, { skipLegacy: true });
+    return migrated;
+  }
+
+  function saveGroups(groups, opts) {
+    const options = opts || {};
+    const safe = (groups || []).map(normalizeGroup).filter(function (g) {
+      return g && g.tracks && g.tracks.length;
+    });
+    window.localStorage.setItem(GROUPS_KEY, JSON.stringify(safe));
+    cloudPut(CLOUD_GROUPS_KEY, safe);
+    if (!options.skipLegacy) syncLegacyFromGroups(safe);
+    window.dispatchEvent(new CustomEvent('burnfolder-stack-changed'));
+  }
+
+  function findGroupById(groupId) {
+    if (!groupId) return null;
+    return loadGroups().find(function (g) {
+      return g.id === groupId;
+    }) || null;
+  }
+
+  function findGroupForTrack(playbackId) {
+    if (!playbackId) return null;
+    return loadGroups().find(function (g) {
+      return g.tracks.some(function (t) {
+        return t.playbackId === playbackId;
+      });
+    }) || null;
+  }
+
+  function removeTrackFromAllGroups(playbackId, groups) {
+    return (groups || loadGroups())
+      .map(function (g) {
+        return {
+          id: g.id,
+          meta: g.meta,
+          tracks: g.tracks.filter(function (t) {
+            return t.playbackId !== playbackId;
+          })
+        };
+      })
+      .filter(function (g) {
+        return g.tracks.length > 0;
+      });
+  }
+
+  function isInAnyGroup(playbackId) {
+    return !!findGroupForTrack(playbackId);
+  }
+
+  function allGroupedPlaybackIds() {
+    const ids = new Set();
+    loadGroups().forEach(function (g) {
+      g.tracks.forEach(function (t) {
+        if (t.playbackId) ids.add(t.playbackId);
+      });
+    });
+    return ids;
+  }
+
+  function groupedPlaybackIds() {
+    return allGroupedPlaybackIds();
   }
 
   const VIDEO_NAME_RE = /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?.*)?$/i;
@@ -192,8 +352,12 @@
     if (!canPlayAsVideo(item)) return null;
 
     const options = opts || {};
-    stopStreamAudio();
-    setHiddenAudioPlayer(false);
+    if (options.autoplay) {
+      stopStreamAudio();
+      setHiddenAudioPlayer(false);
+    } else {
+      setHiddenAudioPlayer(true);
+    }
 
     if (streamVideoEl && streamVideoPlaybackId === item.playbackId) {
       if (!streamVideoEl.parentNode) mountEl.appendChild(streamVideoEl);
@@ -212,49 +376,38 @@
   }
 
   function loadStack() {
-    try {
-      const raw = window.localStorage.getItem(STACK_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      return [];
-    }
+    const first = loadGroups()[0];
+    return first ? first.tracks.slice() : [];
   }
 
   function saveStack(tracks) {
-    window.localStorage.setItem(STACK_KEY, JSON.stringify(tracks));
-    cloudPut(CLOUD_STACK_KEY, tracks);
-    window.dispatchEvent(new CustomEvent('burnfolder-stack-changed'));
-  }
-
-  /** Album-style metadata for the current stack: project name + cover art. */
-  function loadStackMeta() {
-    try {
-      const raw = window.localStorage.getItem(STACK_META_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      if (parsed && typeof parsed === 'object') {
-        return {
-          title: typeof parsed.title === 'string' ? parsed.title : '',
-          coverArt: typeof parsed.coverArt === 'string' ? parsed.coverArt : '',
-          coverAlt: typeof parsed.coverAlt === 'string' ? parsed.coverAlt : ''
-        };
+    const groups = loadGroups();
+    if (!groups.length) {
+      if (!tracks || !tracks.length) {
+        saveGroups([]);
+        return;
       }
-    } catch (e) {
-      /* fall through */
+      saveGroups([{ id: genGroupId(), tracks: tracks, meta: emptyMeta() }]);
+      return;
     }
-    return { title: '', coverArt: '', coverAlt: '' };
+    groups[0].tracks = Array.isArray(tracks) ? tracks : [];
+    saveGroups(groups);
   }
 
-  function saveStackMeta(meta) {
-    const safe = {
-      title: meta && typeof meta.title === 'string' ? meta.title : '',
-      coverArt: meta && typeof meta.coverArt === 'string' ? meta.coverArt : '',
-      coverAlt: meta && typeof meta.coverAlt === 'string' ? meta.coverAlt : ''
-    };
-    window.localStorage.setItem(STACK_META_KEY, JSON.stringify(safe));
-    cloudPut(CLOUD_STACK_META_KEY, safe);
+  /** Album-style metadata for a group (defaults to first group). */
+  function loadStackMeta(groupId) {
+    const group = groupId ? findGroupById(groupId) : loadGroups()[0];
+    return group ? normalizeMeta(group.meta) : emptyMeta();
+  }
+
+  function saveStackMeta(meta, groupId) {
+    const groups = loadGroups();
+    const group = groupId ? groups.find(function (g) { return g.id === groupId; }) : groups[0];
+    if (!group) return emptyMeta();
+    group.meta = normalizeMeta(meta);
+    saveGroups(groups);
     window.dispatchEvent(new CustomEvent('burnfolder-stack-meta-changed'));
-    return safe;
+    return group.meta;
   }
 
   function muxFileLabel(item) {
@@ -272,86 +425,109 @@
     };
   }
 
-  function addToStack(item, tracks) {
-    const list = tracks || loadStack();
-    if (!item || !item.playbackId) return { tracks: list, message: '' };
-    if (isVideoItem(item)) {
-      return { tracks: list, ok: false };
+  function addToGroup(item, groupId) {
+    if (!item || !item.playbackId || isVideoItem(item)) {
+      return { ok: false };
     }
-    if (list.some(function (t) {
-      return t.playbackId === item.playbackId;
-    })) {
-      return { tracks: list, ok: false };
+    let groups = loadGroups();
+    const track = stackItemFromLibrary(item);
+    groups = removeTrackFromAllGroups(track.playbackId, groups);
+
+    let group = groupId ? groups.find(function (g) { return g.id === groupId; }) : null;
+    if (!group) {
+      group = { id: genGroupId(), tracks: [], meta: emptyMeta() };
+      groups.push(group);
     }
-    const next = list.concat([stackItemFromLibrary(item)]);
-    saveStack(next);
-    return { tracks: next, ok: true };
+    if (group.tracks.some(function (t) { return t.playbackId === track.playbackId; })) {
+      return { ok: false };
+    }
+    group.tracks.push(track);
+    saveGroups(groups);
+    return { ok: true, groupId: group.id };
   }
 
-  /** Drag a song onto another: start or extend the stack playlist. */
-  function dropOntoSong(draggedItem, targetItem, tracks) {
-    const list = (tracks || loadStack()).slice();
+  function addToStack(item) {
+    return addToGroup(item);
+  }
+
+  /** Drag a song onto another: create or extend a group. */
+  function dropOntoSong(draggedItem, targetItem) {
     if (!draggedItem || !targetItem || !draggedItem.playbackId || !targetItem.playbackId) {
-      return { tracks: list, ok: false };
+      return { ok: false };
     }
     if (draggedItem.playbackId === targetItem.playbackId) {
-      return { tracks: list, ok: false };
+      return { ok: false };
     }
     if (isVideoItem(draggedItem) || isVideoItem(targetItem)) {
-      return { tracks: list, ok: false };
+      return { ok: false };
     }
 
     const dragged = stackItemFromLibrary(draggedItem);
     const target = stackItemFromLibrary(targetItem);
-    let next = list.filter(function (t) {
-      return t.playbackId !== dragged.playbackId;
-    });
-    const targetIdx = next.findIndex(function (t) {
-      return t.playbackId === target.playbackId;
+    let groups = removeTrackFromAllGroups(dragged.playbackId, loadGroups());
+    const targetGroup = groups.find(function (g) {
+      return g.tracks.some(function (t) {
+        return t.playbackId === target.playbackId;
+      });
     });
 
-    if (!next.length) {
-      next = [target, dragged];
-    } else if (targetIdx >= 0) {
-      next.splice(targetIdx + 1, 0, dragged);
+    if (targetGroup) {
+      const targetIdx = targetGroup.tracks.findIndex(function (t) {
+        return t.playbackId === target.playbackId;
+      });
+      if (targetIdx >= 0) {
+        targetGroup.tracks.splice(targetIdx + 1, 0, dragged);
+      } else {
+        targetGroup.tracks.push(dragged);
+      }
     } else {
-      next.push(target);
-      next.push(dragged);
+      groups = removeTrackFromAllGroups(target.playbackId, groups);
+      groups.push({
+        id: genGroupId(),
+        tracks: [target, dragged],
+        meta: emptyMeta()
+      });
     }
 
-    saveStack(next);
-    return { tracks: next, ok: true };
+    saveGroups(groups);
+    return { ok: true, groups: groups };
   }
 
-  function removeFromStack(playbackId, tracks) {
-    const list = (tracks || loadStack()).filter(function (t) {
-      return t.playbackId !== playbackId;
-    });
-    saveStack(list);
-    return list;
+  function removeFromStack(playbackId) {
+    const groups = removeTrackFromAllGroups(playbackId, loadGroups());
+    saveGroups(groups);
+    return groups;
   }
 
-  /** Move a stack track to a new index (for arranging project order). */
-  function reorderStack(fromPlaybackId, toIndex, tracks) {
-    const list = (tracks || loadStack()).slice();
+  /** Move a track within its group (for arranging order). */
+  function reorderStack(fromPlaybackId, toIndex, groupId) {
+    const groups = loadGroups();
+    const group = groupId
+      ? groups.find(function (g) { return g.id === groupId; })
+      : findGroupForTrack(fromPlaybackId);
+    if (!group) return groups;
+
+    const list = group.tracks.slice();
     const fromIndex = list.findIndex(function (t) {
       return t.playbackId === fromPlaybackId;
     });
-    if (fromIndex < 0) return list;
+    if (fromIndex < 0) return groups;
+
     const moved = list.splice(fromIndex, 1)[0];
     let insertAt = toIndex;
     if (insertAt < 0) insertAt = 0;
     if (insertAt > list.length) insertAt = list.length;
     if (fromIndex < insertAt) insertAt -= 1;
     list.splice(insertAt, 0, moved);
-    saveStack(list);
-    return list;
+    group.tracks = list;
+    saveGroups(groups);
+    return groups;
   }
 
   function clearStack() {
-    saveStack([]);
+    saveGroups([]);
     window.localStorage.removeItem(STACK_META_KEY);
-    cloudPut(CLOUD_STACK_META_KEY, { title: '', coverArt: '', coverAlt: '' });
+    cloudPut(CLOUD_STACK_META_KEY, emptyMeta());
     return [];
   }
 
@@ -372,6 +548,12 @@
     const id = item.playbackId || item.muxAssetId;
     if (!id) return 'stream-song.html';
     return 'stream-song.html?p=' + encodeURIComponent(id);
+  }
+
+  function albumPageUrl(albumId) {
+    const id = String(albumId || '').trim();
+    if (!id) return 'stream-album.html';
+    return 'stream-album.html?album=' + encodeURIComponent(id);
   }
 
   function buildStreamSongCatalog(libraryCache) {
@@ -457,8 +639,16 @@
     clearStreamVideo: clearStreamVideo,
     loadStack: loadStack,
     saveStack: saveStack,
+    loadGroups: loadGroups,
+    saveGroups: saveGroups,
+    findGroupById: findGroupById,
+    findGroupForTrack: findGroupForTrack,
+    isInAnyGroup: isInAnyGroup,
+    allGroupedPlaybackIds: allGroupedPlaybackIds,
+    groupedPlaybackIds: groupedPlaybackIds,
     loadStackMeta: loadStackMeta,
     saveStackMeta: saveStackMeta,
+    addToGroup: addToGroup,
     addToStack: addToStack,
     dropOntoSong: dropOntoSong,
     removeFromStack: removeFromStack,
@@ -466,6 +656,7 @@
     clearStack: clearStack,
     thumbnailUrl: thumbnailUrl,
     songPageUrl: songPageUrl,
+    albumPageUrl: albumPageUrl,
     buildStreamSongCatalog: buildStreamSongCatalog,
     entryPageHref: entryPageHref,
     stackPageUrl: stackPageUrl,

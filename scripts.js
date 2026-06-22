@@ -352,7 +352,7 @@ function resolveSongFromCatalog(playbackId, title) {
 }
 
 /** Music page album slots: newest catalog version per song name; entry pages keep frozen album data. */
-function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate) {
+function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate, albumCoverArt) {
   if (!track || !track.playbackId) return null;
 
   const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
@@ -364,7 +364,12 @@ function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate) {
   if (!candidates.length) {
     const fallback = resolveSongFromCatalog(track.playbackId, track.title);
     if (!fallback) return null;
-    return { ...fallback, page: entryDate, album: albumTitle || undefined };
+    return {
+      ...fallback,
+      page: entryDate,
+      album: albumTitle || undefined,
+      coverArt: fallback.coverArt || albumCoverArt || ''
+    };
   }
 
   const newest = [...candidates].sort((a, b) => compareSongsBySortMode(a, b, 'newest'))[0];
@@ -372,6 +377,7 @@ function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate) {
     ...newest,
     page: newest.page || entryDate,
     album: albumTitle || undefined,
+    coverArt: newest.coverArt || albumCoverArt || ''
   };
 }
 
@@ -437,7 +443,11 @@ function buildMusicAlbums(sortMode) {
         coverArt: block.coverArt || '',
         coverAlt: block.coverAlt || block.title || 'Album cover',
         entryDate: dateKey,
-        tracks,
+        tracks: tracks.map(function (track) {
+          return Object.assign({}, track, {
+            coverArt: track.coverArt || block.coverArt || ''
+          });
+        }),
         sortDate: parseTrackDateValue({ page: dateKey, title: dateKey }),
       });
     });
@@ -499,7 +509,7 @@ function getFeaturedMusicRelease() {
       const tracks = (block.tracks || [])
         .map((track) => {
           if (useLatestVersions) {
-            return resolveNewestVersionForAlbumSlot(track, block.title || '', dateKey);
+            return resolveNewestVersionForAlbumSlot(track, block.title || '', dateKey, block.coverArt || '');
           }
           const song = resolveSongFromCatalog(track.playbackId, track.title);
           if (!song) return null;
@@ -512,7 +522,11 @@ function getFeaturedMusicRelease() {
         coverArt: block.coverArt || '',
         coverAlt: block.coverAlt || block.title || 'Album cover',
         entryDate: dateKey,
-        tracks,
+        tracks: tracks.map(function (track) {
+          return Object.assign({}, track, {
+            coverArt: track.coverArt || block.coverArt || ''
+          });
+        }),
       };
     }
   }
@@ -694,19 +708,68 @@ function syncTracklistPlayback() {
   });
 
   const playBtn = document.getElementById('musicPortfolioPlay');
-  if (!playBtn || !activeSong) return;
+  if (playBtn && activeSong) {
+    const portfolio = document.getElementById('musicPortfolio');
+    if (portfolio && portfolio.contains(playBtn)) {
+      const onThisRelease = Array.from(portfolio.querySelectorAll('.music-track-row')).some(
+        (row) => row.dataset.playbackId === activeSong.playbackId
+      );
+      if (onThisRelease) {
+        const playing = !activeMuxPlayer.paused;
+        playBtn.classList.toggle('is-playing', playing);
+        playBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
+      }
+    }
+  }
 
-  const portfolio = document.getElementById('musicPortfolio');
-  if (!portfolio || !portfolio.contains(playBtn)) return;
+  syncSongHubPlayButton();
+  syncAlbumHubPlayButton();
+}
 
-  const onThisRelease = Array.from(portfolio.querySelectorAll('.music-track-row')).some(
-    (row) => row.dataset.playbackId === activeSong.playbackId
-  );
-  if (!onThisRelease) return;
+function syncSongHubPlayButton() {
+  const hubPlayBtn = document.getElementById('songHubPlay');
+  if (!hubPlayBtn) return;
 
-  const playing = !activeMuxPlayer.paused;
-  playBtn.classList.toggle('is-playing', playing);
-  playBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
+  const hubRoot = document.getElementById('songHubPage') || document.getElementById('songMain');
+  if (!hubRoot) return;
+
+  const rows = hubRoot.querySelectorAll('.music-track-row');
+  if (!rows.length) {
+    hubPlayBtn.hidden = true;
+    return;
+  }
+
+  hubPlayBtn.hidden = false;
+  const activeSong = getActiveSong();
+  const onThisSong =
+    activeSong &&
+    Array.from(rows).some((row) => row.dataset.playbackId === activeSong.playbackId);
+  const playing = !!(onThisSong && activeMuxPlayer && !activeMuxPlayer.paused);
+  hubPlayBtn.classList.toggle('is-playing', playing);
+  hubPlayBtn.setAttribute('aria-label', playing ? 'Pause song' : 'Play song');
+}
+
+function playSongHubQueue(sorted, song, hubRoot, page, renderApi) {
+  if (!sorted || !sorted.length || !song || !song.playbackId) return;
+
+  const idx = sorted.findIndex((item) => item.playbackId === song.playbackId);
+  const active = getActiveSong();
+  const onHub = active && sorted.some((item) => item.playbackId === active.playbackId);
+
+  if (onHub && active.playbackId === song.playbackId) {
+    if (activeMuxPlayer && !activeMuxPlayer.paused) {
+      togglePlayPause();
+    } else if (activeMuxPlayer) {
+      activeMuxPlayer.play().catch(() => {});
+      updateUI();
+    }
+    return;
+  }
+
+  startPlayback(song, sorted, idx >= 0 ? idx : 0);
+  if (renderApi && page && hubRoot) {
+    renderApi.selectVersion(hubRoot, page, song.playbackId);
+  }
 }
 
 window.syncTracklistPlayback = syncTracklistPlayback;
@@ -1016,10 +1079,8 @@ function renderSongHubPage() {
   const subtitleEl = document.getElementById('songHubSubtitle');
   const versionsEl = document.getElementById('songHubVersions');
   const sortEl = document.getElementById('songHubSort');
-  const lyricsPanel = document.getElementById('songHubLyricsPanel');
-  const lyricsToggle = document.getElementById('songHubLyricsToggle');
 
-  if (!titleEl || !subtitleEl || !versionsEl || !sortEl || !lyricsPanel || !lyricsToggle) return;
+  if (!titleEl || !subtitleEl || !versionsEl || !sortEl) return;
 
   const params = new URLSearchParams(window.location.search);
   const requestedSongKey = (params.get('song') || '').toLowerCase().trim();
@@ -1040,6 +1101,9 @@ function renderSongHubPage() {
     titleEl.textContent = 'Song';
     subtitleEl.textContent = 'No versions found yet.';
     versionsEl.innerHTML = '<p class="song-hub-empty">Versions will appear here as they are added.</p>';
+    if (window.BurnfolderSongPageRender) {
+      window.BurnfolderSongPageRender.apply(hubRoot, { page: null });
+    }
     return;
   }
 
@@ -1047,7 +1111,17 @@ function renderSongHubPage() {
   titleEl.textContent = baseTitle;
   subtitleEl.textContent = `${matchingVersions.length} version${matchingVersions.length === 1 ? '' : 's'}`;
 
-  const renderVersions = () => {
+  const store = window.BurnfolderSongPageStore;
+  const renderApi = window.BurnfolderSongPageRender;
+
+  let page = (window.burnfolderSongPages || {})[targetKey] || null;
+  if (store && store.normalizePage && page) {
+    page = store.normalizePage(targetKey, page);
+  } else if (store && store.getPublishedPage) {
+    page = store.getPublishedPage(targetKey) || page;
+  }
+
+  const renderSongHubContent = () => {
     const sortMode = sortEl.value || 'newest';
     const sorted = sv
       ? sv.sortVersions(matchingVersions, sortMode)
@@ -1058,24 +1132,180 @@ function renderSongHubPage() {
       sorted.map((song) => ({
         song,
         displayTitle: song.title,
-        onPlay: (toPlay) => playTrackBySong(toPlay || song),
+        onPlay: (toPlay) => {
+          const target = toPlay || song;
+          playSongHubQueue(sorted, target, hubRoot, page, renderApi);
+        },
       }))
     );
     syncTracklistPlayback();
+
+    const hubPlayBtn = document.getElementById('songHubPlay');
+    if (hubPlayBtn && !hubPlayBtn.dataset.bound) {
+      hubPlayBtn.dataset.bound = '1';
+      hubPlayBtn.addEventListener('click', () => {
+        const startSong = sorted[0];
+        if (!startSong) return;
+        const active = getActiveSong();
+        const onHub = active && sorted.some((item) => item.playbackId === active.playbackId);
+        if (onHub) {
+          if (activeMuxPlayer && !activeMuxPlayer.paused) {
+            togglePlayPause();
+          } else if (activeMuxPlayer) {
+            activeMuxPlayer.play().catch(() => {});
+            updateUI();
+          }
+          return;
+        }
+        playSongHubQueue(sorted, startSong, hubRoot, page, renderApi);
+      });
+    }
+    syncSongHubPlayButton();
+
+    if (renderApi) {
+      renderApi.apply(hubRoot, {
+        page: page,
+        baseTitle: baseTitle,
+        library: [],
+        shared: window.BurnfolderStreamShared || null,
+        catalogVersions: sorted,
+        onVersionSelect: (playbackId) => {
+          const active = getActiveSong();
+          if (active && active.playbackId === playbackId) return;
+          const target = sorted.find((item) => item.playbackId === playbackId);
+          if (target) playSongHubQueue(sorted, target, hubRoot, page, renderApi);
+        },
+      });
+    }
   };
 
-  sortEl.onchange = renderVersions;
-  renderVersions();
-
-  lyricsToggle.onclick = () => {
-    const opening = !lyricsPanel.classList.contains('open');
-    lyricsPanel.classList.toggle('open', opening);
-    lyricsToggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
-    lyricsToggle.textContent = opening ? 'Hide lyrics' : 'Open lyrics';
-  };
+  sortEl.onchange = renderSongHubContent;
+  renderSongHubContent();
 }
 
 window.renderSongHubPage = renderSongHubPage;
+
+function playAlbumHubQueue(sorted, song) {
+  if (!sorted || !sorted.length || !song || !song.playbackId) return;
+
+  const idx = sorted.findIndex((item) => item.playbackId === song.playbackId);
+  const active = getActiveSong();
+  const onAlbum = active && sorted.some((item) => item.playbackId === active.playbackId);
+
+  if (onAlbum && active.playbackId === song.playbackId) {
+    if (activeMuxPlayer && !activeMuxPlayer.paused) {
+      togglePlayPause();
+    } else if (activeMuxPlayer) {
+      activeMuxPlayer.play().catch(() => {});
+      updateUI();
+    }
+    return;
+  }
+
+  startPlayback(song, sorted, idx >= 0 ? idx : 0);
+}
+
+function syncAlbumHubPlayButton() {
+  const hubPlayBtn = document.getElementById('albumHubPlay');
+  if (!hubPlayBtn) return;
+
+  const hubRoot = document.getElementById('albumHubPage');
+  if (!hubRoot) return;
+
+  const rows = hubRoot.querySelectorAll('.music-track-row');
+  if (!rows.length) {
+    hubPlayBtn.hidden = true;
+    return;
+  }
+
+  hubPlayBtn.hidden = false;
+  const activeSong = getActiveSong();
+  const onThisAlbum =
+    activeSong &&
+    Array.from(rows).some((row) => row.dataset.playbackId === activeSong.playbackId);
+  const playing = !!(onThisAlbum && activeMuxPlayer && !activeMuxPlayer.paused);
+  hubPlayBtn.classList.toggle('is-playing', playing);
+  hubPlayBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
+}
+
+function renderAlbumHubPage() {
+  const hubRoot = document.getElementById('albumHubPage');
+  if (!hubRoot) return;
+
+  const renderApi = window.BurnfolderAlbumPageRender;
+  if (!renderApi) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const albumId = (params.get('album') || '').trim();
+  const published = (window.burnfolderAlbumPages || {})[albumId];
+
+  const titleEl = hubRoot.querySelector('[data-album-field="title"]');
+  const subtitleEl = hubRoot.querySelector('[data-album-field="subtitle"]');
+
+  if (!albumId || !published) {
+    if (titleEl) titleEl.textContent = 'Album';
+    if (subtitleEl) subtitleEl.textContent = 'Album not found.';
+    return;
+  }
+
+  const allSongs = Array.isArray(window.allSongs) ? window.allSongs : [];
+  const sv = songVersionsApi();
+  const catalog = sv ? sv.mergeSongCatalog(allSongs, []) : allSongs;
+  const songPages = window.burnfolderSongPages || {};
+
+  const tracks = (published.tracks || [])
+    .map((ref) => {
+      const hit = allSongs.find((song) => song.playbackId === ref.playbackId);
+      if (hit) return hit;
+      return { title: ref.title || 'untitled', playbackId: ref.playbackId };
+    })
+    .filter((track) => track.playbackId);
+
+  renderApi.apply(hubRoot, {
+    albumPage: published,
+    meta: { title: published.title || 'Album', coverArt: published.coverArt || '' },
+    tracks,
+    songPages,
+    songCatalog: catalog,
+    versionsApi: sv,
+    itemLabel: (item) => item.title || 'untitled',
+    showSongLinks: true,
+    songPageUrl: (item) => {
+      if (!sv) return 'song.html';
+      const song = sv.resolvePlaybackInCatalog(catalog, item.playbackId);
+      return song ? sv.getSongHubHref(song, '') : 'song.html';
+    },
+    onTrackSelect: (row) => {
+      const idx = tracks.findIndex((track) => track.playbackId === row.playbackId);
+      playAlbumHubQueue(tracks, tracks[idx >= 0 ? idx : 0]);
+    },
+  });
+
+  const hubPlayBtn = document.getElementById('albumHubPlay');
+  if (hubPlayBtn && !hubPlayBtn.dataset.bound) {
+    hubPlayBtn.dataset.bound = '1';
+    hubPlayBtn.addEventListener('click', () => {
+      const startSong = tracks[0];
+      if (!startSong) return;
+      const active = getActiveSong();
+      const onAlbum = active && tracks.some((item) => item.playbackId === active.playbackId);
+      if (onAlbum) {
+        if (activeMuxPlayer && !activeMuxPlayer.paused) {
+          togglePlayPause();
+        } else if (activeMuxPlayer) {
+          activeMuxPlayer.play().catch(() => {});
+          updateUI();
+        }
+        return;
+      }
+      playAlbumHubQueue(tracks, startSong);
+    });
+  }
+
+  syncAlbumHubPlayButton();
+}
+
+window.renderAlbumHubPage = renderAlbumHubPage;
 
 function createCheckoutPopup() {
   if (document.getElementById('purchaseOverlay')) return;
@@ -1733,23 +1963,90 @@ let activeQueue = [];
 let activeQueueIdx = null;
 
 function getActiveSong() {
-  if (activeIdx === null) return null;
   const currentPlaybackId = activeMuxPlayer ? activeMuxPlayer.getAttribute('playback-id') : '';
-  if (activeSongOverride && (!currentPlaybackId || activeSongOverride.playbackId === currentPlaybackId)) {
+
+  if (
+    activeSongOverride &&
+    (!currentPlaybackId || activeSongOverride.playbackId === currentPlaybackId)
+  ) {
     return activeSongOverride;
   }
-  if (activeIdx >= 0 && window.currentSongs[activeIdx] && window.currentSongs[activeIdx].playbackId === currentPlaybackId) {
-    return window.currentSongs[activeIdx];
+
+  if (activeIdx !== null && activeIdx >= 0 && window.currentSongs[activeIdx]) {
+    const candidate = window.currentSongs[activeIdx];
+    if (!currentPlaybackId || candidate.playbackId === currentPlaybackId) {
+      return candidate;
+    }
   }
+
   if (Array.isArray(window.allSongs) && currentPlaybackId) {
-    return window.allSongs.find(song => song.playbackId === currentPlaybackId) || null;
+    const fromAll = window.allSongs.find((song) => song.playbackId === currentPlaybackId);
+    if (fromAll) return fromAll;
   }
+
   return activeSongOverride;
 }
+
+function persistPlaybackState() {
+  if (!activeMuxPlayer) return;
+  const playbackId = activeMuxPlayer.getAttribute('playback-id');
+  const activeSong = getActiveSong();
+  if (!playbackId || !activeSong || activeSong.playbackId !== playbackId) return;
+  sessionStorage.setItem(
+    'playbackState',
+    JSON.stringify({
+      playbackId: activeSong.playbackId,
+      title: activeSong.title,
+      currentTime: activeMuxPlayer.currentTime || 0,
+      isPlaying: !activeMuxPlayer.paused,
+    })
+  );
+}
+
+function preservePlaybackAcrossNavigation() {
+  if (!activeMuxPlayer) return;
+  const playbackId = activeMuxPlayer.getAttribute('playback-id');
+  if (!playbackId) return;
+
+  let song = getActiveSong();
+  if (!song) {
+    song = Array.isArray(window.allSongs)
+      ? window.allSongs.find((item) => item.playbackId === playbackId)
+      : null;
+    if (song) {
+      activeSongOverride = song;
+      const idx = window.currentSongs.findIndex((item) => item.playbackId === playbackId);
+      activeIdx = idx >= 0 ? idx : null;
+      if (!activeQueue.length || !activeQueue.some((item) => item.playbackId === playbackId)) {
+        activeQueue = [song];
+        activeQueueIdx = 0;
+      }
+    } else if (activeSongOverride && activeSongOverride.playbackId === playbackId) {
+      song = activeSongOverride;
+    } else {
+      song = { playbackId: playbackId, title: activeSongOverride?.title || 'Track' };
+      activeSongOverride = song;
+      activeIdx = null;
+      activeQueue = [song];
+      activeQueueIdx = 0;
+    }
+  }
+
+  if (song && bottomBar) {
+    bottomBar.style.display = 'block';
+    updateUI();
+  } else {
+    syncPlaybackChromeState();
+    syncTracklistPlayback();
+  }
+}
+
+window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 
 createTipUI();
 createVersionPickerUI();
 renderSongHubPage();
+renderAlbumHubPage();
 
 // Store reference to active player globally
 if (!window.globalMuxPlayer) {
@@ -1817,16 +2114,22 @@ if (savedState && audioList) {
         }, { once: true });
       }, 50);
     } else {
-      // If the saved song is not valid for this page, reset player state
-      activeIdx = null;
-      activeSongOverride = null;
-      activeQueue = [];
-      activeQueueIdx = null;
-      if (window.globalMuxPlayer) {
-        window.globalMuxPlayer.pause();
-        window.globalMuxPlayer.removeAttribute('playback-id');
+      const currentPlaybackId = activeMuxPlayer ? activeMuxPlayer.getAttribute('playback-id') : '';
+      if (currentPlaybackId && currentPlaybackId === state.playbackId) {
+        activeSongOverride = fallbackSong || {
+          playbackId: state.playbackId,
+          title: state.title,
+        };
+        activeIdx = fallbackSong
+          ? window.currentSongs.findIndex((item) => item.playbackId === state.playbackId)
+          : null;
+        if (activeIdx === -1) activeIdx = null;
+        activeQueue = activeSongOverride ? [activeSongOverride] : [];
+        activeQueueIdx = 0;
+        bottomBar.style.display = 'block';
+        updateUI();
+        initializeVolumeControl();
       }
-      updateUI();
     }
   } catch (e) {
     console.error('Failed to restore playback state:', e);
@@ -1835,30 +2138,12 @@ if (savedState && audioList) {
 
 // Save playback state before page unload
 window.addEventListener('beforeunload', () => {
-  const activeSong = getActiveSong();
-  if (activeIdx !== null && activeMuxPlayer && activeSong) {
-    const state = {
-      playbackId: activeSong.playbackId,
-      title: activeSong.title,
-      currentTime: activeMuxPlayer.currentTime || 0,
-      isPlaying: !activeMuxPlayer.paused
-    };
-    sessionStorage.setItem('playbackState', JSON.stringify(state));
-  }
+  persistPlaybackState();
 });
 
 // Update playback state periodically
 setInterval(() => {
-  const activeSong = getActiveSong();
-  if (activeIdx !== null && activeMuxPlayer && activeSong) {
-    const state = {
-      playbackId: activeSong.playbackId,
-      title: activeSong.title,
-      currentTime: activeMuxPlayer.currentTime || 0,
-      isPlaying: !activeMuxPlayer.paused
-    };
-    sessionStorage.setItem('playbackState', JSON.stringify(state));
-  }
+  persistPlaybackState();
 }, 1000);
 
 // Render song list — only when spa-router hasn't already populated it
@@ -1946,12 +2231,6 @@ function getSiteMuxPlayback() {
       restoreRecall: true,
       artist: 'burnfolder',
       album: 'burnfolder.com',
-      artworkForSong: function (song) {
-        if (window.BurnfolderMediaSession && window.BurnfolderMediaSession.defaultArtworkForPlaybackId) {
-          return window.BurnfolderMediaSession.defaultArtworkForPlaybackId(song && song.playbackId);
-        }
-        return [];
-      },
       onPlayBlocked: (player) => {
         if (player) player.play().catch(() => {});
       },

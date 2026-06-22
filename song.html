@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>song — burnfolder.com</title>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260624e">
 </head>
 <body>
   <header class="site-header">
@@ -21,8 +21,20 @@
   <div class="page-wrap" id="songHubPage">
     <p class="page-id">song hub</p>
 
-    <h2 class="song-hub-title" id="songHubTitle">Song</h2>
-    <p class="song-hub-subtitle" id="songHubSubtitle">Collecting versions...</p>
+    <div class="song-hub-header">
+      <div class="song-hub-header-text">
+        <h2 class="song-hub-title" id="songHubTitle">Song</h2>
+        <p class="song-hub-subtitle" id="songHubSubtitle">Collecting versions...</p>
+      </div>
+    </div>
+
+    <div data-song-panel="cover" class="song-hub-cover-wrap" hidden>
+      <img data-song-field="cover" class="song-hub-cover-image" alt="">
+    </div>
+
+    <div data-song-panel="video" class="song-hub-panel" hidden>
+      <div data-song-field="video-hero" class="song-hub-video-hero"></div>
+    </div>
 
     <div class="song-hub-panel">
       <div class="song-hub-panel-top">
@@ -36,35 +48,26 @@
       <div class="song-hub-versions" id="songHubVersions"></div>
     </div>
 
-    <div class="song-hub-panel">
+    <div data-song-panel="lyrics" class="song-hub-panel" hidden>
       <div class="song-hub-panel-top">
         <p class="song-hub-label">Lyrics</p>
-        <button type="button" class="icon-btn" id="songHubLyricsToggle" aria-expanded="false">Open lyrics</button>
       </div>
-      <div class="song-hub-lyrics" id="songHubLyricsPanel">
-        <p>Lyrics for this song can live here. Add full text, drafts, or alternate lines over time.</p>
-        <p class="song-hub-placeholder">Placeholder: future lyrical content.</p>
-      </div>
+      <div class="song-hub-version-picker" data-song-field="version-picker" role="tablist" aria-label="Versions"></div>
+      <div class="song-hub-lyrics song-hub-lyrics--open" data-song-field="version-lyrics"></div>
     </div>
 
-    <div class="song-hub-panel">
+    <div data-song-panel="clips" class="song-hub-panel" hidden>
       <div class="song-hub-panel-top">
-        <p class="song-hub-label">Related content</p>
+        <p class="song-hub-label">Clips</p>
       </div>
-      <div class="song-hub-content-grid">
-        <article class="song-hub-content-card">
-          <h3>Notebook</h3>
-          <p>Production notes, date context, and experiments tied to this song.</p>
-        </article>
-        <article class="song-hub-content-card">
-          <h3>Visuals</h3>
-          <p>Image references, cover drafts, and visual companions can be attached here.</p>
-        </article>
-        <article class="song-hub-content-card">
-          <h3>Session clips</h3>
-          <p>Outtakes, stems, and side recordings can be listed as they are uploaded.</p>
-        </article>
+      <div class="song-hub-content-grid" data-song-field="clips-grid"></div>
+    </div>
+
+    <div data-song-panel="notes" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Notes</p>
       </div>
+      <div class="song-hub-notes" data-song-field="notes"></div>
     </div>
   </div>
 
@@ -88,11 +91,13 @@
   </div>
 
   <script src="entries.js"></script>
-<script src="entry-renderer.js"></script>
-<script src="songs.js"></script>
+  <script src="entry-renderer.js"></script>
+  <script src="songs.js"></script>
+  <script src="song-pages.js"></script>
   <script src="shared/song-versions.js"></script>
-<script src="stripe-publishable.js"></script>
+  <script src="shared/song-page-render.js?v=20260625b"></script>
+  <script src="stripe-publishable.js"></script>
   <script src="spa-router.js"></script>
-  <script src="scripts.js?v=20260521e"></script>
+  <script src="scripts.js?v=20260624e"></script>
 </body>
 </html>

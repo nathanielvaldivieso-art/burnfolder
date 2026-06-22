@@ -3,32 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>song — stream</title>
+  <title>song — burnfolder studio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+  <link rel="preconnect" href="https://image.mux.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="css/studio.css?v=20260604z14">
+  <link rel="stylesheet" href="css/studio.css?v=20260625c">
 </head>
 <body class="studio-page studio-stream-page studio-song-page">
   <header class="site-header studio-header">
-    <a href="stream.html" class="site-brand">burnfolder studio</a>
+    <a href="/studio/index.html" class="site-brand">burnfolder studio</a>
     <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
-      <a href="index.html" class="studio-main-nav-link page-nav" data-nav="entry">entry</a>
-      <a href="stream.html" class="studio-main-nav-link page-nav" data-nav="stream">music</a>
-      <a href="video.html" class="studio-main-nav-link page-nav" data-nav="video">video</a>
-      <a href="journal.html" class="studio-main-nav-link page-nav" data-nav="journal">journal</a>
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link page-nav" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
     </nav>
   </header>
 
-  <div class="page-wrap studio-song-hub song-hub-page" id="songMain" hidden>
+  <main class="page-wrap studio-song-hub song-hub-page" id="songMain" hidden>
     <p class="page-id">song</p>
 
-    <h2 class="song-hub-title" id="songHubTitle">Song</h2>
-    <p class="song-hub-subtitle" id="songHubSubtitle">—</p>
+    <div class="song-hub-header">
+      <div class="song-hub-header-text">
+        <h2 class="song-hub-title" id="songHubTitle">Song</h2>
+        <p class="song-hub-subtitle" id="songHubSubtitle">—</p>
+      </div>
+    </div>
 
-    <div id="songVideoHero" class="studio-song-video-hero" hidden></div>
+    <div data-song-panel="video" class="song-hub-panel" hidden>
+      <div id="songVideoHero" data-song-field="video-hero" class="studio-song-video-hero" hidden></div>
+    </div>
+
+    <div data-song-panel="cover" class="song-hub-cover-wrap" hidden>
+      <img data-song-field="cover" class="song-hub-cover-image" alt="">
+    </div>
 
     <div class="song-hub-panel">
       <div class="song-hub-panel-top">
@@ -42,58 +58,80 @@
       <div class="song-hub-versions" id="songHubVersions"></div>
     </div>
 
+    <div data-song-panel="lyrics" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Lyrics</p>
+      </div>
+      <div class="song-hub-version-picker" data-song-field="version-picker" role="tablist" aria-label="Versions"></div>
+      <div class="song-hub-lyrics song-hub-lyrics--open" data-song-field="version-lyrics"></div>
+    </div>
+
+    <div data-song-panel="clips" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Clips</p>
+      </div>
+      <div class="song-hub-content-grid" data-song-field="clips-grid"></div>
+    </div>
+
+    <div data-song-panel="notes" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Notes</p>
+      </div>
+      <div class="song-hub-notes" data-song-field="notes"></div>
+    </div>
+
+    <div class="song-hub-panel song-hub-panel--share">
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Share</p>
+      </div>
+      <div id="songShareMount"></div>
+    </div>
+
     <div class="song-hub-panel studio-song-actions-panel">
       <div class="song-hub-panel-top">
         <p class="song-hub-label">Tools</p>
       </div>
       <div class="studio-song-actions">
-        <button type="button" class="icon-btn" id="songStackBtn" disabled>stack</button>
-        <a class="icon-btn" id="songEntryBtn" href="index.html">entry</a>
+        <a class="icon-btn studio-song-design-btn" id="songDesignBtn" href="#">design page</a>
+        <a class="icon-btn" id="songEntryBtn" href="/studio/index.html">entry</a>
         <a class="icon-btn" id="songSiteBtn" href="#" hidden>site</a>
         <button type="button" class="icon-btn" id="songCopyBtn">copy id</button>
         <button type="button" class="icon-btn" id="songDeleteBtn" hidden>delete</button>
       </div>
     </div>
-
-  </div>
+  </main>
 
   <p class="studio-stream-status studio-song-status" id="songStatus" aria-live="polite"></p>
 
-  <div class="bottom-progress-bar" id="bottomBar" style="display: none;" role="region" aria-label="Now playing">
-    <button type="button" class="close-btn" id="streamNowPlayingClose" aria-label="Close Now Playing">✕</button>
-    <div class="bottom-bar-content">
-      <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
-      <div class="song-title-wrap">
-        <span class="song-title" id="streamNowPlayingTitle">—</span>
-      </div>
-      <div class="bottom-bar-controls">
-        <button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>
-        <div class="progress-bar-area" id="progressBarArea">
-          <div class="progress" id="progress"></div>
-          <div class="progress-playhead" id="progressPlayhead"></div>
-        </div>
-      </div>
-      <div class="loading-spinner" id="loadingSpinner"></div>
-    </div>
-  </div>
-
-  <script src="../entries.js?v=20260604t"></script>
-  <script src="../songs.js?v=20260604t"></script>
-  <script src="../shared/song-versions.js?v=20260604y"></script>
-  <script src="js/asset-cloud.js?v=20260604t"></script>
-  <script src="../shared/mux-display-name.js?v=20260604t"></script>
-  <script src="js/mux-naming.js?v=20260604t"></script>
-  <script src="js/studio-auth.js?v=20260604z6"></script>
-  <script src="js/cloud-state.js?v=20260604z7"></script>
-  <script src="js/mux-client.js?v=20260604z6"></script>
-  <script src="js/studio-mux-lib.js?v=20260604t"></script>
-  <script src="../shared/mux-playback.js?v=20260604z8"></script>
-  <script src="../shared/playback-context.js?v=20260604t"></script>
-  <script src="../shared/version-picker.js?v=20260604t"></script>
-  <script src="../shared/now-playing-bar.js?v=20260604t"></script>
-  <script src="js/stream-shared.js?v=20260604z10"></script>
-  <script src="js/stream-player.js?v=20260604z8"></script>
-  <script src="js/stream-now-playing.js?v=20260604t"></script>
-  <script src="js/stream-song-page.js?v=20260604t"></script>
+  <script src="js/studio-version.js?v=20260623a"></script>
+  <script src="js/studio-status.js?v=20260623a"></script>
+  <script src="js/studio-dates.js?v=20260623a"></script>
+  <script src="../shared/media-session.js?v=20260623a"></script>
+  <script src="../shared/playback-recall.js?v=20260623a"></script>
+  <script src="../entries.js?v=20260623a"></script>
+  <script src="../songs.js?v=20260623a"></script>
+  <script src="../shared/song-versions.js?v=20260623a"></script>
+  <script src="js/asset-cloud.js?v=20260623a"></script>
+  <script src="../shared/mux-display-name.js?v=20260623a"></script>
+  <script src="js/mux-naming.js?v=20260623a"></script>
+  <script src="js/studio-auth.js?v=20260623a"></script>
+  <script src="js/cloud-state.js?v=20260623a"></script>
+  <script src="js/mux-client.js?v=20260623a"></script>
+  <script src="js/studio-mux-lib.js?v=20260623a"></script>
+  <script src="../shared/playback-prefetch.js?v=20260623a"></script>
+  <script src="../shared/mux-playback.js?v=20260623a"></script>
+  <script src="js/studio-playback-shell.js?v=20260623a"></script>
+  <script src="../shared/playback-context.js?v=20260623a"></script>
+  <script src="../shared/version-picker.js?v=20260623a"></script>
+  <script src="../shared/now-playing-bar.js?v=20260623a"></script>
+  <script src="../shared/song-page-render.js?v=20260625b"></script>
+  <script src="js/song-page-store.js?v=20260624c"></script>
+  <script src="js/stream-shared.js?v=20260624e"></script>
+  <script src="js/stream-player.js?v=20260623a"></script>
+  <script src="js/stream-now-playing.js?v=20260623a"></script>
+  <script src="js/share-links.js?v=20260625c"></script>
+  <script src="../shared/share-hub-ui.js?v=20260625d"></script>
+  <script src="js/stream-song-page.js?v=20260625c"></script>
+  <script src="../shared/register-sw.js"></script>
 </body>
 </html>

@@ -191,6 +191,8 @@
 
     const el = document.createElement('span');
     el.className = 'studio-sync is-idle';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
     el.innerHTML =
       '<span class="studio-sync-dot" aria-hidden="true"></span>' +
       '<span class="studio-sync-label"></span>';

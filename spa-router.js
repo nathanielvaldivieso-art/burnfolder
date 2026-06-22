@@ -27,8 +27,31 @@
     // Handle browser back/forward
     window.addEventListener('popstate', handlePopState);
 
+    // Warm likely next pages in the background (HTML only — keeps audio SPA snappy)
+    prefetchNavPages();
+
     // Render songs for the initial page load
     updateAudioListForPage();
+  }
+
+  function prefetchNavPages() {
+    const warm = function () {
+      document.querySelectorAll('.site-nav a[href], .page-nav[href]').forEach(function (link) {
+        const href = link.getAttribute('href');
+        if (!href || href.indexOf('.html') === -1) return;
+        if (document.querySelector('link[rel="prefetch"][href="' + href + '"]')) return;
+        const hint = document.createElement('link');
+        hint.rel = 'prefetch';
+        hint.href = href;
+        hint.as = 'document';
+        document.head.appendChild(hint);
+      });
+    };
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(warm, { timeout: 3000 });
+    } else {
+      setTimeout(warm, 1500);
+    }
   }
 
   function handleLinkClick(e) {
@@ -99,7 +122,9 @@
       // Re-initialize any page-specific scripts
       reinitializePageScripts();
 
-      if (typeof window.syncPlaybackChromeState === 'function') {
+      if (typeof window.preservePlaybackAcrossNavigation === 'function') {
+        window.preservePlaybackAcrossNavigation();
+      } else if (typeof window.syncPlaybackChromeState === 'function') {
         window.syncPlaybackChromeState();
       }
 

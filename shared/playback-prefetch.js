@@ -8,6 +8,7 @@
   const POOL_SIZE = 2;
   const DURATION_KEY = 'burnfolderMuxDurations';
   const PRECONNECT_ORIGINS = [
+    'https://cdn.jsdelivr.net',
     'https://stream.mux.com',
     'https://image.mux.com',
     'https://www.mux.com'
@@ -69,7 +70,19 @@
     return m + ':' + (sec < 10 ? '0' : '') + sec;
   }
 
-  function warmArtwork(playbackId) {
+  function warmArtwork(playbackId, coverArt) {
+    if (coverArt) {
+      const url =
+        window.BurnfolderMediaSession && window.BurnfolderMediaSession.resolveArtworkUrl
+          ? window.BurnfolderMediaSession.resolveArtworkUrl(coverArt)
+          : String(coverArt).trim();
+      if (url) {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = url;
+      }
+      return;
+    }
     if (!playbackId || artworkWarmed.has(playbackId)) return;
     artworkWarmed.add(playbackId);
     const img = new Image();
@@ -77,7 +90,7 @@
     img.src =
       'https://image.mux.com/' +
       playbackId +
-      '/thumbnail.webp?time=1&width=512';
+      '/thumbnail.jpg?time=1&width=512';
   }
 
   function ensurePool() {

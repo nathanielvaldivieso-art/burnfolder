@@ -7,15 +7,6 @@
   let barApi = null;
   let engine = null;
 
-  function thumbnailArtwork(playbackId) {
-    if (window.BurnfolderMediaSession && window.BurnfolderMediaSession.defaultArtworkForPlaybackId) {
-      return window.BurnfolderMediaSession.defaultArtworkForPlaybackId(playbackId);
-    }
-    if (!playbackId) return [];
-    const url = 'https://image.mux.com/' + playbackId + '/thumbnail.webp?time=1';
-    return [{ src: url, sizes: '512x512', type: 'image/webp' }];
-  }
-
   function dedupeGlobalPlayer() {
     const players = Array.from(document.querySelectorAll('mux-player#activeMuxPlayer, #activeMuxPlayer'));
     let keeper = document.getElementById('activeMuxPlayer');
@@ -102,9 +93,6 @@
       restoreRecall: true,
       artist: 'burnfolder',
       album: 'stream',
-      artworkForSong: function (song) {
-        return thumbnailArtwork(song && song.playbackId);
-      },
       onPlayBlocked: function (player) {
         if (player) player.play().catch(function () {});
       },

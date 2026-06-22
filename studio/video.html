@@ -10,9 +10,13 @@
   <meta name="apple-mobile-web-app-title" content="video">
   <link rel="manifest" href="manifest.webmanifest">
   <title>video — burnfolder studio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+  <link rel="preconnect" href="https://image.mux.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="css/studio.css?v=20260606b">
+  <link rel="stylesheet" href="css/studio.css?v=20260625e">
 </head>
 <body class="studio-page studio-stream-page studio-stream-page--video" data-stream-mode="video">
   <header class="site-header studio-header">
@@ -32,7 +36,15 @@
       <span id="streamCount" class="studio-stream-count"></span>
     </div>
 
-    <details class="studio-stream-upload-details">
+    <details class="studio-help">
+      <summary>tips</summary>
+      <ul class="studio-help-list">
+        <li>expand <strong>+ add video</strong> to upload</li>
+        <li>tap a card to play inline — the stage scrolls into view automatically</li>
+      </ul>
+    </details>
+
+    <details class="studio-stream-upload-details" id="streamUploadDetails">
       <summary>+ add video</summary>
       <div id="streamUpload" class="studio-stream-upload"></div>
       <div id="editorUploadQueue" class="studio-upload-queue-host"></div>
@@ -43,39 +55,35 @@
     <p class="studio-stream-status" id="streamStatus" aria-live="polite"></p>
   </main>
 
-  <script src="../shared/media-session.js?v=20260604z16"></script>
-  <script src="../shared/playback-recall.js?v=20260604z16"></script>
-  <script src="../entries.js?v=20260604y"></script>
-  <script src="../songs.js?v=20260604y"></script>
-  <script src="../shared/song-versions.js?v=20260604y"></script>
-  <script src="js/asset-cloud.js?v=20260604y"></script>
-  <script src="../shared/mux-display-name.js?v=20260604y"></script>
-  <script src="js/mux-naming.js?v=20260604y"></script>
-  <script src="js/studio-auth.js?v=20260604z24"></script>
-  <script src="js/cloud-state.js?v=20260604z7"></script>
-  <script src="js/mux-client.js?v=20260604z6"></script>
-  <script src="js/studio-mux-lib.js?v=20260604y"></script>
-  <script src="../shared/playback-prefetch.js?v=20260604z18"></script>
-  <script src="../shared/mux-playback.js?v=20260606a"></script>
-  <script src="js/studio-playback-shell.js?v=20260604z16"></script>
-  <script src="js/studio-spa-router.js?v=20260604z26"></script>
-  <script src="../shared/playback-context.js?v=20260604y"></script>
-  <script src="../shared/version-picker.js?v=20260604y"></script>
-  <script src="../shared/now-playing-bar.js?v=20260604y"></script>
-  <script src="js/stream-shared.js?v=20260604z10"></script>
-  <script src="js/upload-queue.js?v=20260604y"></script>
-  <script src="js/cloud-ui.js?v=20260606c"></script>
-  <script src="js/stream-player.js?v=20260606a"></script>
-  <script src="js/stream-now-playing.js?v=20260604y"></script>
-  <script src="js/stream-page.js?v=20260606a"></script>
-  <script>
-    (function () {
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('sw.js').catch(function () {});
-        });
-      }
-    })();
-  </script>
+  <script src="js/studio-version.js?v=20260622f"></script>
+  <script src="js/studio-status.js?v=20260622f"></script>
+  <script src="js/studio-dates.js?v=20260622f"></script>
+  <script src="../shared/media-session.js?v=20260622f"></script>
+  <script src="../shared/playback-recall.js?v=20260622f"></script>
+  <script src="../entries.js?v=20260622f"></script>
+  <script src="../songs.js?v=20260622f"></script>
+  <script src="../shared/song-versions.js?v=20260624b"></script>
+  <script src="../shared/song-clip-naming.js?v=20260624b"></script>
+  <script src="js/asset-cloud.js?v=20260622f"></script>
+  <script src="../shared/mux-display-name.js?v=20260622f"></script>
+  <script src="js/mux-naming.js?v=20260622f"></script>
+  <script src="js/studio-auth.js?v=20260622f"></script>
+  <script src="js/cloud-state.js?v=20260622f"></script>
+  <script src="js/mux-client.js?v=20260622f"></script>
+  <script src="js/studio-mux-lib.js?v=20260624b"></script>
+  <script src="../shared/playback-prefetch.js?v=20260622f"></script>
+  <script src="../shared/mux-playback.js?v=20260622f"></script>
+  <script src="js/studio-playback-shell.js?v=20260622f"></script>
+  <script src="js/studio-spa-router.js?v=20260622f"></script>
+  <script src="../shared/playback-context.js?v=20260622f"></script>
+  <script src="../shared/version-picker.js?v=20260622f"></script>
+  <script src="../shared/now-playing-bar.js?v=20260622f"></script>
+  <script src="js/stream-shared.js?v=20260622f"></script>
+  <script src="js/upload-queue.js?v=20260622f"></script>
+  <script src="js/cloud-ui.js?v=20260622f"></script>
+  <script src="js/stream-player.js?v=20260622f"></script>
+  <script src="js/stream-now-playing.js?v=20260622f"></script>
+  <script src="js/stream-page.js?v=20260625e"></script>
+  <script src="../shared/register-sw.js"></script>
 </body>
 </html>

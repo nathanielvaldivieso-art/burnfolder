@@ -15,6 +15,7 @@
     '../songs.js',
     '../shared/song-versions.js',
     'js/asset-cloud.js',
+    '../shared/cover-art.js',
     '../shared/mux-display-name.js',
     'js/mux-naming.js',
     'js/mux-client.js',
@@ -27,6 +28,9 @@
     'js/cloud-ui.js',
     'js/stream-player.js',
     'js/stream-now-playing.js',
+    'js/studio-dnd.js',
+    'js/share-links.js',
+    '../shared/share-hub-ui.js',
     'js/stream-page.js'
   ];
 
@@ -37,13 +41,20 @@
     entry: [
       'js/drafts.js',
       'js/studio-hub.js',
+      'js/studio-bridge.js',
+      'js/editor-gate.js',
       'js/asset-cloud.js',
+      '../shared/cover-art.js',
       'js/mux-naming.js',
       'js/mux-client.js',
       'js/studio-mux-lib.js',
       'js/stream-shared.js',
       'js/upload-queue.js',
       'js/cloud-ui.js',
+      'js/studio-scripts-bridge.js',
+      '../entry-editor.js',
+      'js/publish-panel.js',
+      'js/editor-post.js',
       'js/editor-library-panel.js',
       'js/editor-workspace.js'
     ]
@@ -94,11 +105,17 @@
     return !!resolveStudioNavigation(href);
   }
 
+  function versionQuery() {
+    const v = window.BurnfolderStudioVersion || '20260621a';
+    return '?v=' + v;
+  }
+
   function markNav(pageKey) {
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
       const nav = link.getAttribute('data-nav');
-      link.classList.toggle('is-active', nav === pageKey);
-      link.classList.toggle('page-nav', nav === pageKey);
+      const active = nav === pageKey;
+      link.classList.toggle('is-active', active);
+      link.classList.toggle('page-nav', active);
     });
   }
 
@@ -116,9 +133,9 @@
     const runtimeClasses = [
       'studio-ready',
       'studio-locked',
+      'studio-booting',
       'stream-playback-active',
-      'studio-has-player',
-      'has-stream-stack'
+      'studio-has-player'
     ];
     const preserved = runtimeClasses.filter(function (cls) {
       return document.body.classList.contains(cls);
@@ -183,7 +200,7 @@
     if (loadedScripts.has(clean)) return Promise.resolve();
     return new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = src.indexOf('?') > -1 ? src : src + '?v=20260604z16';
+      script.src = src.indexOf('?') > -1 ? src : src + versionQuery();
       script.onload = function () {
         loadedScripts.add(clean);
         resolve();
@@ -222,6 +239,12 @@
   async function loadPage(url, push) {
     if (loading) return;
     loading = true;
+    document.body.classList.add('studio-spa-loading');
+    const banner = statusBanner();
+    if (banner) {
+      banner.hidden = false;
+      banner.textContent = 'loading…';
+    }
 
     try {
       const target = resolveStudioNavigation(url);
@@ -263,14 +286,36 @@
       await loadPageScripts(target.pageKey);
       runPageInit(target.pageKey);
       restoreSessionBodyClasses();
+
+      if (target.pageKey === 'entry') {
+        const draftId = new URL(target.href, window.location.href).searchParams.get('id');
+        if (draftId && typeof window.studioEditorOpenDraft === 'function') {
+          window.studioEditorOpenDraft(draftId);
+        } else if (typeof window.studioEditorShowHome === 'function') {
+          window.studioEditorShowHome();
+        }
+      }
+
       window.scrollTo(0, 0);
     } catch (err) {
       console.error('studio spa navigation failed:', err);
       const fallback = resolveStudioNavigation(url);
-      window.location.href = fallback ? fallback.href : url;
+      if (statusBanner()) {
+        statusBanner().textContent = 'could not load page — retrying…';
+      }
+      window.setTimeout(function () {
+        window.location.href = fallback ? fallback.href : url;
+      }, 600);
     } finally {
       loading = false;
+      document.body.classList.remove('studio-spa-loading');
+      const banner = statusBanner();
+      if (banner) banner.hidden = true;
     }
+  }
+
+  function statusBanner() {
+    return document.getElementById('studioSpaStatus');
   }
 
   function onLinkClick(event) {
@@ -281,6 +326,8 @@
     if (!target) return;
 
     if (target.file === 'index.html' && target.href.indexOf('?') > -1) {
+      event.preventDefault();
+      loadPage(target.href);
       return;
     }
 
@@ -289,6 +336,16 @@
   }
 
   function init() {
+    if (!document.getElementById('studioSpaStatus')) {
+      const banner = document.createElement('p');
+      banner.id = 'studioSpaStatus';
+      banner.className = 'studio-spa-status';
+      banner.setAttribute('role', 'status');
+      banner.setAttribute('aria-live', 'polite');
+      banner.hidden = true;
+      document.body.appendChild(banner);
+    }
+
     document.querySelectorAll('script[src]').forEach(function (node) {
       if (node.src) loadedScripts.add(node.src.split('?')[0]);
     });

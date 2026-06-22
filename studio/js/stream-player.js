@@ -26,8 +26,9 @@
     return localPlayback;
   }
 
-  function songFromItem(item) {
+  function songFromItem(item, opts) {
     if (!item || !item.playbackId) return null;
+    const options = opts || {};
     const sv = window.BurnfolderSongVersions;
     const mux = window.BurnfolderStudioMux;
     let label =
@@ -44,21 +45,25 @@
       title: label,
       playbackId: item.playbackId,
       kind: item.kind || 'audio',
-      muxAssetId: item.muxAssetId
+      muxAssetId: item.muxAssetId,
+      coverArt: item.coverArt || options.coverArt || null
     };
   }
 
-  function playItem(item) {
-    const song = songFromItem(item);
+  function playItem(item, opts) {
+    const song = songFromItem(item, opts);
     const playback = engine();
     if (!song || song.kind === 'video' || !playback) return false;
     if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
     return playback.playTrackQueue([song], 0, { immediatePlay: true });
   }
 
-  function playQueue(items, startIdx) {
+  function playQueue(items, startIdx, opts) {
+    const options = opts || {};
     const songs = (items || [])
-      .map(songFromItem)
+      .map(function (item) {
+        return songFromItem(item, options);
+      })
       .filter(function (s) {
         return s && s.playbackId && s.kind !== 'video';
       });

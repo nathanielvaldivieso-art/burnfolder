@@ -191,7 +191,7 @@
 }
 
 .studio-upload-row.is-error .studio-upload-bar-fill {
-  background: #000;
+  background: #c00;
   width: 100% !important;
 }
 
@@ -1402,17 +1402,9 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   padding-bottom: calc(160px + env(safe-area-inset-bottom, 0));
 }
 
-body.has-stream-stack.studio-stream-page .studio-stream-layout {
-  padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
-}
-
 body.stream-playback-active.studio-stream-page .studio-stream-layout,
 body.stream-playback-active.studio-song-page .studio-song-hub {
   padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
-}
-
-body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-layout {
-  padding-bottom: calc(248px + env(safe-area-inset-bottom, 0));
 }
 
 .studio-stream-toolbar--minimal {
@@ -1421,6 +1413,20 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.studio-stream-dnd-hint {
+  display: none;
+  font-size: 0.72em;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+  flex: 1 1 100%;
+}
+
+@media (hover: none) {
+  .studio-stream-dnd-hint {
+    display: block;
+  }
 }
 
 .studio-stream-stack-link {
@@ -1570,12 +1576,13 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 14px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px 14px;
 }
 
 .studio-video-card {
   min-width: 0;
+  position: relative;
 }
 
 .studio-video-card-btn {
@@ -1590,10 +1597,11 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   text-align: left;
   cursor: pointer;
   overflow: hidden;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
 
 .studio-video-card-btn:hover {
-  background: #f8f8f8;
+  background: #fafafa;
 }
 
 .studio-video-card-btn:focus-visible {
@@ -1606,7 +1614,7 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #ececec;
+  background: #e8e8e8;
 }
 
 .studio-video-card-thumb img {
@@ -1626,12 +1634,55 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   line-height: 1.2;
   background: rgba(0, 0, 0, 0.72);
   color: #fff;
+  pointer-events: none;
+}
+
+.studio-video-card-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transform: none;
+  transition: opacity 0.15s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.studio-video-card:hover .studio-video-card-delete,
+.studio-video-card:focus-within .studio-video-card-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.studio-video-card-delete:hover,
+.studio-video-card-delete:focus-visible {
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+}
+
+.studio-video-card-delete.is-drop-target {
+  opacity: 1;
+  pointer-events: auto;
+  background: rgba(180, 0, 0, 0.88);
+  color: #fff;
 }
 
 .studio-video-card-title {
   display: block;
   padding: 8px 8px 10px;
-  font-size: 0.82rem;
+  font-family: monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   line-height: 1.35;
   word-break: break-word;
 }
@@ -1649,15 +1700,23 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
 }
 
 .studio-stream-track-item.is-dragging {
-  opacity: 0.4;
+  opacity: 0.35;
+  transform: scale(0.98);
 }
 
-.studio-stream-track-item.is-in-stack .music-track-title::after {
-  content: ' · stack';
-  opacity: 0.45;
-  font-size: 0.82em;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.studio-dnd-placeholder.studio-stream-track-item {
+  opacity: 1;
+  transform: none;
+  pointer-events: none;
+}
+
+.studio-stream-track-item.is-in-group {
+  border-left: 2px solid #000;
+  padding-left: 2px;
+}
+
+.studio-stream-track-item.is-in-group .music-track-num {
+  opacity: 0.35;
 }
 
 .studio-song-hub {
@@ -2023,15 +2082,18 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   opacity: 1;
 }
 
-/* album group — stacked project shown in the song list like a streaming album */
+/* album group — grouped tracks at top of library */
 .studio-stream-album-group {
   border: 1px solid #000;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  background: #fafafa;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 .studio-stream-album-group.is-drop-target {
-  outline: 2px dashed #000;
-  outline-offset: -2px;
+  box-shadow: 0 0 0 2px #000 inset;
+  transform: scale(1.005);
+  background: #fff;
 }
 
 .studio-stream-album-head {
@@ -2039,6 +2101,37 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
+}
+
+.studio-stream-album-cover-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.studio-stream-album-cover-clear {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid #000;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-stream-album-cover-clear:hover,
+.studio-stream-album-cover-clear:focus-visible {
+  background: #000;
+  color: #fff;
 }
 
 .studio-stream-album-cover {
@@ -2247,43 +2340,147 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   position: relative;
 }
 
-/* Album tracks have 4 grid children (handle · num · row · remove); the base
+/* Album tracks have 4 grid children (handle · num · row); the base
    tracklist grid only declares 2 columns, so widen it or the title collapses. */
 .studio-stream-album-track {
-  grid-template-columns: 18px 24px minmax(0, 1fr) auto;
+  grid-template-columns: 18px 24px minmax(0, 1fr);
+  align-items: center;
 }
 
-/* Flat + video rows: keep delete column width fixed so mobile taps don't
-   reflow the row (iOS treats first tap as :hover/:focus-within). */
+/* Library rows: grip · num · row — trash appears on drag (absolute, right) */
 .studio-stream-track-item:not(.studio-stream-album-track) {
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 18px 24px minmax(0, 1fr);
+  align-items: center;
 }
 
 .studio-stream-page .music-track-row {
-  touch-action: manipulation;
+  touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  padding-right: 36px;
+  transition: background 0.15s ease;
+}
+
+.studio-track-grip,
+.studio-stream-album-track-handle {
+  touch-action: none;
+}
+
+.studio-stream-track-item.studio-dnd-hold-ready,
+.studio-stream-album-track.studio-dnd-hold-ready {
+  background: #ececec;
+  transform: scale(1.01);
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+body.studio-dnd-pending .studio-track-grip,
+body.studio-dnd-pending .studio-stream-album-track-handle {
+  color: #666;
+}
+
+.studio-stream-track-item.studio-dnd-hold-ready .studio-track-grip,
+.studio-stream-album-track.studio-dnd-hold-ready .studio-stream-album-track-handle {
+  color: #000;
+}
+
+.studio-stream-page .studio-stream-track-item.is-dragging .music-track-row,
+body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
+  cursor: grabbing;
 }
 
 .studio-stream-track-delete {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   flex-shrink: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.studio-stream-track-item.is-dragging .studio-stream-track-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.studio-stream-track-delete.is-drop-target {
+  color: #c00;
+  background: rgba(204, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+.studio-stream-track-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.studio-stream-track-stack,
+.studio-track-add-btn {
   border: none;
   background: none;
   font-family: inherit;
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #c00;
   cursor: pointer;
-  padding: 0 4px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
+  padding: 8px 6px;
+  min-height: 44px;
+  min-width: 44px;
+  opacity: 0.55;
 }
 
-.studio-stream-track-item:hover .studio-stream-track-delete,
-.studio-stream-track-item:focus-within .studio-stream-track-delete {
-  opacity: 0.7;
-  pointer-events: auto;
+.studio-track-add-btn {
+  border: 1px solid #000;
+  background: #fff;
+  font-size: 14px;
+  text-transform: none;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+.studio-stream-track-stack:hover,
+.studio-track-add-btn:hover,
+.studio-stream-track-stack:focus-visible,
+.studio-track-add-btn:focus-visible {
+  opacity: 1;
+}
+
+.studio-track-add-btn:hover,
+.studio-track-add-btn:focus-visible {
+  background: #000;
+  color: #fff;
+}
+
+@media (hover: none) {
+  .studio-video-card .studio-video-card-delete {
+    opacity: 0.75;
+    pointer-events: auto;
+  }
+}
+
+@media (hover: hover) {
+  .studio-stream-track-item:not(:hover):not(:focus-within) .studio-track-add-btn {
+    opacity: 0.35;
+  }
 }
 
 @media (hover: none) {
@@ -2292,16 +2489,22 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
     background: transparent;
   }
 
-  /* First tap on iOS was revealing delete/remove and stealing the click. */
-  .studio-stream-track-item:focus-within .studio-stream-track-delete,
-  .studio-stream-album-track:focus-within .studio-stream-album-track-remove {
-    opacity: 0;
+  .studio-stream-track-delete {
     pointer-events: none;
+  }
+
+  .studio-stream-track-item.is-dragging .studio-stream-track-delete {
+    pointer-events: auto;
+  }
+
+  .studio-stream-album-track:focus-within .studio-stream-album-track-remove {
+    opacity: 0.65;
+    pointer-events: auto;
   }
 }
 
 .studio-stream-album-track .music-track-row {
-  touch-action: manipulation;
+  touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -2421,9 +2624,8 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   }
 }
 
-.studio-stream-track-delete:hover {
-  opacity: 1;
-  text-decoration: underline;
+.studio-stream-track-item.is-dragging .studio-stream-track-delete:hover {
+  color: #c00;
 }
 
 .studio-stream-row.is-in-stack .studio-stream-row-link::after {
@@ -2602,8 +2804,9 @@ body.stream-playback-active.has-stream-stack.studio-stream-page .studio-stream-l
   font-weight: bold;
 }
 
-.studio-stream-row.is-stack-drop-target,
-.music-tracklist-item.is-stack-drop-target {
+.studio-stream-row.is-merge-target,
+.music-tracklist-item.is-merge-target,
+.studio-editor-mux-item.is-merge-target {
   background: #eee;
   outline: 2px solid #000;
   outline-offset: -2px;
@@ -3274,8 +3477,28 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
 }
 
 /* studio login gate (production) */
-body.studio-page:not(.studio-ready):not(.studio-locked) {
-  opacity: 0;
+body.studio-page:not(.studio-ready):not(.studio-locked):not(.studio-booting) {
+  visibility: hidden;
+}
+
+body.studio-booting {
+  visibility: visible;
+}
+
+body.studio-booting::before {
+  content: 'unlocking…';
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  font-family: monospace;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  visibility: visible;
 }
 
 body.studio-locked #studio-spa-content,
@@ -3824,4 +4047,970 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   opacity: 1;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* ── Studio UX pass (20260621) ── */
+
+.studio-main-nav-link.is-active,
+.studio-main-nav-link.page-nav.is-active {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+}
+
+body.studio-spa-loading::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #000;
+  z-index: 10002;
+  animation: studio-spa-bar 0.9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes studio-spa-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.studio-spa-status {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10003;
+  margin: 0;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #000;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.studio-status--error,
+.studio-stream-status.studio-status--error,
+.studio-journal-status.studio-status--error,
+.studio-status.studio-status--error,
+.studio-global-status.studio-status--error {
+  opacity: 1;
+  color: #c00;
+}
+
+.studio-status--success,
+.studio-stream-status.studio-status--success,
+.studio-journal-status.studio-status--success,
+.studio-status.studio-status--success,
+.studio-global-status.studio-status--success {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.studio-status--working,
+.studio-stream-status.studio-status--working,
+.studio-journal-status.studio-status--working,
+.studio-status.studio-status--working,
+.studio-global-status.studio-status--working {
+  opacity: 0.75;
+}
+
+.studio-empty-action {
+  font: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.studio-journal-checklist-check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -8px 0;
+}
+
+.studio-journal-shift,
+#journalTodayBtn {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-text-tools .studio-tool-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.studio-upload-row.is-error .studio-upload-bar {
+  border-color: #c00;
+}
+
+.studio-upload-row.is-error .studio-upload-bar-fill {
+  background: #c00;
+  width: 100% !important;
+}
+
+.studio-journal-textarea,
+.studio-journal-checklist-text,
+.entry-editor-output-group textarea,
+.studio-auth-input,
+.studio-new-draft-date,
+.studio-draft-select,
+#entryDate,
+#newDraftDate,
+#journalDateKey {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#studioEditorStatus.studio-global-status {
+  bottom: auto;
+  top: calc(100vh - 120px);
+  left: 60px;
+  z-index: 900;
+}
+
+body.stream-playback-active #studioEditorStatus.studio-global-status,
+body.studio-has-player #studioEditorStatus.studio-global-status {
+  top: auto;
+  bottom: 72px;
+}
+
+@media (max-width: 640px) {
+  .studio-editor-nav {
+    flex-basis: 100%;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #000;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .studio-header-nav.studio-main-nav {
+    row-gap: 4px;
+  }
+}
+
+.studio-redirect-fallback {
+  font-family: monospace;
+  padding: 48px 24px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.studio-redirect-fallback .page-id {
+  margin-bottom: 24px;
+}
+
+/* ── Studio drag & drop (2026) ── */
+
+body.studio-dnd-active {
+  cursor: grabbing;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+body.studio-dnd-pending {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.studio-dnd-active.studio-stream-page,
+body.studio-stream-page.studio-dnd-active {
+  background: #f7f7f7;
+  transition: background 0.2s ease;
+}
+
+body.studio-dnd-active .studio-stream-list,
+body.studio-dnd-active .studio-stream-tracklist {
+  transition: opacity 0.2s ease;
+}
+
+.studio-stream-track-item.is-dragging,
+.studio-stream-album-track.is-dragging {
+  pointer-events: none;
+}
+
+body.studio-dnd-active .studio-stream-track-item:not(.studio-dnd-placeholder):not(.is-merge-target) {
+  opacity: 0.55;
+  transition: opacity 0.2s ease, background 0.15s ease, outline-color 0.15s ease;
+}
+
+body.studio-dnd-active .studio-stream-track-item.is-merge-target,
+body.studio-dnd-active .studio-stream-album-track.is-merge-target {
+  opacity: 1;
+}
+
+body.studio-dnd-active .studio-stream-album-group {
+  opacity: 1;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.studio-dnd-active .studio-stream-album-group.is-drop-target {
+  box-shadow: 0 0 0 2px #000 inset;
+}
+
+body.studio-dnd-active[data-dnd-kind='album'] .studio-stream-album-group .studio-stream-album-tracks {
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+body.studio-dnd-active[data-dnd-kind='album'] .is-eject-target {
+  background: #fafafa;
+  transition: background 0.15s ease, outline-color 0.15s ease;
+}
+
+body.studio-dnd-active[data-dnd-kind='album'] .is-eject-target.is-drop-target {
+  background: #f0f0f0;
+  outline: 2px solid #000;
+  outline-offset: -2px;
+}
+
+.studio-stream-library-shelf {
+  min-height: 72px;
+  border-bottom: 1px solid #ddd;
+}
+
+body.studio-dnd-active[data-dnd-kind='album'] .studio-stream-library-shelf {
+  min-height: 96px;
+  border: 1px dashed #000;
+  margin-top: 8px;
+}
+
+.studio-dnd-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0));
+  transform: translateX(-50%) translateY(8px);
+  z-index: 2147483646;
+  max-width: min(92vw, 420px);
+  padding: 10px 16px;
+  background: #000;
+  color: #fff;
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.studio-dnd-hint.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.studio-dnd-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10005;
+  padding: 6px 10px;
+  background: #000;
+  color: #fff;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.studio-dnd-lift-wrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  transform: scale(1);
+  transform-origin: top left;
+  will-change: transform, left, top;
+}
+
+.studio-dnd-lift-wrap.is-active {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  transform: scale(1.02);
+  border-color: #000;
+}
+
+.studio-dnd-lift-wrap .studio-stream-track-item,
+.studio-dnd-lift-wrap .studio-stream-album-track {
+  opacity: 1 !important;
+  transform: none !important;
+  -webkit-transform: none !important;
+  pointer-events: none;
+  margin: 0;
+  background: #fff;
+}
+
+body.studio-dnd-active .studio-dnd-lift-wrap .studio-stream-track-item,
+body.studio-dnd-active .studio-dnd-lift-wrap .studio-stream-album-track {
+  opacity: 1 !important;
+}
+
+.studio-dnd-lift {
+  list-style: none;
+}
+
+.studio-dnd-lift-wrap .studio-stream-track-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.studio-dnd-lift-wrap .music-track-row {
+  padding-right: 36px;
+}
+
+.studio-dnd-placeholder {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+  background: #f4f4f4;
+  border-bottom: 1px solid #ddd;
+  opacity: 1;
+  transform: none;
+}
+
+.studio-dnd-landing-zone {
+  min-height: 56px;
+  margin-bottom: 0;
+  border: 2px dashed #000;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-dnd-landing-zone--overlay {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(52px + env(safe-area-inset-bottom, 0));
+  z-index: 2147483645;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+}
+
+.studio-dnd-landing-zone--overlay.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.studio-dnd-landing-zone--overlay.is-drop-target {
+  background: #f0f0f0;
+  border-color: #000;
+  border-style: solid;
+}
+
+.studio-dnd-landing-zone.is-drop-target {
+  background-color: #f0f0f0;
+  border-color: #000;
+}
+
+.studio-dnd-eject-zone {
+  min-height: 56px;
+  margin-top: 12px;
+  border: 2px dashed #ccc;
+  background: #fafafa;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.studio-dnd-eject-zone.is-drop-target {
+  border-color: #000;
+  background: #f0f0f0;
+}
+
+@keyframes studio-dnd-landing-pulse {
+  0%, 100% { border-color: #000; background-color: transparent; }
+  50% { border-color: #666; }
+}
+
+.studio-dnd-landing-icon {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.studio-dnd-landing-text {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.studio-track-grip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 36px;
+  min-height: 36px;
+  color: #ccc;
+  font-size: 11px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  align-self: center;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.studio-stream-page .studio-track-grip {
+  opacity: 1;
+  color: #bbb;
+}
+
+.studio-stream-page .studio-stream-track-item:hover .studio-track-grip,
+.studio-stream-page .studio-stream-track-item.is-dragging .studio-track-grip {
+  color: #000;
+}
+
+.studio-track-grip::before {
+  content: '⠿';
+}
+
+.studio-stream-track-item:hover .studio-track-grip,
+body.studio-dnd-active .studio-track-grip {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .studio-track-grip,
+  .studio-stream-album-track-handle {
+    opacity: 1;
+    width: 28px;
+    min-width: 28px;
+    height: 44px;
+    min-height: 44px;
+    font-size: 13px;
+    color: #999;
+  }
+
+  .studio-stream-track-item:not(.studio-stream-album-track),
+  .studio-stream-album-track {
+    grid-template-columns: 28px 24px minmax(0, 1fr);
+  }
+
+  body.studio-dnd-pending .studio-track-grip,
+  body.studio-dnd-pending .studio-stream-album-track-handle {
+    transform: scale(1.08);
+    color: #000;
+  }
+}
+
+.studio-stream-track-item.is-dragging .studio-track-grip {
+  color: #000;
+}
+
+.studio-stream-track-item.is-merge-target {
+  position: relative;
+  background: #f0f0f0;
+  outline: 2px solid #000;
+  outline-offset: -2px;
+}
+
+.studio-stream-track-item.is-merge-target::after {
+  content: '+';
+  position: absolute;
+  right: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  font-weight: 600;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  background: #000;
+  color: #fff;
+  pointer-events: none;
+}
+
+.studio-stream-album-track.is-drop-before::before,
+.studio-stream-album-track.is-drop-after::after {
+  height: 3px;
+  background: #000;
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.studio-stream-album-track.is-dragging {
+  opacity: 0.35;
+  transform: scale(0.99);
+}
+
+.studio-stream-album-track-handle {
+  color: #bbb;
+  opacity: 1;
+}
+
+body.studio-dnd-active .studio-entry-preview,
+body.studio-dnd-active .studio-preview-frame {
+  outline: 2px dashed transparent;
+  transition: outline-color 0.15s ease;
+}
+
+body.studio-dnd-active .studio-entry-preview.is-drop-target,
+body.studio-dnd-active .studio-preview-frame.is-drop-target {
+  outline-color: #000;
+}
+
+/* ── Song page designer ─────────────────────────────────────────────────── */
+
+body.studio-song-designer-page .page-wrap {
+  max-width: 1200px;
+}
+
+.studio-song-designer-layout {
+  max-width: 1200px;
+}
+
+.studio-song-designer-editor,
+.studio-song-designer-preview-wrap {
+  min-width: 0;
+}
+
+.studio-song-designer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.studio-song-designer-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.studio-song-designer-pick {
+  margin-bottom: 18px;
+}
+
+.studio-song-designer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-song-designer-label {
+  font-size: 0.72em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.studio-song-designer-select {
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  font-size: 0.9em;
+  padding: 8px 10px;
+  max-width: 100%;
+}
+
+.studio-song-designer-meta {
+  margin: 8px 0 0 0;
+  font-size: 0.78em;
+  opacity: 0.65;
+  letter-spacing: 0.05em;
+}
+
+.studio-song-designer-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.studio-song-designer-section {
+  border: 1px solid #000;
+  padding: 12px;
+  margin-bottom: 12px;
+  min-width: 0;
+  display: flow-root;
+  box-sizing: border-box;
+}
+
+.studio-song-designer-section-title {
+  margin: 0 0 6px 0;
+  font-size: 0.82em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: normal;
+}
+
+.studio-song-designer-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.studio-song-designer-hint {
+  margin: 0 0 10px 0;
+  font-size: 0.78em;
+  line-height: 1.5;
+  opacity: 0.7;
+}
+
+.studio-song-designer-textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  font-size: 0.88em;
+  line-height: 1.55;
+  padding: 10px;
+  resize: vertical;
+  min-height: 120px;
+  box-sizing: border-box;
+  display: block;
+  vertical-align: top;
+}
+
+.studio-song-designer-textarea--tall {
+  min-height: 220px;
+}
+
+.studio-song-designer-textarea--compact {
+  min-height: 72px;
+}
+
+.studio-song-designer-cover-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.studio-song-designer-cover-preview {
+  display: block;
+  width: min(200px, 100%);
+  border: 1px solid #000;
+}
+
+.studio-song-designer-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.studio-song-designer-media-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.studio-song-designer-media-empty {
+  margin: 0;
+  font-size: 0.8em;
+  opacity: 0.65;
+}
+
+.studio-song-designer-media-item {
+  border: 1px solid #000;
+  padding: 10px;
+}
+
+.studio-song-designer-media-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.studio-song-designer-media-kind {
+  font-size: 0.72em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.studio-song-designer-media-title {
+  width: 100%;
+  border: 1px solid #000;
+  background: #fff;
+  font-family: monospace;
+  font-size: 0.86em;
+  padding: 7px 8px;
+  margin-bottom: 8px;
+}
+
+.studio-song-designer-media-video-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.studio-video-group {
+  margin-bottom: 28px;
+}
+
+.studio-video-group-title {
+  margin: 0 0 10px 0;
+  font-size: 0.82em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: normal;
+  opacity: 0.72;
+}
+
+.studio-song-designer-media-thumb {
+  display: block;
+  width: min(160px, 100%);
+  border: 1px solid #000;
+  margin-bottom: 8px;
+}
+
+.studio-song-designer-preview-wrap {
+  position: sticky;
+  top: 12px;
+}
+
+.studio-song-designer-preview {
+  border: 1px solid #000;
+  padding: 12px;
+  background: #fff;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.studio-song-designer-preview .song-hub-panel {
+  max-width: 100%;
+}
+
+.studio-song-push-btn {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.studio-song-push-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.studio-song-designer-status {
+  margin-top: 12px;
+  font-size: 0.8em;
+  opacity: 0.75;
+}
+
+.studio-song-designer-version-picker {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 0 12px 0;
+  padding-bottom: 2px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.studio-song-designer-version-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.studio-song-designer-version-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  font-size: 0.78em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  cursor: pointer;
+  max-width: min(220px, 72vw);
+  min-width: 0;
+}
+
+.studio-song-designer-version-chip > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.studio-song-designer-version-chip.is-active {
+  background: #000;
+  color: #fff;
+}
+
+.studio-song-designer-version-chip.is-playing:not(.is-active) {
+  box-shadow: inset 0 0 0 2px #000;
+}
+
+.studio-song-designer-version-chip.is-active.is-playing {
+  opacity: 0.88;
+}
+
+.studio-song-designer-version-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.studio-song-designer-version-chip.is-active .studio-song-designer-version-chip-dot {
+  opacity: 0.85;
+}
+
+.studio-song-design-btn {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .studio-song-designer-split {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-song-designer-preview-wrap {
+    position: static;
+  }
+}
+
+.studio-stream-album-share-wrap {
+  padding: 0 12px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.studio-stream-album-share-btn {
+  border: none;
+  background: none;
+  font-family: monospace;
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.studio-stream-album-share-btn:hover,
+.studio-stream-album-share-btn:focus {
+  opacity: 1;
+}
+
+.studio-stream-album-hub-btn {
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.studio-stream-album-hub-btn:hover,
+.studio-stream-album-hub-btn:focus {
+  opacity: 1;
+}
+
+.song-hub-panel-hint {
+  margin: 0;
+  font-size: 0.72em;
+  opacity: 0.55;
+  font-family: monospace;
+}
+
+.album-hub-compiled-block + .album-hub-compiled-block {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.album-hub-compiled-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.album-hub-track-song-link {
+  margin-left: 0.5rem;
+  font-size: 0.7em;
+  opacity: 0.6;
+}
+
+.album-hub-visual-caption {
+  margin: 0 0 0.35rem;
+  font-size: 0.7em;
+  opacity: 0.55;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hub-share-panel--embedded .hub-share-body {
+  padding-top: 0;
+}
+
+.hub-share-panel--embedded .hub-share-toggle {
+  display: none;
+}
+
+.song-hub-panel--share .song-hub-panel-top {
+  margin-bottom: 0;
 }

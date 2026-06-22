@@ -1709,17 +1709,28 @@ ${tracks.join(',\n')}
         return Promise.resolve();
       }
 
-      return window.BurnfolderAssetCloud.registerImageFile(file).then(function (asset) {
-        block.coverAssetId = asset.id;
-        block.coverArt = asset.publicPath || block.coverArt;
+      const coverApi = window.BurnfolderCoverArt;
+      const label = block.title || 'playlist';
+      const register =
+        coverApi && coverApi.registerCoverFromFile
+          ? coverApi.registerCoverFromFile(file, label)
+          : window.BurnfolderAssetCloud.registerImageFile(file, {
+              publicPath: coverApi
+                ? coverApi.suggestCoverPublicPath(label, file)
+                : undefined
+            });
+
+      return register.then(function (asset) {
+        block.coverAssetId = asset.coverAssetId || asset.id;
+        block.coverArt = asset.coverArt || asset.publicPath || block.coverArt;
         if (!String(block.coverAlt || '').trim()) {
-          block.coverAlt = asset.displayTitle || block.coverAlt;
+          block.coverAlt = asset.coverAlt || asset.displayTitle || block.coverAlt;
         }
         syncPlaylistChrome(block);
         saveDraft(gatherEntry());
         setStatus(
           block.coverArt
-            ? 'cover set — include ' + block.coverArt + ' in your site when publishing'
+            ? 'cover → ' + block.coverArt + ' (saved to downloads — move to site IMAGES/)'
             : 'cover updated'
         );
       }).catch(function (err) {

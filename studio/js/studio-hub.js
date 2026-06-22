@@ -8,20 +8,38 @@
   let newBtn = document.getElementById('newDraftBtn');
   let newDate = document.getElementById('newDraftDate');
 
-  function setStatus(msg) {
+  function setStatus(msg, kind) {
+    if (window.BurnfolderStudioStatus) {
+      window.BurnfolderStudioStatus.set(statusEl, msg, kind);
+      return;
+    }
     if (statusEl) statusEl.textContent = msg || '';
   }
 
   function todayKey() {
+    if (window.BurnfolderStudioDates) return window.BurnfolderStudioDates.todayKey();
     const now = new Date();
     return now.getMonth() + 1 + '.' + now.getDate() + '.' + String(now.getFullYear()).slice(-2);
   }
 
+  function validateDraftDate(input) {
+    const dates = window.BurnfolderStudioDates;
+    if (!input || !dates) return true;
+    const value = String(input.value || '').trim();
+    if (!value) return true;
+    if (dates.isValidDateKey(value)) return true;
+    setStatus(dates.formatHint(), 'error');
+    return false;
+  }
+
   function openDraft(id) {
     window.localStorage.setItem(LAST_DRAFT_KEY, id);
-    const url = new URL('index.html', window.location.href);
-    url.searchParams.set('id', id);
-    window.location.href = url.pathname + url.search;
+    const url = '/studio/index.html?id=' + encodeURIComponent(id);
+    if (typeof window.studioSpaNavigate === 'function') {
+      window.studioSpaNavigate(url);
+      return;
+    }
+    window.location.href = url;
   }
 
   function renderDraftList(items) {
@@ -59,6 +77,7 @@
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
       const isEntry = link.getAttribute('data-nav') === 'entry';
       link.classList.toggle('is-active', isEntry);
+      link.classList.toggle('page-nav', isEntry);
     });
   }
 
@@ -71,17 +90,18 @@
       newBtn.dataset.bound = '1';
       newBtn.addEventListener('click', function () {
         const dateKey = String((newDate && newDate.value) || '').trim() || todayKey();
+        if (!validateDraftDate(newDate)) return;
         if (!window.BurnfolderDrafts) {
-          setStatus('drafts unavailable');
+          setStatus('drafts unavailable', 'error');
           return;
         }
-        setStatus('creating…');
+        setStatus('creating…', 'working');
         window.BurnfolderDrafts.createDraft(dateKey)
           .then(function (draft) {
             openDraft(draft.id);
           })
           .catch(function (err) {
-            setStatus(err.message || 'could not create entry');
+            setStatus(err.message || 'could not create entry', 'error');
           });
       });
     }

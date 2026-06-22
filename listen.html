@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>listen — burnfolder</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="style.css?v=20260625a">
+</head>
+<body class="page-listen">
+  <main class="listen-wrap" id="listenMain" hidden>
+    <p class="listen-eyebrow">private link</p>
+    <h1 class="listen-title" id="listenTitle">—</h1>
+    <p class="listen-subtitle" id="listenSubtitle" hidden></p>
+
+    <div class="listen-cover-wrap" id="listenCoverWrap" hidden>
+      <img id="listenCover" class="listen-cover" alt="">
+    </div>
+
+    <button type="button" class="listen-play-btn" id="listenPlayBtn" aria-label="Play">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><polygon points="8,5 20,12 8,19" fill="currentColor"/></svg>
+    </button>
+
+    <div class="listen-tracklist" id="listenTracklist" hidden></div>
+  </main>
+
+  <div class="listen-state" id="listenState">loading…</div>
+
+  <div class="bottom-progress-bar" id="bottomBar">
+    <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
+    <div class="bottom-bar-content">
+      <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+      <span class="song-title" id="songTitle">—</span>
+      <div class="bottom-bar-controls">
+        <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>
+        <div class="progress-bar-area" id="progressBarArea">
+          <div class="progress" id="progress"></div>
+          <div class="progress-playhead" id="progressPlayhead"></div>
+        </div>
+      </div>
+      <div class="loading-spinner" id="loadingSpinner"></div>
+    </div>
+  </div>
+
+  <script src="shared/playback-recall.js"></script>
+  <script src="shared/mux-playback.js"></script>
+  <script src="shared/share-links-public.js?v=20260625a"></script>
+  <script src="listen.js?v=20260625a"></script>
+</body>
+</html>

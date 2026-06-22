@@ -28,15 +28,126 @@
       return { render: function () {} };
     }
 
-    const MUX_MIME = shared.MUX_MIME;
     const versionsApi = root.BurnfolderSongVersions;
 
-    let albumExpanded = true;
-    let albumDragId = null;
-    let dragMuxId = null;
+    let albumExpanded = {};
+
+    function isAlbumExpanded(groupId) {
+      return albumExpanded[groupId] !== false;
+    }
+
+    function setAlbumExpanded(groupId, expanded) {
+      albumExpanded[groupId] = expanded;
+    }
 
     function setStatus(msg) {
       onStatus(msg || '');
+    }
+
+    function stackIndexForId(playbackId, groupId) {
+      const group = groupId
+        ? shared.findGroupById(groupId)
+        : shared.findGroupForTrack(playbackId);
+      if (!group) return -1;
+      return group.tracks.findIndex(function (t) {
+        return t.playbackId === playbackId;
+      });
+    }
+
+    function resolveDraggedItem(playbackId) {
+      return findItem(playbackId) || resolveStackTrack({ playbackId: playbackId });
+    }
+
+    function handleEditorDnDDrop(payload, result) {
+      if (!payload || !result) return;
+
+      if (result.type === 'cancel') {
+        render();
+        return;
+      }
+
+      if (payload.kind === 'library' || payload.kind === 'album') {
+        const dragged = resolveDraggedItem(payload.id);
+        if (!dragged) return;
+
+        if (result.type === 'merge' && result.targetId) {
+          const target =
+            findItem(result.targetId) || resolveStackTrack({ playbackId: result.targetId });
+          if (target) shared.dropOntoSong(dragged, target);
+        } else if (result.type === 'addToGroup') {
+          shared.addToGroup(dragged, result.groupId || '');
+        } else if (result.type === 'landing') {
+          shared.addToGroup(dragged);
+        } else if (result.type === 'reorder' && result.targetId) {
+          let targetIndex = stackIndexForId(result.targetId, payload.groupId);
+          if (targetIndex < 0) return;
+          if (!result.before) targetIndex += 1;
+          shared.reorderStack(payload.id, targetIndex, payload.groupId);
+        } else if (result.type === 'eject') {
+          shared.removeFromStack(payload.id);
+        }
+
+        if (result.groupId) setAlbumExpanded(result.groupId, true);
+        else expandGroupForResult(result, result.targetId);
+        render();
+      }
+    }
+
+    function bindEditorDnD() {
+      const api = root.BurnfolderStudioDnD;
+      if (!api || !gridEl) return;
+
+      if (!gridEl.__studioEditorDnDRegistered) {
+        api.registerDropHandler('editor', handleEditorDnDDrop);
+        gridEl.__studioEditorDnDRegistered = true;
+      }
+
+      const libraryTracklist = gridEl.querySelector(
+        '.studio-editor-mux-tracklist.studio-stream-library-drop'
+      );
+
+      gridEl.querySelectorAll('.studio-editor-mux-item').forEach(function (li) {
+        const row = li.querySelector('.music-track-row');
+        const id = row && row.dataset.playbackId;
+        const titleEl = li.querySelector('.music-track-title');
+        api.attach(li, {
+          kind: 'library',
+          zone: 'editor',
+          handle: '.studio-track-grip',
+          getId: function () {
+            return id || '';
+          },
+          getLabel: function () {
+            return titleEl ? titleEl.textContent : '';
+          },
+          showLanding: !!libraryTracklist,
+          landingHost: gridEl
+        });
+      });
+
+      gridEl.querySelectorAll('.studio-stream-album-track').forEach(function (li) {
+        const groupEl = li.closest('.studio-stream-album-group');
+        const groupId = groupEl ? groupEl.dataset.groupId || '' : '';
+        const id = li.dataset.playbackId;
+        const titleEl = li.querySelector('.music-track-title');
+        api.attach(li, {
+          kind: 'album',
+          zone: 'editor',
+          handle: '.studio-stream-album-track-handle',
+          getId: function () {
+            return id || '';
+          },
+          getLabel: function () {
+            return titleEl ? titleEl.textContent : '';
+          },
+          getIndex: function () {
+            return stackIndexForId(id, groupId);
+          },
+          getGroupId: function () {
+            return groupId;
+          }
+        });
+      });
     }
 
     function libraryCache() {
@@ -58,19 +169,42 @@
       return versionsApi.getTrackGroupKey(labelForItem(item));
     }
 
-    function stackGroupKeys() {
-      const keys = new Set();
-      shared.loadStack().forEach(function (track) {
-        if (versionsApi) keys.add(versionsApi.getTrackGroupKey(track.title || ''));
-        else keys.add(track.playbackId);
-      });
-      return keys;
+    function groupedPlaybackIds() {
+      return shared.allGroupedPlaybackIds ? shared.allGroupedPlaybackIds() : new Set();
+    }
+
+    function expandGroupForResult(result, targetId) {
+      if (result && result.groupId) {
+        setAlbumExpanded(result.groupId, true);
+        return;
+      }
+      if (result && result.type === 'merge' && targetId) {
+        const existing = shared.findGroupForTrack(targetId);
+        if (existing) {
+          setAlbumExpanded(existing.id, true);
+          return;
+        }
+        const groups = shared.loadGroups();
+        const newest = groups[groups.length - 1];
+        if (newest) setAlbumExpanded(newest.id, true);
+        return;
+      }
+      if (result && (result.type === 'landing' || result.type === 'addToGroup')) {
+        const groups = shared.loadGroups();
+        const newest = groups[groups.length - 1];
+        if (newest) setAlbumExpanded(newest.id, true);
+      }
     }
 
     function applyCoverPreview(coverBtn, meta) {
+      const coverArt = window.BurnfolderCoverArt;
+      if (coverArt && coverArt.applyCoverPreview) {
+        coverArt.applyCoverPreview(coverBtn, meta);
+        return;
+      }
       if (!coverBtn) return;
       coverBtn.innerHTML = '';
-      if (meta.coverArt) {
+      if (meta && meta.coverArt) {
         coverBtn.classList.remove('is-empty');
         const img = document.createElement('img');
         img.src = meta.coverArt;
@@ -79,17 +213,35 @@
       } else {
         coverBtn.classList.add('is-empty');
       }
-      coverBtn.setAttribute('aria-label', meta.coverArt ? 'Change cover art' : 'Add cover art');
     }
 
-    function playAlbum(startIndex) {
-      const tracks = shared.loadStack();
+    function setAlbumCoverFromFile(groupId, file, coverBtn, coverWrap, onChanged) {
+      const coverApi = window.BurnfolderCoverArt;
+      if (!file || !coverApi || !coverApi.registerCoverFromFile) return;
+      const m = shared.loadStackMeta(groupId);
+      const label = m.title || file.name || 'album';
+      coverApi
+        .registerCoverFromFile(file, label)
+        .then(function (result) {
+          coverApi.patchFromCoverResult(m, result);
+          shared.saveStackMeta(m, groupId);
+          applyCoverPreview(coverBtn, m);
+          syncAlbumCoverClearBtn(coverWrap, m);
+          if (typeof onChanged === 'function') onChanged();
+        })
+        .catch(function () {});
+    }
+
+    function playAlbum(group, startIndex) {
+      const tracks = group.tracks || [];
       if (!tracks.length) return;
+      const meta = group.meta || {};
       const songs = tracks.map(function (track) {
         const resolved = resolveStackTrack(track);
         return {
           title: labelForItem(resolved) || track.title || 'untitled',
-          playbackId: track.playbackId
+          playbackId: track.playbackId,
+          coverArt: meta.coverArt || ''
         };
       });
       if (typeof root.playTrackQueue === 'function') {
@@ -97,23 +249,11 @@
       }
     }
 
-    function clearAlbumDropMarkers(container) {
-      (container || gridEl).querySelectorAll('.studio-stream-album-track').forEach(function (el) {
-        el.classList.remove('is-drop-before', 'is-drop-after');
-      });
-    }
-
-    function clearRowDropMarkers() {
-      gridEl.querySelectorAll('.studio-editor-mux-item').forEach(function (el) {
-        el.classList.remove('is-stack-drop-target');
-      });
-    }
-
-    function buildAlbumTrackItem(track, index) {
+    function buildAlbumTrackItem(track, index, group) {
       const resolved = resolveStackTrack(track);
       const li = document.createElement('li');
       li.className = 'music-tracklist-item studio-stream-track-item studio-stream-album-track';
-      li.draggable = true;
+      li.dataset.playbackId = track.playbackId || '';
 
       const handle = document.createElement('span');
       handle.className = 'studio-stream-album-track-handle';
@@ -142,82 +282,51 @@
       row.appendChild(name);
       row.appendChild(dur);
       row.addEventListener('click', function () {
-        playAlbum(index);
-      });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'studio-stream-album-track-remove';
-      removeBtn.textContent = '×';
-      removeBtn.setAttribute('aria-label', 'Remove from project');
-      removeBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        shared.removeFromStack(track.playbackId);
-        render();
-      });
-
-      li.addEventListener('dragstart', function (event) {
-        albumDragId = track.playbackId;
-        event.dataTransfer.setData(ALBUM_TRACK_MIME, track.playbackId);
-        event.dataTransfer.setData('text/plain', label);
-        event.dataTransfer.effectAllowed = 'copy';
-        li.classList.add('is-dragging');
-      });
-      li.addEventListener('dragend', function () {
-        albumDragId = null;
-        li.classList.remove('is-dragging');
-        clearAlbumDropMarkers();
-      });
-      li.addEventListener('dragover', function (event) {
-        if (Array.from(event.dataTransfer.types).indexOf(ALBUM_TRACK_MIME) < 0) return;
-        if (albumDragId === track.playbackId) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        clearAlbumDropMarkers();
-        const rect = li.getBoundingClientRect();
-        const before = event.clientY < rect.top + rect.height / 2;
-        li.classList.add(before ? 'is-drop-before' : 'is-drop-after');
-      });
-      li.addEventListener('drop', function (event) {
-        if (Array.from(event.dataTransfer.types).indexOf(ALBUM_TRACK_MIME) < 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        const draggedId = event.dataTransfer.getData(ALBUM_TRACK_MIME) || albumDragId;
-        clearAlbumDropMarkers();
-        if (!draggedId || draggedId === track.playbackId) return;
-        const rect = li.getBoundingClientRect();
-        const before = event.clientY < rect.top + rect.height / 2;
-        let targetIndex = index;
-        if (!before) targetIndex += 1;
-        shared.reorderStack(draggedId, targetIndex);
-        render();
+        playAlbum(group, index);
       });
 
       li.appendChild(handle);
       li.appendChild(num);
       li.appendChild(row);
-      li.appendChild(removeBtn);
       return li;
     }
 
-    function buildAlbumGroup() {
-      const tracks = shared.loadStack();
-      if (!tracks.length) return null;
-      const meta = shared.loadStackMeta();
+    function syncAlbumCoverClearBtn(coverWrap, meta) {
+      if (!coverWrap) return;
+      const clearBtn = coverWrap.querySelector('.studio-stream-album-cover-clear');
+      if (clearBtn) clearBtn.hidden = !(meta && meta.coverArt);
+    }
 
-      const wrap = document.createElement('section');
-      wrap.className = 'studio-stream-album-group';
-      if (albumExpanded) wrap.classList.add('is-expanded');
-
-      const head = document.createElement('div');
-      head.className = 'studio-stream-album-head';
-      head.draggable = true;
-      head.title = 'Drag entire project onto the entry page';
+    function buildAlbumCoverControls(groupId, meta, onChanged) {
+      const coverWrap = document.createElement('div');
+      coverWrap.className = 'studio-stream-album-cover-wrap';
 
       const coverBtn = document.createElement('button');
       coverBtn.type = 'button';
       coverBtn.className = 'studio-stream-album-cover';
       applyCoverPreview(coverBtn, meta);
+
+      const coverClearBtn = document.createElement('button');
+      coverClearBtn.type = 'button';
+      coverClearBtn.className = 'studio-stream-album-cover-clear';
+      coverClearBtn.setAttribute('aria-label', 'Remove cover art');
+      coverClearBtn.textContent = '×';
+      coverClearBtn.hidden = !meta.coverArt;
+      coverClearBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        const m = shared.loadStackMeta(groupId);
+        const coverApi = window.BurnfolderCoverArt;
+        if (coverApi && coverApi.clearCoverMeta) coverApi.clearCoverMeta(m);
+        else {
+          m.coverArt = '';
+          m.coverAssetId = '';
+        }
+        m.coverAlt = m.title || '';
+        shared.saveStackMeta(m, groupId);
+        applyCoverPreview(coverBtn, m);
+        syncAlbumCoverClearBtn(coverWrap, m);
+        if (typeof onChanged === 'function') onChanged();
+      });
 
       const coverInput = document.createElement('input');
       coverInput.type = 'file';
@@ -231,32 +340,47 @@
         const file = coverInput.files && coverInput.files[0];
         coverInput.value = '';
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function () {
-          const m = shared.loadStackMeta();
-          m.coverArt = String(reader.result || '');
-          m.coverAlt = m.title || file.name || 'cover art';
-          shared.saveStackMeta(m);
-          render();
-        };
-        reader.readAsDataURL(file);
+        setAlbumCoverFromFile(groupId, file, coverBtn, coverWrap, onChanged);
       });
+
+      coverWrap.appendChild(coverBtn);
+      coverWrap.appendChild(coverClearBtn);
+      coverWrap.appendChild(coverInput);
+
+      return coverWrap;
+    }
+
+    function buildAlbumGroup(group) {
+      const tracks = group.tracks || [];
+      if (!tracks.length) return null;
+      const meta = group.meta || shared.loadStackMeta(group.id);
+      const groupId = group.id;
+
+      const wrap = document.createElement('section');
+      wrap.className = 'studio-stream-album-group';
+      wrap.dataset.groupId = groupId;
+      if (isAlbumExpanded(groupId)) wrap.classList.add('is-expanded');
+
+      const head = document.createElement('div');
+      head.className = 'studio-stream-album-head';
+
+      const coverWrap = buildAlbumCoverControls(groupId, meta, render);
 
       const info = document.createElement('span');
       info.className = 'studio-stream-album-info';
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.className = 'studio-stream-album-name-input';
-      nameInput.placeholder = 'name this project';
+      nameInput.placeholder = '';
       nameInput.value = meta.title || '';
       nameInput.spellcheck = false;
       nameInput.autocomplete = 'off';
-      nameInput.setAttribute('aria-label', 'Project name');
+      nameInput.setAttribute('aria-label', 'Title');
       nameInput.addEventListener('input', function () {
-        const m = shared.loadStackMeta();
+        const m = shared.loadStackMeta(groupId);
         m.title = nameInput.value;
         if (m.coverArt) m.coverAlt = m.title || m.coverAlt || 'cover art';
-        shared.saveStackMeta(m);
+        shared.saveStackMeta(m, groupId);
       });
       nameInput.addEventListener('mousedown', function (event) {
         event.stopPropagation();
@@ -267,8 +391,7 @@
 
       const metaEl = document.createElement('span');
       metaEl.className = 'studio-stream-album-meta';
-      metaEl.textContent =
-        'project · ' + tracks.length + ' track' + (tracks.length === 1 ? '' : 's');
+      metaEl.textContent = String(tracks.length);
       info.appendChild(nameInput);
       info.appendChild(metaEl);
 
@@ -278,63 +401,40 @@
       const playBtn = document.createElement('button');
       playBtn.type = 'button';
       playBtn.className = 'studio-stream-album-play';
-      playBtn.setAttribute('aria-label', 'Play project');
+      playBtn.setAttribute('aria-label', 'Play');
       playBtn.textContent = '▶';
       playBtn.addEventListener('click', function (event) {
         event.stopPropagation();
-        playAlbum(0);
-      });
-
-      const entryBtn = document.createElement('button');
-      entryBtn.type = 'button';
-      entryBtn.className = 'studio-stream-album-action';
-      entryBtn.textContent = 'entry';
-      entryBtn.setAttribute('aria-label', 'Add project to this entry');
-      entryBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        if (typeof onInsertStack === 'function') onInsertStack();
-      });
-
-      const clearBtn = document.createElement('button');
-      clearBtn.type = 'button';
-      clearBtn.className = 'studio-stream-album-action';
-      clearBtn.textContent = 'clear';
-      clearBtn.setAttribute('aria-label', 'Clear project');
-      clearBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        if (!root.confirm('Clear this project? The songs stay in your library.')) return;
-        shared.clearStack();
-        render();
+        playAlbum(group, 0);
       });
 
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'studio-stream-album-toggle';
-      toggle.setAttribute('aria-label', 'Toggle track list');
+      toggle.setAttribute('aria-label', 'Expand');
       toggle.textContent = '▾';
       toggle.addEventListener('click', function (event) {
         event.stopPropagation();
-        albumExpanded = !albumExpanded;
-        wrap.classList.toggle('is-expanded', albumExpanded);
+        const expanded = !wrap.classList.contains('is-expanded');
+        setAlbumExpanded(groupId, expanded);
+        wrap.classList.toggle('is-expanded', expanded);
       });
 
       actions.appendChild(playBtn);
-      actions.appendChild(entryBtn);
-      actions.appendChild(clearBtn);
       actions.appendChild(toggle);
 
-      head.appendChild(coverBtn);
-      head.appendChild(coverInput);
+      head.appendChild(coverWrap);
       head.appendChild(info);
       head.appendChild(actions);
 
+      head.draggable = true;
       head.addEventListener('dragstart', function (event) {
         if (event.target.closest('button, input')) {
           event.preventDefault();
           return;
         }
         event.dataTransfer.setData(STACK_ALBUM_MIME, '1');
-        event.dataTransfer.setData('text/plain', meta.title || 'project');
+        event.dataTransfer.setData('text/plain', meta.title || '');
         event.dataTransfer.effectAllowed = 'copy';
         head.classList.add('is-dragging');
       });
@@ -345,65 +445,12 @@
       const ol = document.createElement('ol');
       ol.className = 'music-tracklist entry-audio-list studio-stream-album-tracks';
       tracks.forEach(function (track, index) {
-        ol.appendChild(buildAlbumTrackItem(track, index));
-      });
-
-      wrap.addEventListener('dragover', function (event) {
-        if (Array.from(event.dataTransfer.types).indexOf(MUX_MIME) < 0) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'copy';
-        wrap.classList.add('is-drop-target');
-      });
-      wrap.addEventListener('dragleave', function (event) {
-        if (wrap.contains(event.relatedTarget)) return;
-        wrap.classList.remove('is-drop-target');
-      });
-      wrap.addEventListener('drop', function (event) {
-        if (Array.from(event.dataTransfer.types).indexOf(MUX_MIME) < 0) return;
-        event.preventDefault();
-        wrap.classList.remove('is-drop-target');
-        const id = event.dataTransfer.getData(MUX_MIME) || dragMuxId;
-        const item = findItem(id);
-        if (!item) return;
-        shared.addToStack(item);
-        render();
-        setStatus('added to project');
+        ol.appendChild(buildAlbumTrackItem(track, index, group));
       });
 
       wrap.appendChild(head);
       wrap.appendChild(ol);
       return wrap;
-    }
-
-    function attachSongDropTargets(li, item) {
-      li.addEventListener('dragover', function (event) {
-        if (Array.from(event.dataTransfer.types).indexOf(MUX_MIME) < 0) return;
-        const draggedId = event.dataTransfer.getData(MUX_MIME) || dragMuxId;
-        if (!draggedId || draggedId === item.playbackId) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'copy';
-        clearRowDropMarkers();
-        li.classList.add('is-stack-drop-target');
-      });
-
-      li.addEventListener('dragleave', function (event) {
-        if (li.contains(event.relatedTarget)) return;
-        li.classList.remove('is-stack-drop-target');
-      });
-
-      li.addEventListener('drop', function (event) {
-        if (Array.from(event.dataTransfer.types).indexOf(MUX_MIME) < 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        clearRowDropMarkers();
-        const draggedId = event.dataTransfer.getData(MUX_MIME) || dragMuxId;
-        if (!draggedId || draggedId === item.playbackId) return;
-        const dragged = findItem(draggedId);
-        if (!dragged) return;
-        shared.dropOntoSong(dragged, item);
-        render();
-        setStatus('project started — drag project onto entry or tap entry');
-      });
     }
 
     function buildLibraryTrackItem(item, trackNum) {
@@ -413,9 +460,11 @@
 
       const li = document.createElement('li');
       li.className = 'music-tracklist-item studio-editor-mux-item studio-stream-track-item';
-      li.draggable = true;
-      li.title = label + ' — double-click: add song · drag: page, stack, or song';
       li.dataset.muxAssetId = item.muxAssetId || '';
+
+      const grip = document.createElement('span');
+      grip.className = 'studio-track-grip';
+      grip.setAttribute('aria-hidden', 'true');
 
       const num = document.createElement('span');
       num.className = 'music-track-num';
@@ -445,29 +494,6 @@
       row.appendChild(name);
       row.appendChild(dur);
 
-      li.addEventListener('dragstart', function (event) {
-        dragMuxId = item.playbackId;
-        event.dataTransfer.setData(MUX_MIME, item.playbackId);
-        if (item.muxAssetId) {
-          event.dataTransfer.setData(
-            root.STUDIO_MUX_PLAYBACK_MIME || 'application/x-burnfolder-mux-playback',
-            item.playbackId
-          );
-          event.dataTransfer.setData(
-            'application/x-burnfolder-mux-asset',
-            item.muxAssetId
-          );
-        }
-        event.dataTransfer.setData('text/plain', label);
-        event.dataTransfer.effectAllowed = 'copy';
-        li.classList.add('is-dragging');
-      });
-      li.addEventListener('dragend', function () {
-        dragMuxId = null;
-        li.classList.remove('is-dragging');
-        clearRowDropMarkers();
-      });
-
       li.addEventListener('dblclick', function () {
         if (typeof onInsertTrack === 'function') onInsertTrack(item);
       });
@@ -477,8 +503,7 @@
         if (options.onSelectItem) options.onSelectItem(item);
       });
 
-      attachSongDropTargets(li, item);
-
+      li.appendChild(grip);
       li.appendChild(num);
       li.appendChild(row);
       return li;
@@ -489,28 +514,35 @@
       gridEl.innerHTML = '';
       gridEl.classList.add('studio-editor-mux-list');
 
-      if (!list.length && !shared.loadStack().length) {
+      if (!list.length && !shared.loadGroups().length) {
         gridEl.innerHTML = '<p class="studio-empty">upload above — files appear here.</p>';
         return;
       }
 
-      const albumGroup = buildAlbumGroup();
-      if (albumGroup) gridEl.appendChild(albumGroup);
+      let hasAlbumGroup = false;
+      shared.loadGroups().forEach(function (group) {
+        const albumGroup = buildAlbumGroup(group);
+        if (albumGroup) {
+          hasAlbumGroup = true;
+          gridEl.appendChild(albumGroup);
+        }
+      });
 
-      const groupedKeys = stackGroupKeys();
+      const groupedIds = groupedPlaybackIds();
       const audioItems = list.filter(function (item) {
         return !shared.isVideoItem(item);
       });
-      const visibleAudio = groupedKeys.size
+      const visibleAudio = groupedIds.size
         ? audioItems.filter(function (item) {
-            return !groupedKeys.has(groupKeyForItem(item));
+            return item.playbackId && !groupedIds.has(item.playbackId);
           })
         : audioItems;
       const videoItems = list.filter(shared.isVideoItem);
 
       if (visibleAudio.length || videoItems.length) {
         const tracklist = document.createElement('ol');
-        tracklist.className = 'music-tracklist entry-audio-list studio-editor-mux-tracklist';
+        tracklist.className =
+          'music-tracklist entry-audio-list studio-editor-mux-tracklist studio-stream-library-drop';
         let n = 0;
         visibleAudio.forEach(function (item) {
           tracklist.appendChild(buildLibraryTrackItem(item, (n += 1)));
@@ -519,9 +551,16 @@
           tracklist.appendChild(buildLibraryTrackItem(item, (n += 1)));
         });
         gridEl.appendChild(tracklist);
-      } else if (!albumGroup) {
+      } else if (hasAlbumGroup) {
+        const shelf = document.createElement('div');
+        shelf.className = 'studio-stream-library-shelf studio-stream-library-drop';
+        shelf.setAttribute('aria-label', 'Drop here to remove from folder');
+        gridEl.appendChild(shelf);
+      } else if (!hasAlbumGroup) {
         gridEl.innerHTML = '<p class="studio-empty">upload above — files appear here.</p>';
       }
+
+      bindEditorDnD();
     }
 
     root.addEventListener('burnfolder-stack-changed', function () {

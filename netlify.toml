@@ -7,3 +7,68 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+# ── HTML: always revalidate (content changes on publish) ──
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# ── Static JS/CSS/images: long-lived where versioned (?v= in URL) ──
+[[headers]]
+  for = "/shared/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/studio/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/studio/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/IMAGES/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Unversioned root assets: cache but revalidate on deploy
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+# Override: live data files must revalidate quickly (listed after /*.js)
+[[headers]]
+  for = "/entries.js"
+  [headers.values]
+    Cache-Control = "public, max-age=60, must-revalidate"
+
+[[headers]]
+  for = "/song-pages.js"
+  [headers.values]
+    Cache-Control = "public, max-age=60, must-revalidate"
+
+# Service workers must update quickly when you deploy
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/studio/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

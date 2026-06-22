@@ -3,13 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="journal">
   <link rel="manifest" href="manifest.webmanifest">
   <title>journal — burnfolder studio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+  <link rel="preconnect" href="https://image.mux.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="css/studio.css?v=20260604z22">
+  <link rel="stylesheet" href="css/studio.css?v=20260622f">
 </head>
 <body class="studio-page studio-journal-page">
   <header class="site-header studio-header">
@@ -24,6 +31,14 @@
 
   <main class="page-wrap studio-journal-layout">
     <p class="page-id">journal</p>
+
+    <details class="studio-help">
+      <summary>tips</summary>
+      <ul class="studio-help-list">
+        <li>journal, plan, and checklist autosave as you type</li>
+        <li>use ← → or <strong>today</strong> to jump between days</li>
+      </ul>
+    </details>
 
     <div class="studio-journal-date-nav" aria-label="Day">
       <button type="button" class="icon-btn studio-journal-shift" id="journalPrevDay" aria-label="Previous day">←</button>
@@ -58,16 +73,20 @@
     <p class="studio-journal-status" id="journalStatus" aria-live="polite"></p>
   </main>
 
-  <script src="../shared/media-session.js?v=20260604z16"></script>
-  <script src="../shared/playback-recall.js?v=20260604z16"></script>
-  <script src="../shared/playback-prefetch.js?v=20260604z18"></script>
-  <script src="../shared/mux-playback.js?v=20260604z18"></script>
-  <script src="../shared/now-playing-bar.js?v=20260604z16"></script>
-  <script src="js/studio-playback-shell.js?v=20260604z16"></script>
-  <script src="js/studio-spa-router.js?v=20260604z26"></script>
-  <script src="js/studio-auth.js?v=20260604z24"></script>
-  <script src="js/cloud-state.js?v=20260604z7"></script>
-  <script src="js/journal-day-store.js?v=20260604z14"></script>
-  <script src="js/journal-page.js?v=20260604z15"></script>
+  <script src="js/studio-version.js?v=20260622f"></script>
+  <script src="js/studio-status.js?v=20260622f"></script>
+  <script src="js/studio-dates.js?v=20260622f"></script>
+  <script src="../shared/media-session.js?v=20260622f"></script>
+  <script src="../shared/playback-recall.js?v=20260622f"></script>
+  <script src="../shared/playback-prefetch.js?v=20260622f"></script>
+  <script src="../shared/mux-playback.js?v=20260622f"></script>
+  <script src="../shared/now-playing-bar.js?v=20260622f"></script>
+  <script src="js/studio-playback-shell.js?v=20260622f"></script>
+  <script src="js/studio-spa-router.js?v=20260622f"></script>
+  <script src="js/studio-auth.js?v=20260622f"></script>
+  <script src="js/cloud-state.js?v=20260622f"></script>
+  <script src="js/journal-day-store.js?v=20260622f"></script>
+  <script src="js/journal-page.js?v=20260622f"></script>
+  <script src="../shared/register-sw.js"></script>
 </body>
 </html>

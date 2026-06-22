@@ -16,14 +16,30 @@
   let saveTimer = null;
   let loadingDay = false;
 
-  function setStatus(msg) {
+  function setStatus(msg, kind) {
+    if (window.BurnfolderStudioStatus) {
+      window.BurnfolderStudioStatus.set(statusEl, msg, kind);
+      return;
+    }
     if (statusEl) statusEl.textContent = msg || '';
   }
 
   function markNav() {
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-      link.classList.toggle('is-active', link.getAttribute('data-nav') === 'journal');
+      const active = link.getAttribute('data-nav') === 'journal';
+      link.classList.toggle('is-active', active);
+      link.classList.toggle('page-nav', active);
     });
+  }
+
+  function validateDateInput(input) {
+    const dates = window.BurnfolderStudioDates;
+    if (!input || !dates) return true;
+    const value = String(input.value || '').trim();
+    if (!value) return true;
+    if (dates.isValidDateKey(value)) return true;
+    setStatus(dates.formatHint(), 'error');
+    return false;
   }
 
   function debouncedSave() {
@@ -38,11 +54,11 @@
         })
         .then(function (saved) {
           currentDay = saved;
-          setStatus('saved');
+          setStatus('saved', 'success');
           renderRecent();
         })
         .catch(function (err) {
-          setStatus(err.message || 'could not save');
+          setStatus(err.message || 'could not save', 'error');
         });
     }, 450);
   }
@@ -97,6 +113,9 @@
     if (item && item.id) li.dataset.id = item.id;
     if (isAddRow) li.classList.add('is-add-row');
 
+    const checkWrap = document.createElement('label');
+    checkWrap.className = 'studio-journal-checklist-check-wrap';
+
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.className = 'studio-journal-checklist-check';
@@ -111,6 +130,8 @@
         updateChecklistItem(item.id, { done: check.checked });
       });
     }
+
+    checkWrap.appendChild(check);
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -149,7 +170,7 @@
       }
     });
 
-    li.appendChild(check);
+    li.appendChild(checkWrap);
     li.appendChild(input);
     return li;
   }
@@ -169,7 +190,7 @@
     activeDate = key;
     loadingDay = true;
     if (dateInput) dateInput.value = key;
-    setStatus('loading…');
+    setStatus('loading…', 'working');
 
     return store.getDay(key).then(function (day) {
       currentDay = day;
@@ -221,12 +242,20 @@
 
     if (dateInput) {
       dateInput.addEventListener('change', function () {
+        if (!validateDateInput(dateInput)) return;
         loadDay(dateInput.value);
       });
       dateInput.addEventListener('keydown', function (event) {
         if (event.key === 'Enter') {
           event.preventDefault();
+          if (!validateDateInput(dateInput)) return;
           loadDay(dateInput.value);
+        }
+      });
+      dateInput.addEventListener('blur', function () {
+        const value = String(dateInput.value || '').trim();
+        if (value && window.BurnfolderStudioDates && !window.BurnfolderStudioDates.isValidDateKey(value)) {
+          setStatus(window.BurnfolderStudioDates.formatHint(), 'error');
         }
       });
     }

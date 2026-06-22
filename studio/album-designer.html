@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>album page — burnfolder studio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="css/studio.css?v=20260625f">
+</head>
+<body class="studio-page studio-song-designer-page studio-album-designer-page">
+  <header class="site-header studio-header">
+    <a href="/studio/index.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link page-nav" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-song-designer-layout">
+    <div class="studio-song-designer-toolbar">
+      <p class="page-id">album page</p>
+      <div class="studio-song-designer-toolbar-actions">
+        <a class="icon-btn" id="albumDesignerPreviewBtn" href="#">preview</a>
+        <button type="button" class="icon-btn studio-song-push-btn" id="albumDesignerPushBtn">push to site</button>
+      </div>
+    </div>
+
+    <div class="studio-song-designer-pick">
+      <label class="studio-song-designer-field">
+        <span class="studio-song-designer-label">album</span>
+        <select id="albumDesignerPick" class="studio-song-designer-select"></select>
+      </label>
+      <p class="studio-song-designer-meta" id="albumDesignerMeta">—</p>
+    </div>
+
+    <div class="studio-song-designer-split">
+      <section class="studio-song-designer-editor" aria-label="Album page editor">
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">thoughts</h2>
+          <p class="studio-song-designer-hint">Album-level notes shown on the album hub. Song lyrics and notes compile automatically from each song page.</p>
+          <textarea id="albumDesignerNotes" class="studio-song-designer-textarea studio-song-designer-textarea--tall" rows="8" placeholder="thoughts about this album…" spellcheck="true"></textarea>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">video</h2>
+          <p class="studio-song-designer-hint">Optional hero video on the album hub.</p>
+          <label class="studio-song-designer-field">
+            <span class="studio-song-designer-label">from library</span>
+            <select id="albumDesignerHeroVideo" class="studio-song-designer-select">
+              <option value="">none</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <div class="studio-song-designer-section-head">
+            <h2 class="studio-song-designer-section-title">visuals</h2>
+            <div class="studio-song-designer-media-actions">
+              <button type="button" class="icon-btn" id="albumDesignerPickVideoBtn">from library</button>
+              <button type="button" class="icon-btn" id="albumDesignerAddImageBtn">+ image</button>
+              <button type="button" class="icon-btn" id="albumDesignerAddNoteBtn">+ note</button>
+              <button type="button" class="icon-btn" id="albumDesignerAddLinkBtn">+ link</button>
+            </div>
+          </div>
+          <ul id="albumDesignerMediaList" class="studio-song-designer-media-list"></ul>
+        </section>
+      </section>
+
+      <aside class="studio-song-designer-preview" aria-label="Album hub preview">
+        <p class="studio-song-designer-preview-label">preview</p>
+        <div class="studio-album-designer-preview-wrap song-hub-page" id="albumDesignerPreviewRoot">
+          <h2 class="song-hub-title" id="albumDesignerPreviewTitle">Album</h2>
+          <p class="song-hub-subtitle" id="albumDesignerPreviewSubtitle">—</p>
+          <div data-album-field="tracklist"></div>
+          <div data-album-panel="thoughts" hidden>
+            <div data-album-field="thoughts"></div>
+          </div>
+          <div data-album-panel="compiled-lyrics" hidden>
+            <div data-album-field="compiled-lyrics"></div>
+          </div>
+          <div data-album-panel="visuals" hidden>
+            <div data-album-field="visuals-grid"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <p class="studio-stream-status studio-song-status" id="albumDesignerStatus" aria-live="polite"></p>
+
+  <script src="js/studio-version.js?v=20260625f"></script>
+  <script src="js/studio-status.js?v=20260625f"></script>
+  <script src="../entries.js?v=20260625f"></script>
+  <script src="../songs.js?v=20260625f"></script>
+  <script src="../shared/song-versions.js?v=20260625f"></script>
+  <script src="js/asset-cloud.js?v=20260625f"></script>
+  <script src="../shared/mux-display-name.js?v=20260625f"></script>
+  <script src="js/mux-naming.js?v=20260625f"></script>
+  <script src="js/studio-auth.js?v=20260625f"></script>
+  <script src="js/cloud-state.js?v=20260625f"></script>
+  <script src="js/mux-client.js?v=20260625f"></script>
+  <script src="js/studio-mux-lib.js?v=20260625f"></script>
+  <script src="../shared/song-page-render.js?v=20260625f"></script>
+  <script src="../shared/album-page-render.js?v=20260625f"></script>
+  <script src="js/song-page-store.js?v=20260625f"></script>
+  <script src="js/album-page-store.js?v=20260625f"></script>
+  <script src="js/stream-shared.js?v=20260625f"></script>
+  <script src="js/album-designer-page.js?v=20260625f"></script>
+</body>
+</html>

@@ -20,8 +20,27 @@
   const ALBUM_TRACK_MIME =
     window.STUDIO_ALBUM_TRACK_MIME || 'application/x-burnfolder-album-track';
 
-  function setStatus(msg) {
-    if (window.studioEditorSetStatus) window.studioEditorSetStatus(msg);
+  function setStatus(msg, kind) {
+    if (window.studioEditorSetStatus) window.studioEditorSetStatus(msg, kind);
+  }
+
+  function navigateToDraft(id) {
+    const url = '/studio/index.html?id=' + encodeURIComponent(id);
+    if (typeof window.studioSpaNavigate === 'function') {
+      window.studioSpaNavigate(url);
+      return;
+    }
+    window.location.href = url;
+  }
+
+  function validateDateField(input) {
+    const dates = window.BurnfolderStudioDates;
+    if (!input || !dates) return true;
+    const value = String(input.value || '').trim();
+    if (!value) return true;
+    if (dates.isValidDateKey(value)) return true;
+    setStatus(dates.formatHint(), 'error');
+    return false;
   }
 
   function whenEditorReady(fn) {
@@ -81,7 +100,7 @@
     if (!shared) return;
     const tracks = shared.loadStack();
     if (!tracks.length) {
-      setStatus('project is empty');
+      setStatus('group is empty', 'error');
       return;
     }
     const meta = shared.loadStackMeta();
@@ -112,7 +131,7 @@
         });
         if (block && api.selectPlaylist) api.selectPlaylist(block.id);
       }
-      setStatus('project added to entry');
+      setStatus('group added to entry', 'success');
     });
   }
 
@@ -344,21 +363,29 @@
 
     select.addEventListener('change', function () {
       if (!select.value || select.value === window.studioEditorDraftId) return;
-      const url = new URL('index.html', window.location.href);
-      url.searchParams.set('id', select.value);
-      window.location.href = url.pathname + url.search;
+      navigateToDraft(select.value);
     });
 
     if (newBtn) {
       newBtn.addEventListener('click', function () {
         const dateKey = String((newDate && newDate.value) || '').trim() || todayKey();
+        if (!validateDateField(newDate)) return;
+        setStatus('creating…', 'working');
         window.BurnfolderDrafts.createDraft(dateKey).then(function (draft) {
-          const url = new URL('index.html', window.location.href);
-          url.searchParams.set('id', draft.id);
-          window.location.href = url.pathname + url.search;
+          navigateToDraft(draft.id);
+        }).catch(function (err) {
+          setStatus(err.message || 'could not create entry', 'error');
         });
       });
     }
+
+    [newDate, document.getElementById('entryDate')].forEach(function (input) {
+      if (!input || input.dataset.dateValidated === '1') return;
+      input.dataset.dateValidated = '1';
+      input.addEventListener('blur', function () {
+        validateDateField(input);
+      });
+    });
 
     window.studioRefreshDraftSelect(window.studioEditorDraftId);
     draftNavBound = true;
@@ -441,7 +468,7 @@
         if (block && api.selectPlaylist) api.selectPlaylist(block.id);
       }
       window.localStorage.removeItem('burnfolderPendingStack');
-      setStatus('stack added to entry');
+      setStatus('group added to entry', 'success');
       if (window.history && window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete('createStack');
@@ -625,7 +652,7 @@
 
         if (playlistBlockId && typeof api.appendToPlaylist === 'function') {
           if (api.appendToPlaylist(playlistBlockId, asset)) {
-            setStatus('added to stack');
+            setStatus('added to group', 'success');
             return;
           }
         }

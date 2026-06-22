@@ -242,6 +242,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(entry.date)}</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://stream.mux.com" crossorigin>
+<link rel="preconnect" href="https://image.mux.com" crossorigin>
+<link rel="dns-prefetch" href="https://www.mux.com">
 <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -287,6 +291,7 @@ ${bodyParts.join('\n\n')}
 <script src="shared/playback-prefetch.js?v=${version}"></script>
 <script src="shared/mux-playback.js?v=${version}"></script>
 <script src="scripts.js?v=${version}"></script>
+<script src="shared/register-sw.js"></script>
 </body>
 </html>
 `;

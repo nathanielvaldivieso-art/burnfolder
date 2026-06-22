@@ -29,7 +29,7 @@
     // Mux management calls and the personal-cloud state store need the bearer.
     // The login check carries the password in its body and must NOT route
     // through the auth wrapper.
-    return u.indexOf('/mux-') > -1 || u.indexOf('/studio-state') > -1 || u.indexOf('/studio-publish') > -1;
+    return u.indexOf('/mux-') > -1 || u.indexOf('/studio-state') > -1 || u.indexOf('/studio-publish') > -1 || u.indexOf('/studio-share-links') > -1;
   }
 
   function getToken() {
@@ -73,8 +73,17 @@
     tools.appendChild(btn);
   }
 
+  function hideBooting() {
+    document.body.classList.remove('studio-booting');
+  }
+
+  function showBooting() {
+    document.body.classList.add('studio-booting');
+  }
+
   function markReady() {
     ready = true;
+    hideBooting();
     document.body.classList.remove('studio-locked');
     document.body.classList.add('studio-ready');
     const gate = document.getElementById('studioAuthGate');
@@ -108,6 +117,7 @@
   }
 
   function showLoginGate() {
+    hideBooting();
     document.body.classList.add('studio-ready', 'studio-locked');
 
     const gate = document.createElement('div');
@@ -129,25 +139,39 @@
     const input = gate.querySelector('#studioAuthPassword');
     const errorEl = gate.querySelector('#studioAuthError');
 
+    const submitBtn = gate.querySelector('.studio-auth-submit');
+
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       const password = input.value || '';
       errorEl.hidden = true;
       errorEl.textContent = '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'checking…';
+      }
 
-      verifyToken(password).then(function (ok) {
-        if (!ok) {
-          errorEl.textContent = 'Wrong password.';
+      verifyToken(password)
+        .then(function (ok) {
+          if (!ok) {
+            errorEl.textContent = 'Wrong password.';
+            errorEl.hidden = false;
+            input.select();
+            return;
+          }
+          sessionStorage.setItem(SESSION_KEY, password);
+          markReady();
+        })
+        .catch(function () {
+          errorEl.textContent = 'Could not reach the server. Try again.';
           errorEl.hidden = false;
-          input.select();
-          return;
-        }
-        sessionStorage.setItem(SESSION_KEY, password);
-        markReady();
-      }).catch(function () {
-        errorEl.textContent = 'Could not reach the server. Try again.';
-        errorEl.hidden = false;
-      });
+        })
+        .finally(function () {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'unlock';
+          }
+        });
     });
 
     window.setTimeout(function () {
@@ -158,6 +182,7 @@
   function boot() {
     const existing = getToken();
     if (existing) {
+      showBooting();
       let settled = false;
       const timeout = window.setTimeout(function () {
         if (settled) return;

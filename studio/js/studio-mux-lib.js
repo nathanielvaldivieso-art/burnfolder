@@ -48,6 +48,8 @@
       muxFileName: safeName,
       kind: row.kind === 'video' ? 'video' : 'audio',
       hasVideoTrack: row.kind === 'video',
+      songGroupKey: String(row.songGroupKey || '').trim(),
+      songTitle: String(row.songTitle || '').trim(),
       duration: null,
       aspectRatio: null,
       createdAt: row.createdAt || new Date().toISOString(),
@@ -120,6 +122,24 @@
           return window.BurnfolderStreamShared.normalizeLibrary(list);
         }
         return list;
+      })
+      .then(function (list) {
+        const clipNaming = window.BurnfolderSongClipNaming;
+        const versionsApi = window.BurnfolderSongVersions;
+        if (!clipNaming || !versionsApi) return list;
+        return (list || []).map(function (item) {
+          if (!item || item.kind !== 'video' || item.songGroupKey) return item;
+          const key = clipNaming.inferSongGroupKey(
+            item.passthrough || item.muxFileName || item.displayTitle,
+            versionsApi
+          );
+          if (!key) return item;
+          const songTitle = String(item.passthrough || '').split(clipNaming.CLIP_SEP)[0].trim();
+          return Object.assign({}, item, {
+            songGroupKey: key,
+            songTitle: item.songTitle || songTitle
+          });
+        });
       });
   }
 

@@ -10,7 +10,11 @@
   const statusEl = document.getElementById('studioEditorStatus');
   const draftMeta = document.getElementById('studioDraftMeta');
 
-  window.studioEditorSetStatus = function (message) {
+  window.studioEditorSetStatus = function (message, kind) {
+    if (window.BurnfolderStudioStatus) {
+      window.BurnfolderStudioStatus.set(statusEl, message, kind);
+      return;
+    }
     if (statusEl) statusEl.textContent = message || '';
   };
 
@@ -77,6 +81,9 @@
 
     showHome();
   }
+
+  window.studioEditorOpenDraft = openEditor;
+  window.studioEditorShowHome = showHome;
 
   boot();
 })();

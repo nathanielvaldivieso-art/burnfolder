@@ -38,6 +38,13 @@
         titleInput.value = stackMeta.title || '';
       }
       if (!coverBtn) return;
+      const coverApi = window.BurnfolderCoverArt;
+      if (coverApi && coverApi.applyCoverPreview) {
+        coverBtn.className = 'studio-stack-cover-pick studio-stream-album-cover';
+        coverApi.applyCoverPreview(coverBtn, stackMeta);
+        coverBtn.classList.toggle('has-cover', !!(stackMeta && stackMeta.coverArt));
+        return;
+      }
       coverBtn.innerHTML = '';
       if (stackMeta.coverArt) {
         const img = document.createElement('img');
@@ -46,14 +53,12 @@
         img.className = 'stream-stack-cover-img';
         coverBtn.appendChild(img);
         coverBtn.classList.add('has-cover');
-        coverBtn.setAttribute('aria-label', 'Change cover art');
       } else {
         const ph = document.createElement('span');
         ph.className = 'stream-stack-cover-placeholder';
         ph.textContent = 'cover';
         coverBtn.appendChild(ph);
         coverBtn.classList.remove('has-cover');
-        coverBtn.setAttribute('aria-label', 'Add cover art');
       }
     }
 
@@ -216,7 +221,7 @@
         const items = stackTracks.map(function (t) {
           return shared.findInLibrary(getLibrary(), t.playbackId) || t;
         });
-        player.playQueue(items, 0);
+        player.playQueue(items, 0, { coverArt: stackMeta.coverArt || '' });
       });
     }
 
@@ -251,14 +256,14 @@
         const file = coverInput.files && coverInput.files[0];
         coverInput.value = '';
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function () {
-          stackMeta.coverArt = String(reader.result || '');
-          stackMeta.coverAlt = stackMeta.title || file.name || 'cover art';
+        const coverApi = window.BurnfolderCoverArt;
+        const label = stackMeta.title || file.name || 'album';
+        if (!coverApi || !coverApi.registerCoverFromFile) return;
+        coverApi.registerCoverFromFile(file, label).then(function (result) {
+          coverApi.patchFromCoverResult(stackMeta, result);
           persistMeta();
           renderMeta();
-        };
-        reader.readAsDataURL(file);
+        });
       });
     }
 

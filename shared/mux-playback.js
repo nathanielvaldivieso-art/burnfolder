@@ -19,7 +19,9 @@
     return {
       title: String(song.title || song.displayTitle || 'untitled').trim(),
       playbackId: String(song.playbackId).trim(),
-      coverArt: song.coverArt || null
+      coverArt: song.coverArt || null,
+      album: song.album || null,
+      artist: song.artist || null
     };
   }
 
@@ -317,7 +319,7 @@
 
       if (root.BurnfolderPlaybackPrefetch) {
         root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
-        root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId);
+        root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId, normalized.coverArt);
       }
 
       return true;
