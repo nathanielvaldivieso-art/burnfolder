@@ -10,6 +10,8 @@
   --c-gray:  #c8c8c8;
   /* Page gutter — single source of truth for horizontal framing (mobile + desktop) */
   --page-gutter: 60px;
+  --page-gutter-mobile: 24px;
+  --page-max-width: 480px;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -2072,6 +2074,10 @@ h1 { display: none; }
 /* ── mobile ── */
 
 @media (max-width: 600px) {
+  :root {
+    --page-gutter: var(--page-gutter-mobile);
+  }
+
   .entry-editor-shell {
     grid-template-columns: 1fr;
     gap: 24px;
@@ -2118,15 +2124,18 @@ h1 { display: none; }
     width: 100%;
   }
 
-  .page-wrap {
-    margin: 0 0 0 24px;
+  .page-wrap,
+  .studio-page .page-wrap,
+  .studio-page .studio-stream-layout,
+  .studio-page .studio-home {
+    margin: 0 0 0 var(--page-gutter-mobile);
     padding: 24px 0 120px 0;
     max-width: calc(100vw - 32px);
   }
 
   .bottom-progress-bar {
-    padding-left: max(24px, env(safe-area-inset-left, 0px));
-    padding-right: max(24px, env(safe-area-inset-right, 0px));
+    padding-left: max(var(--page-gutter-mobile), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--page-gutter-mobile), env(safe-area-inset-right, 0px));
     height: 48px;
     bottom: 0;
   }
@@ -2233,6 +2242,31 @@ h1 { display: none; }
     max-width: calc(100vw - 40px);
   }
 
+  /* Studio inherits the same mobile frame as the public site (do not override in studio.css) */
+  .studio-page .studio-stream-album-group,
+  .studio-page .studio-cloud-drop,
+  .studio-page .studio-stream-upload {
+    max-width: 100%;
+  }
+
+  .studio-page .studio-cloud-drop-hint {
+    max-width: 100%;
+    padding: 0 4px;
+    overflow-wrap: anywhere;
+  }
+
+  .studio-global-playback .bottom-progress-bar {
+    height: 48px;
+    padding-left: max(var(--page-gutter-mobile), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--page-gutter-mobile), env(safe-area-inset-right, 0px));
+  }
+
+  .studio-global-playback .bottom-play-pause-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+
   .music-track-row,
   #entries li a {
     width: 100%;
@@ -2246,7 +2280,7 @@ h1 { display: none; }
   .site-header {
     width: 100%;
     margin-left: 0;
-    padding: 18px 24px 0 24px;
+    padding: 18px var(--page-gutter-mobile) 0 var(--page-gutter-mobile);
     min-height: 0;
     margin-bottom: 20px;
     display: grid;

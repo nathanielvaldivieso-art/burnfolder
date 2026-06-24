@@ -255,10 +255,26 @@ pages, including `../style.css` in studio). Do not re-solve framing per page.
    the scrollbar and, with `viewport-fit=cover` on notched iPhones, exceeds the visual viewport
    and clips the right side. Applies to `.bottom-progress-bar` and the index newsletter popup.
 4. **Gutters come from `--page-gutter` and respect the notch:** fixed bars pad with
-   `max(var(--page-gutter), env(safe-area-inset-left/right))` (mobile drops to `max(24px, …)`).
-   Use the token for any new full-bleed/fixed element instead of hard-coding a side padding.
+   `max(var(--page-gutter), env(safe-area-inset-left/right))`. Use the token for any new
+   full-bleed/fixed element instead of hard-coding a side padding.
 
-If content is clipped on the right or the page scrolls sideways on mobile, check these four —
+#### Mobile sizing (`@media (max-width: 600px)` in `style.css` only)
+Public and studio must look identical on phone — same left gutter, same content width, same
+bottom bar height. Tokens: `--page-gutter-mobile: 24px` (also assigned to `--page-gutter` inside
+the breakpoint).
+- **`.page-wrap`** (including `.studio-page .page-wrap`, `.studio-stream-layout`, `.studio-home`):
+  `margin-left: var(--page-gutter-mobile)`, `max-width: calc(100vw - 32px)`, `padding: 24px 0 120px 0`.
+- **Tracklists:** `max-width: calc(100vw - 40px)` (same class names on public + studio).
+- **`.site-header`:** `padding-left/right: var(--page-gutter-mobile)`.
+- **`.bottom-progress-bar`:** `height: 48px`, safe-area padding via `--page-gutter-mobile`.
+- **Studio desktop width caps** (`520px` / `640px`) live in `studio.css` inside
+  `@media (min-width: 601px)` only — never on mobile. Do not add competing `margin`, `max-width`,
+  or bottom-bar rules to `studio.css` `@600px`; touch-target tweaks only.
+
+If studio feels “zoomed in” or clipped on mobile while the main site looks fine, studio is almost
+certainly overriding the shared mobile block — delete the override and fix it in `style.css`.
+
+If content is clipped on the right or the page scrolls sideways on mobile, check these rules —
 do not patch a single page; fix it in the `style.css` framing block so every page inherits it.
 
 ### Versioning & cache (single source)

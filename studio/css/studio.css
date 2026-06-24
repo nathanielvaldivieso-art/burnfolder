@@ -1,10 +1,13 @@
-.studio-page .page-wrap {
-  max-width: 520px;
-}
+/* Desktop page width caps — mobile framing is owned by style.css @600px */
+@media (min-width: 601px) {
+  .studio-page .page-wrap {
+    max-width: 520px;
+  }
 
-.studio-stream-page .page-wrap,
-.studio-song-page .page-wrap {
-  max-width: 640px;
+  .studio-stream-page .page-wrap,
+  .studio-song-page .page-wrap {
+    max-width: 640px;
+  }
 }
 
 .studio-header-nav {
@@ -1412,8 +1415,14 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+@media (min-width: 601px) {
+  .studio-stream-page .studio-stream-layout {
+    max-width: 640px;
+    padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
+  }
+}
+
 .studio-stream-page .studio-stream-layout {
-  max-width: 640px;
   padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
 }
 
@@ -2115,6 +2124,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
+  min-width: 0;
 }
 
 .studio-stream-album-cover-wrap {
@@ -2522,20 +2532,9 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Mobile touch targets — easier to hit play, toggle, and bar controls */
+/* Mobile touch targets — easier to hit play, toggle, and bar controls.
+   Page frame (gutter, max-width, bottom bar) lives in style.css @600px — do not duplicate here. */
 @media (max-width: 600px) {
-  .studio-stream-page .page-wrap {
-    margin-left: 16px;
-    margin-right: 16px;
-    max-width: none;
-    padding-top: 20px;
-  }
-
-  .studio-stream-page .music-tracklist,
-  .studio-stream-page .entry-audio-list .music-tracklist {
-    max-width: 100%;
-  }
-
   .studio-stream-page .studio-stream-album-group {
     margin-bottom: 20px;
   }
@@ -2562,9 +2561,9 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
   .studio-stream-page .studio-stream-album-play,
   .studio-editor-page .studio-stream-album-play {
-    width: 36px;
-    height: 36px;
-    font-size: 13px;
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2572,9 +2571,9 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
   .studio-stream-page .studio-stream-album-toggle,
   .studio-editor-page .studio-stream-album-toggle {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2659,17 +2658,6 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     min-height: 44px;
     font-size: 12px;
     padding: 8px 0;
-  }
-
-  .studio-global-playback .bottom-progress-bar {
-    height: 56px;
-    padding: 0 52px 0 20px;
-  }
-
-  .studio-global-playback .bottom-play-pause-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 15px;
   }
 
   body.stream-playback-active .studio-global-playback ~ *,
@@ -5123,19 +5111,12 @@ body.studio-song-designer-page .page-wrap {
 
 @media (max-width: 600px) {
   .studio-home.page-wrap {
-    padding-left: 16px;
-    padding-right: 16px;
     padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
 
   body.studio-has-player .studio-home.page-wrap,
   body.stream-playback-active .studio-home.page-wrap {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .studio-header {
-    padding-left: 16px;
-    padding-right: 16px;
   }
 
   .studio-header-nav.studio-main-nav {
