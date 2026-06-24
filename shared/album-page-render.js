@@ -155,9 +155,15 @@
       }
 
       if (typeof options.onTrackSelect === 'function') {
-        rowBtn.addEventListener('click', function () {
+        const onSelect = function () {
           options.onTrackSelect(row);
-        });
+        };
+        const rowTap = root.BurnfolderTouchTap || root.BurnfolderStudioTap;
+        if (rowTap && rowTap.bind) {
+          rowTap.bind(rowBtn, onSelect);
+        } else {
+          rowBtn.addEventListener('click', onSelect);
+        }
       }
 
       li.appendChild(num);

@@ -13,7 +13,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : {}, function () {
   'use strict';
 
-  let SCRIPT_VERSION = '20260626d';
+  let SCRIPT_VERSION = '20260627g';
   try {
     const siteVersion = require('./site-version.js');
     if (siteVersion && siteVersion.SITE_SCRIPT_VERSION) {
@@ -269,7 +269,7 @@
 <div class="bottom-progress-bar" id="bottomBar">
   <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">&times;</div>
   <div class="bottom-bar-content">
-    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>
     <span class="song-title" id="songTitle">Track Title</span>
     <div class="bottom-bar-controls">
       <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>
@@ -289,8 +289,13 @@
 <script src="shared/playback-recall.js?v=${version}"></script>
 <script src="spa-router.js"></script>
 <script src="shared/playback-prefetch.js?v=${version}"></script>
+<script src="shared/studio-tap.js?v=${version}"></script>
 <script src="shared/mux-playback.js?v=${version}"></script>
+<script src="shared/playback-context.js?v=${version}"></script>
+<script src="shared/version-picker.js?v=${version}"></script>
+<script src="shared/now-playing-bar.js?v=${version}"></script>
 <script src="scripts.js?v=${version}"></script>
+<script src="shared/site-version.js"></script>
 <script src="shared/register-sw.js"></script>
 </body>
 </html>

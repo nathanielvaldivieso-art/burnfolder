@@ -221,12 +221,19 @@
     prefetch(playbackId, { durEl: durEl });
   }
 
+  function pinOffscreenPlayer(player) {
+    if (!player || !player.style) return;
+    player.style.cssText =
+      'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);';
+  }
+
   function setActivePlayer(player) {
     activePlayer = player || null;
     if (!player) return;
     player.setAttribute('stream-type', 'on-demand');
     player.setAttribute('preload', 'auto');
     player.setAttribute('playsinline', '');
+    pinOffscreenPlayer(player);
   }
 
   function warmLibraryItems(items, isVideoFn, limit) {

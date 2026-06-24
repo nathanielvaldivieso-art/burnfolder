@@ -62,8 +62,14 @@
       <div class="song-hub-panel-top">
         <p class="song-hub-label">Lyrics</p>
       </div>
-      <div class="song-hub-version-picker" data-song-field="version-picker" role="tablist" aria-label="Versions"></div>
       <div class="song-hub-lyrics song-hub-lyrics--open" data-song-field="version-lyrics"></div>
+    </div>
+
+    <div data-song-panel="version-notes" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Version notes</p>
+      </div>
+      <div class="song-hub-notes" data-song-field="version-notes"></div>
     </div>
 
     <div data-song-panel="clips" class="song-hub-panel" hidden>
@@ -75,7 +81,7 @@
 
     <div data-song-panel="notes" class="song-hub-panel" hidden>
       <div class="song-hub-panel-top">
-        <p class="song-hub-label">Notes</p>
+        <p class="song-hub-label">Song notes</p>
       </div>
       <div class="song-hub-notes" data-song-field="notes"></div>
     </div>
@@ -119,19 +125,21 @@
   <script src="js/mux-client.js?v=20260623a"></script>
   <script src="js/studio-mux-lib.js?v=20260623a"></script>
   <script src="../shared/playback-prefetch.js?v=20260623a"></script>
+  <script src="../shared/studio-tap.js?v=20260627b"></script>
   <script src="../shared/mux-playback.js?v=20260623a"></script>
   <script src="js/studio-playback-shell.js?v=20260623a"></script>
   <script src="../shared/playback-context.js?v=20260623a"></script>
   <script src="../shared/version-picker.js?v=20260623a"></script>
-  <script src="../shared/now-playing-bar.js?v=20260623a"></script>
-  <script src="../shared/song-page-render.js?v=20260625b"></script>
-  <script src="js/song-page-store.js?v=20260624c"></script>
+  <script src="../shared/now-playing-bar.js?v=20260627g"></script>
+  <script src="../shared/song-page-render.js?v=20260627g"></script>
+  <script src="js/song-page-store.js?v=20260627g"></script>
   <script src="js/stream-shared.js?v=20260624e"></script>
   <script src="js/stream-player.js?v=20260623a"></script>
   <script src="js/stream-now-playing.js?v=20260623a"></script>
   <script src="js/share-links.js?v=20260625c"></script>
   <script src="../shared/share-hub-ui.js?v=20260625d"></script>
   <script src="js/stream-song-page.js?v=20260625c"></script>
+  <script src="../shared/site-version.js"></script>
   <script src="../shared/register-sw.js"></script>
 </body>
 </html>

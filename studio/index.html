@@ -85,7 +85,7 @@
           <div class="bottom-progress-bar studio-preview-player" id="bottomBar" role="region" aria-label="Now playing">
             <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
             <div class="bottom-bar-content">
-              <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+              <mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>
               <div class="song-title-wrap">
                 <span class="song-title" id="songTitle">Track Title</span>
               </div>
@@ -195,7 +195,7 @@
   <script src="../shared/media-session.js?v=20260626d"></script>
   <script src="../shared/playback-recall.js?v=20260626d"></script>
   <script src="js/drafts.js?v=20260622f"></script>
-  <script src="../shared/studio-tap.js?v=20260626a"></script>
+  <script src="../shared/studio-tap.js?v=20260627b"></script>
   <script src="js/studio-hub.js?v=20260626d"></script>
   <script src="js/studio-bridge.js?v=20260626d"></script>
   <script src="js/studio-editor-loader.js?v=20260626d"></script>

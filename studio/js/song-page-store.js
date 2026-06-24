@@ -73,10 +73,11 @@
 
   function normalizeVersionEntry(entry) {
     if (!entry || typeof entry !== 'object') {
-      return { lyrics: '' };
+      return { lyrics: '', notes: '' };
     }
     return {
-      lyrics: typeof entry.lyrics === 'string' ? entry.lyrics : ''
+      lyrics: typeof entry.lyrics === 'string' ? entry.lyrics : '',
+      notes: typeof entry.notes === 'string' ? entry.notes : ''
     };
   }
 
@@ -93,7 +94,7 @@
 
   function versionHasContent(entry) {
     const row = normalizeVersionEntry(entry);
-    return !!row.lyrics.trim();
+    return !!(row.lyrics.trim() || row.notes.trim());
   }
 
   function normalizeMediaItem(item) {

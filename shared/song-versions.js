@@ -675,9 +675,16 @@
 
       row.appendChild(name);
       row.appendChild(dur);
-      row.addEventListener('click', function () {
+      var onSelect = function () {
         if (typeof opts.onSelect === 'function') opts.onSelect(song);
-      });
+      };
+      var g = typeof window !== 'undefined' ? window : typeof globalThis !== 'undefined' ? globalThis : null;
+      var tap = g && (g.BurnfolderTouchTap || g.BurnfolderStudioTap);
+      if (tap && tap.bind) {
+        tap.bind(row, onSelect);
+      } else {
+        row.addEventListener('click', onSelect);
+      }
 
       item.appendChild(num);
       item.appendChild(row);

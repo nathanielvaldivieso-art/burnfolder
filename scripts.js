@@ -22,9 +22,30 @@ const songTitleEl = document.getElementById('songTitle');
 const closeBtn = document.getElementById('closeBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const activeMuxPlayer = document.getElementById('activeMuxPlayer');
-let versionPickerMenu = null;
-let versionPickerList = null;
-let songTitleWrap = null;
+
+function isCoarsePointer() {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches
+  );
+}
+
+// Never move focus to the fixed bottom bar on touch: iOS scrolls the page to a
+// focused fixed element even with preventScroll, which reads as the page "jumping"
+// when you tap a song. Space-to-toggle works via the document keydown handler, so
+// keyboard users lose nothing. Only fine-pointer (desktop) gets a focus ring.
+function focusPlayControl() {
+  if (!bottomPlayBtn || typeof bottomPlayBtn.focus !== 'function') return;
+  if (isCoarsePointer()) return;
+  try {
+    bottomPlayBtn.focus({ preventScroll: true });
+  } catch (_) {
+    /* ignore */
+  }
+}
+// Single shared now-playing bar instance (shared/now-playing-bar.js). Owns play button,
+// title menu/version picker, progress + drag/hover seek, spinner. See COPILOT.md.
+let nowPlayingBar = null;
 let stripeClient = null;
 let checkoutElements = null;
 let checkoutCard = null;
@@ -48,42 +69,7 @@ function parseCustomTipAmount(rawValue) {
   return rounded;
 }
 
-function createHoverTimeElement(className) {
-  const tooltip = document.createElement('div');
-  tooltip.className = className;
-  tooltip.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(tooltip);
-  return tooltip;
-}
-
-function formatTimecode(totalSeconds) {
-  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
-
-  const wholeSeconds = Math.floor(totalSeconds);
-  const hours = Math.floor(wholeSeconds / 3600);
-  const minutes = Math.floor((wholeSeconds % 3600) / 60);
-  const seconds = wholeSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }
-
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-function showHoverTime(tooltip, clientX, top, seconds) {
-  tooltip.textContent = formatTimecode(seconds);
-  tooltip.style.left = `${clientX}px`;
-  tooltip.style.top = `${top}px`;
-  tooltip.classList.add('visible');
-}
-
-function hideHoverTime(tooltip) {
-  tooltip.classList.remove('visible');
-}
-
-const progressHoverTime = createHoverTimeElement('progress-hover-time');
-const videoProgressHoverTime = createHoverTimeElement('video-progress-hover-time');
+// Progress hover-time + seek logic now lives in shared/now-playing-bar.js (single source).
 
 function ensureStripeClient() {
   const pk = window.STRIPE_PUBLISHABLE_KEY;
@@ -633,19 +619,31 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
     });
   }
 
-  row.addEventListener('click', (e) => {
+  function activateTrackRow(e) {
     if (e.target.closest('.is-version-cycle')) return;
     const toPlay = cycle ? cycle.getSelected(song) : song;
     if (typeof onPlay === 'function') onPlay(toPlay, song);
-  });
+  }
+
+  const rowTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+  // The version-cycle title is its own tap target inside the row; let it own
+  // taps so the row's play handler does not swallow the cycle gesture on touch.
+  const skipCycleTaps = function (e) {
+    return !!(e.target && e.target.closest && e.target.closest('.is-version-cycle'));
+  };
+  if (rowTap && rowTap.bind) {
+    rowTap.bind(row, activateTrackRow, { shouldSkip: skipCycleTaps });
+  } else {
+    row.addEventListener('click', activateTrackRow);
+  }
 
   if (canCycle) {
     name.setAttribute('role', 'button');
     name.setAttribute('tabindex', '0');
     name.setAttribute('aria-label', 'Toggle version');
     const onCycle = (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
       cycle.cycle(song);
       delete dur.dataset.loaded;
       dur.textContent = '--:--';
@@ -653,7 +651,11 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
       playTrackBySong(cycle.getSelected(song));
       if (typeof syncTracklistPlayback === 'function') syncTracklistPlayback();
     };
-    name.addEventListener('click', onCycle);
+    if (rowTap && rowTap.bind) {
+      rowTap.bind(name, onCycle);
+    } else {
+      name.addEventListener('click', onCycle);
+    }
     name.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') onCycle(e);
     });
@@ -899,38 +901,6 @@ function getEntryPageHref(song) {
   return `${p}.html`;
 }
 
-function getVersionCandidatesForActiveSong() {
-  const activeSong = getActiveSong();
-  if (!activeSong) return [];
-  const ctx = window.BurnfolderPlaybackContext;
-  if (ctx && ctx.versionsForActive) {
-    const extra = Array.isArray(window.currentSongs) ? window.currentSongs : [];
-    return ctx.versionsForActive(activeSong, extra);
-  }
-  const groupKey = getTrackGroupKey(activeSong.title);
-  const source = Array.isArray(window.allSongs) && window.allSongs.length ? window.allSongs : window.currentSongs;
-
-  const byPlaybackId = new Map();
-  source.forEach((song) => {
-    if (!song || !song.playbackId) return;
-    if (getTrackGroupKey(song.title) === groupKey) byPlaybackId.set(song.playbackId, song);
-  });
-
-  if (!byPlaybackId.has(activeSong.playbackId)) {
-    byPlaybackId.set(activeSong.playbackId, activeSong);
-  }
-
-  const sv = songVersionsApi();
-  if (sv) return sv.sortVersions(Array.from(byPlaybackId.values()), 'newest');
-  return Array.from(byPlaybackId.values()).sort((a, b) => compareSongsBySortMode(a, b, 'newest'));
-}
-
-function closeVersionPicker() {
-  if (!versionPickerMenu || !songTitleEl) return;
-  versionPickerMenu.classList.remove('open');
-  songTitleEl.setAttribute('aria-expanded', 'false');
-}
-
 function playTrackBySong(song) {
   if (!song || !song.playbackId) return;
 
@@ -941,134 +911,6 @@ function playTrackBySong(song) {
   }
 
   startPlayback(song, [song], 0);
-}
-
-function renderVersionPicker() {
-  const actionsEl = document.getElementById('versionPickerActions');
-  if (!versionPickerList || !versionPickerMenu || !songTitleEl || !actionsEl) return;
-
-  actionsEl.innerHTML = '';
-  versionPickerList.innerHTML = '';
-
-  const activeSong = getActiveSong();
-  if (!activeSong) {
-    closeVersionPicker();
-    return;
-  }
-
-  const versions = getVersionCandidatesForActiveSong();
-
-  const goToSongLink = document.createElement('a');
-  goToSongLink.className = 'icon-btn version-picker-go-link';
-  goToSongLink.href = getSongHubHref(activeSong);
-  goToSongLink.textContent = 'go to song';
-  goToSongLink.addEventListener('click', () => {
-    closeVersionPicker();
-  });
-  actionsEl.appendChild(goToSongLink);
-
-  const entryHref = getEntryPageHref(activeSong);
-  if (entryHref) {
-    const goToEntryLink = document.createElement('a');
-    goToEntryLink.className = 'icon-btn version-picker-go-link';
-    goToEntryLink.href = entryHref;
-    goToEntryLink.textContent = 'go to entry';
-    goToEntryLink.addEventListener('click', () => {
-      closeVersionPicker();
-    });
-    actionsEl.appendChild(goToEntryLink);
-  }
-
-  versions.forEach((song) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'icon-btn version-picker-item';
-    button.textContent = song.title;
-    if (activeSong && song.playbackId === activeSong.playbackId) {
-      button.classList.add('active');
-    }
-
-    button.addEventListener('click', () => {
-      closeVersionPicker();
-      if (activeSong && song.playbackId === activeSong.playbackId) return;
-      playTrackBySong(song);
-    });
-
-    versionPickerList.appendChild(button);
-  });
-}
-
-function toggleVersionPicker() {
-  if (!versionPickerMenu || !songTitleEl) return;
-  if (!getActiveSong()) return;
-
-  renderVersionPicker();
-  const opening = !versionPickerMenu.classList.contains('open');
-  versionPickerMenu.classList.toggle('open', opening);
-  songTitleEl.setAttribute('aria-expanded', opening ? 'true' : 'false');
-}
-
-function createVersionPickerUI() {
-  if (!songTitleEl || !songTitleEl.parentElement || document.getElementById('versionPickerMenu')) return;
-  if (window.BurnfolderStreamNowPlaying) return;
-
-  songTitleWrap = songTitleEl.closest('.song-title-wrap');
-  if (!songTitleWrap) {
-    songTitleWrap = document.createElement('div');
-    songTitleWrap.className = 'song-title-wrap';
-    const parent = songTitleEl.parentElement;
-    parent.insertBefore(songTitleWrap, songTitleEl);
-    songTitleWrap.appendChild(songTitleEl);
-  }
-
-  songTitleEl.classList.add('song-title-trigger');
-  songTitleEl.setAttribute('tabindex', '0');
-  songTitleEl.setAttribute('role', 'button');
-  songTitleEl.setAttribute('aria-haspopup', 'dialog');
-  songTitleEl.setAttribute('aria-expanded', 'false');
-  songTitleEl.setAttribute('aria-label', 'Open now playing menu');
-
-  versionPickerMenu = document.createElement('div');
-  versionPickerMenu.className = 'version-picker-menu';
-  versionPickerMenu.id = 'versionPickerMenu';
-  versionPickerMenu.innerHTML = `
-    <div class="version-picker-actions" id="versionPickerActions"></div>
-    <div class="version-picker-heading">versions</div>
-    <div class="version-picker-list" id="versionPickerList"></div>
-  `;
-
-  songTitleWrap.appendChild(versionPickerMenu);
-  versionPickerList = versionPickerMenu.querySelector('#versionPickerList');
-
-  songTitleEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleVersionPicker();
-  });
-
-  songTitleEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggleVersionPicker();
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeVersionPicker();
-    }
-  });
-
-  versionPickerMenu.addEventListener('click', (e) => {
-    e.stopPropagation();
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!songTitleWrap || !songTitleWrap.contains(e.target)) {
-      closeVersionPicker();
-    }
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeVersionPicker();
-  });
 }
 
 function renderSongHubPage() {
@@ -2044,7 +1886,7 @@ function preservePlaybackAcrossNavigation() {
 window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 
 createTipUI();
-createVersionPickerUI();
+mountNowPlayingBar();
 renderSongHubPage();
 renderAlbumHubPage();
 
@@ -2180,28 +2022,29 @@ if (audioList && !didRenderInitially) {
 
 function updateUI() {
   const activeSong = getActiveSong();
-  if (activeSong) {
-    if (!activeMuxPlayer.paused) {
-      bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>';
-    } else {
-      bottomPlayBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
-    }
-    const titleLabel =
+  const bar = nowPlayingBar || mountNowPlayingBar();
+  if (bar) {
+    bar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
+    bar.update({
+      song: activeSong || null,
+      playing: !!(activeSong && activeMuxPlayer && !activeMuxPlayer.paused)
+    });
+  } else if (activeSong) {
+    // Fallback only if the shared bar module failed to load.
+    bottomPlayBtn.innerHTML = !activeMuxPlayer.paused
+      ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>'
+      : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
+    songTitleEl.textContent =
       window.BurnfolderPlaybackContext && window.BurnfolderPlaybackContext.displayTitleForPlayback
-        ? window.BurnfolderPlaybackContext.displayTitleForPlayback(
-            activeSong,
-            window.currentSongs
-          )
+        ? window.BurnfolderPlaybackContext.displayTitleForPlayback(activeSong, window.currentSongs)
         : activeSong.title;
-    songTitleEl.textContent = titleLabel;
-    songTitleEl.setAttribute('aria-label', `menu for ${titleLabel}`);
-    renderVersionPicker();
+  }
+  if (activeSong) {
     bottomBar.style.display = 'block';
-    bottomPlayBtn.focus();
+    focusPlayControl();
   } else {
-    closeVersionPicker();
     bottomBar.style.display = 'none';
-    songTitleEl.textContent = '';
+    if (!bar) songTitleEl.textContent = '';
   }
   syncPlaybackChromeState();
   syncTracklistPlayback();
@@ -2240,11 +2083,41 @@ function getSiteMuxPlayback() {
         syncTracklistPlayback();
       },
       onAfterStart: () => {
-        if (bottomPlayBtn) bottomPlayBtn.focus();
+        if (bottomPlayBtn) focusPlayControl();
       }
     });
   }
   return siteMuxPlayback;
+}
+
+function mountNowPlayingBar() {
+  if (nowPlayingBar || !window.BurnfolderNowPlayingBar) return nowPlayingBar;
+  if (!songTitleEl || !songTitleEl.parentElement) return null;
+  nowPlayingBar = window.BurnfolderNowPlayingBar.mount({
+    barEl: bottomBar,
+    titleEl: songTitleEl,
+    playBtnEl: bottomPlayBtn,
+    closeBtnEl: closeBtn,
+    muxPlayerEl: activeMuxPlayer,
+    bodyActiveClass: '',
+    getActiveSong: getActiveSong,
+    onTogglePlay: togglePlayPause,
+    onPlayVersion: playTrackBySong,
+    onClose: function () {
+      if (!getActiveSong()) return;
+      activeMuxPlayer.pause();
+      activeIdx = null;
+      activeSongOverride = null;
+      activeQueue = [];
+      activeQueueIdx = null;
+      sessionStorage.removeItem('playbackState');
+      updateUI();
+    }
+  });
+  if (nowPlayingBar) {
+    nowPlayingBar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
+  }
+  return nowPlayingBar;
 }
 
 function startPlayback(song, queueSongs, queueIdx) {
@@ -2272,7 +2145,7 @@ function startPlayback(song, queueSongs, queueIdx) {
     }
     setTimeout(() => {
       if (activeMuxPlayer.paused && bottomPlayBtn) bottomPlayBtn.click();
-      if (bottomPlayBtn) bottomPlayBtn.focus();
+      if (bottomPlayBtn) focusPlayControl();
     }, 100);
   }
 
@@ -2312,12 +2185,9 @@ function togglePlayPause() {
     activeMuxPlayer.pause();
   }
   updateUI();
-  bottomPlayBtn.focus();
 }
 
-bottomPlayBtn.addEventListener('click', () => {
-  togglePlayPause();
-});
+// Play/pause button click is wired through BurnfolderNowPlayingBar (onTogglePlay).
 
 function isTypingTarget(target) {
   const el = target && target.nodeType === 1 ? target : null;
@@ -2333,40 +2203,18 @@ document.addEventListener('keydown', (e) => {
     if (isTypingTarget(e.target)) return;
     e.preventDefault();
     togglePlayPause();
-    bottomPlayBtn.focus();
+    focusPlayControl();
   }
 });
 
-closeBtn.addEventListener('click', () => {
-  if (getActiveSong()) {
-    activeMuxPlayer.pause();
-    activeIdx = null;
-    activeSongOverride = null;
-    activeQueue = [];
-    activeQueueIdx = null;
-    sessionStorage.removeItem('playbackState');
-    closeVersionPicker();
-    updateUI();
-  }
-});
+// Close button is wired through BurnfolderNowPlayingBar onClose (see mountNowPlayingBar).
 
-function showLoading(show) {
-  if (loadingSpinner) loadingSpinner.style.display = show ? 'block' : 'none';
+// Buffering spinner removed: it shifted the bottom-bar buttons on every track start.
+function showLoading() {
+  if (loadingSpinner) loadingSpinner.style.display = 'none';
 }
 
-function updateProgress() {
-  if (getActiveSong()) {
-    if (activeMuxPlayer.duration) {
-      const percent = (activeMuxPlayer.currentTime / activeMuxPlayer.duration) * 100;
-      progressEl.style.width = percent + '%';
-      const playhead = document.getElementById('progressPlayhead');
-      if (playhead) playhead.style.left = percent + '%';
-    } else {
-      progressEl.style.width = '0%';
-    }
-  }
-}
-activeMuxPlayer.addEventListener('timeupdate', updateProgress);
+// Progress fill/playhead are driven by shared/now-playing-bar.js (timeupdate/loadedmetadata).
 activeMuxPlayer.addEventListener('ended', () => {
   progressEl.style.width = '0%';
   const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
@@ -2376,11 +2224,7 @@ activeMuxPlayer.addEventListener('ended', () => {
   }
   updateUI();
 });
-activeMuxPlayer.addEventListener('waiting', () => {
-  showLoading(true);
-});
 activeMuxPlayer.addEventListener('playing', () => {
-  showLoading(false);
   updateUI();
 });
 activeMuxPlayer.addEventListener('pause', () => {
@@ -2399,180 +2243,8 @@ activeMuxPlayer.addEventListener('error', () => {
   showLoading(false);
   updateUI();
 });
-progressBarArea.addEventListener('click', (e) => {
-  if (activeIdx !== null) {
-    const rect = progressBarArea.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percent = x / rect.width;
-    if (activeMuxPlayer.duration) {
-      activeMuxPlayer.currentTime = percent * activeMuxPlayer.duration;
-    }
-  }
-});
-
-progressBarArea.addEventListener('mousemove', (e) => {
-  if (activeIdx === null || !activeMuxPlayer.duration) {
-    hideHoverTime(progressHoverTime);
-    return;
-  }
-
-  const rect = progressBarArea.getBoundingClientRect();
-  const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  showHoverTime(progressHoverTime, e.clientX, rect.top, percent * activeMuxPlayer.duration);
-});
-
-progressBarArea.addEventListener('mouseleave', () => {
-  hideHoverTime(progressHoverTime);
-});
-
-// Enhanced progress bar interaction with dragging support
-let isProgressDragging = false;
-let pendingProgressUpdate = null;
-let cachedProgressRect = null;
-let lastUpdateTime = 0;
-const UPDATE_THROTTLE = 16; // ~60fps, update every 16ms
-
-const updateProgressFromEvent = (e) => {
-  if (activeIdx !== null && activeMuxPlayer.duration) {
-    const now = performance.now();
-    
-    // Cache rect when dragging starts, don't recalculate every time
-    if (!cachedProgressRect) {
-      cachedProgressRect = progressBarArea.getBoundingClientRect();
-    }
-    
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const x = clientX - cachedProgressRect.left;
-    const percent = Math.max(0, Math.min(1, x / cachedProgressRect.width));
-
-    showHoverTime(progressHoverTime, clientX, cachedProgressRect.top, percent * activeMuxPlayer.duration);
-
-    // Immediate visual feedback — update fill and playhead without waiting for throttle
-    progressEl.style.width = (percent * 100) + '%';
-    const ph = document.getElementById('progressPlayhead');
-    if (ph) ph.style.left = (percent * 100) + '%';
-
-    // Throttle updates for better performance during fast dragging
-    if (now - lastUpdateTime >= UPDATE_THROTTLE) {
-      // Cancel any pending update
-      if (pendingProgressUpdate) {
-        cancelAnimationFrame(pendingProgressUpdate);
-      }
-      
-      // Use requestAnimationFrame for smooth updates
-      pendingProgressUpdate = requestAnimationFrame(() => {
-        try {
-          // Batch the audio update to reduce audio engine overhead
-          const newTime = percent * activeMuxPlayer.duration;
-          if (Math.abs(activeMuxPlayer.currentTime - newTime) > 0.1) {
-            activeMuxPlayer.currentTime = newTime;
-          }
-        } catch (error) {
-          // Ignore errors during rapid seeking
-        }
-        pendingProgressUpdate = null;
-      });
-      
-      lastUpdateTime = now;
-    }
-  }
-};
-
-// Mouse events for progress bar dragging
-progressBarArea.addEventListener('mousedown', (e) => {
-  if (activeIdx !== null) {
-    isProgressDragging = true;
-    progressBarArea.classList.add('dragging');
-    cachedProgressRect = null;
-    updateProgressFromEvent(e);
-    e.preventDefault();
-  }
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (isProgressDragging) {
-    // Immediate update for responsiveness
-    updateProgressFromEvent(e);
-    e.preventDefault();
-  }
-});
-
-document.addEventListener('mouseup', () => {
-  if (isProgressDragging) {
-    isProgressDragging = false;
-    progressBarArea.classList.remove('dragging');
-    hideHoverTime(progressHoverTime);
-    cachedProgressRect = null;
-    lastUpdateTime = 0;
-    if (pendingProgressUpdate) {
-      cancelAnimationFrame(pendingProgressUpdate);
-      pendingProgressUpdate = null;
-    }
-  }
-});
-
-window.addEventListener('blur', () => {
-  isProgressDragging = false;
-  progressBarArea.classList.remove('dragging');
-  hideHoverTime(progressHoverTime);
-  cachedProgressRect = null;
-  lastUpdateTime = 0;
-  if (pendingProgressUpdate) {
-    cancelAnimationFrame(pendingProgressUpdate);
-    pendingProgressUpdate = null;
-  }
-});
-
-document.addEventListener('pointermove', (e) => {
-  if (!isProgressDragging && !progressBarArea.contains(e.target)) {
-    hideHoverTime(progressHoverTime);
-  }
-});
-
-// Touch events for progress bar dragging
-progressBarArea.addEventListener('touchstart', (e) => {
-  if (activeIdx !== null) {
-    isProgressDragging = true;
-    progressBarArea.classList.add('dragging');
-    cachedProgressRect = null;
-    updateProgressFromEvent(e);
-    e.preventDefault();
-  }
-});
-
-document.addEventListener('touchmove', (e) => {
-  if (isProgressDragging) {
-    // Immediate update for responsiveness
-    updateProgressFromEvent(e);
-    e.preventDefault(); // Prevent scrolling
-  }
-}, { passive: false }); // Important: non-passive for preventDefault
-
-document.addEventListener('touchend', () => {
-  if (isProgressDragging) {
-    isProgressDragging = false;
-    progressBarArea.classList.remove('dragging');
-    hideHoverTime(progressHoverTime);
-    cachedProgressRect = null;
-    lastUpdateTime = 0;
-    if (pendingProgressUpdate) {
-      cancelAnimationFrame(pendingProgressUpdate);
-      pendingProgressUpdate = null;
-    }
-  }
-});
-
-progressBarArea.addEventListener('touchcancel', () => {
-  isProgressDragging = false;
-  progressBarArea.classList.remove('dragging');
-  hideHoverTime(progressHoverTime);
-  cachedProgressRect = null;
-  lastUpdateTime = 0;
-  if (pendingProgressUpdate) {
-    cancelAnimationFrame(pendingProgressUpdate);
-    pendingProgressUpdate = null;
-  }
-});
+// Progress-bar seek (click + drag + touch) and hover timestamp are handled by
+// shared/now-playing-bar.js, which is mounted via mountNowPlayingBar().
 
 function applyVolumeToPlayer() {
   if (!activeMuxPlayer) return;

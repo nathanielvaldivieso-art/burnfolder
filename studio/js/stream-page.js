@@ -376,46 +376,30 @@
     player.playItem(playable);
   }
 
-  /** iOS needs play() inside the touch gesture; click alone often loads without playing. */
-  function bindTouchPlay(el, handler) {
-    let touchHandledAt = 0;
-    let touchMoved = false;
-
-    function skipAfterDrag() {
-      const track = el.closest('.studio-stream-track-item, .studio-stream-album-track');
-      if (!track) return false;
-      return (
-        track.dataset.studioJustDragged === '1' ||
-        track.dataset.studioDragging === '1' ||
-        track.dataset.studioDragHold === '1'
-      );
+  function shouldSkipTrackPlay(el, event) {
+    const track = el.closest('.studio-stream-track-item, .studio-stream-album-track');
+    if (!track) return false;
+    if (
+      track.dataset.studioJustDragged === '1' ||
+      track.dataset.studioDragging === '1' ||
+      track.dataset.studioDragHold === '1'
+    ) {
+      return true;
     }
+    return false;
+  }
 
-    el.addEventListener('touchstart', function () {
-      touchMoved = false;
-    }, { passive: true });
-
-    el.addEventListener('touchmove', function () {
-      touchMoved = true;
-    }, { passive: true });
-
-    el.addEventListener('touchend', function (event) {
-      if (touchMoved || skipAfterDrag()) return;
-      touchHandledAt = Date.now();
-      handler(event);
-    });
-
-    el.addEventListener('click', function (event) {
-      if (skipAfterDrag()) {
-        event.preventDefault();
-        return;
-      }
-      if (Date.now() - touchHandledAt < 500) {
-        event.preventDefault();
-        return;
-      }
-      handler(event);
-    });
+  function bindTouchPlay(el, handler) {
+    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    if (tap && tap.bind) {
+      tap.bind(el, handler, {
+        shouldSkip: function (event) {
+          return shouldSkipTrackPlay(el, event);
+        }
+      });
+      return;
+    }
+    el.addEventListener('click', handler);
   }
 
   function deleteSongFromMux(item) {
@@ -1125,7 +1109,7 @@
     actions.appendChild(playBtn);
 
     const hubBtn = document.createElement('a');
-    hubBtn.className = 'studio-stream-album-hub-btn icon-btn';
+    hubBtn.className = 'studio-stream-album-hub-btn';
     hubBtn.href = shared.albumPageUrl(groupId);
     hubBtn.textContent = 'hub';
     hubBtn.addEventListener('click', function (event) {

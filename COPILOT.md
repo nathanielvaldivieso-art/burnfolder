@@ -155,12 +155,146 @@ Three colors only for video player and progress UI. Do not introduce blue.
   Playhead `.progress-playhead` is 5px circle, `#000`, hidden until hover.
 - On hover, the progress system must show a timestamp above the bar.
 - Volume control is `display: none !important` — do not re-enable.
+- **Canonical hidden player (do not vary).** The `#activeMuxPlayer` element MUST carry
+  `audio playsinline stream-type="on-demand" preload="metadata"` and be pinned offscreen with
+  `position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none`:
+
+```html
+<mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata"
+  style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>
+```
+
+  `audio` + `playsinline` are what stop iOS from fullscreening / scroll-into-view when
+  `play()` runs (the cause of the page "jumping" on tap). The fixed 1px pin (never
+  `left:-9999px`) keeps the element in-viewport so the browser never scrolls to reach it.
+  This markup is emitted by `shared/publish-artifacts.js` and `entry-editor.js`; keep all
+  copies identical.
 
 Automation references:
 - Subscriber signup endpoint: `/.netlify/functions/subscribe` (writes Netlify Blobs)
 - Subscriber export (CI only): `/.netlify/functions/export-subscribers` + bearer `SUBSCRIBERS_EXPORT_SECRET`
 - Welcome email trigger: `.github/workflows/welcome-email.yml`
 - New entry notification trigger: `.github/workflows/notify-new-entry.yml`
+
+## Shared build framework (single sources of truth)
+
+The site is rebuilt from a small set of shared modules. **Reuse these — do not fork a
+second implementation on a new page.** When a behavior exists here, wire to it.
+
+| Concern | Single source | Notes |
+|---------|---------------|-------|
+| Audio engine | `shared/mux-playback.js` (`BurnfolderMuxPlayback`) | Queue, seamless advance, recall, media session, prefetch |
+| Now-playing bar | `shared/now-playing-bar.js` (`BurnfolderNowPlayingBar`) | THE bottom bar everywhere: SVG play button, title menu/version picker, progress + drag/touch seek, hover timestamp, spinner. Public (`scripts.js`), studio (shell), and `listen.js` all mount it — never reimplement |
+| Bottom-bar version menu | `shared/version-picker.js` + `shared/playback-context.js` | Bottom-bar "now playing" menu |
+| Touch / tap | `shared/studio-tap.js` (`BurnfolderTouchTap`, alias `BurnfolderStudioTap`) | All audio-starting taps (see below) |
+| Recall / restore | `shared/playback-recall.js` | Single key `burnfolderPlaybackRecall` |
+| Prefetch / durations | `shared/playback-prefetch.js` | Pool, `attachRow`, `requestDuration`, `setActivePlayer` |
+| Media Session | `shared/media-session.js` | Lock screen / Control Center (via engine only) |
+| Cache-bust version | `shared/site-version.js` (`BurnfolderSiteVersion`) | One constant for every `?v=` |
+| Service worker | `shared/sw-core.js` (`createBurnfolderServiceWorker`) | `sw.js` / `studio/sw.js` are config only |
+| Page generation | `shared/publish-artifacts.js` (`buildEntryHtml`) | Canonical page shell + script block |
+| Hub renderers | `shared/song-page-render.js`, `shared/album-page-render.js` | Layout; play via callbacks |
+
+#### Song page content model (song-page-render.js + song-page-store.js)
+- **Two note scopes.** `page.notes` = **song notes** (shown on every version). `page.versions[playbackId].notes` = **version notes** (follow the selected/playing version). `page.versions[playbackId].lyrics` likewise follow the version. Lyrics + version notes are authored per-version in the song designer; song notes are the global field.
+- **One version selector.** The "Versions" list is the only picker. Lyrics and version notes reflect whatever version is selected/played there (`playSongHubQueue` → `renderApi.selectVersion`). Do NOT re-add a per-panel version-picker chip row.
+- **No empty boxes on the public site.** Every panel (lyrics, version notes, song notes, clips, cover, video) is hidden unless it has content (`panelVisible`/`panelHidden`). The studio editor preview (`showVersionPicker: true`) is the only place that shows a placeholder for an empty slot.
+- The bottom-bar buffering spinner was removed (it shifted the play/close buttons on each track start) — do not reintroduce a layout-affecting spinner.
+
+### Interaction standard (prevents the mobile-tap class of bug)
+**Any control that STARTS AUDIO must fire through `BurnfolderTouchTap.bind(el, handler[, {shouldSkip}])`**
+— never a bare `click` listener. iOS/PWA standalone requires `play()` to run inside the
+touch gesture, and the module uses a 10px movement slop so elastic scroll/bounce does not
+cancel the tap. `on(container, selector, handler)` is the delegated variant.
+- Every tracklist row builder routes through it: `scripts.js` `buildTracklistItem`,
+  `listen.js`, `shared/album-page-render.js`, `shared/song-versions.js` `fillVersionTracklist`,
+  studio `stream-page.js` `bindTouchPlay`.
+- Pass `shouldSkip` when a sub-control inside the row owns its own tap (e.g. the version-cycle
+  title in `buildTracklistItem`, or post-drag suppression in studio).
+- Plain discrete buttons that don't start audio (lyrics tabs, hub play buttons, delete) may
+  use `click` — the slop/gesture handling only matters for audio rows.
+- **Rule:** if you add a new play surface, bind via `BurnfolderTouchTap`. Do not write a new
+  touch handler.
+
+**No-jump rule (why the page must not scroll when you tap a song).** Three things move the
+viewport on mobile; all three are forbidden in the play path:
+1. **Never `.focus()` the fixed bottom bar on touch.** `preventScroll: true` is not honored on
+   iOS Safari, so focusing a fixed element scrolls the page. `scripts.js` `focusPlayControl()`
+   bails out when `matchMedia('(pointer: coarse)')` matches — focus is desktop-only. Space-to-
+   toggle still works because the handler is bound to `document`, not the button.
+2. **The player must be `audio playsinline`** (see §11) so `play()` never triggers fullscreen
+   or scroll-into-view.
+3. **Keep the hidden player pinned in-viewport** (`position:fixed;top:0`), never offscreen at
+   `left:-9999px`, so the browser has no reason to scroll toward it.
+If a tap ever scrolls the page again, check these three before anything else.
+
+### Page framing standard (prevents the right-edge clip / weird mobile framing)
+Every page — public and studio — is framed by one set of rules in `style.css` (loaded by all
+pages, including `../style.css` in studio). Do not re-solve framing per page.
+1. **Global `box-sizing: border-box`** on `*, *::before, *::after`. Padding/border never widen a
+   box, so flex rows (e.g. the studio album header: cover · title · play · hub · toggle) keep
+   their controls inside the card instead of pushing them off the right edge.
+2. **`html, body { max-width: 100%; overflow-x: clip; }`.** No horizontal scroll, ever. `clip`
+   (not `hidden`) is used so we don't create a scroll container that would break
+   `position: sticky` (studio editor sidebar). A single stray-wide child can no longer drag the
+   whole layout sideways.
+3. **Fixed bars span `left: 0; right: 0; width: auto` — never `width: 100vw`.** `100vw` ignores
+   the scrollbar and, with `viewport-fit=cover` on notched iPhones, exceeds the visual viewport
+   and clips the right side. Applies to `.bottom-progress-bar` and the index newsletter popup.
+4. **Gutters come from `--page-gutter` and respect the notch:** fixed bars pad with
+   `max(var(--page-gutter), env(safe-area-inset-left/right))` (mobile drops to `max(24px, …)`).
+   Use the token for any new full-bleed/fixed element instead of hard-coding a side padding.
+
+If content is clipped on the right or the page scrolls sideways on mobile, check these four —
+do not patch a single page; fix it in the `style.css` framing block so every page inherits it.
+
+### Versioning & cache (single source)
+- `shared/site-version.js` defines `BurnfolderSiteVersion` (also `require()`-able in Node by
+  `publish-artifacts.js`). **Bump it on any playback/tap/shared-JS change.**
+- Public pages load `site-version.js` immediately before `register-sw.js`.
+- `register-sw.js` registers the SW as `/sw.js?v=<version>` (studio: `/studio/sw.js?v=…`) so
+  installed PWAs always pick up new code instead of serving stale JS.
+- Keep `?v=` on shared scripts in HTML aligned to the current version (the generator stamps
+  one `${version}` everywhere; hand-edited pages should match).
+
+### Service worker (one strategy, two configs)
+`shared/sw-core.js` owns the strategy: HTML/navigations/live data = network-first with cache
+fallback; versioned static assets = stale-while-revalidate. `sw.js` and `studio/sw.js` only
+`importScripts('/shared/sw-core.js')` and pass `{ cacheName, includeRoot, freshSuffixes,
+staticPrefixes }`. **Bump the `cacheName`** when changing cached behavior. `site-version.js`
+is in `freshSuffixes` so the version constant itself is always network-fresh.
+
+### Bottom bar: one implementation (done)
+`scripts.js` (public), `studio-playback-shell.js` (studio), and `listen.js` all mount
+`BurnfolderNowPlayingBar`. The module owns ALL bar presentation; the page scripts only own
+engine glue. The contract when wiring a new surface:
+```js
+window.BurnfolderNowPlayingBar.mount({
+  barEl, titleEl, playBtnEl, closeBtnEl, muxPlayerEl: activeMuxPlayer,
+  bodyActiveClass: '',            // '' if the page manages body classes itself
+  getActiveSong, onTogglePlay, onPlayVersion, onClose
+});
+```
+- Load order: `playback-context.js` + `version-picker.js` + `now-playing-bar.js` BEFORE the
+  page script. Omit `version-picker.js`/`playback-context.js` to get a bar with no title menu
+  (e.g. `listen.js`, a private share with no catalog).
+- Do NOT re-add a play button `innerHTML`, a `progressBarArea` seek/drag listener, a hover
+  timestamp, or a bespoke version menu to any page script. If the bar needs a new behavior,
+  add it once in `shared/now-playing-bar.js`.
+
+### Deferred consolidation roadmap (do deliberately, not blind)
+These remain partly duplicated because merging them touches live playback and must be done
+atomically. Sequence when picked up:
+1. **Engine unify:** make `scripts.js` fully delegate to `BurnfolderMuxPlayback`
+   (`bindEnded: true`, `togglePlayPause` → engine, drop its own `ended`/`error` queue-advance)
+   — must remove the parallel path in one change to avoid double-advance.
+2. **Recall unify:** delete the legacy `sessionStorage.playbackState` path in `scripts.js`;
+   use only `BurnfolderPlaybackRecall`.
+3. **Events:** standardize all surfaces on one playback event (`burnfolder-playback-changed`).
+4. **Tracklist factory:** one parameterized row builder (flags: duration, version-cycle,
+   studio chrome) feeding public/hub/studio/listen.
+5. **Bottom-bar markup:** the generator already centralizes it; migrate static pages to the
+   generated shell rather than maintaining ~17 verbatim copies.
 
 ## Page anatomy (_template.html)
 ```
@@ -268,7 +402,8 @@ One app to run the whole practice on the go:
   pages for releases that warrant them; **push to site** when ready (not every track).
 - **SPA shell** — `studio-spa-router.js` keeps the global playback bar alive across entry /
   music / video / journal nav. Entry hub ↔ editor transitions without full reload.
-- **Mobile UX** — `shared/studio-tap.js` for reliable touch taps; 44px targets, safe-area
+- **Mobile UX** — `shared/studio-tap.js` (`BurnfolderTouchTap`) for all playback taps and
+  mobile-critical controls; 44px targets, safe-area padding on studio chrome.
   padding, active states on coarse pointers (`studio.css` mobile block).
 
 **Next**
@@ -318,10 +453,31 @@ Intercepts nav among the four main tabs. Swaps `#studio-spa-content` without tea
 opening a draft (`?id=`) toggles via `editor-gate.js` without fetching a new page.
 `studioSpaNavigate(url)` is the programmatic entry point.
 
-### Touch layer (`shared/studio-tap.js`)
-`BurnfolderStudioTap.on(container, selector, handler)` — fires on `touchend` for quick
-taps, suppresses duplicate click synthesis. Used on draft list, preview bubbles, and other
-mobile-critical controls.
+### Touch & mobile playback (`shared/studio-tap.js`)
+**Single standard for every tap that starts audio or critical mobile actions** — public
+site and studio. Load this script before `mux-playback.js` / `scripts.js` on any page with
+playback. API: `BurnfolderTouchTap` (alias `BurnfolderStudioTap`).
+
+| Method | Use |
+|--------|-----|
+| `bind(el, handler, options?)` | One element (track row, play button) |
+| `on(container, selector, handler, options?)` | Delegated taps (draft list, preview bubbles) |
+
+**Rules (do not duplicate elsewhere):**
+- Fires `touchend` inside the user-gesture window so iOS/PWA can call `play()`.
+- Uses **10px movement slop** — tiny scroll/elastic bounce must not cancel taps (PWA
+  standalone is stricter than mobile Safari tabs).
+- Suppresses duplicate synthetic `click` after a handled touch.
+- Optional `options.shouldSkip(event)` — studio DnD uses this to ignore post-drag taps.
+
+**Playback rows:** always wire through `bind()` — never `click` alone on `.music-track-row`.
+Studio music (`stream-page.js`) delegates to this module; do not add a second touch layer.
+
+**PWA cache:** bump `shared/site-version.js` + `?v=` on script tags; bump `sw.js` /
+`studio/sw.js` cache name when playback or tap logic changes. Installed PWAs keep stale JS
+until the cache name changes.
+
+### Touch layer (studio UI)
 
 ### Auth
 - **Client (`studio/js/studio-auth.js`):** login screen; password = `STUDIO_API_SECRET`.
@@ -368,7 +524,8 @@ republish confirmed. Requires `GITHUB_TOKEN` with repo write.
 
 ### PWA
 `studio/manifest.webmanifest` + `studio/sw.js` (HTML network-first; `/studio/js/` cached
-network-first). **Bump `?v=YYYYMMDD<letter>`** on every studio JS/HTML/CSS change.
+stale-while-revalidate). **Bump `shared/site-version.js` and SW cache name** on every
+playback/tap change — not just studio CSS. Load `shared/studio-tap.js` on stream pages.
 
 ## Studio conventions
 - **Single user.** No multi-user/RLS. `studio/supabase/schema.sql` is **unused** — personal

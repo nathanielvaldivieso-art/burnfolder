@@ -48,15 +48,26 @@
     return String(entry.lyrics || page.lyrics || '').trim();
   }
 
+  function versionNotes(page, playbackId) {
+    if (!page || !playbackId) return '';
+    const versions = page.versions && typeof page.versions === 'object' ? page.versions : {};
+    const entry = versions[playbackId] || {};
+    return String(entry.notes || '').trim();
+  }
+
   function versionHasLyrics(page, playbackId) {
     return !!versionLyrics(page, playbackId);
+  }
+
+  function versionHasContent(page, playbackId) {
+    return !!(versionLyrics(page, playbackId) || versionNotes(page, playbackId));
   }
 
   function defaultVersionId(page, catalogVersions) {
     const list = Array.isArray(catalogVersions) ? catalogVersions : [];
     for (let i = 0; i < list.length; i += 1) {
       const song = list[i];
-      if (song && song.playbackId && versionHasLyrics(page, song.playbackId)) {
+      if (song && song.playbackId && versionHasContent(page, song.playbackId)) {
         return song.playbackId;
       }
     }
@@ -154,29 +165,41 @@
     return card;
   }
 
-  function lyricsPanelShouldShow(rootEl, options) {
-    if (options && options.showVersionPicker) return true;
-    return rootEl && rootEl.dataset.songHasVersions === 'true';
-  }
-
+  // Render the lyrics + version-notes for the selected version. Both follow the version
+  // chosen/played above. On the public site empty panels are hidden entirely; in the studio
+  // editor preview (showVersionPicker) we show a placeholder so the author sees the slot.
   function renderVersionLyrics(rootEl, page, playbackId, opts) {
     const options = opts || {};
+    const editing = !!options.showVersionPicker;
+
     const lyricsPanel = rootEl.querySelector('[data-song-panel="lyrics"]');
     const lyricsBody = rootEl.querySelector('[data-song-field="version-lyrics"]');
-    const lyrics = versionLyrics(page, playbackId);
-    const showPanel = lyricsPanelShouldShow(rootEl, options);
+    const vNotesPanel = rootEl.querySelector('[data-song-panel="version-notes"]');
+    const vNotesBody = rootEl.querySelector('[data-song-field="version-notes"]');
 
-    if (!showPanel) {
-      if (lyricsBody) lyricsBody.innerHTML = '';
-      panelHidden(lyricsPanel);
-    } else if (lyrics && lyricsBody) {
+    const lyrics = versionLyrics(page, playbackId);
+    const notes = versionNotes(page, playbackId);
+
+    if (lyrics && lyricsBody) {
       lyricsBody.innerHTML = textToHtml(lyrics);
       panelVisible(lyricsPanel);
-    } else if (lyricsBody) {
+    } else if (editing && lyricsBody) {
       lyricsBody.innerHTML = '<p class="song-hub-lyrics-empty">No lyrics for this version.</p>';
       panelVisible(lyricsPanel);
     } else {
-      panelVisible(lyricsPanel);
+      if (lyricsBody) lyricsBody.innerHTML = '';
+      panelHidden(lyricsPanel);
+    }
+
+    if (notes && vNotesBody) {
+      vNotesBody.innerHTML = textToHtml(notes);
+      panelVisible(vNotesPanel);
+    } else if (editing && vNotesBody) {
+      vNotesBody.innerHTML = '<p class="song-hub-lyrics-empty">No notes for this version.</p>';
+      panelVisible(vNotesPanel);
+    } else {
+      if (vNotesBody) vNotesBody.innerHTML = '';
+      panelHidden(vNotesPanel);
     }
 
     rootEl.dataset.songVersionSelected = playbackId || '';
@@ -276,6 +299,7 @@
 
     [rootEl.querySelector('[data-song-panel="backstory"]')].forEach(panelHidden);
     [rootEl.querySelector('[data-song-panel="version-detail"]')].forEach(panelHidden);
+    [rootEl.querySelector('[data-song-panel="version-notes"]')].forEach(panelHidden);
 
     if (!page) {
       [clipsPanel, videoHero, coverEl, notesPanel].forEach(panelHidden);
@@ -370,8 +394,9 @@
     pageNotes: pageNotes,
     renderMediaCard: renderMediaCard,
     versionLyrics: versionLyrics,
+    versionNotes: versionNotes,
     versionContent: function (page, playbackId) {
-      return { lyrics: versionLyrics(page, playbackId), notes: '' };
+      return { lyrics: versionLyrics(page, playbackId), notes: versionNotes(page, playbackId) };
     },
     selectVersion: function (rootEl, page, playbackId, options) {
       if (!rootEl || !page || !playbackId) return;

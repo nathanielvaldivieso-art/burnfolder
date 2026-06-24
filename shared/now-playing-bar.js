@@ -18,6 +18,24 @@
         ? window
         : this;
 
+  // Canonical bottom-bar play/pause glyphs (burnfolder.com behavior — see COPILOT.md).
+  const PLAY_SVG =
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
+  const PAUSE_SVG =
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>';
+
+  function formatTimecode(totalSeconds) {
+    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
+    const whole = Math.floor(totalSeconds);
+    const hours = Math.floor(whole / 3600);
+    const minutes = Math.floor((whole % 3600) / 60);
+    const seconds = whole % 60;
+    if (hours > 0) {
+      return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+    }
+    return minutes + ':' + String(seconds).padStart(2, '0');
+  }
+
   function mount(options) {
     const opts = options || {};
     const bar = opts.barEl || document.getElementById('bottomBar');
@@ -27,7 +45,6 @@
     const progressBarArea = opts.progressEl || document.getElementById('progressBarArea');
     const progressFill = document.getElementById('progress');
     const playheadEl = document.getElementById('progressPlayhead');
-    const spinner = document.getElementById('loadingSpinner');
     const muxPlayer =
       opts.muxPlayerEl || document.getElementById('activeMuxPlayer');
 
@@ -57,11 +74,81 @@
       if (playheadEl) playheadEl.style.left = pct + '%';
     }
 
-    function seekToRatio(ratio) {
-      if (!muxPlayer || !muxPlayer.duration || Number.isNaN(muxPlayer.duration)) return;
-      const r = Math.min(1, Math.max(0, ratio));
-      muxPlayer.currentTime = r * muxPlayer.duration;
-      updateProgress();
+    function renderPlayButton(playing) {
+      if (!playBtn) return;
+      playBtn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
+      playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    }
+
+    // ── progress seek: click + drag + touch-drag with hover timestamp (burnfolder.com parity) ──
+    let hoverTip = null;
+    function ensureHoverTip() {
+      if (hoverTip) return hoverTip;
+      hoverTip = document.createElement('div');
+      hoverTip.className = 'progress-hover-time';
+      document.body.appendChild(hoverTip);
+      return hoverTip;
+    }
+    function showHoverTime(clientX, top, seconds) {
+      const tip = ensureHoverTip();
+      tip.textContent = formatTimecode(seconds);
+      tip.style.left = clientX + 'px';
+      tip.style.top = top + 'px';
+      tip.classList.add('visible');
+    }
+    function hideHoverTime() {
+      if (hoverTip) hoverTip.classList.remove('visible');
+    }
+
+    function canSeek() {
+      return !!getActiveSong() && !!muxPlayer && !!muxPlayer.duration && !Number.isNaN(muxPlayer.duration);
+    }
+
+    let isDragging = false;
+    let pendingFrame = null;
+    let cachedRect = null;
+    let lastSeekAt = 0;
+    const SEEK_THROTTLE = 16;
+
+    function nowMs() {
+      return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    }
+
+    function updateFromEvent(event) {
+      if (!canSeek() || !progressBarArea) return;
+      const ts = nowMs();
+      if (!cachedRect) cachedRect = progressBarArea.getBoundingClientRect();
+      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+      const ratio = Math.max(0, Math.min(1, (clientX - cachedRect.left) / cachedRect.width));
+      showHoverTime(clientX, cachedRect.top, ratio * muxPlayer.duration);
+      if (progressFill) progressFill.style.width = ratio * 100 + '%';
+      if (playheadEl) playheadEl.style.left = ratio * 100 + '%';
+      if (ts - lastSeekAt >= SEEK_THROTTLE) {
+        if (pendingFrame) cancelAnimationFrame(pendingFrame);
+        pendingFrame = requestAnimationFrame(function () {
+          try {
+            const newTime = ratio * muxPlayer.duration;
+            if (Math.abs(muxPlayer.currentTime - newTime) > 0.1) muxPlayer.currentTime = newTime;
+          } catch (err) {
+            /* ignore errors during rapid seeking */
+          }
+          pendingFrame = null;
+        });
+        lastSeekAt = ts;
+      }
+    }
+
+    function endDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+      if (progressBarArea) progressBarArea.classList.remove('dragging');
+      hideHoverTime();
+      cachedRect = null;
+      lastSeekAt = 0;
+      if (pendingFrame) {
+        cancelAnimationFrame(pendingFrame);
+        pendingFrame = null;
+      }
     }
 
     function titleForSong(song) {
@@ -82,12 +169,7 @@
       titleEl.textContent = titleForSong(song);
       if (playBtn) {
         const playing = d.playing !== undefined ? !!d.playing : !!(muxPlayer && !muxPlayer.paused);
-        if (opts.useSvgPlayButton && typeof globalRef.updateBottomPlayButton === 'function') {
-          globalRef.updateBottomPlayButton(playing);
-        } else {
-          playBtn.textContent = playing ? '❚❚' : '▶';
-          playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
-        }
+        renderPlayButton(playing);
       }
       if (pickerApi) pickerApi.render();
       updateProgress();
@@ -130,27 +212,66 @@
     }
 
     if (progressBarArea) {
-      progressBarArea.addEventListener('click', function (event) {
-        const rect = progressBarArea.getBoundingClientRect();
-        if (!rect.width) return;
-        seekToRatio((event.clientX - rect.left) / rect.width);
+      progressBarArea.addEventListener('mousedown', function (event) {
+        if (!canSeek()) return;
+        isDragging = true;
+        progressBarArea.classList.add('dragging');
+        cachedRect = null;
+        updateFromEvent(event);
+        event.preventDefault();
       });
+      progressBarArea.addEventListener('mousemove', function (event) {
+        if (isDragging) return;
+        if (!canSeek()) {
+          hideHoverTime();
+          return;
+        }
+        const rect = progressBarArea.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        showHoverTime(event.clientX, rect.top, ratio * muxPlayer.duration);
+      });
+      progressBarArea.addEventListener('mouseleave', function () {
+        if (!isDragging) hideHoverTime();
+      });
+      progressBarArea.addEventListener('touchstart', function (event) {
+        if (!canSeek()) return;
+        isDragging = true;
+        progressBarArea.classList.add('dragging');
+        cachedRect = null;
+        updateFromEvent(event);
+        event.preventDefault();
+      });
+      progressBarArea.addEventListener('touchcancel', endDrag);
+
+      document.addEventListener('mousemove', function (event) {
+        if (isDragging) {
+          updateFromEvent(event);
+          event.preventDefault();
+        }
+      });
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener(
+        'touchmove',
+        function (event) {
+          if (isDragging) {
+            updateFromEvent(event);
+            event.preventDefault();
+          }
+        },
+        { passive: false }
+      );
+      document.addEventListener('touchend', endDrag);
+      document.addEventListener('pointermove', function (event) {
+        if (!isDragging && !progressBarArea.contains(event.target)) hideHoverTime();
+      });
+      window.addEventListener('blur', endDrag);
     }
 
     if (muxPlayer) {
       muxPlayer.addEventListener('timeupdate', updateProgress);
       muxPlayer.addEventListener('loadedmetadata', updateProgress);
-      if (spinner) {
-        muxPlayer.addEventListener('waiting', function () {
-          spinner.style.display = 'block';
-        });
-        muxPlayer.addEventListener('playing', function () {
-          spinner.style.display = 'none';
-        });
-        muxPlayer.addEventListener('pause', function () {
-          spinner.style.display = 'none';
-        });
-      }
+      // No buffering spinner: it shifted the play/close buttons each time a track
+      // started. Intentionally not bound — see COPILOT.md "No-jump rule".
     }
 
     if (opts.playbackEventName) {

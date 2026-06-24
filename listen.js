@@ -28,6 +28,7 @@
   let activeIdx = 0;
   let playTracked = false;
   let engine = null;
+  let nowPlayingBar = null;
 
   function setState(msg) {
     if (stateEl) {
@@ -67,17 +68,44 @@
     return e ? e.getActiveSong() : null;
   }
 
+  function mountBar() {
+    if (nowPlayingBar || !window.BurnfolderNowPlayingBar) return nowPlayingBar;
+    nowPlayingBar = window.BurnfolderNowPlayingBar.mount({
+      barEl: bottomBar,
+      titleEl: songTitleEl,
+      playBtnEl: bottomPlayBtn,
+      closeBtnEl: closeBtn,
+      muxPlayerEl: activeMuxPlayer,
+      bodyActiveClass: '',
+      getActiveSong: getActiveSong,
+      onTogglePlay: function () {
+        const e = getEngine();
+        if (e) e.togglePlayPause();
+        updateUI();
+        syncTracklist();
+      },
+      onClose: function () {
+        const e = getEngine();
+        if (e) e.stop();
+        document.body.classList.remove('playback-active', 'playback-playing');
+        if (playBtn) playBtn.classList.remove('is-playing');
+        if (nowPlayingBar) nowPlayingBar.update({ song: null, playing: false });
+        syncTracklist();
+      }
+    });
+    return nowPlayingBar;
+  }
+
+  // Bar presentation (play button, title, progress, seek, spinner) is owned by the shared
+  // BurnfolderNowPlayingBar; updateUI keeps only the listen-page chrome (body + hero button).
   function updateUI() {
     const active = getActiveSong();
-    if (!active || !bottomBar || !bottomPlayBtn) return;
-    bottomBar.style.display = 'block';
+    const playing = !!(active && activeMuxPlayer && !activeMuxPlayer.paused);
+    const bar = nowPlayingBar || mountBar();
+    if (bar) bar.update({ song: active || null, playing: playing });
+    if (!active) return;
     document.body.classList.add('playback-active');
-    const playing = activeMuxPlayer && !activeMuxPlayer.paused;
     document.body.classList.toggle('playback-playing', playing);
-    bottomPlayBtn.innerHTML = playing
-      ? '<svg width="24" height="24" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>'
-      : '<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
-    if (songTitleEl) songTitleEl.textContent = active.title || '—';
     if (playBtn) playBtn.classList.toggle('is-playing', playing);
   }
 
@@ -115,32 +143,22 @@
       row.className = 'listen-track-row';
       row.dataset.playbackId = song.playbackId;
       row.textContent = song.title;
-      row.addEventListener('click', function () {
-        startPlayback(idx);
-      });
+      const rowTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+      if (rowTap && rowTap.bind) {
+        rowTap.bind(row, function () {
+          startPlayback(idx);
+        });
+      } else {
+        row.addEventListener('click', function () {
+          startPlayback(idx);
+        });
+      }
       tracklistEl.appendChild(row);
     });
   }
 
   function bindChrome() {
-    if (bottomPlayBtn) {
-      bottomPlayBtn.addEventListener('click', function () {
-        const e = getEngine();
-        if (e) e.togglePlayPause();
-        updateUI();
-        syncTracklist();
-      });
-    }
-    if (closeBtn) {
-      closeBtn.addEventListener('click', function () {
-        const e = getEngine();
-        if (e) e.stop();
-        if (bottomBar) bottomBar.style.display = 'none';
-        document.body.classList.remove('playback-active', 'playback-playing');
-        if (playBtn) playBtn.classList.remove('is-playing');
-        syncTracklist();
-      });
-    }
+    mountBar();
     if (playBtn) {
       playBtn.addEventListener('click', function () {
         const active = getActiveSong();
@@ -156,24 +174,6 @@
           return;
         }
         startPlayback(activeIdx);
-      });
-    }
-
-    if (activeMuxPlayer && progressBarArea && progressEl) {
-      activeMuxPlayer.addEventListener('timeupdate', function () {
-        const duration = activeMuxPlayer.duration;
-        const current = activeMuxPlayer.currentTime;
-        if (!duration || !isFinite(duration)) return;
-        const pct = (current / duration) * 100;
-        progressEl.style.width = pct + '%';
-        if (progressPlayhead) progressPlayhead.style.left = pct + '%';
-      });
-      progressBarArea.addEventListener('click', function (event) {
-        const rect = progressBarArea.getBoundingClientRect();
-        const pct = (event.clientX - rect.left) / rect.width;
-        if (activeMuxPlayer.duration && isFinite(activeMuxPlayer.duration)) {
-          activeMuxPlayer.currentTime = pct * activeMuxPlayer.duration;
-        }
       });
     }
 

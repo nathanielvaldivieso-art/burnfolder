@@ -8,6 +8,31 @@
   --c-black: #000;
   --c-white: #fff;
   --c-gray:  #c8c8c8;
+  /* Page gutter — single source of truth for horizontal framing (mobile + desktop) */
+  --page-gutter: 60px;
+}
+
+/* ══════════════════════════════════════════════════════
+   PAGE FRAMING STANDARD (sitewide — public + studio)
+   Keeps every page inside the viewport and prevents the
+   right-edge clipping / horizontal-scroll "weird framing".
+   Rules for any future page:
+   1) box-sizing: border-box everywhere (padding never widens a box)
+   2) html/body never scroll horizontally
+   3) fixed bars span left:0/right:0 — never width: 100vw
+   4) gutters use --page-gutter and respect notch safe areas
+   ══════════════════════════════════════════════════════ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  /* clip (not hidden) so we don't create a scroll container that breaks position: sticky */
+  overflow-x: clip;
 }
 
 /* ── minimal checkout redesign ── */
@@ -765,7 +790,7 @@ body.index-home .newsletter-popup {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
+  width: auto;
   max-width: none;
   margin-top: 0;
   background: rgba(255, 255, 255, 0.96);
@@ -1108,13 +1133,28 @@ body.page-music .music-portfolio-empty {
   pointer-events: none;
 }
 
+/* Hidden audio player — keep in viewport so iOS does not scroll the page on play */
+#activeMuxPlayer,
+mux-player#activeMuxPlayer {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
 /* ── bottom progress bar ── */
 
 .bottom-progress-bar {
   position: fixed;
   left: 0;
+  right: 0;
   bottom: 0;
-  width: 100vw;
+  width: auto;
   height: 48px;
   background: #fff;
   z-index: 100;
@@ -1124,7 +1164,8 @@ body.page-music .music-portfolio-empty {
   border-bottom: none;
   border-left: none;
   border-right: none;
-  padding: 0 60px;
+  padding-left: max(var(--page-gutter), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--page-gutter), env(safe-area-inset-right, 0px));
   overflow: visible;
 }
 
@@ -2084,7 +2125,8 @@ h1 { display: none; }
   }
 
   .bottom-progress-bar {
-    padding: 0 24px;
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
     height: 48px;
     bottom: 0;
   }
@@ -2249,7 +2291,7 @@ h1 { display: none; }
     left: 0;
     right: 0;
     bottom: 0;
-    width: 100vw;
+    width: auto;
     max-width: none;
     padding: 8px 24px calc(10px + env(safe-area-inset-bottom, 0px)) 24px;
   }

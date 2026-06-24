@@ -1414,10 +1414,9 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 
 .studio-stream-page .studio-stream-layout {
   max-width: 640px;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0));
+  padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
 }
 
-body.stream-playback-active.studio-stream-page .studio-stream-layout,
 body.stream-playback-active.studio-song-page .studio-song-hub {
   padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
 }
@@ -2525,11 +2524,47 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
 /* Mobile touch targets — easier to hit play, toggle, and bar controls */
 @media (max-width: 600px) {
+  .studio-stream-page .page-wrap {
+    margin-left: 16px;
+    margin-right: 16px;
+    max-width: none;
+    padding-top: 20px;
+  }
+
+  .studio-stream-page .music-tracklist,
+  .studio-stream-page .entry-audio-list .music-tracklist {
+    max-width: 100%;
+  }
+
+  .studio-stream-page .studio-stream-album-group {
+    margin-bottom: 20px;
+  }
+
+  .studio-stream-page .studio-stream-album-head,
+  .studio-editor-page .studio-stream-album-head {
+    padding: 12px 10px;
+    gap: 10px;
+  }
+
+  .studio-stream-page .studio-stream-album-cover,
+  .studio-editor-page .studio-stream-album-cover {
+    width: 48px;
+    height: 48px;
+  }
+
+  .studio-stream-page .studio-stream-album-name-input,
+  .studio-editor-page .studio-stream-album-name-input {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .studio-stream-page .studio-stream-album-play,
   .studio-editor-page .studio-stream-album-play {
-    width: 44px;
-    height: 44px;
-    font-size: 15px;
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2537,45 +2572,57 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
   .studio-stream-page .studio-stream-album-toggle,
   .studio-editor-page .studio-stream-album-toggle {
-    width: 44px;
-    height: 44px;
-    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
+  .studio-stream-page .studio-stream-album-actions,
+  .studio-editor-page .studio-stream-album-actions {
+    gap: 6px;
+  }
+
+  .studio-stream-page .studio-stream-album-hub-btn,
+  .studio-editor-page .studio-stream-album-hub-btn {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    opacity: 0.42;
+    padding: 0 2px;
+  }
+
+  .studio-stream-page .studio-stream-album-tracks,
+  .studio-editor-page .studio-stream-album-tracks {
+    padding: 2px 6px 6px;
+  }
+
   .studio-stream-page .studio-stream-album-action,
   .studio-editor-page .studio-stream-album-action {
-    min-height: 44px;
-    padding: 0 10px;
-    font-size: 12px;
+    min-height: 36px;
+    padding: 0 8px;
+    font-size: 11px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
 
-  .studio-stream-page .studio-stream-album-actions,
-  .studio-editor-page .studio-stream-album-actions {
-    gap: 4px;
-  }
-
-  .studio-stream-page .studio-stream-album-cover,
-  .studio-editor-page .studio-stream-album-cover {
-    width: 56px;
-    height: 56px;
-  }
-
   .studio-stream-page .studio-stream-album-track,
-  .studio-editor-page .studio-stream-album-track {
-    grid-template-columns: 28px 28px minmax(0, 1fr) auto;
+  .studio-editor-page .studio-stream-album-track,
+  .studio-stream-page .studio-stream-track-item:not(.studio-stream-album-track),
+  .studio-editor-page .studio-stream-track-item:not(.studio-stream-album-track) {
+    grid-template-columns: 18px 20px minmax(0, 1fr);
+    gap: 8px;
   }
 
   .studio-stream-page .studio-stream-album-track-handle,
-  .studio-editor-page .studio-stream-album-track-handle {
-    font-size: 18px;
-    width: 28px;
+  .studio-editor-page .studio-stream-album-track-handle,
+  .studio-stream-page .studio-track-grip,
+  .studio-editor-page .studio-track-grip {
+    font-size: 14px;
+    width: 18px;
     min-height: 44px;
     display: inline-flex;
     align-items: center;
@@ -2583,11 +2630,23 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     padding: 0;
   }
 
+  .studio-stream-page .music-track-row,
+  .studio-editor-page .music-track-row {
+    padding: 11px 2px 11px 0;
+    gap: 10px;
+  }
+
+  .studio-stream-page .music-track-duration,
+  .studio-editor-page .music-track-duration {
+    font-size: 0.76em;
+    min-width: 2.2em;
+  }
+
   .studio-stream-page .studio-stream-album-track-remove,
   .studio-editor-page .studio-stream-album-track-remove {
-    min-width: 44px;
-    min-height: 44px;
-    font-size: 20px;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 18px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4985,17 +5044,31 @@ body.studio-song-designer-page .page-wrap {
 }
 
 .studio-stream-album-hub-btn {
-  font-size: 0.72em;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  min-height: 0;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  color: #888;
   opacity: 0.55;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .studio-stream-album-hub-btn:hover,
-.studio-stream-album-hub-btn:focus {
-  opacity: 1;
+.studio-stream-album-hub-btn:focus-visible {
+  color: #000;
+  opacity: 0.85;
+  text-decoration: none;
+  outline: none;
 }
 
 .song-hub-panel-hint {

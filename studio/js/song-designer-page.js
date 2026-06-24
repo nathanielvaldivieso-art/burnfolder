@@ -20,6 +20,7 @@
   const versionPickerEl = document.getElementById('designerVersionPicker');
   const versionMetaEl = document.getElementById('designerVersionMeta');
   const versionLyricsEl = document.getElementById('designerVersionLyrics');
+  const versionNotesEl = document.getElementById('designerVersionNotes');
   const heroVideoEl = document.getElementById('designerHeroVideo');
   const coverBtn = document.getElementById('designerCoverBtn');
   const coverClearBtn = document.getElementById('designerCoverClearBtn');
@@ -373,7 +374,8 @@
     if (!currentPage || !activeVersionId || loadingPage) return;
     if (!currentPage.versions) currentPage.versions = {};
     currentPage.versions[activeVersionId] = store.normalizeVersionEntry({
-      lyrics: versionLyricsEl ? versionLyricsEl.value : ''
+      lyrics: versionLyricsEl ? versionLyricsEl.value : '',
+      notes: versionNotesEl ? versionNotesEl.value : ''
     });
   }
 
@@ -442,6 +444,7 @@
   function fillVersionEditorFields(playbackId) {
     const entry = versionEntryForEditor(currentPage, playbackId);
     if (versionLyricsEl) versionLyricsEl.value = entry.lyrics || '';
+    if (versionNotesEl) versionNotesEl.value = entry.notes || '';
   }
 
   function selectDesignerVersion(playbackId) {
@@ -800,6 +803,7 @@
 
   bindAutosave(notesEl);
   bindAutosave(versionLyricsEl);
+  bindAutosave(versionNotesEl);
   bindAutosave(heroVideoEl);
 
   if (coverBtn && coverInput) {

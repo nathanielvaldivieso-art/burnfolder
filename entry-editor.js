@@ -1027,7 +1027,7 @@ ${bodyParts.join('\n\n')}
 <div class="bottom-progress-bar" id="bottomBar">
   <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">&times;</div>
   <div class="bottom-bar-content">
-    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>
     <span class="song-title" id="songTitle">Track Title</span>
     <div class="bottom-bar-controls">
       <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>
@@ -3379,7 +3379,7 @@ ${bodyParts.join('\n\n')}
 <div class="bottom-progress-bar" id="bottomBar">
   <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">&times;</div>
   <div class="bottom-bar-content">
-    <mux-player id="activeMuxPlayer" style="width:0;height:0;position:absolute;left:-9999px;"></mux-player>
+    <mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>
     <span class="song-title" id="songTitle">Track Title</span>
     <div class="bottom-bar-controls">
       <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>

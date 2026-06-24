@@ -14,6 +14,7 @@
     '../entries.js',
     '../songs.js',
     '../shared/song-versions.js',
+    '../shared/studio-tap.js',
     'js/asset-cloud.js',
     '../shared/cover-art.js',
     '../shared/mux-display-name.js',
