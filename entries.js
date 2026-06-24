@@ -4,6 +4,21 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "6.24.26": {
+    "date": "6.24.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "inching closer.. ",
+        "textSize": "md"
+      },
+      {
+        "type": "audio",
+        "title": "SOMETIMES 6.19.26",
+        "playbackId": "7VAAvi4x01KJBoNhJPvuOS5LDx02oN9NUhuDEHK2nPpPI"
+      }
+    ]
+  },
   "6.5.26": {
     "date": "6.5.26",
     "blocks": [
@@ -109,7 +124,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
