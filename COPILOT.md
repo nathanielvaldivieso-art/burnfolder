@@ -201,6 +201,19 @@ second implementation on a new page.** When a behavior exists here, wire to it.
 - **No empty boxes on the public site.** Every panel (lyrics, version notes, song notes, clips, cover, video) is hidden unless it has content (`panelVisible`/`panelHidden`). The studio editor preview (`showVersionPicker: true`) is the only place that shows a placeholder for an empty slot.
 - The bottom-bar buffering spinner was removed (it shifted the play/close buttons on each track start) — do not reintroduce a layout-affecting spinner.
 
+#### Cache-bust version: bump ALL knobs together (or the PWA serves stale JS)
+When you change any shared/studio script, the deployed PWA only picks it up if its `?v=`
+URL changes — the service worker caches each asset by exact URL. Symptom of drift: "works in
+`npm dev` (no SW) but broken on the live PWA" (e.g. stale `studio-tap.js` → taps do nothing).
+Bump these together to one new `YYYYMMDD<letter>` value:
+1. `shared/site-version.js` `SITE_SCRIPT_VERSION` (public `?v=` + register-sw SW-script bust).
+2. `studio/js/studio-version.js` `BurnfolderStudioVersion` (SPA router's dynamic script loads).
+3. Every `.js?v=` in `*.html` and `studio/*.html` (one-liner:
+   `perl -i -pe 's{(\.js)\?v=[\w.]+}{$1?v=NEW}g' studio/*.html *.html`).
+4. SW cache names in `sw.js` / `studio/sw.js` (forces old caches to purge on activate).
+5. `shared/publish-artifacts.js` `SCRIPT_VERSION` (generated pages).
+Do not leave a script's `?v=` pinned to an old value after editing the file.
+
 ### Interaction standard (prevents the mobile-tap class of bug)
 **Any control that STARTS AUDIO must fire through `BurnfolderTouchTap.bind(el, handler[, {shouldSkip}])`**
 — never a bare `click` listener. iOS/PWA standalone requires `play()` to run inside the

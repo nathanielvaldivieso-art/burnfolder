@@ -13,7 +13,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : {}, function () {
   'use strict';
 
-  let SCRIPT_VERSION = '20260627g';
+  let SCRIPT_VERSION = '20260627h';
   try {
     const siteVersion = require('./site-version.js');
     if (siteVersion && siteVersion.SITE_SCRIPT_VERSION) {
