@@ -4,6 +4,21 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "7.1.26": {
+    "date": "7.1.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "RGB\nred/green/blue\n\n",
+        "textSize": "md"
+      },
+      {
+        "type": "audio",
+        "title": "RGB",
+        "playbackId": "u7dao7pbsgOZGdcVfPv6gFA8Jke3HhaKsoNwtAer013k"
+      }
+    ]
+  },
   "6.24.26": {
     "date": "6.24.26",
     "blocks": [
@@ -124,7 +139,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
