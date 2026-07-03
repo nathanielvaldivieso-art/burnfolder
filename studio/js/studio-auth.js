@@ -81,13 +81,25 @@
     document.body.classList.add('studio-booting');
   }
 
+  function resetPwaZoom() {
+    if (
+      window.BurnfolderStudioPwaViewport &&
+      typeof window.BurnfolderStudioPwaViewport.resetZoom === 'function'
+    ) {
+      window.BurnfolderStudioPwaViewport.resetZoom();
+    }
+  }
+
   function markReady() {
     ready = true;
     hideBooting();
     document.body.classList.remove('studio-locked');
     document.body.classList.add('studio-ready');
     const gate = document.getElementById('studioAuthGate');
+    const active = document.activeElement;
+    if (active && typeof active.blur === 'function') active.blur();
     if (gate) gate.remove();
+    resetPwaZoom();
     mountLockButton();
     waiters.splice(0).forEach(function (resolve) {
       resolve();
@@ -174,9 +186,14 @@
         });
     });
 
-    window.setTimeout(function () {
-      input.focus();
-    }, 0);
+    const skipAutofocus =
+      window.matchMedia &&
+      window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!skipAutofocus) {
+      window.setTimeout(function () {
+        input.focus();
+      }, 0);
+    }
   }
 
   function boot() {

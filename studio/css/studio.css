@@ -3710,7 +3710,9 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   margin-bottom: 12px;
   padding: 10px 12px;
   border: 1px solid #000;
-  font: inherit;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 .studio-auth-submit {
@@ -5228,7 +5230,8 @@ body.studio-song-designer-page .page-wrap {
   .studio-hub-date-field input,
   #newDraftDate,
   #studioNewDraftDate,
-  #entryDate {
+  #entryDate,
+  .studio-auth-input {
     min-height: 44px;
     font-size: 16px;
   }
