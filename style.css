@@ -35,6 +35,8 @@ body {
   max-width: 100%;
   /* clip (not hidden) so we don't create a scroll container that breaks position: sticky */
   overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* ── minimal checkout redesign ── */
@@ -2073,7 +2075,8 @@ h1 { display: none; }
 
 /* ── mobile ── */
 
-@media (max-width: 600px) {
+/* Touch phones + installed studio PWA (iOS can report width >600px on launch). */
+@media (max-width: 600px), ((hover: none) and (pointer: coarse) and (max-width: 932px)) {
   :root {
     --page-gutter: var(--page-gutter-mobile);
   }
