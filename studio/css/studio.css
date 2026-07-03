@@ -576,11 +576,11 @@ body.studio-has-player .page-watermark {
 }
 
 body.studio-editor-page.playback-active .studio-preview-frame .studio-entry-preview {
-  padding-bottom: 56px;
+  padding-bottom: 64px;
 }
 
 body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-preview-wrap.page-wrap {
-  padding-bottom: 56px;
+  padding-bottom: 64px;
 }
 
 .studio-editor-page .studio-preview-frame .version-picker-menu {
@@ -2680,18 +2680,10 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 }
 
 @media (hover: none) {
-  .studio-global-playback .bottom-progress-bar .close-btn {
+  .bottom-progress-bar .close-btn {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
     font-size: 16px;
     opacity: 0.5;
-    padding: 0;
-    touch-action: manipulation;
   }
 }
 
@@ -3062,7 +3054,7 @@ body.stream-playback-active .studio-global-playback ~ *,
 body.stream-playback-active.studio-journal-page .page-wrap,
 body.stream-playback-active.studio-editor-page .studio-entry-layout,
 body.stream-playback-active .studio-home {
-  padding-bottom: 64px;
+  padding-bottom: 72px;
 }
 
 /* stream playback bar — same bottom-progress-bar as burnfolder.com */
@@ -3094,7 +3086,7 @@ body.stream-playback-active .studio-home {
 }
 
 body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
-  bottom: 56px;
+  bottom: 64px;
 }
 
 .studio-stream-page .studio-main-nav-link.page-nav.is-active {
@@ -3978,7 +3970,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
 /* —— journal page —— */
 .studio-journal-layout {
   max-width: 520px;
-  padding-bottom: 72px;
+  padding-bottom: 80px;
 }
 
 .studio-journal-date-nav {
@@ -4284,7 +4276,7 @@ body.studio-spa-loading::after {
 body.stream-playback-active #studioEditorStatus.studio-global-status,
 body.studio-has-player #studioEditorStatus.studio-global-status {
   top: auto;
-  bottom: 72px;
+  bottom: 80px;
 }
 
 @media (max-width: 640px) {
@@ -5139,7 +5131,7 @@ body.studio-song-designer-page .page-wrap {
 
   body.studio-has-player .studio-home.page-wrap,
   body.stream-playback-active .studio-home.page-wrap {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
   .studio-header-nav.studio-main-nav {
