@@ -47,6 +47,9 @@
     titleEl: document.getElementById('streamNowPlayingTitle'),
     playBtnEl: document.getElementById('streamPlayPause'),
     closeBtnEl: document.getElementById('streamNowPlayingClose'),
+    progressEl: bar.querySelector('.progress-bar-area'),
+    progressFillEl: bar.querySelector('.progress'),
+    playheadEl: bar.querySelector('.progress-playhead'),
     bodyActiveClass: 'stream-playback-active',
     playbackEventName: 'burnfolder-stream-playback',
     getActiveSong: function () {

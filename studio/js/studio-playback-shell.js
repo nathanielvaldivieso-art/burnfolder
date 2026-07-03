@@ -108,15 +108,20 @@
 
   function mountBar() {
     if (barApi || !window.BurnfolderNowPlayingBar) return barApi;
-    ensureShell();
-    const bar = document.getElementById('bottomBar');
+    const shell = ensureShell();
+    const bar = shell.querySelector('.bottom-progress-bar');
     if (!bar) return null;
+    const player = shell.querySelector('#activeMuxPlayer') || document.getElementById('activeMuxPlayer');
 
     barApi = window.BurnfolderNowPlayingBar.mount({
       barEl: bar,
-      titleEl: document.getElementById('streamNowPlayingTitle'),
-      playBtnEl: document.getElementById('streamPlayPause'),
-      closeBtnEl: document.getElementById('streamNowPlayingClose'),
+      titleEl: bar.querySelector('#streamNowPlayingTitle'),
+      playBtnEl: bar.querySelector('#streamPlayPause'),
+      closeBtnEl: bar.querySelector('#streamNowPlayingClose'),
+      progressEl: bar.querySelector('.progress-bar-area'),
+      progressFillEl: bar.querySelector('.progress'),
+      playheadEl: bar.querySelector('.progress-playhead'),
+      muxPlayerEl: player,
       bodyActiveClass: 'stream-playback-active',
       playbackEventName: 'burnfolder-stream-playback',
       getActiveSong: function () {

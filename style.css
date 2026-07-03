@@ -1975,6 +1975,9 @@ body.checkout-open {
   height: 20px;
   cursor: pointer;
   z-index: 1;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .progress-bar-area::before {
@@ -2013,6 +2016,12 @@ body.checkout-open {
 .progress-bar-area:hover .progress-playhead,
 .progress-bar-area.dragging .progress-playhead {
   opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .progress-bar-area.dragging .progress-playhead {
+    opacity: 1;
+  }
 }
 
 .progress-hover-time,
@@ -2184,6 +2193,19 @@ h1 { display: none; }
   .bottom-play-pause-btn svg {
     width: 22px;
     height: 22px;
+  }
+
+  .progress-bar-area {
+    height: 28px;
+  }
+
+  .progress-bar-area::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10px;
+    bottom: -8px;
   }
 
   .close-btn {

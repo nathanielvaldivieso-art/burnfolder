@@ -75,6 +75,7 @@
       titleEl: songTitleEl,
       playBtnEl: bottomPlayBtn,
       closeBtnEl: closeBtn,
+      progressEl: progressBarArea,
       muxPlayerEl: activeMuxPlayer,
       bodyActiveClass: '',
       getActiveSong: getActiveSong,
