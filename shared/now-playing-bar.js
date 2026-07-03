@@ -70,10 +70,15 @@
     }
 
     function setBarVisible(show) {
-      bar.style.display = show ? 'flex' : 'none';
-      const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
-      if (bodyClass) document.body.classList.toggle(bodyClass, !!show);
-      if (!show && pickerApi) pickerApi.close();
+      const guard = globalRef.BurnfolderPlaybackScrollGuard;
+      const apply = function () {
+        bar.style.display = show ? 'flex' : 'none';
+        const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
+        if (bodyClass) document.body.classList.toggle(bodyClass, !!show);
+        if (!show && pickerApi) pickerApi.close();
+      };
+      if (guard && guard.run) guard.run(apply);
+      else apply();
     }
 
     function updateProgress() {

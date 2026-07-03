@@ -177,16 +177,22 @@
 
     function retryPlay(player, song, allowBlockedFallback) {
       if (!player || !song) return;
-      const playPromise = player.play();
-      if (playPromise === undefined) return;
-      playPromise.catch(function () {
-        if (allowBlockedFallback === false) return;
-        if (typeof opts.onPlayBlocked === 'function') {
-          opts.onPlayBlocked(player, song);
-          return;
-        }
-        player.play().catch(function () {});
-      });
+      const guard = root.BurnfolderPlaybackScrollGuard;
+      const invoke = function () {
+        if (guard && guard.pinHiddenPlayer) guard.pinHiddenPlayer(player);
+        const playPromise = player.play();
+        if (playPromise === undefined) return;
+        playPromise.catch(function () {
+          if (allowBlockedFallback === false) return;
+          if (typeof opts.onPlayBlocked === 'function') {
+            opts.onPlayBlocked(player, song);
+            return;
+          }
+          player.play().catch(function () {});
+        });
+      };
+      if (guard && guard.afterPlay) guard.afterPlay(invoke);
+      else invoke();
     }
 
     function advanceThresholdSec() {

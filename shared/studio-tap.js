@@ -137,6 +137,8 @@
       touchHandledAt = Date.now();
       if (event.cancelable) event.preventDefault();
       handler(event);
+      var guard = root.BurnfolderPlaybackScrollGuard;
+      if (guard && guard.blurControl) guard.blurControl(el);
     });
 
     el.addEventListener('click', function (event) {
@@ -149,6 +151,8 @@
         return;
       }
       handler(event);
+      var guardClick = root.BurnfolderPlaybackScrollGuard;
+      if (guardClick && guardClick.blurControl) guardClick.blurControl(el);
     });
   }
 

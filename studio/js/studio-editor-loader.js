@@ -17,6 +17,7 @@
     '../shared/version-picker.js',
     '../stripe-publishable.js',
     '../shared/playback-prefetch.js',
+    '../shared/playback-scroll-guard.js',
     '../shared/playback-intent.js',
     '../shared/mux-playback.js',
     '../scripts.js',

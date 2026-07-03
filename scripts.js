@@ -635,6 +635,8 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
     if (e.target.closest('.is-version-cycle')) return;
     const toPlay = cycle ? cycle.getSelected(song) : song;
     if (typeof onPlay === 'function') onPlay(toPlay, song);
+    const guard = window.BurnfolderPlaybackScrollGuard;
+    if (guard && guard.blurControl && e && e.currentTarget) guard.blurControl(e.currentTarget);
   }
 
   const rowTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
@@ -2128,8 +2130,13 @@ function syncPlaybackChromeState() {
   const playing =
     active &&
     !activeMuxPlayer.paused;
-  document.body.classList.toggle('playback-active', !!active);
-  document.body.classList.toggle('playback-playing', !!playing);
+  const guard = window.BurnfolderPlaybackScrollGuard;
+  const apply = function () {
+    document.body.classList.toggle('playback-active', !!active);
+    document.body.classList.toggle('playback-playing', !!playing);
+  };
+  if (guard && guard.run) guard.run(apply);
+  else apply();
 }
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
@@ -2177,7 +2184,7 @@ function getSiteMuxPlayback() {
         syncTracklistPlayback();
       },
       onAfterStart: () => {
-        if (bottomPlayBtn) focusPlayControl();
+        /* Do not focus the bottom bar on track start — it scrolls the page on iOS. */
       }
     });
   }
@@ -2261,7 +2268,6 @@ function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
     }
     setTimeout(() => {
       if (activeMuxPlayer.paused && bottomPlayBtn) bottomPlayBtn.click();
-      if (bottomPlayBtn) focusPlayControl();
     }, 100);
   }
 

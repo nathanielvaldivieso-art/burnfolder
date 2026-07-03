@@ -945,6 +945,8 @@ body.index-home .newsletter-popup #statusMessage {
   text-align: left;
   cursor: pointer;
   transition: background 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  scroll-margin: 0;
 }
 
 .music-track-row:hover,
