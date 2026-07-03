@@ -2718,7 +2718,8 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     justify-content: center;
     width: 44px;
     height: 44px;
-    right: 8px;
+    min-width: 44px;
+    min-height: 44px;
     font-size: 16px;
     opacity: 0.5;
     padding: 0;

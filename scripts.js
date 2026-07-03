@@ -1875,7 +1875,7 @@ function preservePlaybackAcrossNavigation() {
   }
 
   if (song && bottomBar) {
-    bottomBar.style.display = 'block';
+    bottomBar.style.display = 'flex';
     updateUI();
   } else {
     syncPlaybackChromeState();
@@ -1914,7 +1914,7 @@ if (savedState && audioList) {
       const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id');
       if (currentPlaybackId === state.playbackId) {
         // Same track, just update UI - don't reload
-        bottomBar.style.display = 'block';
+        bottomBar.style.display = 'flex';
         updateUI();
         initializeVolumeControl();
       } else {
@@ -1968,7 +1968,7 @@ if (savedState && audioList) {
         if (activeIdx === -1) activeIdx = null;
         activeQueue = activeSongOverride ? [activeSongOverride] : [];
         activeQueueIdx = 0;
-        bottomBar.style.display = 'block';
+        bottomBar.style.display = 'flex';
         updateUI();
         initializeVolumeControl();
       }
@@ -2040,7 +2040,7 @@ function updateUI() {
         : activeSong.title;
   }
   if (activeSong) {
-    bottomBar.style.display = 'block';
+    bottomBar.style.display = 'flex';
     focusPlayControl();
   } else {
     bottomBar.style.display = 'none';
@@ -2052,7 +2052,7 @@ function updateUI() {
 
 function syncPlaybackChromeState() {
   const activeSong = getActiveSong();
-  const barOn = bottomBar && bottomBar.style.display === 'block';
+  const barOn = bottomBar && bottomBar.style.display === 'flex';
   const active = !!activeSong && barOn;
   const playing =
     active &&
@@ -2199,7 +2199,7 @@ function isTypingTarget(target) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if ((e.code === 'Space' || e.key === ' ') && getActiveSong() && bottomBar.style.display === 'block') {
+  if ((e.code === 'Space' || e.key === ' ') && getActiveSong() && bottomBar.style.display === 'flex') {
     if (isTypingTarget(e.target)) return;
     e.preventDefault();
     togglePlayPause();

@@ -1163,6 +1163,8 @@ mux-player#activeMuxPlayer {
   background: #fff;
   z-index: 100;
   display: none;
+  align-items: center;
+  gap: 8px;
   box-sizing: border-box;
   border-top: 1px solid var(--c-gray);
   border-bottom: none;
@@ -1174,6 +1176,8 @@ mux-player#activeMuxPlayer {
 }
 
 .bottom-bar-content {
+  order: 1;
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 24px;
@@ -2028,11 +2032,9 @@ body.checkout-open {
 }
 
 .close-btn {
-  position: absolute;
+  order: 2;
+  flex-shrink: 0;
   font-size: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  right: 20px;
   background: transparent;
   border: none;
   color: #000;
@@ -2041,9 +2043,13 @@ body.checkout-open {
   cursor: pointer;
   font-family: monospace;
   display: none;
+  align-items: center;
+  justify-content: center;
   padding: 0;
+  min-width: 28px;
+  min-height: 28px;
 }
-.bottom-progress-bar:hover .close-btn { display: block; }
+.bottom-progress-bar:hover .close-btn { display: inline-flex; }
 .close-btn:hover { opacity: 1; }
 
 .loading-spinner {
@@ -2234,8 +2240,9 @@ h1 { display: none; }
   }
 
   .close-btn {
-    display: block;
-    right: 12px;
+    display: inline-flex;
+    min-width: 30px;
+    min-height: 30px;
     opacity: 0.25;
   }
 

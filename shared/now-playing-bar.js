@@ -61,7 +61,7 @@
     }
 
     function setBarVisible(show) {
-      bar.style.display = show ? 'block' : 'none';
+      bar.style.display = show ? 'flex' : 'none';
       const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
       if (bodyClass) document.body.classList.toggle(bodyClass, !!show);
       if (!show && pickerApi) pickerApi.close();
