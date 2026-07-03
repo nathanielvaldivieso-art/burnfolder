@@ -2568,12 +2568,15 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
   .studio-stream-page .studio-stream-album-play,
   .studio-editor-page .studio-stream-album-play {
-    width: 30px;
-    height: 30px;
-    font-size: 11px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 15px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    touch-action: manipulation;
   }
 
   .studio-stream-page .studio-stream-album-toggle,
@@ -2667,15 +2670,36 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     padding: 8px 0;
   }
 
+  /* Now playing bar — larger touch targets than public site defaults */
+  .studio-page .studio-global-playback .bottom-progress-bar,
+  .studio-page .bottom-progress-bar {
+    height: 56px;
+  }
+
+  .studio-page .studio-global-playback .bottom-play-pause-btn,
+  .studio-page .bottom-progress-bar .bottom-play-pause-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 14px;
+    touch-action: manipulation;
+  }
+
+  .studio-page .bottom-play-pause-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
   body.stream-playback-active .studio-global-playback ~ *,
   body.stream-playback-active.studio-journal-page .page-wrap,
   body.stream-playback-active.studio-editor-page .studio-entry-layout,
   body.stream-playback-active .studio-home {
-    padding-bottom: 64px;
+    padding-bottom: 72px;
   }
 
   body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
-    bottom: 56px;
+    bottom: 64px;
   }
 
   .stream-stack-action {
@@ -2694,10 +2718,55 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     justify-content: center;
     width: 44px;
     height: 44px;
-    right: 6px;
+    right: 8px;
     font-size: 16px;
     opacity: 0.5;
     padding: 0;
+    touch-action: manipulation;
+  }
+}
+
+/* Coarse-pointer phones (incl. studio PWA when width reports >600px on launch) */
+@media ((hover: none) and (pointer: coarse) and (max-width: 932px)) {
+  .studio-stream-page .studio-stream-album-play,
+  .studio-editor-page .studio-stream-album-play {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 15px;
+    touch-action: manipulation;
+  }
+
+  .studio-page .studio-global-playback .bottom-progress-bar,
+  .studio-page .bottom-progress-bar {
+    height: 56px;
+  }
+
+  .studio-page .studio-global-playback .bottom-play-pause-btn,
+  .studio-page .bottom-progress-bar .bottom-play-pause-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 14px;
+    touch-action: manipulation;
+  }
+
+  .studio-page .bottom-play-pause-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  body.stream-playback-active .studio-global-playback ~ *,
+  body.stream-playback-active.studio-journal-page .page-wrap,
+  body.stream-playback-active.studio-editor-page .studio-entry-layout,
+  body.stream-playback-active .studio-home {
+    padding-bottom: 72px;
+  }
+
+  body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
+    bottom: 64px;
   }
 }
 
@@ -3055,7 +3124,7 @@ body.stream-playback-active .studio-global-playback ~ *,
 body.stream-playback-active.studio-journal-page .page-wrap,
 body.stream-playback-active.studio-editor-page .studio-entry-layout,
 body.stream-playback-active .studio-home {
-  padding-bottom: 56px;
+  padding-bottom: 64px;
 }
 
 /* stream playback bar — same bottom-progress-bar as burnfolder.com */
@@ -3087,7 +3156,7 @@ body.stream-playback-active .studio-home {
 }
 
 body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
-  bottom: 48px;
+  bottom: 56px;
 }
 
 .studio-stream-page .studio-main-nav-link.page-nav.is-active {
