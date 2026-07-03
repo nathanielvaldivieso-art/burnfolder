@@ -1685,7 +1685,7 @@ mux-player#activeMuxPlayer {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  touch-action: manipulation;
 }
 .bottom-play-pause-btn:hover,
 .bottom-play-pause-btn:focus {

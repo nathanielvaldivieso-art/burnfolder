@@ -2670,38 +2670,6 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     padding: 8px 0;
   }
 
-  /* Now playing bar — larger touch targets than public site defaults */
-  .studio-page .studio-global-playback .bottom-progress-bar,
-  .studio-page .bottom-progress-bar {
-    height: 56px;
-  }
-
-  .studio-page .studio-global-playback .bottom-play-pause-btn,
-  .studio-page .bottom-progress-bar .bottom-play-pause-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    font-size: 14px;
-    touch-action: manipulation;
-  }
-
-  .studio-page .bottom-play-pause-btn svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  body.stream-playback-active .studio-global-playback ~ *,
-  body.stream-playback-active.studio-journal-page .page-wrap,
-  body.stream-playback-active.studio-editor-page .studio-entry-layout,
-  body.stream-playback-active .studio-home {
-    padding-bottom: 72px;
-  }
-
-  body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
-    bottom: 64px;
-  }
-
   .stream-stack-action {
     min-height: 44px;
     padding: 8px 10px;
@@ -2737,37 +2705,6 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
     min-height: 48px;
     font-size: 15px;
     touch-action: manipulation;
-  }
-
-  .studio-page .studio-global-playback .bottom-progress-bar,
-  .studio-page .bottom-progress-bar {
-    height: 56px;
-  }
-
-  .studio-page .studio-global-playback .bottom-play-pause-btn,
-  .studio-page .bottom-progress-bar .bottom-play-pause-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    font-size: 14px;
-    touch-action: manipulation;
-  }
-
-  .studio-page .bottom-play-pause-btn svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  body.stream-playback-active .studio-global-playback ~ *,
-  body.stream-playback-active.studio-journal-page .page-wrap,
-  body.stream-playback-active.studio-editor-page .studio-entry-layout,
-  body.stream-playback-active .studio-home {
-    padding-bottom: 72px;
-  }
-
-  body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
-    bottom: 64px;
   }
 }
 
@@ -5202,7 +5139,7 @@ body.studio-song-designer-page .page-wrap {
 
   body.studio-has-player .studio-home.page-wrap,
   body.stream-playback-active .studio-home.page-wrap {
-    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
   .studio-header-nav.studio-main-nav {

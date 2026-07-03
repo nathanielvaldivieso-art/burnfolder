@@ -2179,6 +2179,11 @@ function playQueuedTrack(queueIdx) {
 
 function togglePlayPause() {
   if (!getActiveSong()) return;
+  const engine = getSiteMuxPlayback();
+  if (engine) {
+    engine.togglePlayPause();
+    return;
+  }
   if (activeMuxPlayer.paused) {
     activeMuxPlayer.play();
   } else {

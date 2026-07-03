@@ -36,9 +36,6 @@
     const playback = engine();
     if (!playback) return;
     playback.togglePlayPause();
-    if (typeof window.updateUI === 'function') window.updateUI();
-    if (typeof window.syncPlaybackChromeState === 'function') window.syncPlaybackChromeState();
-    if (typeof window.syncTracklistPlayback === 'function') window.syncTracklistPlayback();
   };
 
   window.getActiveSong = function () {

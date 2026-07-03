@@ -80,6 +80,16 @@
       playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
     }
 
+    function playingFromPlayer() {
+      return !!(muxPlayer && !muxPlayer.paused);
+    }
+
+    function togglePlayFromBar() {
+      if (typeof opts.onTogglePlay !== 'function') return;
+      renderPlayButton(!playingFromPlayer());
+      opts.onTogglePlay();
+    }
+
     // ── progress seek: click + drag + touch-drag with hover timestamp (burnfolder.com parity) ──
     let hoverTip = null;
     function ensureHoverTip() {
@@ -199,9 +209,12 @@
     }
 
     if (playBtn) {
-      playBtn.addEventListener('click', function () {
-        if (typeof opts.onTogglePlay === 'function') opts.onTogglePlay();
-      });
+      const tap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
+      if (tap && tap.bind) {
+        tap.bind(playBtn, togglePlayFromBar);
+      } else {
+        playBtn.addEventListener('click', togglePlayFromBar);
+      }
     }
 
     if (closeBtn) {
@@ -270,6 +283,12 @@
     if (muxPlayer) {
       muxPlayer.addEventListener('timeupdate', updateProgress);
       muxPlayer.addEventListener('loadedmetadata', updateProgress);
+      muxPlayer.addEventListener('play', function () {
+        renderPlayButton(true);
+      });
+      muxPlayer.addEventListener('pause', function () {
+        renderPlayButton(false);
+      });
       // No buffering spinner: it shifted the play/close buttons each time a track
       // started. Intentionally not bound — see COPILOT.md "No-jump rule".
     }
