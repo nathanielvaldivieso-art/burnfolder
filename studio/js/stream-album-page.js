@@ -138,7 +138,13 @@
       return;
     }
     const meta = shared.loadStackMeta(group.id);
-    player.playQueue(tracks, idx, { coverArt: meta.coverArt || '' });
+    player.playQueue(tracks, idx, {
+      coverArt: meta.coverArt || '',
+      albumTitle: meta.title || group.id || '',
+      queueScope: 'album',
+      allowQueueAdvance: tracks.length > 1,
+      source: 'studio-album'
+    });
     syncTracklistPlayback();
     syncAlbumPlayButton();
   }

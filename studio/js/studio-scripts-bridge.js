@@ -23,7 +23,12 @@
     playback.playTrackQueue(
       Array.isArray(queueSongs) && queueSongs.length ? queueSongs : [song],
       typeof queueIdx === 'number' ? queueIdx : 0,
-      { immediatePlay: true }
+      {
+        immediatePlay: true,
+        queueScope: Array.isArray(queueSongs) && queueSongs.length > 1 ? 'explicit' : 'single',
+        allowQueueAdvance: Array.isArray(queueSongs) && queueSongs.length > 1,
+        source: 'editor'
+      }
     );
     syncEditorPlaybackUi();
   };
@@ -32,7 +37,12 @@
     const playback = engine();
     if (!playback) return;
     shell.mountBar();
-    playback.playTrackQueue(queueSongs, queueStartIdx || 0, { immediatePlay: true });
+    playback.playTrackQueue(queueSongs, queueStartIdx || 0, {
+      immediatePlay: true,
+      queueScope: queueSongs.length > 1 ? 'explicit' : 'single',
+      allowQueueAdvance: queueSongs.length > 1,
+      source: 'editor-queue'
+    });
     syncEditorPlaybackUi();
   };
 

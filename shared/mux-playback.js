@@ -36,6 +36,8 @@
     let activeSong = null;
     let activeQueue = [];
     let activeQueueIdx = 0;
+    let activeScope = null;
+    let allowAdvance = false;
     let endedBound = false;
     let positionBound = false;
     let recallTimer = null;
@@ -79,8 +81,42 @@
         queue: activeQueue,
         queueIdx: activeQueueIdx,
         currentTime: player ? player.currentTime : 0,
-        wasPlaying: !!(player && !player.paused)
+        wasPlaying: !!(player && !player.paused),
+        scope: activeScope
       });
+    }
+
+    function applyPlaybackPlan(song, queueSongs, queueIdx, playbackOpts) {
+      const intentApi = root.BurnfolderPlaybackIntent;
+      const startOpts = playbackOpts || {};
+      const fallbackSong = normalizeSong(song);
+      if (!fallbackSong) return null;
+
+      if (!intentApi) {
+        const queue =
+          Array.isArray(queueSongs) && queueSongs.length
+            ? queueSongs.map(normalizeSong).filter(Boolean)
+            : [fallbackSong];
+        return {
+          song: fallbackSong,
+          queue: queue,
+          queueIdx: typeof queueIdx === 'number' ? queueIdx : 0,
+          scope: null,
+          allowAdvance: queue.length > 1
+        };
+      }
+
+      const plan = intentApi.buildPlaybackPlan(song, queueSongs, queueIdx, startOpts);
+      if (!plan) return null;
+      const queue = plan.queue.map(normalizeSong).filter(Boolean);
+      const plannedSong = normalizeSong(plan.song) || fallbackSong;
+      return {
+        song: plannedSong,
+        queue: queue.length ? queue : [plannedSong],
+        queueIdx: plan.queueIdx,
+        scope: plan.scope,
+        allowAdvance: plan.allowAdvance
+      };
     }
 
     function syncMediaSession(detail) {
@@ -169,7 +205,13 @@
       if (remaining > advanceThresholdSec()) return false;
 
       const nextIdx = activeQueueIdx + 1;
-      if (nextIdx >= activeQueue.length) return false;
+      if (!allowAdvance || nextIdx >= activeQueue.length) return false;
+
+      const nextSong = activeQueue[nextIdx];
+      const intentApi = root.BurnfolderPlaybackIntent;
+      if (intentApi && activeScope && !intentApi.canAdvanceTo(activeScope, nextSong, activeQueue)) {
+        return false;
+      }
 
       queueAdvanceLock = true;
       playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
@@ -178,12 +220,18 @@
 
     function advanceQueueAfterEnd(player) {
       const nextIdx = activeQueueIdx + 1;
-      if (nextIdx < activeQueue.length) {
-        queueAdvanceLock = true;
-        playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
-      } else {
+      if (!allowAdvance || nextIdx >= activeQueue.length) {
         notify({ playing: false });
+        return;
       }
+      const nextSong = activeQueue[nextIdx];
+      const intentApi = root.BurnfolderPlaybackIntent;
+      if (intentApi && activeScope && !intentApi.canAdvanceTo(activeScope, nextSong, activeQueue)) {
+        notify({ playing: false });
+        return;
+      }
+      queueAdvanceLock = true;
+      playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true, preserveScope: true });
     }
 
     function bindEnded(player) {
@@ -233,24 +281,38 @@
 
     function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
       const player = getPlayer();
-      const normalized = normalizeSong(song);
+      const startOpts = playbackOpts || {};
+      let normalized = normalizeSong(song);
       if (!player || !normalized) {
         queueAdvanceLock = false;
         return false;
       }
 
+      if (!startOpts.preserveScope) {
+        const plan = applyPlaybackPlan(song, queueSongs, queueIdx, startOpts);
+        if (!plan) {
+          queueAdvanceLock = false;
+          return false;
+        }
+        normalized = plan.song;
+        activeScope = plan.scope;
+        allowAdvance = plan.allowAdvance;
+        activeQueue = plan.queue;
+        activeQueueIdx = plan.queueIdx;
+      } else {
+        activeQueue =
+          Array.isArray(queueSongs) && queueSongs.length
+            ? queueSongs.map(normalizeSong).filter(Boolean)
+            : [normalized];
+        activeQueueIdx = typeof queueIdx === 'number' ? queueIdx : 0;
+      }
+
       queueAdvanceLock = false;
-      const startOpts = playbackOpts || {};
       const immediatePlay =
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
 
       activeSong = normalized;
-      activeQueue =
-        Array.isArray(queueSongs) && queueSongs.length
-          ? queueSongs.map(normalizeSong).filter(Boolean)
-          : [normalized];
-      activeQueueIdx = typeof queueIdx === 'number' ? queueIdx : 0;
 
       bindEnded(player);
       bindMediaSessionActions();
@@ -349,6 +411,7 @@
       if (!song) return false;
       const trackOpts = playbackOpts || {};
       if (trackOpts.immediatePlay == null) trackOpts.immediatePlay = true;
+      if (trackOpts.seamlessAdvance) trackOpts.preserveScope = true;
       return startPlayback(song, activeQueue, queueIdx, trackOpts);
     }
 
@@ -381,6 +444,8 @@
       activeSong = null;
       activeQueue = [];
       activeQueueIdx = 0;
+      activeScope = null;
+      allowAdvance = false;
       if (player) {
         player.pause();
         player.removeAttribute('playback-id');
@@ -395,12 +460,19 @@
       const maxAge = recallOpts && recallOpts.maxAgeMs ? recallOpts.maxAgeMs : 1000 * 60 * 60 * 12;
       const recall = recallApi.load(maxAge);
       if (!recall || !recall.song) return false;
+      const intentApi = root.BurnfolderPlaybackIntent;
+      if (intentApi && recall.scope && !intentApi.isRecallCompatible(recall, recallOpts)) {
+        recallApi.clear();
+        return false;
+      }
       const queue = recall.queue && recall.queue.length ? recall.queue : [recall.song];
       let idx = recall.queueIdx;
       if (idx < 0 || idx >= queue.length) idx = 0;
       return startPlayback(recall.song, queue, idx, {
         recall: Object.assign({}, recall, { wasPlaying: false }),
-        immediatePlay: false
+        immediatePlay: false,
+        scope: recall.scope || null,
+        allowQueueAdvance: !!(recall.scope && recall.scope.type !== 'single')
       });
     }
 
@@ -427,6 +499,20 @@
       },
       getActiveQueueIdx: function () {
         return activeQueueIdx;
+      },
+      getScope: function () {
+        return activeScope;
+      },
+      reconcileNavigation: function (pageKey) {
+        const intentApi = root.BurnfolderPlaybackIntent;
+        if (!intentApi || !activeSong) return false;
+        const result = intentApi.reconcileNavigation(pageKey, activeSong, activeQueue, activeScope);
+        if (!result.changed) return false;
+        activeQueue = result.queue.map(normalizeSong).filter(Boolean);
+        activeScope = result.scope;
+        allowAdvance = activeScope && activeScope.type !== 'single' && activeQueue.length > 1;
+        persistRecall();
+        return true;
       },
       isPlayingPlaybackId: function (id) {
         const player = getPlayer();

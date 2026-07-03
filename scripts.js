@@ -524,12 +524,24 @@ function playReleaseQueue(tracks, startIndex = 0) {
   const queue = (tracks || []).filter((track) => track && track.playbackId);
   if (!queue.length) return;
 
+  const release = getFeaturedMusicRelease();
+  const intentApi = window.BurnfolderPlaybackIntent;
+  const playbackOpts = {
+    queueScope: 'album',
+    allowQueueAdvance: true,
+    albumTitle: release && release.title ? release.title : queue[0].album || '',
+    source: 'featured-album'
+  };
+  if (intentApi && release && release.title) {
+    playbackOpts.scope = intentApi.scopeAlbum(release.title);
+  }
+
   window.currentSongs = queue.slice();
   activeQueue = queue.slice();
   activeQueueIdx = startIndex;
   activeSongOverride = queue[startIndex];
   activeIdx = startIndex;
-  playQueuedTrack(startIndex);
+  startPlayback(queue[startIndex], queue, startIndex, playbackOpts);
   syncTracklistPlayback();
 }
 
@@ -768,7 +780,14 @@ function playSongHubQueue(sorted, song, hubRoot, page, renderApi) {
     return;
   }
 
-  startPlayback(song, sorted, idx >= 0 ? idx : 0);
+  const intentApi = window.BurnfolderPlaybackIntent;
+  const groupKey = intentApi ? intentApi.getTrackGroupKey(song.title) : '';
+  startPlayback(song, sorted, idx >= 0 ? idx : 0, {
+    queueScope: 'song-hub',
+    groupKey: groupKey,
+    allowQueueAdvance: sorted.length > 1,
+    source: 'song-hub'
+  });
   if (renderApi && page && hubRoot) {
     renderApi.selectVersion(hubRoot, page, song.playbackId);
   }
@@ -901,16 +920,24 @@ function getEntryPageHref(song) {
   return `${p}.html`;
 }
 
-function playTrackBySong(song) {
+function playTrackBySong(song, playOpts) {
   if (!song || !song.playbackId) return;
 
+  const opts = playOpts || {};
+  const intentApi = window.BurnfolderPlaybackIntent;
+
+  if (opts.queueSongs && opts.queueSongs.length) {
+    startPlayback(song, opts.queueSongs, opts.queueStartIdx || 0, opts);
+    return;
+  }
+
   const idx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
-  if (idx !== -1) {
+  if (idx !== -1 && (opts.queueScope === 'page' || (intentApi && intentApi.isBoundedPageScope()))) {
     playTrack(idx);
     return;
   }
 
-  startPlayback(song, [song], 0);
+  startPlayback(song, [song], 0, Object.assign({ queueScope: 'single' }, opts));
 }
 
 function renderSongHubPage() {
@@ -1044,7 +1071,12 @@ function playAlbumHubQueue(sorted, song) {
     return;
   }
 
-  startPlayback(song, sorted, idx >= 0 ? idx : 0);
+  startPlayback(song, sorted, idx >= 0 ? idx : 0, {
+    queueScope: 'album',
+    albumTitle: song.album || sorted[0].album || '',
+    allowQueueAdvance: sorted.length > 1,
+    source: 'album-hub'
+  });
 }
 
 function syncAlbumHubPlayButton() {
@@ -2102,6 +2134,27 @@ function syncPlaybackChromeState() {
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
 
+function reconcilePlaybackForNavigation(pageKey) {
+  const engine = getSiteMuxPlayback();
+  if (engine && typeof engine.reconcileNavigation === 'function') {
+    engine.reconcileNavigation(pageKey);
+  }
+  if (engine && typeof engine.getActiveQueue === 'function') {
+    const active = engine.getActiveSong();
+    const queue = engine.getActiveQueue();
+    if (active && queue && queue.length) {
+      activeSongOverride = active;
+      activeQueue = queue.slice();
+      activeQueueIdx =
+        typeof engine.getActiveQueueIdx === 'function' ? engine.getActiveQueueIdx() : 0;
+    }
+  }
+  syncTracklistPlayback();
+  syncPlaybackChromeState();
+}
+
+window.reconcilePlaybackForNavigation = reconcilePlaybackForNavigation;
+
 let siteMuxPlayback = null;
 
 function getSiteMuxPlayback() {
@@ -2167,18 +2220,34 @@ function mountNowPlayingBar() {
   return nowPlayingBar;
 }
 
-function startPlayback(song, queueSongs, queueIdx) {
+function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
   if (!song || !song.playbackId || !activeMuxPlayer) return;
 
-  activeSongOverride = song;
-  activeQueue = Array.isArray(queueSongs) && queueSongs.length ? queueSongs.slice() : [song];
-  activeQueueIdx = typeof queueIdx === 'number' ? queueIdx : 0;
-  activeIdx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
+  const opts = playbackOpts || {};
+  const intentApi = window.BurnfolderPlaybackIntent;
+  let plannedSong = song;
+  let plannedQueue = queueSongs;
+  let plannedIdx = queueIdx;
+
+  if (intentApi) {
+    const plan = intentApi.buildPlaybackPlan(song, queueSongs, queueIdx, opts);
+    if (!plan) return;
+    plannedSong = plan.song;
+    plannedQueue = plan.queue;
+    plannedIdx = plan.queueIdx;
+    opts.scope = plan.scope;
+    opts.allowQueueAdvance = plan.allowAdvance;
+  }
+
+  activeSongOverride = plannedSong;
+  activeQueue = Array.isArray(plannedQueue) && plannedQueue.length ? plannedQueue.slice() : [plannedSong];
+  activeQueueIdx = typeof plannedIdx === 'number' ? plannedIdx : 0;
+  activeIdx = window.currentSongs.findIndex((item) => item.playbackId === plannedSong.playbackId);
   if (activeIdx === -1) activeIdx = null;
 
   const engine = getSiteMuxPlayback();
   if (engine) {
-    engine.startPlayback(song, activeQueue, activeQueueIdx, { immediatePlay: true });
+    engine.startPlayback(plannedSong, activeQueue, activeQueueIdx, Object.assign({ immediatePlay: true }, opts));
   } else {
     activeMuxPlayer.pause();
     activeMuxPlayer.currentTime = 0;
@@ -2205,7 +2274,16 @@ function startPlayback(song, queueSongs, queueIdx) {
 function playTrack(idx) {
   const song = window.currentSongs[idx];
   if (!song) return;
-  startPlayback(song, window.currentSongs, idx);
+  const intentApi = window.BurnfolderPlaybackIntent;
+  const playbackOpts = intentApi && intentApi.isBoundedPageScope()
+    ? { queueScope: 'page', pageKey: intentApi.getPageKey() }
+    : { queueScope: 'single' };
+  startPlayback(
+    song,
+    intentApi && intentApi.isBoundedPageScope() ? window.currentSongs : [song],
+    intentApi && intentApi.isBoundedPageScope() ? idx : 0,
+    playbackOpts
+  );
 }
 
 function playTrackQueue(queueSongs, queueStartIdx) {
@@ -2213,7 +2291,11 @@ function playTrackQueue(queueSongs, queueStartIdx) {
   const start = typeof queueStartIdx === 'number' ? queueStartIdx : 0;
   const song = queueSongs[start];
   if (!song) return;
-  startPlayback(song, queueSongs, start);
+  startPlayback(song, queueSongs, start, {
+    queueScope: 'explicit',
+    allowQueueAdvance: queueSongs.length > 1,
+    source: 'explicit-queue'
+  });
 }
 
 window.playTrackQueue = playTrackQueue;
