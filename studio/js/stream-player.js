@@ -1,21 +1,26 @@
 (function () {
   'use strict';
 
-  const localPlayback = window.BurnfolderMuxPlayback
-    ? window.BurnfolderMuxPlayback.create({
-        playerId: 'activeMuxPlayer',
-        recall: true,
-        restoreRecall: false,
-        artist: 'burnfolder',
-        album: 'stream',
-        onPlayBlocked: function (player) {
-          if (player) player.play().catch(function () {});
-        },
-        onStateChange: function (detail) {
-          window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
-        }
-      })
-    : null;
+  let localPlayback = null;
+
+  function getLocalPlayback() {
+    if (localPlayback) return localPlayback;
+    if (!window.BurnfolderMuxPlayback) return null;
+    localPlayback = window.BurnfolderMuxPlayback.create({
+      playerId: 'activeMuxPlayer',
+      recall: true,
+      restoreRecall: false,
+      artist: 'burnfolder',
+      album: 'stream',
+      onPlayBlocked: function (player) {
+        if (player) player.play().catch(function () {});
+      },
+      onStateChange: function (detail) {
+        window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
+      }
+    });
+    return localPlayback;
+  }
 
   function engine() {
     const shell = window.BurnfolderStudioPlaybackShell;
@@ -23,7 +28,7 @@
       const shared = shell.getEngine();
       if (shared) return shared;
     }
-    return localPlayback;
+    return getLocalPlayback();
   }
 
   function songFromItem(item, opts) {

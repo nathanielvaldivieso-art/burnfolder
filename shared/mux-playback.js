@@ -357,11 +357,19 @@
       if (!player || !activeSong) return;
       const shouldPlay = typeof forcePlay === 'boolean' ? forcePlay : player.paused;
       if (shouldPlay) {
-        notify({ playing: true });
-        player.play().catch(function () {
-          notify({ playing: false });
-          retryPlay(player, activeSong);
-        });
+        const playPromise = player.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise
+            .then(function () {
+              notify();
+            })
+            .catch(function () {
+              notify({ playing: false });
+              retryPlay(player, activeSong);
+            });
+        } else {
+          notify();
+        }
       } else {
         player.pause();
         notify({ playing: false });

@@ -86,7 +86,6 @@
 
     function togglePlayFromBar() {
       if (typeof opts.onTogglePlay !== 'function') return;
-      renderPlayButton(!playingFromPlayer());
       opts.onTogglePlay();
     }
 

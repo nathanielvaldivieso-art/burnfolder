@@ -1874,9 +1874,13 @@ function preservePlaybackAcrossNavigation() {
     }
   }
 
-  if (song && bottomBar) {
-    bottomBar.style.display = 'flex';
-    updateUI();
+  if (song) {
+    if (isStudioPage()) {
+      updateUI();
+    } else if (bottomBar) {
+      bottomBar.style.display = 'flex';
+      updateUI();
+    }
   } else {
     syncPlaybackChromeState();
     syncTracklistPlayback();
@@ -2022,6 +2026,19 @@ if (audioList && !didRenderInitially) {
 
 function updateUI() {
   const activeSong = getActiveSong();
+  if (isStudioPage()) {
+    const bar = nowPlayingBar || mountNowPlayingBar();
+    if (bar) {
+      bar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
+      bar.update({
+        song: activeSong || null,
+        playing: !!(activeSong && activeMuxPlayer && !activeMuxPlayer.paused)
+      });
+    }
+    syncPlaybackChromeState();
+    syncTracklistPlayback();
+    return;
+  }
   const bar = nowPlayingBar || mountNowPlayingBar();
   if (bar) {
     bar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
@@ -2050,9 +2067,31 @@ function updateUI() {
   syncTracklistPlayback();
 }
 
+function isStudioPage() {
+  return !!(document.body && document.body.classList.contains('studio-page'));
+}
+
+function getStudioShellEngine() {
+  if (!isStudioPage() || !window.BurnfolderStudioPlaybackShell) return null;
+  const engine = window.BurnfolderStudioPlaybackShell.getEngine();
+  return engine || null;
+}
+
+function getStudioShellBar() {
+  if (!isStudioPage() || !window.BurnfolderStudioPlaybackShell) return null;
+  return window.BurnfolderStudioPlaybackShell.mountBar();
+}
+
+function studioPlaybackBarVisible() {
+  const shellBar = document.querySelector('#studioGlobalPlayback #bottomBar');
+  return !!(shellBar && shellBar.style.display === 'flex');
+}
+
 function syncPlaybackChromeState() {
   const activeSong = getActiveSong();
-  const barOn = bottomBar && bottomBar.style.display === 'flex';
+  const barOn = isStudioPage()
+    ? studioPlaybackBarVisible()
+    : bottomBar && bottomBar.style.display === 'flex';
   const active = !!activeSong && barOn;
   const playing =
     active &&
@@ -2066,6 +2105,8 @@ window.syncPlaybackChromeState = syncPlaybackChromeState;
 let siteMuxPlayback = null;
 
 function getSiteMuxPlayback() {
+  const shellEngine = getStudioShellEngine();
+  if (shellEngine) return shellEngine;
   if (!siteMuxPlayback && activeMuxPlayer && window.BurnfolderMuxPlayback) {
     siteMuxPlayback = window.BurnfolderMuxPlayback.create({
       getPlayer: () => activeMuxPlayer,
@@ -2091,6 +2132,11 @@ function getSiteMuxPlayback() {
 }
 
 function mountNowPlayingBar() {
+  const shellBar = getStudioShellBar();
+  if (shellBar) {
+    nowPlayingBar = shellBar;
+    return shellBar;
+  }
   if (nowPlayingBar || !window.BurnfolderNowPlayingBar) return nowPlayingBar;
   if (!songTitleEl || !songTitleEl.parentElement) return null;
   nowPlayingBar = window.BurnfolderNowPlayingBar.mount({
@@ -2182,6 +2228,7 @@ function togglePlayPause() {
   const engine = getSiteMuxPlayback();
   if (engine) {
     engine.togglePlayPause();
+    if (isStudioPage()) updateUI();
     return;
   }
   if (activeMuxPlayer.paused) {
@@ -2204,11 +2251,14 @@ function isTypingTarget(target) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if ((e.code === 'Space' || e.key === ' ') && getActiveSong() && bottomBar.style.display === 'flex') {
+  const barVisible = isStudioPage()
+    ? studioPlaybackBarVisible()
+    : bottomBar && bottomBar.style.display === 'flex';
+  if ((e.code === 'Space' || e.key === ' ') && getActiveSong() && barVisible) {
     if (isTypingTarget(e.target)) return;
     e.preventDefault();
     togglePlayPause();
-    focusPlayControl();
+    if (!isStudioPage()) focusPlayControl();
   }
 });
 
@@ -2220,34 +2270,40 @@ function showLoading() {
 }
 
 // Progress fill/playhead are driven by shared/now-playing-bar.js (timeupdate/loadedmetadata).
-activeMuxPlayer.addEventListener('ended', () => {
-  progressEl.style.width = '0%';
-  const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
-  if (nextIdx !== null && nextIdx < activeQueue.length) {
-    playQueuedTrack(nextIdx);
-    return;
-  }
-  updateUI();
-});
-activeMuxPlayer.addEventListener('playing', () => {
-  updateUI();
-});
-activeMuxPlayer.addEventListener('pause', () => {
-  updateUI();
-});
-activeMuxPlayer.addEventListener('error', () => {
-  const activeSong = getActiveSong();
-  if (activeSong) {
-    console.warn(`Failed to load "${activeSong.title}".`, activeSong.playbackId);
-  }
-  const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
-  if (nextIdx !== null && nextIdx < activeQueue.length) {
-    playQueuedTrack(nextIdx);
-    return;
-  }
-  showLoading(false);
-  updateUI();
-});
+if (activeMuxPlayer && !isStudioPage()) {
+  activeMuxPlayer.addEventListener('ended', () => {
+    progressEl.style.width = '0%';
+    const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
+    if (nextIdx !== null && nextIdx < activeQueue.length) {
+      playQueuedTrack(nextIdx);
+      return;
+    }
+    updateUI();
+  });
+}
+if (activeMuxPlayer) {
+  activeMuxPlayer.addEventListener('playing', () => {
+    updateUI();
+  });
+  activeMuxPlayer.addEventListener('pause', () => {
+    updateUI();
+  });
+}
+if (activeMuxPlayer && !isStudioPage()) {
+  activeMuxPlayer.addEventListener('error', () => {
+    const activeSong = getActiveSong();
+    if (activeSong) {
+      console.warn(`Failed to load "${activeSong.title}".`, activeSong.playbackId);
+    }
+    const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
+    if (nextIdx !== null && nextIdx < activeQueue.length) {
+      playQueuedTrack(nextIdx);
+      return;
+    }
+    showLoading(false);
+    updateUI();
+  });
+}
 // Progress-bar seek (click + drag + touch) and hover timestamp are handled by
 // shared/now-playing-bar.js, which is mounted via mountNowPlayingBar().
 

@@ -145,6 +145,35 @@
     ensureShell();
     getEngine();
     if (window.BurnfolderNowPlayingBar) mountBar();
+    bindSpacebarToggle();
+  }
+
+  function isTypingTarget(target) {
+    const el = target && target.nodeType === 1 ? target : null;
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return Boolean(el.closest('[contenteditable="true"]'));
+  }
+
+  function playbackBarVisible() {
+    const bar = document.querySelector('#studioGlobalPlayback #bottomBar');
+    return !!(bar && bar.style.display === 'flex');
+  }
+
+  function bindSpacebarToggle() {
+    if (window.__studioPlaybackSpaceBound) return;
+    window.__studioPlaybackSpaceBound = true;
+    document.addEventListener('keydown', function (e) {
+      if (e.code !== 'Space' && e.key !== ' ') return;
+      const eng = getEngine();
+      if (!eng || !eng.getActiveSong()) return;
+      if (!playbackBarVisible()) return;
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      eng.togglePlayPause();
+    });
   }
 
   window.BurnfolderStudioPlaybackShell = {

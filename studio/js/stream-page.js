@@ -1402,8 +1402,6 @@
 
   window.addEventListener('burnfolder-stream-playback', function () {
     syncStreamTracklistPlayback();
-    if (expandedVideoId) return;
-    renderList();
   });
 
   window.addEventListener('burnfolder-stack-changed', function () {
