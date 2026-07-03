@@ -1,0 +1,15 @@
+---
+description: Require explicit user approval before git push
+alwaysApply: true
+---
+
+# Git push requires permission
+
+Do not run `git push` (or any command that publishes commits to a remote) unless the user explicitly asks to push in that turn.
+
+- **Commits:** Only commit when the user explicitly asks (existing project convention).
+- **Push:** Treat push as a separate, explicit step. After committing, stop and tell the user the commit is ready locally; ask if they want you to push.
+- **"Push everything" / "deploy" / "ship it":** Those count as explicit push permission for that request only.
+- **PR workflows:** Creating a PR may require push only when the user asked for a PR or push; otherwise propose the push and wait.
+
+Never assume "fix and push" or "commit and push" unless the user said push in the same message.
