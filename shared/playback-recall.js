@@ -27,17 +27,18 @@
   function save(payload) {
     if (!payload || !payload.song || !payload.song.playbackId) return;
     try {
-      root.sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          song: normalizeSong(payload.song),
-          queue: (payload.queue || []).map(normalizeSong).filter(Boolean),
-          queueIdx: typeof payload.queueIdx === 'number' ? payload.queueIdx : 0,
-          currentTime: Number(payload.currentTime) || 0,
-          wasPlaying: payload.wasPlaying === true,
-          savedAt: Date.now()
-        })
-      );
+      const row = {
+        song: normalizeSong(payload.song),
+        queue: (payload.queue || []).map(normalizeSong).filter(Boolean),
+        queueIdx: typeof payload.queueIdx === 'number' ? payload.queueIdx : 0,
+        currentTime: Number(payload.currentTime) || 0,
+        wasPlaying: payload.wasPlaying === true,
+        savedAt: Date.now()
+      };
+      if (payload.scope && payload.scope.type) {
+        row.scope = payload.scope;
+      }
+      root.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(row));
     } catch (e) {
       /* ignore quota */
     }
@@ -56,7 +57,8 @@
       queue: (row.queue || []).map(normalizeSong).filter(Boolean),
       queueIdx: typeof row.queueIdx === 'number' ? row.queueIdx : 0,
       currentTime: Number(row.currentTime) || 0,
-      wasPlaying: row.wasPlaying === true
+      wasPlaying: row.wasPlaying === true,
+      scope: row.scope && row.scope.type ? row.scope : null
     };
   }
 

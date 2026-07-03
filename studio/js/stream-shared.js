@@ -275,9 +275,19 @@
   function setHiddenAudioPlayer(enabled) {
     const audio = document.getElementById('activeMuxPlayer');
     if (!audio) return;
+    const guard = window.BurnfolderPlaybackScrollGuard;
+    const pin =
+      guard && guard.pinHiddenPlayer
+        ? function (player) {
+            guard.pinHiddenPlayer(player);
+          }
+        : function (player) {
+            player.style.cssText =
+              'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);';
+          };
     if (enabled) {
       audio.removeAttribute('hidden');
-      audio.style.cssText = 'width:0;height:0;position:absolute;left:-9999px;';
+      pin(audio);
     } else {
       audio.pause();
       audio.removeAttribute('playback-id');

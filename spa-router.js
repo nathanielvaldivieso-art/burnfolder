@@ -183,6 +183,10 @@
       window.currentSongs = window.allSongs || [];
     }
 
+    if (typeof window.reconcilePlaybackForNavigation === 'function') {
+      window.reconcilePlaybackForNavigation(pageKey);
+    }
+
     const songs = window.currentSongs;
 
     function trackDisplayTitle(song, inAlbum) {

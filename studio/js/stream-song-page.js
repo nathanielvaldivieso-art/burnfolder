@@ -151,7 +151,13 @@
       return;
     }
     if (videoHero) shared.clearStreamVideo(videoHero);
-    player.playQueue(audioItems, idx >= 0 ? idx : 0);
+    const groupKey = versionsApi ? versionsApi.getTrackGroupKey(song.title) : '';
+    player.playQueue(audioItems, idx >= 0 ? idx : 0, {
+      queueScope: 'song-hub',
+      groupKey: groupKey,
+      allowQueueAdvance: audioItems.length > 1,
+      source: 'studio-song-hub'
+    });
     syncVersionsPlayback();
     syncSongHubPlayButton(sorted);
     const renderApi = window.BurnfolderSongPageRender;

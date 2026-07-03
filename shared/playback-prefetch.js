@@ -222,6 +222,11 @@
   }
 
   function pinOffscreenPlayer(player) {
+    const guard = root.BurnfolderPlaybackScrollGuard;
+    if (guard && guard.pinHiddenPlayer) {
+      guard.pinHiddenPlayer(player);
+      return;
+    }
     if (!player || !player.style) return;
     player.style.cssText =
       'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);';

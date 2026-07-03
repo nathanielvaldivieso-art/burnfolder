@@ -1,21 +1,26 @@
 (function () {
   'use strict';
 
-  const localPlayback = window.BurnfolderMuxPlayback
-    ? window.BurnfolderMuxPlayback.create({
-        playerId: 'activeMuxPlayer',
-        recall: true,
-        restoreRecall: false,
-        artist: 'burnfolder',
-        album: 'stream',
-        onPlayBlocked: function (player) {
-          if (player) player.play().catch(function () {});
-        },
-        onStateChange: function (detail) {
-          window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
-        }
-      })
-    : null;
+  let localPlayback = null;
+
+  function getLocalPlayback() {
+    if (localPlayback) return localPlayback;
+    if (!window.BurnfolderMuxPlayback) return null;
+    localPlayback = window.BurnfolderMuxPlayback.create({
+      playerId: 'activeMuxPlayer',
+      recall: true,
+      restoreRecall: false,
+      artist: 'burnfolder',
+      album: 'stream',
+      onPlayBlocked: function (player) {
+        if (player) player.play().catch(function () {});
+      },
+      onStateChange: function (detail) {
+        window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
+      }
+    });
+    return localPlayback;
+  }
 
   function engine() {
     const shell = window.BurnfolderStudioPlaybackShell;
@@ -23,7 +28,7 @@
       const shared = shell.getEngine();
       if (shared) return shared;
     }
-    return localPlayback;
+    return getLocalPlayback();
   }
 
   function songFromItem(item, opts) {
@@ -50,12 +55,55 @@
     };
   }
 
+  function playbackOptsForSong(song, opts) {
+    const options = opts || {};
+    const intentApi = window.BurnfolderPlaybackIntent;
+    if (!intentApi || !song) {
+      return Object.assign({ immediatePlay: true }, options);
+    }
+    if (options.queueScope || options.scope) {
+      return Object.assign({ immediatePlay: true }, options);
+    }
+    if (options.queueScope === 'album' || options.albumTitle) {
+      return Object.assign(
+        {
+          immediatePlay: true,
+          queueScope: 'album',
+          albumTitle: options.albumTitle || song.album || '',
+          allowQueueAdvance: true,
+          source: 'studio-album'
+        },
+        options
+      );
+    }
+    if (options.queueScope === 'song-hub' || options.groupKey) {
+      return Object.assign(
+        {
+          immediatePlay: true,
+          queueScope: 'song-hub',
+          groupKey: options.groupKey || '',
+          allowQueueAdvance: true,
+          source: 'studio-song-hub'
+        },
+        options
+      );
+    }
+  return Object.assign(
+      {
+        immediatePlay: true,
+        queueScope: 'single',
+        source: 'studio-row'
+      },
+      options
+    );
+  }
+
   function playItem(item, opts) {
     const song = songFromItem(item, opts);
     const playback = engine();
     if (!song || song.kind === 'video' || !playback) return false;
     if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
-    return playback.playTrackQueue([song], 0, { immediatePlay: true });
+    return playback.playTrackQueue([song], 0, playbackOptsForSong(song, opts));
   }
 
   function playQueue(items, startIdx, opts) {
@@ -70,7 +118,13 @@
     const playback = engine();
     if (!songs.length || !playback) return false;
     if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
-    return playback.playTrackQueue(songs, startIdx || 0, { immediatePlay: true });
+    const queueOpts = playbackOptsForSong(songs[startIdx || 0], options);
+    if (songs.length > 1) {
+      queueOpts.queueScope = queueOpts.queueScope === 'single' ? 'explicit' : queueOpts.queueScope;
+      queueOpts.allowQueueAdvance = true;
+      queueOpts.source = queueOpts.source || 'studio-queue';
+    }
+    return playback.playTrackQueue(songs, startIdx || 0, queueOpts);
   }
 
   function primeItem(item) {

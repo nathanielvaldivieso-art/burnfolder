@@ -340,8 +340,18 @@
     if (!item || !item.playbackId || shared.isVideoItem(item)) return item;
     const cycle = getStreamVersionCycle();
     if (!cycle) return item;
-    const selected = cycle.getSelected(catalogSongFromItem(item));
-    return libraryItemFromSong(selected, item);
+    const catalogSong = catalogSongFromItem(item);
+    const selected = cycle.getSelected(catalogSong);
+    const resolved = libraryItemFromSong(selected, item);
+    if (window.BurnfolderPlaybackIntent) {
+      return window.BurnfolderPlaybackIntent.pinRowPlayback(item, resolved, catalogSong);
+    }
+    if (resolved.playbackId !== item.playbackId && versionsApi) {
+      const rowKey = versionsApi.getTrackGroupKey(catalogSong.title);
+      const resolvedKey = versionsApi.getTrackGroupKey(selected.title);
+      if (rowKey && resolvedKey && rowKey !== resolvedKey) return item;
+    }
+    return resolved;
   }
 
   function filteredAssets() {
@@ -744,7 +754,7 @@
 
     row.addEventListener('touchstart', function () {
       if (player && player.primeItem) {
-        player.primeItem(selectedPlayableItem(item));
+        player.primeItem(item);
       }
     }, { passive: true });
 
@@ -1402,8 +1412,6 @@
 
   window.addEventListener('burnfolder-stream-playback', function () {
     syncStreamTracklistPlayback();
-    if (expandedVideoId) return;
-    renderList();
   });
 
   window.addEventListener('burnfolder-stack-changed', function () {

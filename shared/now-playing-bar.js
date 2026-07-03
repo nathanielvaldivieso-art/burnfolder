@@ -42,9 +42,18 @@
     const titleEl = opts.titleEl || document.getElementById('songTitle') || document.getElementById('streamNowPlayingTitle');
     const playBtn = opts.playBtnEl || document.getElementById('bottomPlayPause') || document.getElementById('streamPlayPause');
     const closeBtn = opts.closeBtnEl || document.getElementById('closeBtn') || document.getElementById('streamNowPlayingClose');
-    const progressBarArea = opts.progressEl || document.getElementById('progressBarArea');
-    const progressFill = document.getElementById('progress');
-    const playheadEl = document.getElementById('progressPlayhead');
+    const progressBarArea =
+      opts.progressEl ||
+      (bar && bar.querySelector('.progress-bar-area')) ||
+      document.getElementById('progressBarArea');
+    const progressFill =
+      opts.progressFillEl ||
+      (progressBarArea && progressBarArea.querySelector('.progress')) ||
+      document.getElementById('progress');
+    const playheadEl =
+      opts.playheadEl ||
+      (progressBarArea && progressBarArea.querySelector('.progress-playhead')) ||
+      document.getElementById('progressPlayhead');
     const muxPlayer =
       opts.muxPlayerEl || document.getElementById('activeMuxPlayer');
 
@@ -61,15 +70,24 @@
     }
 
     function setBarVisible(show) {
-      bar.style.display = show ? 'flex' : 'none';
-      const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
-      if (bodyClass) document.body.classList.toggle(bodyClass, !!show);
-      if (!show && pickerApi) pickerApi.close();
+      const guard = globalRef.BurnfolderPlaybackScrollGuard;
+      const apply = function () {
+        bar.style.display = show ? 'flex' : 'none';
+        const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
+        if (bodyClass) document.body.classList.toggle(bodyClass, !!show);
+        if (!show && pickerApi) pickerApi.close();
+      };
+      if (guard && guard.run) guard.run(apply);
+      else apply();
     }
 
     function updateProgress() {
-      if (!muxPlayer || !progressFill || !muxPlayer.duration || Number.isNaN(muxPlayer.duration)) return;
-      const pct = Math.min(100, Math.max(0, (muxPlayer.currentTime / muxPlayer.duration) * 100));
+      if (isDragging) return;
+      const duration = getDuration();
+      if (!muxPlayer || !progressFill || !duration) return;
+      const media = getMediaElement();
+      const current = media ? media.currentTime : muxPlayer.currentTime;
+      const pct = Math.min(100, Math.max(0, (current / duration) * 100));
       progressFill.style.width = pct + '%';
       if (playheadEl) playheadEl.style.left = pct + '%';
     }
@@ -86,7 +104,6 @@
 
     function togglePlayFromBar() {
       if (typeof opts.onTogglePlay !== 'function') return;
-      renderPlayButton(!playingFromPlayer());
       opts.onTogglePlay();
     }
 
@@ -110,8 +127,27 @@
       if (hoverTip) hoverTip.classList.remove('visible');
     }
 
+    function getMediaElement() {
+      if (!muxPlayer) return null;
+      return muxPlayer.media || muxPlayer;
+    }
+
+    function getDuration() {
+      if (!muxPlayer) return 0;
+      const direct = muxPlayer.duration;
+      if (Number.isFinite(direct) && direct > 0) return direct;
+      const media = getMediaElement();
+      if (!media) return 0;
+      if (Number.isFinite(media.duration) && media.duration > 0) return media.duration;
+      if (media.seekable && media.seekable.length > 0) {
+        const end = media.seekable.end(media.seekable.length - 1);
+        if (Number.isFinite(end) && end > 0) return end;
+      }
+      return 0;
+    }
+
     function canSeek() {
-      return !!getActiveSong() && !!muxPlayer && !!muxPlayer.duration && !Number.isNaN(muxPlayer.duration);
+      return !!getActiveSong() && !!muxPlayer && getDuration() > 0;
     }
 
     let isDragging = false;
@@ -124,41 +160,105 @@
       return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
     }
 
-    function updateFromEvent(event) {
-      if (!canSeek() || !progressBarArea) return;
-      const ts = nowMs();
-      if (!cachedRect) cachedRect = progressBarArea.getBoundingClientRect();
-      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-      const ratio = Math.max(0, Math.min(1, (clientX - cachedRect.left) / cachedRect.width));
-      showHoverTime(clientX, cachedRect.top, ratio * muxPlayer.duration);
-      if (progressFill) progressFill.style.width = ratio * 100 + '%';
-      if (playheadEl) playheadEl.style.left = ratio * 100 + '%';
-      if (ts - lastSeekAt >= SEEK_THROTTLE) {
-        if (pendingFrame) cancelAnimationFrame(pendingFrame);
-        pendingFrame = requestAnimationFrame(function () {
-          try {
-            const newTime = ratio * muxPlayer.duration;
-            if (Math.abs(muxPlayer.currentTime - newTime) > 0.1) muxPlayer.currentTime = newTime;
-          } catch (err) {
-            /* ignore errors during rapid seeking */
-          }
-          pendingFrame = null;
-        });
-        lastSeekAt = ts;
+    function eventClientX(event) {
+      if (event.changedTouches && event.changedTouches.length) {
+        return event.changedTouches[0].clientX;
       }
+      if (event.touches && event.touches.length) {
+        return event.touches[0].clientX;
+      }
+      return event.clientX;
     }
 
-    function endDrag() {
+    function ratioFromEvent(event) {
+      if (!progressBarArea) return 0;
+      if (!cachedRect) cachedRect = progressBarArea.getBoundingClientRect();
+      const width = cachedRect.width;
+      if (!width) return 0;
+      return Math.max(0, Math.min(1, (eventClientX(event) - cachedRect.left) / width));
+    }
+
+    function applySeekRatio(ratio, seekOpts) {
+      const duration = getDuration();
+      if (!duration) return;
+      const options = seekOpts || {};
+      const clientX =
+        options.clientX != null
+          ? options.clientX
+          : cachedRect
+            ? cachedRect.left + ratio * cachedRect.width
+            : 0;
+      const top = cachedRect ? cachedRect.top : 0;
+      showHoverTime(clientX, top, ratio * duration);
+      if (progressFill) progressFill.style.width = ratio * 100 + '%';
+      if (playheadEl) playheadEl.style.left = ratio * 100 + '%';
+
+      const seekTo = ratio * duration;
+      const doSeek = function () {
+        const media = getMediaElement();
+        if (!media) return;
+        try {
+          if (Math.abs(media.currentTime - seekTo) > 0.05) {
+            media.currentTime = seekTo;
+          }
+        } catch (err) {
+          /* ignore errors during rapid seeking */
+        }
+      };
+
+      if (options.immediate) {
+        doSeek();
+        lastSeekAt = nowMs();
+        return;
+      }
+
+      const ts = nowMs();
+      if (ts - lastSeekAt < SEEK_THROTTLE) return;
+      lastSeekAt = ts;
+      if (pendingFrame) cancelAnimationFrame(pendingFrame);
+      pendingFrame = requestAnimationFrame(function () {
+        doSeek();
+        pendingFrame = null;
+      });
+    }
+
+    function updateFromEvent(event) {
+      if (!canSeek() || !progressBarArea) return;
+      applySeekRatio(ratioFromEvent(event), { clientX: eventClientX(event) });
+    }
+
+    function commitSeekFromEvent(event) {
+      if (!canSeek() || !progressBarArea) return;
+      cachedRect = progressBarArea.getBoundingClientRect();
+      applySeekRatio(ratioFromEvent(event), {
+        immediate: true,
+        clientX: eventClientX(event)
+      });
+    }
+
+    function endDrag(event) {
       if (!isDragging) return;
-      isDragging = false;
-      if (progressBarArea) progressBarArea.classList.remove('dragging');
-      hideHoverTime();
-      cachedRect = null;
-      lastSeekAt = 0;
       if (pendingFrame) {
         cancelAnimationFrame(pendingFrame);
         pendingFrame = null;
       }
+      if (event && canSeek()) {
+        commitSeekFromEvent(event);
+      }
+      isDragging = false;
+      if (progressBarArea) {
+        progressBarArea.classList.remove('dragging');
+        if (event && event.pointerId != null) {
+          try {
+            progressBarArea.releasePointerCapture(event.pointerId);
+          } catch (err) {
+            /* ignore */
+          }
+        }
+      }
+      hideHoverTime();
+      cachedRect = null;
+      lastSeekAt = 0;
     }
 
     function titleForSong(song) {
@@ -225,57 +325,48 @@
     }
 
     if (progressBarArea) {
-      progressBarArea.addEventListener('mousedown', function (event) {
-        if (!canSeek()) return;
-        isDragging = true;
-        progressBarArea.classList.add('dragging');
-        cachedRect = null;
-        updateFromEvent(event);
-        event.preventDefault();
-      });
-      progressBarArea.addEventListener('mousemove', function (event) {
-        if (isDragging) return;
-        if (!canSeek()) {
-          hideHoverTime();
-          return;
-        }
-        const rect = progressBarArea.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-        showHoverTime(event.clientX, rect.top, ratio * muxPlayer.duration);
-      });
-      progressBarArea.addEventListener('mouseleave', function () {
-        if (!isDragging) hideHoverTime();
-      });
-      progressBarArea.addEventListener('touchstart', function (event) {
-        if (!canSeek()) return;
-        isDragging = true;
-        progressBarArea.classList.add('dragging');
-        cachedRect = null;
-        updateFromEvent(event);
-        event.preventDefault();
-      });
-      progressBarArea.addEventListener('touchcancel', endDrag);
-
-      document.addEventListener('mousemove', function (event) {
-        if (isDragging) {
-          updateFromEvent(event);
-          event.preventDefault();
-        }
-      });
-      document.addEventListener('mouseup', endDrag);
-      document.addEventListener(
-        'touchmove',
+      progressBarArea.addEventListener(
+        'pointerdown',
         function (event) {
-          if (isDragging) {
-            updateFromEvent(event);
-            event.preventDefault();
+          if (!canSeek()) return;
+          if (event.pointerType === 'mouse' && event.button !== 0) return;
+          isDragging = true;
+          progressBarArea.classList.add('dragging');
+          cachedRect = null;
+          try {
+            progressBarArea.setPointerCapture(event.pointerId);
+          } catch (err) {
+            /* ignore */
           }
+          commitSeekFromEvent(event);
+          event.preventDefault();
         },
         { passive: false }
       );
-      document.addEventListener('touchend', endDrag);
-      document.addEventListener('pointermove', function (event) {
-        if (!isDragging && !progressBarArea.contains(event.target)) hideHoverTime();
+
+      progressBarArea.addEventListener(
+        'pointermove',
+        function (event) {
+          if (!isDragging) {
+            if (!canSeek() || event.pointerType !== 'mouse') {
+              hideHoverTime();
+              return;
+            }
+            const rect = progressBarArea.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+            showHoverTime(event.clientX, rect.top, ratio * getDuration());
+            return;
+          }
+          updateFromEvent(event);
+          event.preventDefault();
+        },
+        { passive: false }
+      );
+
+      progressBarArea.addEventListener('pointerup', endDrag);
+      progressBarArea.addEventListener('pointercancel', endDrag);
+      progressBarArea.addEventListener('pointerleave', function (event) {
+        if (!isDragging && event.pointerType === 'mouse') hideHoverTime();
       });
       window.addEventListener('blur', endDrag);
     }

@@ -575,11 +575,11 @@ body.studio-has-player .page-watermark {
   box-sizing: border-box;
 }
 
-body.studio-editor-page.playback-active .studio-preview-frame .studio-entry-preview {
+body.studio-editor-page .studio-preview-frame .studio-entry-preview {
   padding-bottom: 64px;
 }
 
-body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-preview-wrap.page-wrap {
+body.studio-editor-page .studio-preview-frame .entry-editor-preview-wrap.page-wrap {
   padding-bottom: 64px;
 }
 
@@ -1433,11 +1433,8 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
 }
 
-body.stream-playback-active.studio-song-page .studio-song-hub {
-  padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
-}
 
-.studio-stream-toolbar--minimal {
+/* stream playback bar — same bottom-progress-bar as burnfolder.com */
   margin-bottom: 12px;
   display: flex;
   flex-wrap: wrap;
@@ -1751,6 +1748,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 
 .studio-song-hub {
   max-width: 560px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
 .studio-song-page .studio-song-actions {
@@ -3050,12 +3048,6 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
   z-index: 300;
 }
 
-body.stream-playback-active .studio-global-playback ~ *,
-body.stream-playback-active.studio-journal-page .page-wrap,
-body.stream-playback-active.studio-editor-page .studio-entry-layout,
-body.stream-playback-active .studio-home {
-  padding-bottom: 72px;
-}
 
 /* stream playback bar — same bottom-progress-bar as burnfolder.com */
 
@@ -5126,11 +5118,6 @@ body.studio-song-designer-page .page-wrap {
 
 @media (max-width: 600px) {
   .studio-home.page-wrap {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  }
-
-  body.studio-has-player .studio-home.page-wrap,
-  body.stream-playback-active .studio-home.page-wrap {
     padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
