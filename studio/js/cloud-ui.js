@@ -83,6 +83,11 @@
 
           cloud
             .addFiles(files, {
+              fileMeta: function () {
+                const keyFn = options.getContributionDateKey;
+                const key = typeof keyFn === 'function' ? keyFn() : '';
+                return key ? { contributionDateKey: key } : null;
+              },
               onProgress: function (file, pct, phase) {
                 const id = rowIds.get(file);
                 queue.update(id, {

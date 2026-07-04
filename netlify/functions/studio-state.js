@@ -1,19 +1,49 @@
 const { getStore, connectLambda } = require('@netlify/blobs');
-const { studioCorsHeaders, requireStudioAccess } = require('./lib/studio-auth');
+const {
+  studioCorsHeaders,
+  requireWorkspaceAccess,
+  scopedBlobKey,
+  legacyBlobKey,
+  LOGICAL_KEY_PATTERN,
+  filterGroupsForAccess,
+  mergeGroupsForAccess
+} = require('./lib/workspace-auth');
 
 function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
 }
 
-// Single-user personal cloud: one document per allowed key, stored in
-// Netlify Blobs. Everything is gated by the same STUDIO_API_SECRET bearer the
-// Mux functions use, so only the studio password can read or write it.
-const KEY_PATTERN = /^[a-z][a-zA-Z0-9_-]{0,48}$/;
-
 function getStateStore() {
-  // Match subscribe.js: default consistency works on classic Netlify Functions.
-  // (consistency: 'strong' requires uncachedEdgeURL, which this env lacks.)
   return getStore('studio-state');
+}
+
+const MIGRATABLE_KEYS = [
+  'drafts',
+  'stack',
+  'stackMeta',
+  'groups',
+  'journalDays',
+  'songPages',
+  'albumPages',
+  'releaseDates',
+  'trackPipeline'
+];
+
+async function readRecord(store, storageKey) {
+  return store.get(storageKey, { type: 'json' });
+}
+
+async function migrateLegacy(store, workspaceId, logicalKey) {
+  if (!workspaceId || workspaceId === 'legacy') return null;
+  const scoped = scopedBlobKey(workspaceId, logicalKey);
+  const legacy = legacyBlobKey(logicalKey);
+  if (!scoped || scoped === legacy) return null;
+  const existing = await readRecord(store, scoped);
+  if (existing && typeof existing === 'object' && 'value' in existing) return existing;
+  const old = await readRecord(store, legacy);
+  if (!old || typeof old !== 'object' || !('value' in old)) return null;
+  await store.setJSON(scoped, old);
+  return old;
 }
 
 exports.handler = async function (event) {
@@ -23,15 +53,16 @@ exports.handler = async function (event) {
     return { statusCode: 204, headers, body: '' };
   }
 
-  const access = requireStudioAccess(event);
+  const access = await requireWorkspaceAccess(event, {
+    requireWrite: event.httpMethod === 'POST',
+    logicalKey: logicalKey
+  });
   if (!access.ok) {
     return { statusCode: access.statusCode, headers, body: JSON.stringify(access.body) };
   }
 
   let store;
   try {
-    // Classic (CommonJS) Netlify Functions must hand the Blobs token from the
-    // invocation event to the SDK before getStore() will work.
     connectLambda(event);
     store = getStateStore();
   } catch (error) {
@@ -42,20 +73,42 @@ exports.handler = async function (event) {
     };
   }
 
+  const logicalKey =
+    event.httpMethod === 'GET'
+      ? (event.queryStringParameters && event.queryStringParameters.key) || ''
+      : (function () {
+          try {
+            const body = JSON.parse(event.body || '{}');
+            return typeof body.key === 'string' ? body.key : '';
+          } catch {
+            return '';
+          }
+        })();
+
+  if (!LOGICAL_KEY_PATTERN.test(logicalKey)) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid key' }) };
+  }
+
+  const storageKey = scopedBlobKey(access.workspaceId, logicalKey);
+
   if (event.httpMethod === 'GET') {
-    const key = (event.queryStringParameters && event.queryStringParameters.key) || '';
-    if (!KEY_PATTERN.test(key)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid key' }) };
-    }
     try {
-      const record = await store.get(key, { type: 'json' });
+      let record = await readRecord(store, storageKey);
+      if ((!record || !('value' in record)) && MIGRATABLE_KEYS.indexOf(logicalKey) > -1) {
+        record = await migrateLegacy(store, access.workspaceId, logicalKey);
+      }
+      let value =
+        record && typeof record === 'object' && 'value' in record ? record.value : null;
+      if (logicalKey === 'groups') {
+        value = filterGroupsForAccess(value, access);
+      }
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify(
-          record && typeof record === 'object'
-            ? { key: key, value: record.value, updatedAt: record.updatedAt || null }
-            : { key: key, value: null, updatedAt: null }
+          value !== null && record && typeof record === 'object'
+            ? { key: logicalKey, value: value, updatedAt: record.updatedAt || null }
+            : { key: logicalKey, value: value, updatedAt: null }
         )
       };
     } catch (error) {
@@ -71,18 +124,38 @@ exports.handler = async function (event) {
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid JSON body' }) };
     }
 
-    const key = typeof body.key === 'string' ? body.key : '';
-    if (!KEY_PATTERN.test(key)) {
-      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid key' }) };
-    }
     if (!('value' in body)) {
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'value required' }) };
     }
 
     const updatedAt = new Date().toISOString();
     try {
-      await store.setJSON(key, { value: body.value, updatedAt: updatedAt });
-      return { statusCode: 200, headers, body: JSON.stringify({ key: key, value: body.value, updatedAt: updatedAt }) };
+      let value = body.value;
+      if (logicalKey === 'groups') {
+        let fullRecord = await readRecord(store, storageKey);
+        if ((!fullRecord || !('value' in fullRecord)) && MIGRATABLE_KEYS.indexOf(logicalKey) > -1) {
+          fullRecord = await migrateLegacy(store, access.workspaceId, logicalKey);
+        }
+        const fullGroups =
+          fullRecord && typeof fullRecord === 'object' && 'value' in fullRecord
+            ? fullRecord.value
+            : [];
+        try {
+          value = mergeGroupsForAccess(fullGroups, body.value, access);
+        } catch (error) {
+          return {
+            statusCode: 403,
+            headers,
+            body: JSON.stringify({ message: error.message || 'Project access denied' })
+          };
+        }
+      }
+      await store.setJSON(storageKey, { value: value, updatedAt: updatedAt });
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ key: logicalKey, value: value, updatedAt: updatedAt })
+      };
     } catch (error) {
       return { statusCode: 500, headers, body: JSON.stringify({ message: error.message || 'write failed' }) };
     }

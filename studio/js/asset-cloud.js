@@ -60,6 +60,15 @@
     return asset && (asset.kind === 'audio' || asset.kind === 'video');
   }
 
+  function defaultContributionDateKey(meta) {
+    if (meta && meta.contributionDateKey) return String(meta.contributionDateKey).trim();
+    const contrib = window.BurnfolderJournalContributions;
+    if (contrib && contrib.getActiveDateKey) return contrib.getActiveDateKey();
+    const days = window.BurnfolderJournalDays;
+    if (days && days.todayKey) return days.todayKey();
+    return '';
+  }
+
   function mapAssetRow(row) {
     return {
       id: row.id,
@@ -67,6 +76,7 @@
       mime: row.mime,
       size: row.size,
       createdAt: row.createdAt,
+      contributionDateKey: row.contributionDateKey || '',
       publicPath: row.publicPath,
       kind: row.kind || 'other',
       displayTitle: row.displayTitle || defaultDisplayTitle(row.name),
@@ -134,6 +144,7 @@
       mime: file.type || 'application/octet-stream',
       size: file.size,
       createdAt: new Date().toISOString(),
+      contributionDateKey: defaultContributionDateKey(options),
       publicPath: suggestPublicPath(muxFileName),
       kind: detectKind(file),
       displayTitle: options.displayTitle || defaultDisplayTitle(muxFileName),
@@ -289,6 +300,7 @@
         mime: file.type || 'image/jpeg',
         size: file.size,
         createdAt: new Date().toISOString(),
+        contributionDateKey: defaultContributionDateKey(opts),
         publicPath: publicPath,
         kind: 'image',
         displayTitle: displayTitle,

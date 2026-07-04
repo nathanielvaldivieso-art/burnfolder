@@ -52,13 +52,29 @@
       journal: '',
       plan: '',
       reminders: [],
+      contributions: [],
       updatedAt: new Date().toISOString()
+    };
+  }
+
+  function normalizeContribution(entry) {
+    if (!entry || !entry.playbackId) return null;
+    return {
+      id: entry.id || entry.playbackId,
+      playbackId: String(entry.playbackId),
+      muxAssetId: entry.muxAssetId || null,
+      kind: entry.kind === 'video' ? 'video' : 'audio',
+      title: String(entry.title || 'untitled'),
+      addedAt: entry.addedAt || new Date().toISOString()
     };
   }
 
   function normalizeDay(dateKey, day) {
     const base = emptyDay(dateKey);
     if (!day || typeof day !== 'object') return base;
+    const contributions = Array.isArray(day.contributions)
+      ? day.contributions.map(normalizeContribution).filter(Boolean)
+      : [];
     return {
       dateKey: dateKey,
       journal: typeof day.journal === 'string' ? day.journal : '',
@@ -77,6 +93,7 @@
               };
             })
         : [],
+      contributions: contributions,
       updatedAt: day.updatedAt || base.updatedAt
     };
   }
@@ -142,13 +159,70 @@
     return formatDateKey(base);
   }
 
+  function keyFromDate(date) {
+    return formatDateKey(date);
+  }
+
+  function dateFromKey(key) {
+    const ms = parseDateKey(key);
+    return ms ? new Date(ms) : null;
+  }
+
+  function upsertContribution(dateKey, contribution) {
+    const item = normalizeContribution(contribution);
+    if (!item) return Promise.resolve(null);
+    return ensureHydrated().then(function () {
+      const store = readStore();
+      const current = normalizeDay(dateKey, store.days[dateKey]);
+      const list = (current.contributions || []).filter(function (row) {
+        return row.playbackId !== item.playbackId;
+      });
+      list.unshift(item);
+      const next = normalizeDay(dateKey, Object.assign({}, current, {
+        contributions: list,
+        dateKey: dateKey,
+        updatedAt: new Date().toISOString()
+      }));
+      store.days[dateKey] = next;
+      writeStore(store);
+      window.dispatchEvent(new CustomEvent('burnfolder-journal-day-changed', { detail: { dateKey: dateKey } }));
+      return next;
+    });
+  }
+
+  function removeContribution(dateKey, playbackId) {
+    const id = String(playbackId || '').trim();
+    if (!id) return Promise.resolve(null);
+    return ensureHydrated().then(function () {
+      const store = readStore();
+      const current = normalizeDay(dateKey, store.days[dateKey]);
+      const list = (current.contributions || []).filter(function (row) {
+        return row.playbackId !== id;
+      });
+      if (list.length === (current.contributions || []).length) return current;
+      const next = normalizeDay(dateKey, Object.assign({}, current, {
+        contributions: list,
+        dateKey: dateKey,
+        updatedAt: new Date().toISOString()
+      }));
+      store.days[dateKey] = next;
+      writeStore(store);
+      window.dispatchEvent(new CustomEvent('burnfolder-journal-day-changed', { detail: { dateKey: dateKey } }));
+      return next;
+    });
+  }
+
   window.BurnfolderJournalDays = {
     getDay: getDay,
     saveDay: saveDay,
     listDays: listDays,
+    upsertContribution: upsertContribution,
+    removeContribution: removeContribution,
     todayKey: todayKey,
     shiftDateKey: shiftDateKey,
     parseDateKey: parseDateKey,
+    keyFromDate: keyFromDate,
+    dateFromKey: dateFromKey,
     makeReminderId: makeId
   };
 })();

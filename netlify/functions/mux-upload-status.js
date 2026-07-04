@@ -1,4 +1,4 @@
-const { studioCorsHeaders, requireStudioAccess } = require('./lib/studio-auth');
+const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
 
 function corsHeaders() {
   return studioCorsHeaders('GET, OPTIONS');
@@ -50,7 +50,7 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers, body: JSON.stringify({ message: 'Method Not Allowed' }) };
   }
 
-  const access = requireStudioAccess(event);
+  const access = await requireWorkspaceAccess(event, { requireWrite: false });
   if (!access.ok) {
     return { statusCode: access.statusCode, headers, body: JSON.stringify(access.body) };
   }

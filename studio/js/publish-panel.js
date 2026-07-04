@@ -347,6 +347,18 @@
 
     if (els.liveBtn) els.liveBtn.addEventListener('click', publishLive);
 
+    function applyPublishRoleGate() {
+      const auth = window.BurnfolderStudioAuth;
+      if (auth && auth.canPublish && !auth.canPublish() && els.liveBtn) {
+        els.liveBtn.hidden = true;
+      }
+    }
+    if (window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.whenReady) {
+      window.BurnfolderStudioAuth.whenReady().then(applyPublishRoleGate);
+    } else {
+      applyPublishRoleGate();
+    }
+
     window.setTimeout(refreshArtifacts, 800);
 
     const dateInput = document.getElementById('entryDate');

@@ -357,12 +357,29 @@
     return dedupeAudioItems(items).length;
   }
 
+  function ensurePlaybackReady() {
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell) {
+      if (shell.ensureShell) shell.ensureShell();
+      if (shell.mountBar) shell.mountBar();
+    }
+  }
+
   function toggleAudioItem(item) {
-    if (!player || !item) return;
+    if (!item) return;
+    ensurePlaybackReady();
+    if (!player) {
+      setStatus('playback unavailable — reload the page', 'error');
+      return;
+    }
     if (expandedVideoId) {
       closeExpandedVideo();
     }
     const playable = selectedPlayableItem(item);
+    if (!playable || !playable.playbackId) {
+      setStatus('no playable version for this song', 'error');
+      return;
+    }
     const id = playable.playbackId;
     if (player.isActivePlaybackId(id)) {
       if (player.isPlayingPlaybackId(id)) {
@@ -373,7 +390,13 @@
       return;
     }
     recordPlay(id);
-    player.playItem(playable);
+    try {
+      if (player.playItem(playable) === false) {
+        setStatus('could not start playback', 'error');
+      }
+    } catch (err) {
+      setStatus('playback error — try again', 'error');
+    }
   }
 
   function shouldSkipTrackPlay(el, event) {
@@ -389,17 +412,92 @@
     return false;
   }
 
-  function bindTouchPlay(el, handler) {
-    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
-    if (tap && tap.bind) {
-      tap.bind(el, handler, {
-        shouldSkip: function (event) {
-          return shouldSkipTrackPlay(el, event);
-        }
-      });
+  function libraryItemForPlaybackId(playbackId) {
+    if (!playbackId) return null;
+    return shared.findInLibrary(libraryCache, playbackId);
+  }
+
+  function handleTrackRowPlay(row, event) {
+    if (!row) return;
+    if (event && event.target && event.target.closest('.studio-stream-track-delete')) return;
+
+    const playbackId = row.dataset.playbackId || '';
+    if (!playbackId) return;
+
+    const albumTrack = row.closest('.studio-stream-album-track');
+    if (albumTrack) {
+      const groupEl = row.closest('.studio-stream-album-group');
+      const groupId = groupEl && groupEl.dataset.groupId;
+      const group = groupId ? shared.findGroupById(groupId) : null;
+      if (!group) return;
+      const ol = row.closest('.studio-stream-album-tracks');
+      const tracks = ol
+        ? Array.from(ol.querySelectorAll('.studio-stream-album-track'))
+        : [];
+      const index = tracks.indexOf(albumTrack);
+      if (index < 0) return;
+      playAlbum(group, index);
       return;
     }
-    el.addEventListener('click', handler);
+
+    const libItem = libraryItemForPlaybackId(playbackId);
+    if (!libItem) return;
+    if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) {
+      window.location.href = shared.songPageUrl(selectedPlayableItem(libItem));
+      return;
+    }
+    toggleAudioItem(libItem);
+  }
+
+  function primeTrackRow(row) {
+    if (!row || shouldSkipTrackPlay(row)) return;
+    ensurePlaybackReady();
+    if (!player || !player.primeItem) return;
+
+    const playbackId = row.dataset.playbackId || '';
+    if (!playbackId) return;
+
+    const albumTrack = row.closest('.studio-stream-album-track');
+    if (albumTrack) {
+      const groupEl = row.closest('.studio-stream-album-group');
+      const groupId = groupEl && groupEl.dataset.groupId;
+      const group = groupId ? shared.findGroupById(groupId) : null;
+      if (!group) return;
+      const items = albumItemsForGroup(group);
+      const ol = row.closest('.studio-stream-album-tracks');
+      const tracks = ol
+        ? Array.from(ol.querySelectorAll('.studio-stream-album-track'))
+        : [];
+      const index = tracks.indexOf(albumTrack);
+      if (index >= 0 && items[index]) player.primeItem(items[index]);
+      return;
+    }
+
+    const libItem = libraryItemForPlaybackId(playbackId);
+    if (libItem) player.primeItem(selectedPlayableItem(libItem));
+  }
+
+  function bindListPlayDelegation() {
+    if (!listRoot || listRoot.dataset.playDelegation === '1') return;
+    listRoot.dataset.playDelegation = '1';
+
+    listRoot.addEventListener(
+      'pointerdown',
+      function (event) {
+        if (event.button > 0) return;
+        const row = event.target.closest('.music-track-row');
+        if (!row || !listRoot.contains(row)) return;
+        primeTrackRow(row);
+      },
+      { passive: true }
+    );
+
+    listRoot.addEventListener('click', function (event) {
+      const row = event.target.closest('.music-track-row');
+      if (!row || !listRoot.contains(row)) return;
+      if (shouldSkipTrackPlay(row, event)) return;
+      handleTrackRowPlay(row, event);
+    });
   }
 
   function deleteSongFromMux(item) {
@@ -731,22 +829,8 @@
       });
     }
 
-    bindTouchPlay(row, function (event) {
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-        window.location.href = shared.songPageUrl(selectedPlayableItem(item));
-        return;
-      }
-      toggleAudioItem(item);
-    });
-
     row.appendChild(name);
     row.appendChild(dur);
-
-    row.addEventListener('touchstart', function () {
-      if (player && player.primeItem) {
-        player.primeItem(selectedPlayableItem(item));
-      }
-    }, { passive: true });
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
@@ -877,15 +961,24 @@
   }
 
   function playAlbum(group, index) {
-    if (!player || !group) return;
+    if (!group) return;
+    ensurePlaybackReady();
+    if (!player) {
+      setStatus('playback unavailable — reload the page', 'error');
+      return;
+    }
     const items = albumItemsForGroup(group);
     if (!items.length) return;
     if (expandedVideoId) closeExpandedVideo();
     const started = items[index || 0];
     if (started && started.playbackId) recordPlay(started.playbackId);
-    player.playQueue(items, index || 0, {
-      coverArt: (group.meta && group.meta.coverArt) || ''
-    });
+    if (
+      player.playQueue(items, index || 0, {
+        coverArt: (group.meta && group.meta.coverArt) || ''
+      }) === false
+    ) {
+      setStatus('could not start playback', 'error');
+    }
   }
 
   function buildAlbumTrackItem(track, index, group) {
@@ -922,14 +1015,6 @@
     row.appendChild(dur);
     row.classList.toggle('is-active', !!(player && player.isActivePlaybackId(resolved.playbackId)));
     row.classList.toggle('is-playing', !!(player && player.isPlayingPlaybackId(resolved.playbackId)));
-    bindTouchPlay(row, function () {
-      playAlbum(group, index);
-    });
-    row.addEventListener('touchstart', function () {
-      const items = albumItemsForGroup(group);
-      const trackItem = items[index];
-      if (player && player.primeItem && trackItem) player.primeItem(trackItem);
-    }, { passive: true });
 
     li.appendChild(handle);
     li.appendChild(num);
@@ -1108,14 +1193,37 @@
 
     actions.appendChild(playBtn);
 
-    const hubBtn = document.createElement('a');
-    hubBtn.className = 'studio-stream-album-hub-btn';
-    hubBtn.href = shared.albumPageUrl(groupId);
-    hubBtn.textContent = 'hub';
-    hubBtn.addEventListener('click', function (event) {
+    const hubDetails = document.createElement('details');
+    hubDetails.className = 'studio-stream-album-hub';
+    hubDetails.addEventListener('click', function (event) {
       event.stopPropagation();
     });
-    actions.appendChild(hubBtn);
+    hubDetails.addEventListener('toggle', function () {
+      if (!hubDetails.open) return;
+      document.querySelectorAll('.studio-stream-album-hub[open]').forEach(function (el) {
+        if (el !== hubDetails) el.removeAttribute('open');
+      });
+    });
+
+    const hubSummary = document.createElement('summary');
+    hubSummary.className = 'studio-stream-album-hub-btn';
+    hubSummary.textContent = 'hub';
+
+    const hubPanel = document.createElement('div');
+    hubPanel.className = 'studio-stream-album-hub-panel';
+
+    const hubLink = document.createElement('a');
+    hubLink.className = 'studio-stream-album-hub-link';
+    hubLink.href = shared.albumPageUrl(groupId);
+    hubLink.textContent = 'open album hub';
+    hubLink.addEventListener('click', function (event) {
+      event.stopPropagation();
+    });
+    hubPanel.appendChild(hubLink);
+
+    hubDetails.appendChild(hubSummary);
+    hubDetails.appendChild(hubPanel);
+    actions.appendChild(hubDetails);
 
     actions.appendChild(toggle);
 
@@ -1131,6 +1239,9 @@
 
     wrap.appendChild(head);
     wrap.appendChild(ol);
+    if (window.BurnfolderMusicProjectCollab && window.BurnfolderMusicProjectCollab.attach) {
+      window.BurnfolderMusicProjectCollab.attach(groupId, hubPanel);
+    }
     return wrap;
   }
 
@@ -1302,6 +1413,7 @@
     syncStreamTracklistPlayback();
     if (videoStage) shared.clearStreamVideo(videoStage);
     bindAllDnD();
+    bindListPlayDelegation();
   }
 
   function mountFilters() {
@@ -1390,6 +1502,12 @@
     if (!uploadRoot || !window.BurnfolderCloudUI) return;
     window.BurnfolderCloudUI.mountUploadZone(uploadRoot, {
       onStatus: setStatus,
+      getContributionDateKey: function () {
+        const contrib = window.BurnfolderJournalContributions;
+        if (contrib && contrib.getActiveDateKey) return contrib.getActiveDateKey();
+        const days = window.BurnfolderJournalDays;
+        return days && days.todayKey ? days.todayKey() : '';
+      },
       onFileSuccess: prependUploadedAsset,
       onUploaded: function () {
         refreshLibrary({ silent: true });
@@ -1402,8 +1520,6 @@
 
   window.addEventListener('burnfolder-stream-playback', function () {
     syncStreamTracklistPlayback();
-    if (expandedVideoId) return;
-    renderList();
   });
 
   window.addEventListener('burnfolder-stack-changed', function () {
@@ -1434,7 +1550,13 @@
 
   window.studioInitStreamPage = function () {
     bindDomRefs();
+    bindListPlayDelegation();
     mountStreamUploadZone();
+    const auth = window.BurnfolderStudioAuth;
+    const uploadDetails = document.getElementById('streamUploadDetails');
+    if (uploadDetails && auth && auth.canWriteMusic && !auth.canWriteMusic()) {
+      uploadDetails.hidden = true;
+    }
     if (!listRoot || !shared) return;
     syncActiveFilter();
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
@@ -1453,9 +1575,18 @@
       shared.clearStreamVideo(videoStage);
       expandedVideoId = null;
     }
+    ensurePlaybackReady();
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell && shell.waitForMuxPlayer) {
+      shell.waitForMuxPlayer().then(function () {
+        if (shell.getEngine) shell.getEngine();
+        if (shell.mountBar) shell.mountBar();
+      });
+    }
     refreshLibrary();
   };
 
   bindDomRefs();
+  bindListPlayDelegation();
   if (listRoot) window.studioInitStreamPage();
 })();

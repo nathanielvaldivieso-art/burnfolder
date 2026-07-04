@@ -1,4 +1,4 @@
-const { studioCorsHeaders, requireStudioAccess } = require('./lib/studio-auth');
+const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
 const publish = require('../../shared/publish-artifacts.js');
 const entriesFile = require('./lib/entries-file');
 const github = require('./lib/github-commit');
@@ -80,7 +80,7 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers, body: JSON.stringify({ message: 'Method Not Allowed' }) };
   }
 
-  const access = requireStudioAccess(event);
+  const access = await requireWorkspaceAccess(event, { requirePublish: true });
   if (!access.ok) {
     return { statusCode: access.statusCode, headers, body: JSON.stringify(access.body) };
   }

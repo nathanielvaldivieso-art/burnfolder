@@ -506,25 +506,23 @@ Studio music (`stream-page.js`) delegates to this module; do not add a second to
 `studio/sw.js` cache name when playback or tap logic changes. Installed PWAs keep stale JS
 until the cache name changes.
 
-### Touch layer (studio UI)
+### Auth (Tier 1 — Supabase workspaces)
 
-### Auth
-- **Client (`studio/js/studio-auth.js`):** login screen; password = `STUDIO_API_SECRET`.
-  Token in `sessionStorage`; `window.fetch` wrapped to attach `Authorization: Bearer <token>`
-  to URLs containing `/mux-`, `/studio-state`, `/studio-publish`, or `/studio-share-links`.
-  Login check (`/studio-auth-check`) uses native fetch to avoid deadlock.
-- **Server (`netlify/functions/lib/studio-auth.js`):** `requireStudioAccess(event)` on every
-  studio function. Production with no secret → 503 (locked). Dev bypass when no secret +
-  non-production.
+When `SUPABASE_URL` + `SUPABASE_ANON_KEY` are set in Netlify, studio uses **Supabase email login** instead of the legacy single password.
+
+- **Client (`studio/js/studio-auth.js`):** fetches `/studio-public-config` → Supabase sign-in form. Session in `sessionStorage` (`access_token`, `workspaceId`, `role`). `window.fetch` attaches `Authorization: Bearer <jwt>` and `X-Workspace-Id` to studio APIs (`/mux-`, `/studio-state`, `/studio-publish`, `/studio-share-links`, `/studio-workspace`, `/studio-ai`, `/studio-export`).
+- **Server (`netlify/functions/lib/workspace-auth.js`):** verifies JWT via Supabase; resolves workspace membership; scopes Netlify Blob keys as `ws_{workspaceIdNoHyphens}_{logicalKey}`. Roles: **owner** (publish, invites, export), **collaborator** (write), **guest** (read-only — POST blocked).
+- **Legacy fallback:** if Supabase env vars are missing, `STUDIO_API_SECRET` password gate still works (`netlify/functions/lib/studio-auth.js`).
+- **First login:** `ensureDefaultWorkspace()` creates slug `burnfolder` + owner membership.
+- **Invites:** owner creates invite on `/studio/today.html`; collaborator opens `/studio/invite.html?t=…` (no email in Tier 1).
+- **DB:** run `supabase/migrations/001_tier1.sql` in Supabase SQL Editor before first use.
 
 ### Mux
 `mux-create-upload`, `mux-upload-status`, `mux-list-assets`, `mux-delete-asset` — all
 bearer-gated. Mux library is cloud source of truth for songs/videos.
 
-### Personal cloud (`netlify/functions/studio-state.js` + `studio/js/cloud-state.js`)
-Single-user key/value on **Netlify Blobs** (store `studio-state`), bearer-gated. Classic
-CJS → call `connectLambda(event)` before `getStore()`. **Last-write-wins**: pull on load,
-debounced push on change, flush on `pagehide`. Cloud keys:
+### Workspace cloud (`netlify/functions/studio-state.js` + `studio/js/cloud-state.js`)
+Key/value on **Netlify Blobs** (store `studio-state`), bearer-gated. Keys are **workspace-scoped** when Supabase auth is active (`ws_{id}_drafts`, etc.). On first read, legacy unscoped keys are copied into the workspace key. Classic CJS → call `connectLambda(event)` before `getStore()`. **Last-write-wins**: pull on load, debounced push on change, flush on `pagehide`. Cloud keys:
 
 | Key | Module | Holds |
 |-----|--------|-------|
@@ -534,6 +532,19 @@ debounced push on change, flush on `pagehide`. Cloud keys:
 | `songPages` | `song-page-store.js` | Song designer pages (pre-push) |
 | `albumPages` | `album-page-store.js` | Album designer pages (pre-push) |
 | `notes` | `journal-store.js` | Legacy notes store (superseded by `journalDays`) |
+| `releaseDates` | `today-page.js` | Release calendar on **today** |
+| `trackPipeline` | `track-pipeline.js` | Per-track status: demo / mix / master / ready |
+
+### Tier 1 pages & APIs
+
+| Surface | Path / function |
+|---------|-----------------|
+| Today dashboard | `/studio/today.html` — calendar, workspace invites, export, AI |
+| Accept invite | `/studio/invite.html?t=…` |
+| Workspace API | `studio-workspace.js` |
+| On-demand AI | `studio-ai.js` (Haiku; no entry copy generation) |
+| Export | `studio-export.js` (owner only) |
+| Public auth config | `studio-public-config.js` |
 
 Header **cloud indicator** (`.studio-sync`) and **lock button** (`.studio-lock-btn`) in
 `.studio-nav-tools`. `burnfolder-cloud-state` event: `syncing` / `synced` / `offline`.
@@ -557,11 +568,10 @@ stale-while-revalidate). **Bump `shared/site-version.js` and SW cache name** on 
 playback/tap change — not just studio CSS. Load `shared/studio-tap.js` on stream pages.
 
 ## Studio conventions
-- **Single user.** No multi-user/RLS. `studio/supabase/schema.sql` is **unused** — personal
-  cloud is Netlify Blobs.
+- **Tier 1 multi-user.** Supabase Auth + workspace tables (`supabase/migrations/001_tier1.sql`). Legacy `studio/supabase/schema.sql` is unused.
 - **Everything authored syncs through `cloud-state.js`** — don't add localStorage-only
   authored state; wire new data to a `studio-state` key.
-- **Never commit secrets.** `STUDIO_API_SECRET`, Mux tokens, Stripe keys, `GITHUB_TOKEN` in
+- **Never commit secrets.** Supabase service role, `STUDIO_API_SECRET`, Mux tokens, Stripe keys, `GITHUB_TOKEN`, `ANTHROPIC_API_KEY` in
   Netlify env (and local `.env`, gitignored) only.
 - **Bump cache versions** on every studio change or the PWA serves stale code.
 - **Entry editor DOM lifecycle** — `entry-editor.js` exposes `studioInitEntryEditorDom()` and

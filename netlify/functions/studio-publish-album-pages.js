@@ -1,4 +1,4 @@
-const { studioCorsHeaders, requireStudioAccess } = require('./lib/studio-auth');
+const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
 const github = require('./lib/github-commit');
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
@@ -69,7 +69,7 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers, body: JSON.stringify({ message: 'Method Not Allowed' }) };
   }
 
-  const access = requireStudioAccess(event);
+  const access = await requireWorkspaceAccess(event, { requirePublish: true });
   if (!access.ok) {
     return { statusCode: access.statusCode, headers, body: JSON.stringify(access.body) };
   }

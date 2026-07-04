@@ -23,6 +23,7 @@
   <header class="site-header studio-header">
     <a href="/studio/index.html" class="site-brand">burnfolder studio</a>
     <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="/studio/today.html" class="studio-main-nav-link page-nav" data-nav="today">today</a>
       <a href="/studio/index.html" class="studio-main-nav-link page-nav" data-nav="entry">entry</a>
       <a href="/studio/stream.html" class="studio-main-nav-link page-nav" data-nav="stream">music</a>
       <a href="/studio/video.html" class="studio-main-nav-link page-nav" data-nav="video">video</a>
@@ -36,39 +37,38 @@
     <details class="studio-help">
       <summary>tips</summary>
       <ul class="studio-help-list">
-        <li>journal, plan, and checklist autosave as you type</li>
-        <li>use ← → or <strong>today</strong> to jump between days</li>
+        <li>pick a day on the calendar — journal autosaves as you type</li>
+        <li>uploads from music, video, or here land on that day&apos;s library</li>
+        <li>filled dots mark days with notes or contributions</li>
       </ul>
     </details>
 
-    <div class="studio-journal-date-nav" aria-label="Day">
-      <button type="button" class="icon-btn studio-journal-shift" id="journalPrevDay" aria-label="Previous day">←</button>
-      <label class="studio-journal-date-field">
-        <span class="studio-journal-date-label">day</span>
-        <input id="journalDateKey" type="text" inputmode="decimal" spellcheck="false" placeholder="6.4.26">
-      </label>
-      <button type="button" class="icon-btn studio-journal-shift" id="journalNextDay" aria-label="Next day">→</button>
-      <button type="button" class="icon-btn" id="journalTodayBtn">today</button>
-    </div>
+    <section class="studio-journal-calendar" aria-label="Calendar">
+      <div class="studio-journal-calendar-head">
+        <button type="button" class="icon-btn studio-journal-shift" id="journalPrevMonth" aria-label="Previous month">←</button>
+        <h2 class="studio-journal-calendar-title" id="journalMonthLabel">—</h2>
+        <button type="button" class="icon-btn studio-journal-shift" id="journalNextMonth" aria-label="Next month">→</button>
+        <button type="button" class="icon-btn" id="journalTodayBtn">today</button>
+      </div>
+      <div class="studio-journal-calendar-weekdays" aria-hidden="true">
+        <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+      </div>
+      <div id="journalCalendarGrid" class="studio-journal-calendar-grid" role="grid" aria-label="Month"></div>
+    </section>
+
+    <section class="studio-journal-section" aria-labelledby="journalContributionsTitle">
+      <h2 class="studio-journal-section-title" id="journalContributionsTitle">library</h2>
+      <details class="studio-stream-upload-details studio-journal-upload-details" id="journalUploadDetails">
+        <summary>+ add to this day</summary>
+        <div id="journalUpload" class="studio-stream-upload"></div>
+        <div id="journalUploadQueue" class="studio-upload-queue-host"></div>
+      </details>
+      <ul id="journalContributionsList" class="studio-journal-contributions" aria-live="polite"></ul>
+    </section>
 
     <section class="studio-journal-section" aria-labelledby="journalSectionTitle">
-      <h2 class="studio-journal-section-title" id="journalSectionTitle">journal</h2>
+      <h2 class="studio-journal-section-title" id="journalSectionTitle"><span id="journalSelectedLabel">—</span></h2>
       <textarea id="journalBody" class="studio-journal-textarea" rows="8" placeholder="write for this day…" spellcheck="true"></textarea>
-    </section>
-
-    <section class="studio-journal-section" aria-labelledby="planSectionTitle">
-      <h2 class="studio-journal-section-title" id="planSectionTitle">day plan</h2>
-      <textarea id="journalPlan" class="studio-journal-textarea studio-journal-textarea--compact" rows="5" placeholder="what matters today…" spellcheck="true"></textarea>
-    </section>
-
-    <section class="studio-journal-section" aria-labelledby="checklistSectionTitle">
-      <h2 class="studio-journal-section-title" id="checklistSectionTitle">checklist</h2>
-      <ul id="journalChecklist" class="studio-journal-checklist" aria-label="Checklist"></ul>
-    </section>
-
-    <section class="studio-journal-section studio-journal-recent" aria-labelledby="recentDaysTitle">
-      <h2 class="studio-journal-section-title" id="recentDaysTitle">recent days</h2>
-      <ul id="journalRecentList" class="studio-journal-recent-list"></ul>
     </section>
 
     <p class="studio-journal-status" id="journalStatus" aria-live="polite"></p>
@@ -87,7 +87,12 @@
   <script src="js/studio-spa-router.js?v=20260703f"></script>
   <script src="js/studio-auth.js?v=20260703f"></script>
   <script src="js/cloud-state.js?v=20260703f"></script>
+  <script src="js/mux-client.js?v=20260703f"></script>
+  <script src="js/asset-cloud.js?v=20260703f"></script>
+  <script src="js/upload-queue.js?v=20260703f"></script>
   <script src="js/journal-day-store.js?v=20260703f"></script>
+  <script src="js/journal-contributions.js?v=20260703f"></script>
+  <script src="js/cloud-ui.js?v=20260703f"></script>
   <script src="js/journal-page.js?v=20260703f"></script>
   <script src="../shared/site-version.js"></script>
   <script src="../shared/register-sw.js"></script>

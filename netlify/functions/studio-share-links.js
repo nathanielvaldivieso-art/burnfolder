@@ -1,4 +1,4 @@
-const { studioCorsHeaders, requireStudioAccess } = require('./lib/studio-auth');
+const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
 const {
   shareStore,
   newToken,
@@ -33,7 +33,7 @@ exports.handler = async function (event) {
     return { statusCode: 204, headers, body: '' };
   }
 
-  const access = requireStudioAccess(event);
+  const access = await requireWorkspaceAccess(event);
   if (!access.ok) {
     return { statusCode: access.statusCode, headers, body: JSON.stringify(access.body) };
   }

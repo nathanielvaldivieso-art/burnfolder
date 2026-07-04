@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>invite — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css?v=20260704a">
+  <link rel="stylesheet" href="css/studio.css?v=20260704a">
+</head>
+<body class="studio-page studio-invite-page">
+  <main class="page-wrap studio-invite-layout">
+    <p class="page-id">invite</p>
+    <p class="studio-lede" id="inviteStatus">sign in to accept your project invite.</p>
+    <p><a href="/studio/stream.html" class="page-nav">back to music</a></p>
+  </main>
+  <script src="js/studio-auth.js?v=20260704a"></script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('t') || '';
+      const statusEl = document.getElementById('inviteStatus');
+
+      function acceptInvite() {
+        if (!token) {
+          statusEl.textContent = 'missing invite token.';
+          return;
+        }
+        const auth = window.BurnfolderStudioAuth;
+        fetch(auth.getApiBase() + '/studio-music-projects', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, auth.getAuthHeaders()),
+          body: JSON.stringify({ action: 'accept-invite', token: token })
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            if (data.ok) {
+              statusEl.textContent = 'invite accepted. opening music…';
+              window.location.href = '/studio/stream.html';
+              return;
+            }
+            statusEl.textContent = data.message || 'could not accept invite.';
+          })
+          .catch(function () {
+            statusEl.textContent = 'could not reach the server.';
+          });
+      }
+
+      window.BurnfolderStudioAuth.whenReady().then(function () {
+        if (window.BurnfolderStudioAuth.getAuthMode() !== 'supabase') {
+          statusEl.textContent = 'supabase sign-in required.';
+          return;
+        }
+        acceptInvite();
+      });
+    })();
+  </script>
+</body>
+</html>

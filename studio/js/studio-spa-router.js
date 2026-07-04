@@ -5,6 +5,7 @@
 
   const SPA_PAGES = {
     'index.html': 'entry',
+    'today.html': 'today',
     'stream.html': 'stream',
     'video.html': 'video',
     'journal.html': 'journal'
@@ -26,6 +27,8 @@
     '../shared/now-playing-bar.js',
     'js/stream-shared.js',
     'js/upload-queue.js',
+    'js/journal-day-store.js',
+    'js/journal-contributions.js',
     'js/cloud-ui.js',
     'js/stream-player.js',
     'js/stream-now-playing.js',
@@ -38,7 +41,16 @@
   const PAGE_SCRIPTS = {
     stream: STREAM_PAGE_SCRIPTS,
     video: STREAM_PAGE_SCRIPTS,
-    journal: ['js/journal-day-store.js', 'js/journal-page.js'],
+    journal: [
+      'js/journal-day-store.js',
+      'js/journal-contributions.js',
+      'js/mux-client.js',
+      'js/asset-cloud.js',
+      'js/upload-queue.js',
+      'js/cloud-ui.js',
+      'js/journal-page.js'
+    ],
+    today: ['js/today-page.js', 'js/studio-ai-panel.js'],
     entry: [
       'js/drafts.js',
       '../shared/studio-tap.js',
@@ -148,12 +160,26 @@
     restoreSessionBodyClasses();
   }
 
+  function stripEmbeddedPlayback(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('.studio-preview-player').forEach(function (node) {
+      node.remove();
+    });
+    root.querySelectorAll('#activeMuxPlayer, #bottomBar').forEach(function (node) {
+      if (!node.closest('#studioGlobalPlayback')) node.remove();
+    });
+  }
+
   function clonePageContent(doc) {
     return Array.from(doc.body.children).filter(function (child) {
       if (child.id === 'studioGlobalPlayback') return false;
       if (child.id === 'bottomBar') return false;
       if (child.tagName === 'SCRIPT') return false;
       return true;
+    }).map(function (child) {
+      const clone = child.cloneNode(true);
+      stripEmbeddedPlayback(clone);
+      return clone;
     });
   }
 
@@ -217,6 +243,8 @@
       window.studioInitStreamPage();
     } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
       window.studioInitJournalPage();
+    } else if (pageKey === 'today' && typeof window.studioInitTodayPage === 'function') {
+      window.studioInitTodayPage();
     } else if (pageKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
       window.studioInitEntryHub();
     }
@@ -304,6 +332,9 @@
       if (shellReady()) {
         window.BurnfolderStudioPlaybackShell.ensureShell();
         window.BurnfolderStudioPlaybackShell.mountBar();
+        if (window.BurnfolderStudioPlaybackShell.syncAfterNavigation) {
+          window.BurnfolderStudioPlaybackShell.syncAfterNavigation();
+        }
       }
 
       await loadPageScripts(target.pageKey);
@@ -316,6 +347,10 @@
 
       runPageInit(target.pageKey);
       restoreSessionBodyClasses();
+
+      if (shellReady() && window.BurnfolderStudioPlaybackShell.syncAfterNavigation) {
+        window.BurnfolderStudioPlaybackShell.syncAfterNavigation();
+      }
 
       if (target.pageKey === 'entry') {
         const draftId = new URL(target.href, window.location.href).searchParams.get('id');

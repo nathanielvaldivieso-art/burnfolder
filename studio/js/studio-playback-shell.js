@@ -6,32 +6,72 @@
   const SHELL_ID = 'studioGlobalPlayback';
   let barApi = null;
   let engine = null;
+  let muxReadyPromise = null;
+
+  function waitForMuxPlayer() {
+    if (muxReadyPromise) return muxReadyPromise;
+    if (typeof customElements === 'undefined') {
+      muxReadyPromise = Promise.resolve();
+      return muxReadyPromise;
+    }
+    if (customElements.get('mux-player')) {
+      muxReadyPromise = Promise.resolve();
+      return muxReadyPromise;
+    }
+    muxReadyPromise = customElements.whenDefined('mux-player').catch(function () {});
+    return muxReadyPromise;
+  }
+
+  function isMuxPlayerReady() {
+    const player = getShellPlayer();
+    return !!(player && typeof player.play === 'function');
+  }
+
+  function getShellPlayer() {
+    const shell = document.getElementById(SHELL_ID);
+    if (shell) {
+      const player = shell.querySelector('#activeMuxPlayer');
+      if (player) return player;
+    }
+    return dedupeGlobalPlayer();
+  }
 
   function dedupeGlobalPlayer() {
+    const shellPlayer = document.getElementById(SHELL_ID);
+    let keeper = shellPlayer ? shellPlayer.querySelector('#activeMuxPlayer') : null;
+    if (!keeper) {
+      keeper = document.querySelector('mux-player#activeMuxPlayer');
+    }
     const players = Array.from(document.querySelectorAll('mux-player#activeMuxPlayer, #activeMuxPlayer'));
-    let keeper = document.getElementById('activeMuxPlayer');
     players.forEach(function (node) {
       if (node === keeper) return;
-      const shell = node.closest('#' + SHELL_ID);
-      if (shell) return;
+      if (node.closest('#' + SHELL_ID)) return;
       const bar = node.closest('#bottomBar');
-      if (bar && bar.id !== 'bottomBar') bar.remove();
-      else if (node.parentNode) node.parentNode.removeChild(node);
+      if (bar && !bar.closest('#' + SHELL_ID)) {
+        bar.setAttribute('hidden', '');
+        bar.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      if (node.parentNode) node.parentNode.removeChild(node);
     });
-    if (!keeper) {
-      keeper = document.createElement('mux-player');
-      keeper.id = 'activeMuxPlayer';
-      keeper.style.cssText =
-        'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);';
+    if (keeper) {
+      if (window.BurnfolderPlaybackPrefetch) {
+        window.BurnfolderPlaybackPrefetch.setActivePlayer(keeper);
+      }
+      return keeper;
     }
-    keeper.setAttribute('playsinline', '');
-    keeper.setAttribute('audio', '');
-    keeper.setAttribute('stream-type', 'on-demand');
-    keeper.setAttribute('preload', 'metadata');
+    const created = document.createElement('mux-player');
+    created.id = 'activeMuxPlayer';
+    created.style.cssText =
+      'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);';
+    created.setAttribute('playsinline', '');
+    created.setAttribute('audio', '');
+    created.setAttribute('stream-type', 'on-demand');
+    created.setAttribute('preload', 'metadata');
     if (window.BurnfolderPlaybackPrefetch) {
-      window.BurnfolderPlaybackPrefetch.setActivePlayer(keeper);
+      window.BurnfolderPlaybackPrefetch.setActivePlayer(created);
     }
-    return keeper;
+    return created;
   }
 
   function ensureShell() {
@@ -84,11 +124,11 @@
     if (!window.BurnfolderMuxPlayback) return null;
 
     ensureShell();
-    const player = document.getElementById('activeMuxPlayer');
+    waitForMuxPlayer();
 
     engine = window.BurnfolderMuxPlayback.create({
       getPlayer: function () {
-        return player;
+        return getShellPlayer();
       },
       recall: true,
       restoreRecall: true,
@@ -107,16 +147,23 @@
   }
 
   function mountBar() {
-    if (barApi || !window.BurnfolderNowPlayingBar) return barApi;
     ensureShell();
-    const bar = document.getElementById('bottomBar');
-    if (!bar) return null;
+    dedupeGlobalPlayer();
+    const shell = document.getElementById(SHELL_ID);
+    const bar = shell ? shell.querySelector('#bottomBar') : null;
+    if (!bar || !window.BurnfolderNowPlayingBar) return barApi;
+
+    if (barApi) {
+      syncAfterNavigation();
+      return barApi;
+    }
 
     barApi = window.BurnfolderNowPlayingBar.mount({
       barEl: bar,
-      titleEl: document.getElementById('streamNowPlayingTitle'),
-      playBtnEl: document.getElementById('streamPlayPause'),
-      closeBtnEl: document.getElementById('streamNowPlayingClose'),
+      titleEl: shell.querySelector('#streamNowPlayingTitle'),
+      playBtnEl: shell.querySelector('#streamPlayPause'),
+      closeBtnEl: shell.querySelector('#streamNowPlayingClose'),
+      muxPlayerEl: getShellPlayer(),
       bodyActiveClass: 'stream-playback-active',
       playbackEventName: 'burnfolder-stream-playback',
       getActiveSong: function () {
@@ -141,16 +188,72 @@
     return barApi;
   }
 
+  function syncAfterNavigation() {
+    ensureShell();
+    dedupeGlobalPlayer();
+    mountBar();
+    const eng = getEngine();
+    if (!eng || !barApi) return;
+    const song = eng.getActiveSong();
+    const player = getShellPlayer();
+    if (!song || !player) return;
+    barApi.setBarVisible(true);
+    barApi.update({ song: song, playing: !player.paused });
+  }
+
   function boot() {
     ensureShell();
-    getEngine();
-    if (window.BurnfolderNowPlayingBar) mountBar();
+    const whenMux =
+      typeof customElements !== 'undefined'
+        ? customElements.whenDefined('mux-player')
+        : Promise.resolve();
+    whenMux
+      .then(function () {
+        dedupeGlobalPlayer();
+        getEngine();
+        mountBar();
+      })
+      .catch(function () {
+        getEngine();
+        mountBar();
+      });
+    bindSpacePlayPause();
+  }
+
+  function isTypingTarget(target) {
+    const el = target && target.nodeType === 1 ? target : null;
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return Boolean(el.closest('[contenteditable="true"]'));
+  }
+
+  function bindSpacePlayPause() {
+    if (window.__studioSpacePlayBound) return;
+    window.__studioSpacePlayBound = true;
+    document.addEventListener('keydown', function (event) {
+      if (event.code !== 'Space' && event.key !== ' ') return;
+      if (isTypingTarget(event.target)) return;
+      ensureShell();
+      mountBar();
+      const shell = document.getElementById(SHELL_ID);
+      const bar = shell ? shell.querySelector('#bottomBar') : null;
+      const eng = getEngine();
+      if (!eng || !eng.getActiveSong()) return;
+      if (!bar || bar.style.display !== 'flex') return;
+      event.preventDefault();
+      eng.togglePlayPause();
+    });
   }
 
   window.BurnfolderStudioPlaybackShell = {
     ensureShell: ensureShell,
     getEngine: getEngine,
-    mountBar: mountBar
+    mountBar: mountBar,
+    syncAfterNavigation: syncAfterNavigation,
+    waitForMuxPlayer: waitForMuxPlayer,
+    isMuxPlayerReady: isMuxPlayerReady
   };
 
   if (document.readyState === 'loading') {

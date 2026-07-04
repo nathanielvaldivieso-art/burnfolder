@@ -38,6 +38,7 @@
     let activeQueueIdx = 0;
     let endedBound = false;
     let positionBound = false;
+    let endedPlayer = null;
     let recallTimer = null;
     let mediaActionsBound = false;
     let queueAdvanceLock = false;
@@ -131,6 +132,7 @@
 
     function bindPositionUpdates(player) {
       if (!player || positionBound || !mediaSessionApi) return;
+      if (endedPlayer !== player) return;
       positionBound = true;
       player.addEventListener('timeupdate', function () {
         if (!activeSong) return;
@@ -141,6 +143,14 @@
 
     function retryPlay(player, song, allowBlockedFallback) {
       if (!player || !song) return;
+      if (typeof player.play !== 'function') {
+        if (typeof customElements !== 'undefined') {
+          customElements.whenDefined('mux-player').then(function () {
+            retryPlay(player, song, allowBlockedFallback);
+          });
+        }
+        return;
+      }
       const playPromise = player.play();
       if (playPromise === undefined) return;
       playPromise.catch(function () {
@@ -149,7 +159,9 @@
           opts.onPlayBlocked(player, song);
           return;
         }
-        player.play().catch(function () {});
+        if (typeof player.play === 'function') {
+          player.play().catch(function () {});
+        }
       });
     }
 
@@ -187,8 +199,11 @@
     }
 
     function bindEnded(player) {
-      if (opts.bindEnded === false || !player || endedBound) return;
+      if (opts.bindEnded === false || !player) return;
+      if (endedPlayer === player && endedBound) return;
+      endedPlayer = player;
       endedBound = true;
+      positionBound = false;
       player.addEventListener('ended', function () {
         advanceQueueAfterEnd(player);
       });
@@ -237,6 +252,16 @@
       if (!player || !normalized) {
         queueAdvanceLock = false;
         return false;
+      }
+
+      if (!player.getAttribute('audio')) {
+        player.setAttribute('audio', '');
+      }
+      if (!player.getAttribute('playsinline')) {
+        player.setAttribute('playsinline', '');
+      }
+      if (!player.getAttribute('stream-type')) {
+        player.setAttribute('stream-type', 'on-demand');
       }
 
       queueAdvanceLock = false;

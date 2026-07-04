@@ -1,22 +1,17 @@
 (function () {
   'use strict';
 
-  const SESSION_KEY = 'burnfolder_studio_token';
+  const SESSION_KEY = 'burnfolder_studio_session';
   const waiters = [];
   let ready = false;
+  let authMode = 'legacy';
+  let session = null;
 
-  // Capture the real fetch before we wrap window.fetch below. The login check
-  // must use this directly, otherwise it would wait on whenReady() (which only
-  // resolves after a successful login) and deadlock — the unlock button would
-  // appear to do nothing.
   const nativeFetch = window.fetch.bind(window);
 
   function getMuxApiBase() {
     const cfg = window.BurnfolderStudioConfig || {};
     if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
-    // Any deployed origin (custom domain or *.netlify.app) serves functions at
-    // the same origin. Only a separate local dev server (e.g. Live Server on
-    // :5500) needs to reach `netlify dev` on :8888.
     const host = location.hostname;
     const isLocalDevServer =
       (host === 'localhost' || host === '127.0.0.1') && location.port && location.port !== '8888';
@@ -26,23 +21,51 @@
 
   function needsStudioAuth(url) {
     const u = String(url || '');
-    // Mux management calls and the personal-cloud state store need the bearer.
-    // The login check carries the password in its body and must NOT route
-    // through the auth wrapper.
-    return u.indexOf('/mux-') > -1 || u.indexOf('/studio-state') > -1 || u.indexOf('/studio-publish') > -1 || u.indexOf('/studio-share-links') > -1;
+    return (
+      u.indexOf('/mux-') > -1 ||
+      u.indexOf('/studio-state') > -1 ||
+      u.indexOf('/studio-publish') > -1 ||
+      u.indexOf('/studio-share-links') > -1 ||
+      u.indexOf('/studio-workspace') > -1 ||
+      u.indexOf('/studio-music-projects') > -1 ||
+      u.indexOf('/studio-ai') > -1 ||
+      u.indexOf('/studio-export') > -1
+    );
+  }
+
+  function loadSession() {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveSession(next) {
+    session = next;
+    if (next) sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    else sessionStorage.removeItem(SESSION_KEY);
   }
 
   function getToken() {
-    return sessionStorage.getItem(SESSION_KEY) || '';
+    if (authMode === 'supabase' && session && session.access_token) return session.access_token;
+    return sessionStorage.getItem('burnfolder_studio_token') || '';
   }
 
   function getAuthHeaders() {
+    if (authMode === 'supabase' && session && session.access_token) {
+      const headers = { Authorization: 'Bearer ' + session.access_token };
+      if (session.workspaceId) headers['X-Workspace-Id'] = session.workspaceId;
+      return headers;
+    }
     const token = getToken();
     return token ? { Authorization: 'Bearer ' + token } : {};
   }
 
   function logout() {
-    sessionStorage.removeItem(SESSION_KEY);
+    saveSession(null);
+    sessionStorage.removeItem('burnfolder_studio_token');
     ready = false;
     window.location.reload();
   }
@@ -67,9 +90,7 @@
     btn.className = 'studio-lock-btn';
     btn.textContent = 'lock';
     btn.setAttribute('aria-label', 'Lock studio');
-    btn.addEventListener('click', function () {
-      logout();
-    });
+    btn.addEventListener('click', logout);
     tools.appendChild(btn);
   }
 
@@ -81,12 +102,21 @@
     document.body.classList.add('studio-booting');
   }
 
-  function resetPwaZoom() {
+  function applyAccessGating() {
+    if (!session || session.accessMode !== 'music-project') return;
+    document.body.classList.add('studio-music-only');
+    document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
+      if (link.dataset.nav !== 'stream') link.hidden = true;
+    });
+    const path = location.pathname || '';
     if (
-      window.BurnfolderStudioPwaViewport &&
-      typeof window.BurnfolderStudioPwaViewport.resetZoom === 'function'
+      path.indexOf('/studio/stream') < 0 &&
+      path.indexOf('stream.html') < 0 &&
+      path.indexOf('stream-album') < 0 &&
+      path.indexOf('stream-song') < 0 &&
+      path.indexOf('invite.html') < 0
     ) {
-      window.BurnfolderStudioPwaViewport.resetZoom();
+      window.location.replace('/studio/stream.html');
     }
   }
 
@@ -99,8 +129,8 @@
     const active = document.activeElement;
     if (active && typeof active.blur === 'function') active.blur();
     if (gate) gate.remove();
-    resetPwaZoom();
     mountLockButton();
+    applyAccessGating();
     waiters.splice(0).forEach(function (resolve) {
       resolve();
     });
@@ -114,7 +144,92 @@
     });
   }
 
-  function verifyToken(token) {
+  function fetchPublicConfig() {
+    return nativeFetch(getMuxApiBase() + '/studio-public-config')
+      .then(function (res) {
+        return res.json();
+      })
+      .catch(function () {
+        return { authMode: 'legacy' };
+      });
+  }
+
+  function loadWorkspaceSession(accessToken) {
+    return nativeFetch(getMuxApiBase() + '/studio-workspace', {
+      headers: {
+        Authorization: 'Bearer ' + accessToken
+      }
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('workspace');
+        return res.json();
+      })
+      .then(function (data) {
+        const ws = data.workspace || {};
+        const projects = Array.isArray(data.projects) ? data.projects : [];
+        return {
+          access_token: accessToken,
+          workspaceId: ws.id,
+          slug: ws.slug,
+          name: ws.name,
+          role: ws.role,
+          accessMode: ws.accessMode || 'owner',
+          projects: projects,
+          email: null
+        };
+      });
+  }
+
+  function supabaseSignIn(config, email, password) {
+    return nativeFetch(config.supabaseUrl + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {
+        apikey: config.supabaseAnonKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email: email, password: password })
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) {
+            throw new Error((data && data.error_description) || (data && data.msg) || 'Sign in failed');
+          }
+          return data;
+        });
+      })
+      .then(function (data) {
+        return loadWorkspaceSession(data.access_token).then(function (wsSession) {
+          wsSession.access_token = data.access_token;
+          wsSession.refresh_token = data.refresh_token;
+          wsSession.email = email;
+          return wsSession;
+        });
+      });
+  }
+
+  function verifySupabaseSession(existing) {
+    return nativeFetch(getMuxApiBase() + '/studio-workspace', {
+      headers: {
+        Authorization: 'Bearer ' + existing.access_token,
+        'X-Workspace-Id': existing.workspaceId || ''
+      }
+    }).then(function (res) {
+      if (!res.ok) return false;
+      return res.json().then(function (data) {
+        const ws = data.workspace || {};
+        existing.workspaceId = ws.id;
+        existing.slug = ws.slug;
+        existing.name = ws.name;
+        existing.role = ws.role;
+        existing.accessMode = ws.accessMode || 'owner';
+        existing.projects = Array.isArray(data.projects) ? data.projects : [];
+        saveSession(existing);
+        return true;
+      });
+    });
+  }
+
+  function verifyLegacyToken(token) {
     return nativeFetch(getMuxApiBase() + '/studio-auth-check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,7 +243,57 @@
     });
   }
 
-  function showLoginGate() {
+  function showSupabaseLoginGate(config) {
+    hideBooting();
+    document.body.classList.add('studio-ready', 'studio-locked');
+
+    const gate = document.createElement('div');
+    gate.id = 'studioAuthGate';
+    gate.className = 'studio-auth-gate';
+    gate.innerHTML =
+      '<form class="studio-auth-form" autocomplete="on">' +
+      '<p class="page-id">studio</p>' +
+      '<p class="studio-auth-lede">Sign in with your Burnfolder Studio account.</p>' +
+      '<label class="studio-auth-label" for="studioAuthEmail">email</label>' +
+      '<input id="studioAuthEmail" class="studio-auth-input" type="email" autocomplete="username" required>' +
+      '<label class="studio-auth-label" for="studioAuthPassword">password</label>' +
+      '<input id="studioAuthPassword" class="studio-auth-input" type="password" autocomplete="current-password" required>' +
+      '<p class="studio-auth-error" id="studioAuthError" hidden></p>' +
+      '<button type="submit" class="studio-auth-submit">sign in</button>' +
+      '</form>';
+
+    document.body.appendChild(gate);
+
+    const form = gate.querySelector('.studio-auth-form');
+    const emailInput = gate.querySelector('#studioAuthEmail');
+    const passwordInput = gate.querySelector('#studioAuthPassword');
+    const errorEl = gate.querySelector('#studioAuthError');
+    const submitBtn = gate.querySelector('.studio-auth-submit');
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'signing in…';
+
+      supabaseSignIn(config, emailInput.value.trim(), passwordInput.value)
+        .then(function (nextSession) {
+          saveSession(nextSession);
+          markReady();
+        })
+        .catch(function (err) {
+          errorEl.textContent = (err && err.message) || 'Sign in failed.';
+          errorEl.hidden = false;
+        })
+        .finally(function () {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'sign in';
+        });
+    });
+  }
+
+  function showLegacyLoginGate() {
     hideBooting();
     document.body.classList.add('studio-ready', 'studio-locked');
 
@@ -150,20 +315,16 @@
     const form = gate.querySelector('.studio-auth-form');
     const input = gate.querySelector('#studioAuthPassword');
     const errorEl = gate.querySelector('#studioAuthError');
-
     const submitBtn = gate.querySelector('.studio-auth-submit');
 
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       const password = input.value || '';
       errorEl.hidden = true;
-      errorEl.textContent = '';
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'checking…';
-      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'checking…';
 
-      verifyToken(password)
+      verifyLegacyToken(password)
         .then(function (ok) {
           if (!ok) {
             errorEl.textContent = 'Wrong password.';
@@ -171,7 +332,7 @@
             input.select();
             return;
           }
-          sessionStorage.setItem(SESSION_KEY, password);
+          sessionStorage.setItem('burnfolder_studio_token', password);
           markReady();
         })
         .catch(function () {
@@ -179,56 +340,55 @@
           errorEl.hidden = false;
         })
         .finally(function () {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'unlock';
-          }
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'unlock';
         });
     });
-
-    const skipAutofocus =
-      window.matchMedia &&
-      window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-    if (!skipAutofocus) {
-      window.setTimeout(function () {
-        input.focus();
-      }, 0);
-    }
   }
 
   function boot() {
-    const existing = getToken();
-    if (existing) {
-      showBooting();
-      let settled = false;
-      const timeout = window.setTimeout(function () {
-        if (settled) return;
-        settled = true;
-        sessionStorage.removeItem(SESSION_KEY);
-        showLoginGate();
-      }, 8000);
+    fetchPublicConfig().then(function (config) {
+      authMode = config.authMode === 'supabase' ? 'supabase' : 'legacy';
 
-      verifyToken(existing)
-        .then(function (ok) {
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timeout);
-          if (ok) {
-            markReady();
-            return;
+      if (authMode === 'supabase') {
+        const existing = loadSession();
+        if (existing && existing.access_token) {
+          showBooting();
+          verifySupabaseSession(existing)
+            .then(function (ok) {
+              if (ok) {
+                session = existing;
+                markReady();
+                return;
+              }
+              saveSession(null);
+              showSupabaseLoginGate(config);
+            })
+            .catch(function () {
+              showSupabaseLoginGate(config);
+            });
+          return;
+        }
+        showSupabaseLoginGate(config);
+        return;
+      }
+
+      const legacy = sessionStorage.getItem('burnfolder_studio_token');
+      if (legacy) {
+        showBooting();
+        verifyLegacyToken(legacy).then(function (ok) {
+          if (ok) markReady();
+          else {
+            sessionStorage.removeItem('burnfolder_studio_token');
+            showLegacyLoginGate();
           }
-          sessionStorage.removeItem(SESSION_KEY);
-          showLoginGate();
-        })
-        .catch(function () {
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timeout);
-          showLoginGate();
+        }).catch(function () {
+          showLegacyLoginGate();
         });
-      return;
-    }
-    showLoginGate();
+        return;
+      }
+      showLegacyLoginGate();
+    });
   }
 
   window.fetch = function (url, options) {
@@ -254,7 +414,28 @@
       return ready;
     },
     getAuthHeaders: getAuthHeaders,
-    logout: logout
+    logout: logout,
+    getSession: function () {
+      return session;
+    },
+    getRole: function () {
+      return (session && session.role) || (authMode === 'legacy' ? 'owner' : 'guest');
+    },
+    canPublish: function () {
+      return window.BurnfolderStudioAuth.getRole() === 'owner';
+    },
+    isMusicProjectOnly: function () {
+      return session && session.accessMode === 'music-project';
+    },
+    canWriteMusic: function () {
+      if (!session) return authMode === 'legacy';
+      if (session.accessMode === 'owner' || session.role === 'owner') return true;
+      return session.role === 'music-collaborator';
+    },
+    getApiBase: getMuxApiBase,
+    getAuthMode: function () {
+      return authMode;
+    }
   };
 
   if (document.readyState === 'loading') {

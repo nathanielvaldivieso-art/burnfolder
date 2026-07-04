@@ -50,11 +50,20 @@
     };
   }
 
+  function preparePlayback() {
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell) {
+      if (shell.ensureShell) shell.ensureShell();
+      if (shell.mountBar) shell.mountBar();
+      if (shell.getEngine) return shell.getEngine();
+    }
+    return engine();
+  }
+
   function playItem(item, opts) {
     const song = songFromItem(item, opts);
-    const playback = engine();
+    const playback = preparePlayback();
     if (!song || song.kind === 'video' || !playback) return false;
-    if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
     return playback.playTrackQueue([song], 0, { immediatePlay: true });
   }
 
@@ -67,15 +76,14 @@
       .filter(function (s) {
         return s && s.playbackId && s.kind !== 'video';
       });
-    const playback = engine();
+    const playback = preparePlayback();
     if (!songs.length || !playback) return false;
-    if (window.BurnfolderStudioPlaybackShell) window.BurnfolderStudioPlaybackShell.mountBar();
     return playback.playTrackQueue(songs, startIdx || 0, { immediatePlay: true });
   }
 
   function primeItem(item) {
     const song = songFromItem(item);
-    const playback = engine();
+    const playback = preparePlayback();
     if (!song || song.kind === 'video' || !playback || !playback.primeTrack) return false;
     return playback.primeTrack(song);
   }
