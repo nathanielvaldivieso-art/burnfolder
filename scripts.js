@@ -2069,7 +2069,6 @@ function getSiteMuxPlayback() {
   if (!siteMuxPlayback && activeMuxPlayer && window.BurnfolderMuxPlayback) {
     siteMuxPlayback = window.BurnfolderMuxPlayback.create({
       getPlayer: () => activeMuxPlayer,
-      bindEnded: false,
       recall: true,
       restoreRecall: true,
       artist: 'burnfolder',
@@ -2077,7 +2076,18 @@ function getSiteMuxPlayback() {
       onPlayBlocked: (player) => {
         if (player) player.play().catch(() => {});
       },
-      onStateChange: () => {
+      onStateChange: (detail) => {
+        if (Array.isArray(detail.queue)) {
+          activeQueue = detail.queue.slice();
+          activeQueueIdx = typeof detail.queueIdx === 'number' ? detail.queueIdx : activeQueueIdx;
+        }
+        if (detail.song) {
+          activeSongOverride = detail.song;
+          const idx = window.currentSongs.findIndex(
+            (item) => item.playbackId === detail.song.playbackId
+          );
+          activeIdx = idx >= 0 ? idx : null;
+        }
         updateUI();
         syncPlaybackChromeState();
         syncTracklistPlayback();
@@ -2172,6 +2182,11 @@ function playTrackQueue(queueSongs, queueStartIdx) {
 window.playTrackQueue = playTrackQueue;
 
 function playQueuedTrack(queueIdx) {
+  const engine = getSiteMuxPlayback();
+  if (engine) {
+    engine.playQueuedTrack(queueIdx);
+    return;
+  }
   const song = activeQueue[queueIdx];
   if (!song) return;
   startPlayback(song, activeQueue, queueIdx);
@@ -2220,34 +2235,7 @@ function showLoading() {
 }
 
 // Progress fill/playhead are driven by shared/now-playing-bar.js (timeupdate/loadedmetadata).
-activeMuxPlayer.addEventListener('ended', () => {
-  progressEl.style.width = '0%';
-  const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
-  if (nextIdx !== null && nextIdx < activeQueue.length) {
-    playQueuedTrack(nextIdx);
-    return;
-  }
-  updateUI();
-});
-activeMuxPlayer.addEventListener('playing', () => {
-  updateUI();
-});
-activeMuxPlayer.addEventListener('pause', () => {
-  updateUI();
-});
-activeMuxPlayer.addEventListener('error', () => {
-  const activeSong = getActiveSong();
-  if (activeSong) {
-    console.warn(`Failed to load "${activeSong.title}".`, activeSong.playbackId);
-  }
-  const nextIdx = activeQueueIdx !== null ? activeQueueIdx + 1 : null;
-  if (nextIdx !== null && nextIdx < activeQueue.length) {
-    playQueuedTrack(nextIdx);
-    return;
-  }
-  showLoading(false);
-  updateUI();
-});
+// Queue advance, lock-screen handoff, and recall are handled by BurnfolderMuxPlayback.
 // Progress-bar seek (click + drag + touch) and hover timestamp are handled by
 // shared/now-playing-bar.js, which is mounted via mountNowPlayingBar().
 
