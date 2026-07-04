@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
 
-  var SITE_SCRIPT_VERSION = '20260703f';
+  var SITE_SCRIPT_VERSION = '20260704e';
 
   if (root) {
     root.BurnfolderSiteVersion = SITE_SCRIPT_VERSION;

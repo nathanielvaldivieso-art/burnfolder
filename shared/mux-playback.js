@@ -42,6 +42,8 @@
     let recallTimer = null;
     let mediaActionsBound = false;
     let queueAdvanceLock = false;
+    let hiddenAdvanceTimer = null;
+    let lifecycleBound = false;
 
     function notify(extra) {
       const player = getPlayer();
@@ -167,12 +169,58 @@
 
     function advanceThresholdSec() {
       /* iOS throttles timeupdate when locked — advance slightly early. */
-      if (typeof document !== 'undefined' && document.hidden) return 1;
+      if (typeof document !== 'undefined' && document.hidden) return 1.5;
       return 0.5;
     }
 
+    function stopHiddenAdvancePoll() {
+      if (hiddenAdvanceTimer === null) return;
+      window.clearInterval(hiddenAdvanceTimer);
+      hiddenAdvanceTimer = null;
+    }
+
+    function startHiddenAdvancePoll(player) {
+      if (hiddenAdvanceTimer !== null || !player) return;
+      hiddenAdvanceTimer = window.setInterval(function () {
+        if (!document.hidden) {
+          stopHiddenAdvancePoll();
+          return;
+        }
+        if (!activeSong || queueAdvanceLock) return;
+        if (player.ended) {
+          advanceQueueAfterEnd(player);
+          return;
+        }
+        maybeAdvanceQueue(player);
+      }, 400);
+    }
+
+    function resumeIfBackgroundPaused(player) {
+      if (!player || !activeSong || !player.paused) return;
+      if (opts.recall === false || !recallApi) return;
+      const recall = recallApi.load(1000 * 60 * 60 * 12);
+      if (
+        !recall ||
+        !recall.wasPlaying ||
+        !recall.song ||
+        recall.song.playbackId !== activeSong.playbackId
+      ) {
+        return;
+      }
+      retryPlay(player, activeSong, false);
+    }
+
     function maybeAdvanceQueue(player) {
-      if (queueAdvanceLock || !player || !activeSong || player.paused) return false;
+      if (queueAdvanceLock || !player || !activeSong) return false;
+
+      if (player.ended) {
+        advanceQueueAfterEnd(player);
+        return true;
+      }
+
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      if (player.paused && !hidden) return false;
+
       const duration = Number(player.duration);
       const current = Number(player.currentTime);
       if (!Number.isFinite(duration) || duration <= 0) return false;
@@ -217,18 +265,36 @@
       player.addEventListener('pause', notify);
       bindPositionUpdates(player);
 
-      if (typeof document !== 'undefined' && !player.dataset.queueVisibilityBound) {
-        player.dataset.queueVisibilityBound = '1';
+      if (typeof document !== 'undefined' && !lifecycleBound) {
+        lifecycleBound = true;
         document.addEventListener('visibilitychange', function () {
+          const livePlayer = getPlayer();
+          if (!livePlayer) return;
           if (document.hidden) {
-            maybeAdvanceQueue(player);
+            persistRecall();
+            startHiddenAdvancePoll(livePlayer);
+            maybeAdvanceQueue(livePlayer);
             return;
           }
-          if (player.ended) {
-            advanceQueueAfterEnd(player);
+          stopHiddenAdvancePoll();
+          if (livePlayer.ended) {
+            advanceQueueAfterEnd(livePlayer);
             return;
           }
-          maybeAdvanceQueue(player);
+          maybeAdvanceQueue(livePlayer);
+          resumeIfBackgroundPaused(livePlayer);
+        });
+        window.addEventListener('pagehide', persistRecall);
+        window.addEventListener('pageshow', function (event) {
+          if (!event.persisted) return;
+          const livePlayer = getPlayer();
+          if (!livePlayer) return;
+          if (livePlayer.ended) {
+            advanceQueueAfterEnd(livePlayer);
+            return;
+          }
+          maybeAdvanceQueue(livePlayer);
+          resumeIfBackgroundPaused(livePlayer);
         });
       }
     }
@@ -341,6 +407,19 @@
         }
         persistRecall();
       }, 100);
+
+      if (typeof document !== 'undefined' && document.hidden) {
+        window.setTimeout(function () {
+          if (
+            player.paused &&
+            activeSong &&
+            activeSong.playbackId === normalized.playbackId &&
+            !(startOpts.recall && startOpts.recall.wasPlaying === false)
+          ) {
+            ensurePlaying();
+          }
+        }, 800);
+      }
 
       if (root.BurnfolderPlaybackPrefetch) {
         root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);

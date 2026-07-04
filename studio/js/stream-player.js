@@ -1,21 +1,36 @@
 (function () {
   'use strict';
 
-  const localPlayback = window.BurnfolderMuxPlayback
-    ? window.BurnfolderMuxPlayback.create({
-        playerId: 'activeMuxPlayer',
-        recall: true,
-        restoreRecall: false,
-        artist: 'burnfolder',
-        album: 'stream',
-        onPlayBlocked: function (player) {
-          if (player) player.play().catch(function () {});
-        },
-        onStateChange: function (detail) {
-          window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
+  let localPlayback = null;
+
+  function createLocalPlayback() {
+    if (localPlayback || !window.BurnfolderMuxPlayback) return localPlayback;
+    localPlayback = window.BurnfolderMuxPlayback.create({
+      getPlayer: function () {
+        const shell = window.BurnfolderStudioPlaybackShell;
+        if (shell && typeof shell.ensureShell === 'function') {
+          shell.ensureShell();
+          const shellNode = document.getElementById('studioGlobalPlayback');
+          if (shellNode) {
+            const player = shellNode.querySelector('#activeMuxPlayer');
+            if (player) return player;
+          }
         }
-      })
-    : null;
+        return document.getElementById('activeMuxPlayer');
+      },
+      recall: true,
+      restoreRecall: false,
+      artist: 'burnfolder',
+      album: 'stream',
+      onPlayBlocked: function (player) {
+        if (player) player.play().catch(function () {});
+      },
+      onStateChange: function (detail) {
+        window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
+      }
+    });
+    return localPlayback;
+  }
 
   function engine() {
     const shell = window.BurnfolderStudioPlaybackShell;
@@ -23,7 +38,7 @@
       const shared = shell.getEngine();
       if (shared) return shared;
     }
-    return localPlayback;
+    return createLocalPlayback();
   }
 
   function songFromItem(item, opts) {

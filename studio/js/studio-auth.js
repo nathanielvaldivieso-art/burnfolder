@@ -2,10 +2,13 @@
   'use strict';
 
   const SESSION_KEY = 'burnfolder_studio_session';
+  const SESSION_PERSIST_KEY = 'burnfolder_studio_session_persist';
+  const LEGACY_TOKEN_KEY = 'burnfolder_studio_token';
   const waiters = [];
   let ready = false;
   let authMode = 'legacy';
   let session = null;
+  let supabaseConfig = null;
 
   const nativeFetch = window.fetch.bind(window);
 
@@ -35,7 +38,8 @@
 
   function loadSession() {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
+      const raw =
+        sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_PERSIST_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch (e) {
       return null;
@@ -44,13 +48,51 @@
 
   function saveSession(next) {
     session = next;
-    if (next) sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (next) {
+      const payload = JSON.stringify(next);
+      sessionStorage.setItem(SESSION_KEY, payload);
+      try {
+        localStorage.setItem(SESSION_PERSIST_KEY, payload);
+      } catch (e) {
+        /* quota */
+      }
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
+      try {
+        localStorage.removeItem(SESSION_PERSIST_KEY);
+      } catch (e) {
+        /* noop */
+      }
+    }
+  }
+
+  function loadLegacyToken() {
+    return (
+      sessionStorage.getItem(LEGACY_TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY) || ''
+    );
+  }
+
+  function saveLegacyToken(token) {
+    if (token) {
+      sessionStorage.setItem(LEGACY_TOKEN_KEY, token);
+      try {
+        localStorage.setItem(LEGACY_TOKEN_KEY, token);
+      } catch (e) {
+        /* quota */
+      }
+    } else {
+      sessionStorage.removeItem(LEGACY_TOKEN_KEY);
+      try {
+        localStorage.removeItem(LEGACY_TOKEN_KEY);
+      } catch (e) {
+        /* noop */
+      }
+    }
   }
 
   function getToken() {
     if (authMode === 'supabase' && session && session.access_token) return session.access_token;
-    return sessionStorage.getItem('burnfolder_studio_token') || '';
+    return loadLegacyToken();
   }
 
   function getAuthHeaders() {
@@ -65,7 +107,7 @@
 
   function logout() {
     saveSession(null);
-    sessionStorage.removeItem('burnfolder_studio_token');
+    saveLegacyToken('');
     ready = false;
     window.location.reload();
   }
@@ -149,9 +191,44 @@
       .then(function (res) {
         return res.json();
       })
+      .then(function (config) {
+        supabaseConfig = config || null;
+        return config;
+      })
       .catch(function () {
         return { authMode: 'legacy' };
       });
+  }
+
+  function refreshSupabaseToken(existing) {
+    if (!existing || !existing.refresh_token || !supabaseConfig || !supabaseConfig.supabaseUrl) {
+      return Promise.resolve(null);
+    }
+    return nativeFetch(supabaseConfig.supabaseUrl + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: {
+        apikey: supabaseConfig.supabaseAnonKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ refresh_token: existing.refresh_token })
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) return null;
+          return data;
+        });
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  function applyRefreshedTokens(existing, data) {
+    if (!data || !data.access_token) return false;
+    existing.access_token = data.access_token;
+    if (data.refresh_token) existing.refresh_token = data.refresh_token;
+    saveSession(existing);
+    return true;
   }
 
   function loadWorkspaceSession(accessToken) {
@@ -214,6 +291,12 @@
         'X-Workspace-Id': existing.workspaceId || ''
       }
     }).then(function (res) {
+      if (res.status === 401 && existing.refresh_token) {
+        return refreshSupabaseToken(existing).then(function (data) {
+          if (!applyRefreshedTokens(existing, data)) return false;
+          return verifySupabaseSession(existing);
+        });
+      }
       if (!res.ok) return false;
       return res.json().then(function (data) {
         const ws = data.workspace || {};
@@ -227,6 +310,18 @@
         return true;
       });
     });
+  }
+
+  function refreshSessionIfNeeded() {
+    if (authMode !== 'supabase' || !session || !session.access_token) return Promise.resolve();
+    return verifySupabaseSession(session)
+      .then(function (ok) {
+        if (!ok) return;
+        session = loadSession() || session;
+      })
+      .catch(function () {
+        /* keep current session until an API call fails */
+      });
   }
 
   function verifyLegacyToken(token) {
@@ -333,6 +428,7 @@
             return;
           }
           sessionStorage.setItem('burnfolder_studio_token', password);
+          saveLegacyToken(password);
           markReady();
         })
         .catch(function () {
@@ -373,13 +469,13 @@
         return;
       }
 
-      const legacy = sessionStorage.getItem('burnfolder_studio_token');
+      const legacy = loadLegacyToken();
       if (legacy) {
         showBooting();
         verifyLegacyToken(legacy).then(function (ok) {
           if (ok) markReady();
           else {
-            sessionStorage.removeItem('burnfolder_studio_token');
+            saveLegacyToken('');
             showLegacyLoginGate();
           }
         }).catch(function () {
@@ -443,4 +539,9 @@
   } else {
     boot();
   }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) return;
+    refreshSessionIfNeeded();
+  });
 })();

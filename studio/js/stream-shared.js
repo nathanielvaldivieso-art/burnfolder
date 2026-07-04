@@ -272,28 +272,54 @@
   let streamVideoEl = null;
   let streamVideoPlaybackId = null;
 
+  const CANONICAL_AUDIO_PIN =
+    'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;clip:rect(0,0,0,0);';
+
+  function getGlobalAudioPlayer() {
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell && typeof shell.ensureShell === 'function') {
+      shell.ensureShell();
+      if (typeof shell.getEngine === 'function') {
+        shell.getEngine();
+      }
+    }
+    const shellNode = document.getElementById('studioGlobalPlayback');
+    if (shellNode) {
+      const inShell = shellNode.querySelector('#activeMuxPlayer');
+      if (inShell) return inShell;
+    }
+    return document.getElementById('activeMuxPlayer');
+  }
+
   function setHiddenAudioPlayer(enabled) {
-    const audio = document.getElementById('activeMuxPlayer');
+    const audio = getGlobalAudioPlayer();
     if (!audio) return;
     if (enabled) {
       audio.removeAttribute('hidden');
-      audio.style.cssText = 'width:0;height:0;position:absolute;left:-9999px;';
+      audio.style.cssText = CANONICAL_AUDIO_PIN;
+      if (!audio.getAttribute('audio')) audio.setAttribute('audio', '');
+      if (!audio.getAttribute('playsinline')) audio.setAttribute('playsinline', '');
     } else {
+      if (window.BurnfolderStreamPlayer && window.BurnfolderStreamPlayer.stop) {
+        window.BurnfolderStreamPlayer.stop();
+        return;
+      }
       audio.pause();
       audio.removeAttribute('playback-id');
       audio.setAttribute('hidden', '');
-      audio.style.cssText = '';
+      audio.style.cssText = CANONICAL_AUDIO_PIN;
     }
   }
 
   function stopStreamAudio() {
-    const audio = document.getElementById('activeMuxPlayer');
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute('playback-id');
-    }
     if (window.BurnfolderStreamPlayer && window.BurnfolderStreamPlayer.stop) {
       window.BurnfolderStreamPlayer.stop();
+    } else {
+      const audio = getGlobalAudioPlayer();
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute('playback-id');
+      }
     }
     if (window.BurnfolderStreamNowPlaying && window.BurnfolderStreamNowPlaying.update) {
       window.BurnfolderStreamNowPlaying.update({ song: null, playing: false });
