@@ -372,6 +372,10 @@
       const nodes = clonePageContent(doc);
       if (!nodes.length) throw new Error('Empty page');
 
+      if (typeof window.studioFlushJournalSave === 'function') {
+        await window.studioFlushJournalSave();
+      }
+
       const root = ensureContentRoot();
       root.replaceChildren();
       nodes.forEach(function (child) {

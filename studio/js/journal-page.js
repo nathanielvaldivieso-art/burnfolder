@@ -210,28 +210,54 @@
     return contrib.listForDay(dateKey).then(renderContributions);
   }
 
+  function persistJournalBody() {
+    return store
+      .saveDay(activeDate, {
+        journal: journalBody ? journalBody.value : ''
+      })
+      .then(function (saved) {
+        currentDay = saved;
+        if (dayHasJournal(saved)) markedDays.add(activeDate);
+        else if (!dayHasContributions(saved)) markedDays.delete(activeDate);
+        renderCalendar();
+        setStatus('saved', 'success');
+        return saved;
+      })
+      .catch(function (err) {
+        setStatus(err.message || 'could not save', 'error');
+        throw err;
+      });
+  }
+
   function debouncedSave() {
     if (loadingDay || !currentDay) return;
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(function () {
-      store
-        .saveDay(activeDate, {
-          journal: journalBody ? journalBody.value : ''
-        })
-        .then(function (saved) {
-          currentDay = saved;
-          if (dayHasJournal(saved)) markedDays.add(activeDate);
-          else if (!dayHasContributions(saved)) markedDays.delete(activeDate);
-          renderCalendar();
-          setStatus('saved', 'success');
-        })
-        .catch(function (err) {
-          setStatus(err.message || 'could not save', 'error');
-        });
+      saveTimer = null;
+      persistJournalBody();
     }, 450);
   }
 
+  function flushPendingSave() {
+    const hadTimer = !!saveTimer;
+    if (saveTimer) {
+      window.clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    if (loadingDay || !currentDay) return Promise.resolve();
+    const body = journalBody ? journalBody.value : '';
+    if (!hadTimer && body === (currentDay.journal || '')) return Promise.resolve();
+    return persistJournalBody().catch(function () {});
+  }
+
   function loadDay(dateKey) {
+    const key = String(dateKey || '').trim() || store.todayKey();
+    return flushPendingSave().then(function () {
+      return loadDayAfterFlush(key);
+    });
+  }
+
+  function loadDayAfterFlush(dateKey) {
     const key = String(dateKey || '').trim() || store.todayKey();
     activeDate = key;
     if (contrib && contrib.setActiveDateKey) contrib.setActiveDateKey(key);
@@ -275,32 +301,28 @@
     });
   }
 
+  function bindClickOnce(el, handler) {
+    if (!el || el.dataset.journalBound === '1') return;
+    el.dataset.journalBound = '1';
+    el.addEventListener('click', handler);
+  }
+
   function bindFields() {
-    if (journalBody) {
-      journalBody.addEventListener('input', debouncedSave);
-    }
+    if (!journalBody || journalBody.dataset.journalBound === '1') return;
+    journalBody.dataset.journalBound = '1';
+    journalBody.addEventListener('input', debouncedSave);
   }
 
   function bindNav() {
-    const prevMonth = document.getElementById('journalPrevMonth');
-    const nextMonth = document.getElementById('journalNextMonth');
-    const todayBtn = document.getElementById('journalTodayBtn');
-
-    if (prevMonth) {
-      prevMonth.addEventListener('click', function () {
-        shiftMonth(-1);
-      });
-    }
-    if (nextMonth) {
-      nextMonth.addEventListener('click', function () {
-        shiftMonth(1);
-      });
-    }
-    if (todayBtn) {
-      todayBtn.addEventListener('click', function () {
-        loadDay(store.todayKey());
-      });
-    }
+    bindClickOnce(document.getElementById('journalPrevMonth'), function () {
+      shiftMonth(-1);
+    });
+    bindClickOnce(document.getElementById('journalNextMonth'), function () {
+      shiftMonth(1);
+    });
+    bindClickOnce(document.getElementById('journalTodayBtn'), function () {
+      loadDay(store.todayKey());
+    });
   }
 
   function boot() {
@@ -331,9 +353,18 @@
     contributionsList = document.getElementById('journalContributionsList');
     uploadRoot = document.getElementById('journalUpload');
     statusEl = document.getElementById('journalStatus');
+    currentDay = null;
     markNav();
+    bindFields();
+    bindNav();
     boot();
   };
+
+  window.studioFlushJournalSave = flushPendingSave;
+
+  window.addEventListener('pagehide', function () {
+    flushPendingSave();
+  });
 
   window.addEventListener('burnfolder-journal-synced', function () {
     refreshMarkedDays().then(function () {
