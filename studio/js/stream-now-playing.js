@@ -1,33 +1,39 @@
 (function () {
   'use strict';
 
-  const bar = document.getElementById('bottomBar');
-  if (!bar) return;
-
-  if (window.BurnfolderStudioPlaybackShell) {
-    window.BurnfolderStudioPlaybackShell.mountBar();
-    window.BurnfolderStreamNowPlaying = {
+  function shellBridge() {
+    if (!window.BurnfolderStudioPlaybackShell) return null;
+    const shell = window.BurnfolderStudioPlaybackShell;
+    shell.ensureShell();
+    shell.mountBar();
+    return {
       update: function (detail) {
-        const shellBar = window.BurnfolderStudioPlaybackShell.mountBar();
-        if (shellBar) shellBar.update(detail);
+        const bar = shell.mountBar();
+        if (bar) bar.update(detail);
       },
       setBarVisible: function (show) {
-        const shellBar = window.BurnfolderStudioPlaybackShell.mountBar();
-        if (shellBar) shellBar.setBarVisible(show);
+        const bar = shell.mountBar();
+        if (bar) bar.setBarVisible(show);
       },
       setCatalogProvider: function (provider) {
         if (window.BurnfolderPlaybackContext) {
           window.BurnfolderPlaybackContext.setCatalogProvider(provider);
         }
         window.BurnfolderPlaybackCatalogProvider = provider || null;
-        const shellBar = window.BurnfolderStudioPlaybackShell.mountBar();
-        if (shellBar && shellBar.renderPicker) shellBar.renderPicker();
+        const bar = shell.mountBar();
+        if (bar && bar.renderPicker) bar.renderPicker();
       }
     };
+  }
+
+  const throughShell = shellBridge();
+  if (throughShell) {
+    window.BurnfolderStreamNowPlaying = throughShell;
     return;
   }
 
-  if (!window.BurnfolderNowPlayingBar) return;
+  const bar = document.getElementById('bottomBar');
+  if (!bar || !window.BurnfolderNowPlayingBar) return;
 
   let barApi = null;
 

@@ -723,12 +723,6 @@
         if (touchPointer) {
           document.body.classList.add('studio-dnd-pending');
           holdTimer = setTimeout(onHoldComplete, TOUCH_HOLD_MS);
-        } else {
-          try {
-            if (handle.setPointerCapture && pointerId != null) {
-              handle.setPointerCapture(pointerId);
-            }
-          } catch (_) {}
         }
 
         function onMove(clientX, clientY) {

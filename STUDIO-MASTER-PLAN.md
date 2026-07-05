@@ -2,7 +2,7 @@
 
 **Status:** Full vision document synthesizing all planning conversations (July 2026). A follow-up pass will filter this through current resources and realistic scope.
 
-**Last updated:** July 3, 2026
+**Last updated:** July 4, 2026
 
 **Sources this plan reflects:**
 - `COPILOT.md` artist OS vision and shipped studio architecture
@@ -11,7 +11,7 @@
 - AI integration decisions (provider, modes, voice boundary)
 - Social/analytics gap analysis + YouTube/Instagram slate
 - Multi-tenant pivot (dogfood the real product, not a single-user fork)
-- Gap review + your locked responses (vault, guests, lifecycle, money, fans, import, export)
+- Dashboard + analytics AI direction (streaming ingest → digest on `/studio/dashboard.html`)
 
 ---
 
@@ -24,7 +24,7 @@
 | **Studio (private, per workspace)** | Capture work, manage catalog, distribute, plan releases, collaborate, sell, measure |
 | **Public gallery (per workspace)** | The artist's archive/portfolio — sparse, final, on their terms |
 | **Distribution (per workspace)** | White-label pipes to DSPs (Spotify, Apple Music, etc.) — **providers are plugins, not the product** |
-| **AI (studio-only)** | Streamline ops, planning, checklists, briefs — **never replace the artist's voice** |
+| **AI (studio-only)** | Digest streaming analytics, ops, planning, checklists, briefs — **never replace the artist's voice** |
 
 ### Mental model (from platform planning)
 
@@ -216,7 +216,7 @@ Inspired by **untitled.stream**-style sharing, extended to **full album co-creat
 
 ```
 Listening to "RBG" on music tab
-  → navigate to Today / AI (SPA keeps player alive)
+  → navigate to Dashboard / AI (SPA keeps player alive)
   → "pull up the session files for RBG"
   → AI resolves songGroupKey → lists vault files with download links
   → optional: "upload the latest logic session" from song page while listening
@@ -296,7 +296,7 @@ draft → assets_complete → checklist_passed → distro_submitted → dsp_live
 
 - Pipeline kanban + list views
 - **Unified release calendar:** distro go-live, gallery publish, YT/IG posts, shows, marketing tasks
-- **Today dashboard** (from backlog #9): day plan, recent drafts, pipeline summary, now playing, AI nudges, quick actions
+- **Dashboard** (`/studio/dashboard.html`): analytics home — streaming metrics feed + AI that digests and analyzes them; pipeline/calendar surfaces land here over time
 - Stage transitions: manual or AI-suggested — **never auto-publish**
 
 ---
@@ -311,7 +311,8 @@ draft → assets_complete → checklist_passed → distro_submitted → dsp_live
 | **Music** | Mux library, upload, play, drag-to-stack albums, version management |
 | **Video** | Same stack, video-filtered |
 | **Journal** | Private day log, plan, checklist — separate from public entries |
-| **Share links** | Private `listen.html?t=` for mix feedback; play count analytics (only analytics that exist today) |
+| **Dashboard** | Analytics home — streaming metrics placeholder, on-demand AI (digest/analyze when data exists), workspace export |
+| **Share links** | Private `listen.html?t=` for mix feedback; play count analytics (first metrics feed for dashboard) |
 | **Song/album designers** | Push dedicated pages when a release warrants it |
 | **SPA shell** | `studio-spa-router.js` — playback bar survives tab nav |
 | **Mobile** | `BurnfolderTouchTap`, 44px targets, safe-area, PWA |
@@ -415,22 +416,40 @@ Gates before distro submit or gallery publish:
 
 ### 9.5 Analytics
 
-**Today:** share-link `playCount` + `lastPlayedAt` only. No site traffic, Mux dashboard, or DSP stats in studio.
+**Dashboard is the analytics surface** — one page (`/studio/dashboard.html`), not a separate analytics tab. Two sections:
 
-**Target unified dashboard:**
+| Section | Role |
+|---------|------|
+| **Streaming** | Ingested metrics from DSPs, Mux, share links, YouTube/Instagram — per-track/per-release views |
+| **AI** | Digest and analyze that data — trends, period comparisons, focus suggestions; **never invent numbers** |
+
+**Tier 1 (shipped shell):** dashboard page with streaming placeholder + on-demand AI panel. Share-link `playCount` + `lastPlayedAt` are the only live metrics until Tier 3 ingest.
+
+**Target unified feed (Tier 3+):**
 
 | Source | Metrics |
 |--------|---------|
 | Distro provider | Spotify, Apple, Amazon, TikTok Music — streams, listeners, revenue |
 | Mux | On-site / embed plays |
-| Share links | Private listen plays (existing) |
+| Share links | Private listen plays (existing — first feed) |
 | YouTube | Views, watch time |
 | Instagram | Reach, saves, reel plays |
 | Bandcamp / SoundCloud | v2 — same pull pattern |
-| Site traffic | Plausible or equivalent |
+| Site traffic | Cloudflare Web Analytics |
 | Commerce | Tips, orders, conversion |
 
-Normalized: `platform`, `isrc`, `streams`, `listeners`, `revenue`, `date`.
+Normalized store: workspace Blob `dspMetrics` or Supabase table — `{ platform, isrc, streams, listeners, revenue, date }`.
+
+**AI + analytics flow (Tier 3):**
+
+```
+sync-analytics.js → normalized dspMetrics + share-link aggregates
+  → dashboard #dashboardAnalyticsFeed renders tables/charts
+  → studio-ai.js receives optional metrics snapshot in POST body
+  → AI summarizes patterns, compares periods, suggests focus — grounded in provided data only
+```
+
+**Current state:** share-link counts only in backend; dashboard UI shows placeholder until Tier 3 ingest ships. No site traffic, Mux dashboard, or DSP stats in studio yet.
 
 ### 9.6 Social integrations
 
@@ -461,6 +480,7 @@ Normalized: `platform`, `isrc`, `streams`, `listeners`, `revenue`, `date`.
 
 **AI does:**
 
+- **Digest streaming analytics** — summarize DSP/share-link/Mux/social metrics when a snapshot is provided; compare periods; spot trends (**never invent numbers**)
 - Release planning + sequencing
 - Design **briefs** (direction, constraints — not finished copy)
 - Pre-release checklist + gap reports
@@ -488,7 +508,7 @@ Normalized: `platform`, `isrc`, `streams`, `listeners`, `revenue`, `date`.
 Upload drum practice clips → tag as "drums" / "practice"
   → "pull up all drumming from the last 2 months" → compiled playlist
   → "create a goal called drum improvement — remind me every saturday"
-  → goal surfaces on Today + journal reminder on scheduled days
+  → goal surfaces on Dashboard + journal reminder on scheduled days
 ```
 
 **What it does**
@@ -497,9 +517,9 @@ Upload drum practice clips → tag as "drums" / "practice"
 |------------|--------|
 | **Asset tags** | Workspace `assetMeta`: `{ playbackId → tags[], activity, notes }` — from filename, manual chips, or AI-suggested tags (**artist confirms**) |
 | **Filter + search** | Tag + date range + filename on music/journal; save filter as stack |
-| **AI compile** | Natural language → structured query server-side → playable result list on Today |
+| **AI compile** | Natural language → structured query server-side → playable result list on Dashboard |
 | **Goals** | `goals` store: title, linked tags/stacks, schedule (e.g. every Saturday) |
-| **Recurring reminders** | Schedule seeds journal `reminders` on matching days; Today shows active goals |
+| **Recurring reminders** | Schedule seeds journal `reminders` on matching days; Dashboard shows active goals |
 | **Smart stacks** | `smartStacks`: saved searches that refresh when new tagged uploads match |
 
 **AI does (practice librarian only):**
@@ -521,11 +541,11 @@ Upload drum practice clips → tag as "drums" / "practice"
 | Sub-phase | Scope | Depends on |
 |-----------|--------|------------|
 | **2a — Tags + filter** | `assetMeta`, tag chips on upload, date/tag filter bar, "save as stack" | Tier 1 complete |
-| **2b — AI search + compile** | Action parsing in `studio-ai.js`, result playlist on Today, link to stacks | 2a |
-| **2c — Goals + recurring reminders** | `goals` store, Today goal cards, Saturday → journal reminder seeding | 2a, unified calendar (Phase 2) |
+| **2b — AI search + compile** | Action parsing in `studio-ai.js`, result playlist on Dashboard, link to stacks | 2a |
+| **2c — Goals + recurring reminders** | `goals` store, Dashboard goal cards, Saturday → journal reminder seeding | 2a, unified calendar (Phase 2) |
 | **3+ — Smart stacks + transcripts** | Auto-refresh saved searches; optional transcript index for voice memos | 2b, optional STT provider |
 
-**UI surfaces:** Today (search + goals), music page (tags/filter), journal (contributions already date-link clips).
+**UI surfaces:** Dashboard (search + goals + analytics), music page (tags/filter), journal (contributions already date-link clips).
 
 ### 9.7.2 Session-file assistant (vault + context-aware AI)
 
@@ -535,7 +555,7 @@ Upload drum practice clips → tag as "drums" / "practice"
 
 ```
 Music tab: now playing "RBG"
-  → SPA nav to Today / AI (playback continues)
+  → SPA nav to Dashboard / AI (playback continues)
   → "pull up the session files for RBG"
   → file list: RBG.logicx, RBG_stems.zip, RBG_ref_mix.wav — each with download
 ```
@@ -557,7 +577,7 @@ Music tab: now playing "RBG"
 | Sub-phase | Scope | When |
 |-----------|--------|------|
 | **2d — Project vault upload** | R2 project paths, `projectFiles` manifest, upload UI on song/music row | Tier 2 (with master vault) |
-| **2e — Context-aware AI retrieval** | Pass `nowPlaying` to `studio-ai.js`; `get_session_files` action; download links on Today | Tier 2, after 2d |
+| **2e — Context-aware AI retrieval** | Pass `nowPlaying` to `studio-ai.js`; `get_session_files` action; download links on Dashboard | Tier 2, after 2d |
 | **3+ — Migrate local asset-cloud** | Move IndexedDB session refs → workspace `projectFiles`; dedupe by hash | Tier 3 |
 
 **SPA requirement:** AI panel reachable from music/video without tearing down playback (`studio-spa-router.js` + global playback shell — already the pattern).
@@ -651,12 +671,11 @@ Distro metadata, master uploads, analytics review, and split documentation are *
 
 | Area | Role |
 |------|------|
-| **today** | Dashboard — calendar, pipeline, now playing, AI nudges, quick actions, ⌘K entry |
+| **dashboard** | Analytics home — streaming metrics, AI digest/analysis, pipeline/calendar (phased), now playing, quick actions |
 | **catalog** | Music/video, stack/albums, vault, versions, lifecycle board |
 | **entries** | Draft hub + editor + gallery publish |
 | **releases** | Distro drafts, submit, import/backfill, checklist |
 | **journal** | Private day plan, notes, checklist |
-| **analytics** | Unified metrics |
 | **social** | YouTube + Instagram |
 | **commerce** | Orders, merch, tips |
 | **fans** | Subscribers, segments, notifications |
@@ -689,7 +708,7 @@ SPA shell keeps global playback alive across nav. Entry hub ↔ editor via `edit
 | **1 — Port studio** | Entries, Mux, journal, share links, designers, SPA, mobile, collaborators — all workspace-scoped |
 | **2 — Lifecycle & calendar** | Pipeline state machine, unified calendar, credits/splits, pre-release checklist; **practice librarian 2a–2c**; **project vault 2d–2e** (session files + context-aware AI retrieval) |
 | **3 — Distribution v1** | LabelGrid/Too Lost adapter, ISRC/UPC, submit, **catalog import**, DSP analytics ingest; **smart stacks** (saved practice searches) |
-| **4 — Analytics & money** | Unified dashboard, financial view, fan panel, commerce in studio |
+| **4 — Analytics & money** | Dashboard streaming feed (ingest + charts), AI metrics digest, financial view, fan panel, commerce in studio |
 | **5 — AI layer** | On-demand + proactive copilot, briefs, checklist, capability navigator, import assist; **practice librarian AI search + compile actions** (2b) |
 | **6 — Social** | YouTube then Instagram — connect, insights, calendar linking |
 | **7 — Marketing, PR, live** | Campaign planner, EPK, playlist log, sync, shows/setlists |
@@ -770,7 +789,7 @@ SPA shell keeps global playback alive across nav. Entry hub ↔ editor via `edit
 ```
 Tier 1  Supabase login + collaborators + your existing studio on burnfolder.com
 Tier 2  Cloudflare R2 masters + LabelGrid → Spotify/Apple + cover art on site
-Tier 3  LabelGrid analytics + YouTube stats + import old releases from LabelGrid
+Tier 3  Dashboard streaming ingest (LabelGrid + share links + Mux) + AI digest + YouTube + catalog import
 Tier 4  Other artists pay $15/mo → theirname.burnfolder.com + Instagram
 Tier 5  Ignore until LabelGrid can't scale (Revelator) — years away
 ```
@@ -873,7 +892,7 @@ Estimates are **your** active time — not Copilot build time. Assumes no code e
 | LabelGrid distro | **Defer** | Tier 2 |
 | Master file vault (R2) | **Defer** | Tier 2 — Tier 1: Mux + local master discipline |
 | Catalog import from provider | **Defer** | Tier 2–3 — with distro |
-| Unified analytics dashboard | **Defer** | Tier 3 — Tier 1: share-link play counts only |
+| Unified analytics ingest + charts | **Defer** | Tier 3 — Tier 1: dashboard shell + share-link counts only; AI panel ready for metrics snapshot |
 | YouTube | **Defer** | Tier 3 |
 | Instagram | **Defer** | Tier 4 (second social) |
 | AI proactive nudges | **Defer** | Tier 2 — Tier 1: on-demand only |
@@ -907,11 +926,13 @@ Estimates are **your** active time — not Copilot build time. Assumes no code e
 
 **Goal:** Perfect release workflow for *your* projects + immediate collaborators. Zero distraction from active music.
 
-**You get:** invite-only accounts, workspace-scoped studio, light track status, simple calendar, on-demand AI, share links, publish to burnfolder.com, JSON export.
+**You get:** invite-only accounts, workspace-scoped studio, **dashboard** (analytics home shell + on-demand AI), light track status, simple calendar, share links, publish to burnfolder.com, JSON export.
 
-**You skip:** distro, vault, social, analytics dashboard, subdomains, marketing, money/fans/commerce in studio.
+**You skip:** distro, vault, social, **streaming analytics ingest** (DSP/Mux/social feeds — Tier 3), subdomains, marketing, money/fans/commerce in studio.
 
-**Build order:** (1) Supabase Auth + workspaces + invites → (2) scope Blobs/Mux/publish → (3) track status + calendar → (4) on-demand AI → (5) migrate your data.
+**Build order:** (1) Supabase Auth + workspaces + invites → (2) scope Blobs/Mux/publish → (3) track status + calendar → (4) dashboard AI panel → (5) migrate your data.
+
+**Dashboard (shipped):** `/studio/dashboard.html` — streaming placeholder + AI panel. Share-link play counts are the first metrics feed when ingest lands in Tier 3.
 
 **~$100/mo budget:** Netlify $0–19 · Mux $10–40 · Supabase $0 · AI $5–15 · **Total ~$20–75**
 
@@ -1027,12 +1048,13 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
    - Simple filter/sort in stream UI — no full kanban
 7. **Release calendar** — new cloud key `releaseDates` (workspace-scoped):
    - Manual date + label + optional track/album link
-   - Minimal list/calendar view on new `studio/today.html` or dashboard section
-8. **On-demand AI** — `netlify/functions/studio-ai.js`:
-   - Anthropic Haiku only (`AI_MODEL=claude-3-5-haiku-latest`)
+   - Minimal list/calendar view on `studio/dashboard.html` (calendar section — phased after analytics shell)
+8. **On-demand AI** — `netlify/functions/studio-ai.js` + dashboard AI section:
+   - Anthropic Haiku only (`AI_MODEL=claude-haiku-4-5` or current Haiku slug)
    - Workspace-gated; read-only context snapshot (draft count, pipeline, COPILOT excerpt)
+   - **Analytics role (Tier 1 shell):** prompt + UI ready to digest metrics when Tier 3 passes a snapshot — never invent numbers
    - **Hard rule:** reject prompts asking to write entry copy, captions, lyrics
-   - UI: collapsible panel in studio nav, no proactive nudges
+   - UI: `#studioAiForm` on dashboard — no proactive nudges in Tier 1
 9. **Workspace export** — `netlify/functions/studio-export.js`:
    - GET returns JSON bundle of all workspace Blob keys + pipeline + member list metadata
 10. **Update COPILOT.md** — document Tier 1 auth, workspace scoping, retired patterns
@@ -1040,7 +1062,7 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 **Do NOT build in Tier 1**
 
 - LabelGrid, R2 vault, `{slug}.burnfolder.com`, YouTube/Instagram OAuth
-- Proactive AI, unified analytics, fan CRM, commerce studio UI
+- Proactive AI, **streaming analytics ingest** (§9.5 — dashboard shell is Tier 1), fan CRM, commerce studio UI
 - Postgres catalog tables beyond workspaces/members/invites
 - Open signup, Stripe billing for workspaces
 - Phase B images, republish 409 fix (unless trivial — otherwise Tier 2)
@@ -1052,6 +1074,7 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 - [ ] Mux upload/list still works workspace-gated
 - [ ] Publish live still writes to burnfolder.com repo for workspace `burnfolder` only
 - [ ] AI answers capability questions without generating copy
+- [ ] Dashboard loads with streaming placeholder + AI panel; `/studio/today.html` redirects to dashboard
 - [ ] Export produces valid JSON backup
 - [ ] No secrets in git; all new env vars documented in `studio/TIER-1-SETUP.md`
 
@@ -1159,11 +1182,11 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
     - Filter bar: tag + date range on `stream.html`; "save filter as stack" → existing `groups`
 11. **AI search + compile (2b)** — extend `netlify/functions/studio-ai.js`:
     - Parse NL → `{ action: 'search_assets', filters: { tags, since, until } }` or `create_stack` / `create_goal`
-    - Today page: render result playlist (reuse stream row UI + playback shell); confirm before mutating state
+    - Dashboard: render result playlist (reuse stream row UI + playback shell); confirm before mutating state
     - **Metadata only** to Anthropic — no audio bytes
-12. **Goals + recurring reminders (2c)** — workspace Blob `goals` + Today goal cards:
+12. **Goals + recurring reminders (2c)** — workspace Blob `goals` + Dashboard goal cards:
     - `{ title, tags, linkedStackId, schedule: { weekday, time }, reminderText }`
-    - On schedule match: seed `journalDays[dateKey].reminders`; surface on Today
+    - On schedule match: seed `journalDays[dateKey].reminders`; surface on Dashboard
     - In-app only in Tier 2 — PWA push notifications defer to Tier 3+
 13. **Acceptance (practice librarian)** — upload 3 drum clips tagged `drums`; AI query "drumming last 2 months" returns playable list; create Saturday goal; reminder appears on matching journal day
 
@@ -1173,7 +1196,7 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
     - Query "pull up session files for RBG" → downloadable file list; playback continues if user navigated from music via SPA
 15. **Acceptance (session files)** — upload Logic session for a stack song; while playing that song, ask AI for session files; list matches; download works with workspace auth
 
-**Do NOT build in Tier 2:** multi-gallery, social OAuth, catalog import, unified analytics dashboard, billing, performance critique AI, auto-tag without confirm, in-browser DAW
+**Do NOT build in Tier 2:** multi-gallery, social OAuth, catalog import, **streaming analytics ingest** (§9.5 — Tier 3), billing, performance critique AI, auto-tag without confirm, in-browser DAW
 
 **Acceptance criteria**
 
@@ -1203,7 +1226,7 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 | Step 2 — YouTube OAuth | **1–2 h** | Google Cloud project — **budget 2 h** if first time; most common snag |
 | Step 3 — Catalog prep | **30–60 min** | List LabelGrid releases + missing vault masters |
 | Copilot build | **1–2 h** | One Cursor session |
-| Step 4 — Verify | **30–45 min** | Connect YouTube, run import, check analytics tab |
+| Step 4 — Verify | **30–45 min** | Connect YouTube, run import, check dashboard streaming section + ask AI about trends |
 | **Tier 3 total** | **~4–7 h** | Mostly one afternoon |
 | **Ongoing** | **~30 min/month** | Glance analytics before planning next release |
 
@@ -1234,8 +1257,9 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 
 **Step 4 — Verify Tier 3**
 
-- [ ] Studio **analytics** tab shows LabelGrid streams for at least one track
-- [ ] YouTube connect works → video view count visible
+- [ ] Dashboard **streaming** section shows LabelGrid streams for at least one track
+- [ ] AI digest: ask dashboard AI "which track gained streams this week?" — answer grounded in ingested metrics, not invented
+- [ ] YouTube connect works → video view count visible on dashboard
 - [ ] **Import catalog** pulls LabelGrid discography into studio
 - [ ] Subscriber emails visible in **fans** tab
 - [ ] Stripe orders visible read-only in **commerce** tab
@@ -1250,7 +1274,7 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 
 1. **Smart stacks** — workspace Blob `smartStacks`:
    - Saved `{ name, filters }` that re-query Mux + `assetMeta` on library refresh
-   - UI: pin smart stack on Today or music page; badge when new matches land
+   - UI: pin smart stack on Dashboard or music page; badge when new matches land
 2. **Transcript index (optional)** — server-side STT on upload or on-demand for voice memos:
    - Store transcript in `assetMeta`; search includes transcript text
    - Workspace-gated; STT provider env (`STT_PROVIDER`) — never send raw audio to Anthropic
@@ -1261,15 +1285,20 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 1. **Analytics ingest** — cron or on-demand `netlify/functions/sync-analytics.js`:
    - Pull from distro adapter `getAnalytics`, Mux Data API (if available), aggregate share-link counts from Blobs
    - Store normalized rows in workspace Blob `dspMetrics` or Supabase table
-2. **Analytics UI** — `studio/analytics.html`: per-track/per-release charts — minimal, monospace, mobile-readable
-3. **YouTube only** — `social-youtube-auth.js`, `social-youtube-callback.js`:
+2. **Dashboard streaming UI** — extend `studio/dashboard.html` + `studio/js/dashboard-page.js`:
+   - Populate `#dashboardAnalyticsFeed` with per-track/per-release tables — minimal, monospace, mobile-readable
+   - Hide `#dashboardAnalyticsEmpty` when data exists
+3. **AI metrics digest** — extend `studio-ai.js` POST body:
+   - Optional `metricsSnapshot` from latest `dspMetrics` + share-link aggregates (server-side fetch, workspace-scoped)
+   - System prompt: summarize patterns, compare periods — **never invent numbers** (see §9.5)
+4. **YouTube only** — `social-youtube-auth.js`, `social-youtube-callback.js`:
    - No Instagram code in Tier 3
-4. **Catalog import** — `labelgrid.provider.js` `importCatalog()` only:
+5. **Catalog import** — `labelgrid.provider.js` `importCatalog()` only:
    - Map to `trackRegistry` + pipeline stages; flag missing vault masters
    - AI assist mapping in `studio-ai.js` — confirm before write
-5. **Fans panel** — `studio/fans.html`: read `subscribe` Blobs scoped to workspace newsletter key
-6. **Commerce read-only** — list recent Stripe payment intents / orders via existing webhook data or Stripe API
-7. **Docs** — `studio/TIER-3-SETUP.md`
+6. **Fans panel** — `studio/fans.html`: read `subscribe` Blobs scoped to workspace newsletter key
+7. **Commerce read-only** — list recent Stripe payment intents / orders via existing webhook data or Stripe API
+8. **Docs** — `studio/TIER-3-SETUP.md`
 
 **Do NOT build in Tier 3:** Instagram, marketing planner, billing, multi-gallery
 

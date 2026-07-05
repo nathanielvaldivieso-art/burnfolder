@@ -2,15 +2,30 @@
   'use strict';
   if (!('serviceWorker' in navigator)) return;
 
-  var isLocal =
-    location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  var host = location.hostname || '';
 
-  if (isLocal) {
+  // Production = the real burnfolder.com domain (apex or any subdomain).
+  // Everything else — localhost, 127.0.0.1, LAN IPs (e.g. 172.20.10.2 from
+  // `netlify dev` on a phone), *.local, Netlify previews, custom ports — is
+  // treated as DEV and must NOT run a service worker. A stale SW cache on a dev
+  // host serves old JS/CSS and makes edits appear not to land ("clicking is
+  // broken", "fix didn't stick"). Disable + actively unregister there.
+  var isProduction = /(^|\.)burnfolder\.com$/i.test(host);
+
+  if (!isProduction) {
     navigator.serviceWorker.getRegistrations().then(function (regs) {
       regs.forEach(function (reg) {
         reg.unregister();
       });
-    });
+    }).catch(function () {});
+
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (keys) {
+        keys.forEach(function (key) {
+          if (/burnfolder/i.test(key)) caches.delete(key);
+        });
+      }).catch(function () {});
+    }
     return;
   }
 

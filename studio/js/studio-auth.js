@@ -179,6 +179,49 @@
     window.dispatchEvent(new CustomEvent('burnfolder-studio-authed'));
   }
 
+  /** Session expired or rejected — show login again without a full reload. */
+  function revokeSession(showGate) {
+    ready = false;
+    hideBooting();
+    document.body.classList.remove('studio-ready');
+    const gate = document.getElementById('studioAuthGate');
+    if (gate) gate.remove();
+    if (typeof showGate === 'function') showGate();
+  }
+
+  function restoreSupabaseSession(existing, config) {
+    session = existing;
+    markReady();
+    verifySupabaseSession(existing)
+      .then(function (ok) {
+        if (ok) {
+          session = loadSession() || existing;
+          return;
+        }
+        saveSession(null);
+        session = null;
+        revokeSession(function () {
+          showSupabaseLoginGate(config);
+        });
+      })
+      .catch(function () {
+        /* offline / transient — keep the cached session */
+      });
+  }
+
+  function restoreLegacySession(token) {
+    markReady();
+    verifyLegacyToken(token)
+      .then(function (ok) {
+        if (ok) return;
+        saveLegacyToken('');
+        revokeSession(showLegacyLoginGate);
+      })
+      .catch(function () {
+        /* offline / transient — keep the cached session */
+      });
+  }
+
   function whenReady() {
     if (ready) return Promise.resolve();
     return new Promise(function (resolve) {
@@ -449,20 +492,7 @@
       if (authMode === 'supabase') {
         const existing = loadSession();
         if (existing && existing.access_token) {
-          showBooting();
-          verifySupabaseSession(existing)
-            .then(function (ok) {
-              if (ok) {
-                session = existing;
-                markReady();
-                return;
-              }
-              saveSession(null);
-              showSupabaseLoginGate(config);
-            })
-            .catch(function () {
-              showSupabaseLoginGate(config);
-            });
+          restoreSupabaseSession(existing, config);
           return;
         }
         showSupabaseLoginGate(config);
@@ -471,16 +501,7 @@
 
       const legacy = loadLegacyToken();
       if (legacy) {
-        showBooting();
-        verifyLegacyToken(legacy).then(function (ok) {
-          if (ok) markReady();
-          else {
-            saveLegacyToken('');
-            showLegacyLoginGate();
-          }
-        }).catch(function () {
-          showLegacyLoginGate();
-        });
+        restoreLegacySession(legacy);
         return;
       }
       showLegacyLoginGate();

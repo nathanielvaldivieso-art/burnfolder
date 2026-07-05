@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="../shared/studio-pwa-viewport.js?v=20260704d"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="theme-color" content="#000000">
+  <title>dashboard — burnfolder studio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="../style.css?v=20260704d">
+  <link rel="stylesheet" href="css/studio.css?v=20260704j">
+</head>
+<body class="studio-page studio-dashboard-page">
+  <header class="site-header studio-header">
+    <a href="/studio/dashboard.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="/studio/dashboard.html" class="studio-main-nav-link page-nav" data-nav="dashboard">dashboard</a>
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-dashboard-layout">
+    <p class="page-id">dashboard</p>
+    <p class="studio-dashboard-meta" id="dashboardWorkspaceMeta" hidden></p>
+
+    <section class="studio-dashboard-section" id="dashboardAnalyticsSection">
+      <h2 class="studio-journal-section-title">streaming</h2>
+      <p class="studio-dashboard-empty" id="dashboardAnalyticsEmpty">spotify, apple music, and share-link play counts will connect here.</p>
+      <div id="dashboardAnalyticsFeed" hidden aria-live="polite"></div>
+    </section>
+
+    <section class="studio-dashboard-section" id="ownerToolsSection" hidden>
+      <button type="button" class="studio-dashboard-action" id="workspaceExportBtn">export</button>
+    </section>
+
+    <section class="studio-dashboard-section">
+      <h2 class="studio-journal-section-title">ai</h2>
+      <p class="studio-dashboard-hint">digest and analyze streaming data — trends, comparisons, what to focus on next.</p>
+      <form id="studioAiForm" class="studio-dashboard-ai">
+        <textarea id="studioAiInput" class="studio-journal-textarea studio-journal-textarea--compact" rows="2" placeholder="which tracks are gaining streams? compare this week to last…" spellcheck="true"></textarea>
+        <button type="submit" class="studio-dashboard-action">ask</button>
+      </form>
+      <p id="studioAiReply" class="studio-dashboard-note"></p>
+    </section>
+  </main>
+
+  <script src="js/studio-auth.js?v=20260704f"></script>
+  <script src="../shared/studio-playback-stack.js?v=20260704t"></script>
+  <script src="js/studio-spa-router.js?v=20260704t"></script>
+  <script src="js/dashboard-page.js?v=20260704d"></script>
+  <script src="js/studio-ai-panel.js?v=20260704d"></script>
+</body>
+</html>

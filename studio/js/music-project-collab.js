@@ -19,20 +19,20 @@
     section.appendChild(label);
 
     const form = document.createElement('form');
-    form.className = 'studio-today-row studio-stream-album-hub-collab-form';
+    form.className = 'studio-dashboard-row studio-stream-album-hub-collab-form';
     form.innerHTML =
-      '<input class="studio-today-field" type="email" placeholder="email" required aria-label="collaborator email">' +
-      '<select class="studio-today-field studio-today-field--select" aria-label="role">' +
+      '<input class="studio-dashboard-field" type="email" placeholder="email" required aria-label="collaborator email">' +
+      '<select class="studio-dashboard-field studio-dashboard-field--select" aria-label="role">' +
       '<option value="collaborator">collaborator</option>' +
       '<option value="guest">guest</option>' +
       '</select>' +
-      '<button type="submit" class="studio-today-action">invite</button>';
+      '<button type="submit" class="studio-dashboard-action">invite</button>';
 
     const note = document.createElement('p');
-    note.className = 'studio-today-note';
+    note.className = 'studio-dashboard-note';
 
     const members = document.createElement('div');
-    members.className = 'studio-today-list';
+    members.className = 'studio-dashboard-list';
 
     section.appendChild(form);
     section.appendChild(note);
@@ -54,7 +54,7 @@
           members.innerHTML = '';
           (data.members || []).forEach(function (member) {
             const row = document.createElement('div');
-            row.className = 'studio-today-list-row';
+            row.className = 'studio-dashboard-list-row';
             row.textContent = member.user_id.slice(0, 8) + ' · ' + member.role;
             members.appendChild(row);
           });

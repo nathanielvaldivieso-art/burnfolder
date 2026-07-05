@@ -70,6 +70,9 @@
     if (shell) {
       if (shell.ensureShell) shell.ensureShell();
       if (shell.mountBar) shell.mountBar();
+      const node = document.getElementById('studioGlobalPlayback');
+      const mux = node && node.querySelector('#activeMuxPlayer');
+      if (mux && !mux.isConnected) shell.ensureShell();
       if (shell.getEngine) return shell.getEngine();
     }
     return engine();

@@ -108,7 +108,16 @@
     });
   }
 
-  function listMuxLibrary() {
+  let cachedLibrary = null;
+  let cachedLibraryAt = 0;
+  const LIBRARY_CACHE_MS = 90000;
+
+  function invalidateMuxLibraryCache() {
+    cachedLibrary = null;
+    cachedLibraryAt = 0;
+  }
+
+  function fetchMuxLibrary() {
     if (!window.BurnfolderMux || !window.BurnfolderMux.listMuxAssets) {
       return Promise.reject(new Error('mux unavailable — run netlify dev'));
     }
@@ -143,6 +152,29 @@
       });
   }
 
+  function listMuxLibrary(opts) {
+    const options = opts || {};
+    const now = Date.now();
+    const cacheValid =
+      cachedLibrary &&
+      cachedLibrary.length > 0 &&
+      !options.force &&
+      now - cachedLibraryAt < LIBRARY_CACHE_MS;
+    if (cacheValid) {
+      return Promise.resolve(cachedLibrary.slice());
+    }
+    return fetchMuxLibrary().then(function (list) {
+      cachedLibrary = list || [];
+      cachedLibraryAt = Date.now();
+      return cachedLibrary.slice();
+    });
+  }
+
+  if (!window.__studioMuxCacheBound) {
+    window.__studioMuxCacheBound = true;
+    window.addEventListener('burnfolder-assets-changed', invalidateMuxLibraryCache);
+  }
+
   function libraryItemFromCloudAsset(asset) {
     return cloudAssetToLibraryItem(asset);
   }
@@ -159,6 +191,7 @@
     muxFileLabel: muxFileLabel,
     findMuxItem: findMuxItem,
     listMuxLibrary: listMuxLibrary,
+    invalidateMuxLibraryCache: invalidateMuxLibraryCache,
     muxThumbnailUrl: muxThumbnailUrl
   };
 })();

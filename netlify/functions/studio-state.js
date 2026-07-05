@@ -53,6 +53,18 @@ exports.handler = async function (event) {
     return { statusCode: 204, headers, body: '' };
   }
 
+  const logicalKey =
+    event.httpMethod === 'GET'
+      ? (event.queryStringParameters && event.queryStringParameters.key) || ''
+      : (function () {
+          try {
+            const body = JSON.parse(event.body || '{}');
+            return typeof body.key === 'string' ? body.key : '';
+          } catch {
+            return '';
+          }
+        })();
+
   const access = await requireWorkspaceAccess(event, {
     requireWrite: event.httpMethod === 'POST',
     logicalKey: logicalKey
@@ -72,18 +84,6 @@ exports.handler = async function (event) {
       body: JSON.stringify({ message: 'Cloud storage is not available: ' + (error.message || 'blobs error') })
     };
   }
-
-  const logicalKey =
-    event.httpMethod === 'GET'
-      ? (event.queryStringParameters && event.queryStringParameters.key) || ''
-      : (function () {
-          try {
-            const body = JSON.parse(event.body || '{}');
-            return typeof body.key === 'string' ? body.key : '';
-          } catch {
-            return '';
-          }
-        })();
 
   if (!LOGICAL_KEY_PATTERN.test(logicalKey)) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid key' }) };

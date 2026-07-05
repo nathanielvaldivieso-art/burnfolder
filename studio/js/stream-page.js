@@ -23,12 +23,19 @@
   const shared = window.BurnfolderStreamShared;
   if (!shared) {
     showBlocker('stream is out of date — hard refresh (Cmd+Shift+R)');
+    window.studioInitStreamPage = function () {
+      bindDomRefs();
+      showBlocker('stream is out of date — hard refresh (Cmd+Shift+R)');
+    };
     return;
   }
 
   const muxLib = window.BurnfolderStudioMux;
-  const player = window.BurnfolderStreamPlayer;
   const versionsApi = window.BurnfolderSongVersions;
+
+  function getPlayer() {
+    return window.BurnfolderStreamPlayer;
+  }
 
   let libraryCache = [];
   let streamVersionCycle = null;
@@ -365,9 +372,54 @@
     }
   }
 
+  function muxPlayerEl() {
+    const shell = document.getElementById('studioGlobalPlayback');
+    return (shell && shell.querySelector('#activeMuxPlayer')) || document.getElementById('activeMuxPlayer');
+  }
+
+  function nudgeMuxPlay(playbackId) {
+    const mux = muxPlayerEl();
+    if (!mux || typeof mux.play !== 'function') return;
+    if (playbackId && mux.getAttribute('playback-id') !== playbackId) {
+      mux.setAttribute('playback-id', playbackId);
+    }
+    if (mux.paused) {
+      mux.play().catch(function () {});
+    }
+  }
+
+  function playAudioItem(item) {
+    if (!item) return;
+    ensurePlaybackReady();
+    const player = getPlayer();
+    if (!player) {
+      setStatus('playback unavailable — reload the page', 'error');
+      return;
+    }
+    if (expandedVideoId) {
+      closeExpandedVideo();
+    }
+    const playable = selectedPlayableItem(item);
+    if (!playable || !playable.playbackId) {
+      setStatus('no playable version for this song', 'error');
+      return;
+    }
+    recordPlay(playable.playbackId);
+    try {
+      if (player.playItem(playable) === false) {
+        setStatus('could not start playback', 'error');
+        return;
+      }
+      nudgeMuxPlay(playable.playbackId);
+    } catch (err) {
+      setStatus('playback error — try again', 'error');
+    }
+  }
+
   function toggleAudioItem(item) {
     if (!item) return;
     ensurePlaybackReady();
+    const player = getPlayer();
     if (!player) {
       setStatus('playback unavailable — reload the page', 'error');
       return;
@@ -400,7 +452,15 @@
   }
 
   function shouldSkipTrackPlay(el, event) {
-    const track = el.closest('.studio-stream-track-item, .studio-stream-album-track');
+    if (event && event.target) {
+      if (event.target.closest('.studio-track-grip, .studio-stream-album-track-handle')) {
+        return true;
+      }
+      if (event.target.closest('.studio-stream-track-delete')) {
+        return true;
+      }
+    }
+    const track = el && el.closest('.studio-stream-track-item, .studio-stream-album-track');
     if (!track) return false;
     if (
       track.dataset.studioJustDragged === '1' ||
@@ -424,12 +484,22 @@
     const playbackId = row.dataset.playbackId || '';
     if (!playbackId) return;
 
+    ensurePlaybackReady();
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell) {
+      if (shell.getEngine) shell.getEngine();
+      if (shell.mountBar) shell.mountBar();
+    }
+
     const albumTrack = row.closest('.studio-stream-album-track');
     if (albumTrack) {
       const groupEl = row.closest('.studio-stream-album-group');
-      const groupId = groupEl && groupEl.dataset.groupId;
-      const group = groupId ? shared.findGroupById(groupId) : null;
-      if (!group) return;
+      const groupIdResolved = groupEl && groupEl.dataset.groupId;
+      const group = groupIdResolved ? shared.findGroupById(groupIdResolved) : null;
+      if (!group) {
+        setStatus('could not play album — reload the page', 'error');
+        return;
+      }
       const ol = row.closest('.studio-stream-album-tracks');
       const tracks = ol
         ? Array.from(ol.querySelectorAll('.studio-stream-album-track'))
@@ -437,21 +507,27 @@
       const index = tracks.indexOf(albumTrack);
       if (index < 0) return;
       playAlbum(group, index);
+      if (row.blur) row.blur();
       return;
     }
 
     const libItem = libraryItemForPlaybackId(playbackId);
-    if (!libItem) return;
+    if (!libItem) {
+      setStatus('song not ready — try again', 'error');
+      return;
+    }
     if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) {
       window.location.href = shared.songPageUrl(selectedPlayableItem(libItem));
       return;
     }
-    toggleAudioItem(libItem);
+    playAudioItem(libItem);
+    if (row.blur) row.blur();
   }
 
   function primeTrackRow(row) {
     if (!row || shouldSkipTrackPlay(row)) return;
     ensurePlaybackReady();
+    const player = getPlayer();
     if (!player || !player.primeItem) return;
 
     const playbackId = row.dataset.playbackId || '';
@@ -477,9 +553,30 @@
     if (libItem) player.primeItem(selectedPlayableItem(libItem));
   }
 
+  function wireTrackRowPlay(row) {
+    if (!row || row.dataset.playBound === '1') return;
+    row.dataset.playBound = '1';
+
+    function activate(event) {
+      if (shouldSkipTrackPlay(row, event)) return;
+      handleTrackRowPlay(row, event);
+    }
+
+    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    if (tap && tap.isCoarsePointer && tap.isCoarsePointer() && tap.bind) {
+      tap.bind(row, activate, {
+        shouldSkip: function (event) {
+          return shouldSkipTrackPlay(row, event);
+        }
+      });
+    } else {
+      row.addEventListener('click', activate);
+    }
+  }
+
   function bindListPlayDelegation() {
-    if (!listRoot || listRoot.dataset.playDelegation === '1') return;
-    listRoot.dataset.playDelegation = '1';
+    if (!listRoot || listRoot.dataset.playPrimeBound === '1') return;
+    listRoot.dataset.playPrimeBound = '1';
 
     listRoot.addEventListener(
       'pointerdown',
@@ -491,13 +588,6 @@
       },
       { passive: true }
     );
-
-    listRoot.addEventListener('click', function (event) {
-      const row = event.target.closest('.music-track-row');
-      if (!row || !listRoot.contains(row)) return;
-      if (shouldSkipTrackPlay(row, event)) return;
-      handleTrackRowPlay(row, event);
-    });
   }
 
   function deleteSongFromMux(item) {
@@ -541,6 +631,7 @@
       })
       .then(function () {
         shared.removeFromStack(playable.playbackId);
+        const player = getPlayer();
         if (player && player.isActivePlaybackId(playable.playbackId) && player.stop) {
           player.stop();
         }
@@ -740,6 +831,7 @@
 
   function syncStreamTracklistPlayback() {
     if (!listRoot) return;
+    const player = getPlayer();
     listRoot.querySelectorAll('.music-track-row').forEach(function (row) {
       const id = row.dataset.playbackId;
       const active = player && player.isActivePlaybackId(id);
@@ -803,6 +895,7 @@
     dur.textContent = '--:--';
 
     function syncRow() {
+      const player = getPlayer();
       const playable = selectedPlayableItem(item);
       const label = baseSongLabel(seedSong);
       const inGroup = groupedPlaybackIds().has(playable.playbackId);
@@ -842,6 +935,7 @@
     li.appendChild(num);
     li.appendChild(row);
     li.appendChild(deleteBtn);
+    wireTrackRowPlay(row);
     return li;
   }
 
@@ -963,6 +1057,7 @@
   function playAlbum(group, index) {
     if (!group) return;
     ensurePlaybackReady();
+    const player = getPlayer();
     if (!player) {
       setStatus('playback unavailable — reload the page', 'error');
       return;
@@ -978,7 +1073,9 @@
       }) === false
     ) {
       setStatus('could not start playback', 'error');
+      return;
     }
+    if (started && started.playbackId) nudgeMuxPlay(started.playbackId);
   }
 
   function buildAlbumTrackItem(track, index, group) {
@@ -1013,12 +1110,14 @@
 
     row.appendChild(name);
     row.appendChild(dur);
-    row.classList.toggle('is-active', !!(player && player.isActivePlaybackId(resolved.playbackId)));
-    row.classList.toggle('is-playing', !!(player && player.isPlayingPlaybackId(resolved.playbackId)));
+    const albumPlayer = getPlayer();
+    row.classList.toggle('is-active', !!(albumPlayer && albumPlayer.isActivePlaybackId(resolved.playbackId)));
+    row.classList.toggle('is-playing', !!(albumPlayer && albumPlayer.isPlayingPlaybackId(resolved.playbackId)));
 
     li.appendChild(handle);
     li.appendChild(num);
     li.appendChild(row);
+    wireTrackRowPlay(row);
     return li;
   }
 
@@ -1408,6 +1507,9 @@
       shelf.className = 'studio-stream-library-shelf studio-stream-library-drop';
       shelf.setAttribute('aria-label', 'Drop here to remove from folder');
       listRoot.appendChild(shelf);
+    } else {
+      listRoot.innerHTML =
+        '<p class="studio-empty">nothing to show — upload or check your library.</p>';
     }
 
     syncStreamTracklistPlayback();
@@ -1479,21 +1581,45 @@
     syncUploadDetailsOpen();
   }
 
+  function showListLoading() {
+    if (!listRoot) return;
+    listRoot.innerHTML = '<p class="studio-empty studio-stream-loading">loading library…</p>';
+  }
+
   function refreshLibrary(opts) {
     const options = opts || {};
     if (!muxLib || !muxLib.listMuxLibrary) {
       setStatus('mux unavailable — run: npx netlify dev');
       return Promise.resolve([]);
     }
-    if (!options.silent) setStatus('loading…');
-    return muxLib
-      .listMuxLibrary()
+
+    const hasLocal = libraryCache.length > 0;
+    if (hasLocal && !options.force) {
+      applyLibrary(libraryCache, '');
+    } else {
+      showListLoading();
+      if (!options.silent) setStatus('loading…');
+    }
+
+    const auth = window.BurnfolderStudioAuth;
+    const ready =
+      auth && auth.whenReady ? auth.whenReady() : Promise.resolve();
+
+    const fetchOpts = options.force ? { force: true } : {};
+    return ready
+      .then(function () {
+        return muxLib.listMuxLibrary(fetchOpts);
+      })
       .then(function (assets) {
-        return applyLibrary(assets, assets.length ? '' : 'no mux files yet');
+        const msg = assets.length
+          ? ''
+          : 'no mux files yet — upload or check server mux credentials';
+        return applyLibrary(assets, msg);
       })
       .catch(function (err) {
         if (!libraryCache.length) renderList();
-        setStatus(err.message || 'could not load library');
+        const message = err && err.message ? err.message : 'could not load library';
+        setStatus(message, 'error');
         return libraryCache;
       });
   }
@@ -1524,6 +1650,9 @@
 
   window.addEventListener('burnfolder-stack-changed', function () {
     renderList();
+    if (!libraryCache.length) {
+      refreshLibrary({ silent: true, force: true });
+    }
   });
 
   window.addEventListener('burnfolder-stack-meta-changed', function () {
@@ -1535,7 +1664,11 @@
     if (detail && detail.type === 'add' && detail.asset) {
       prependUploadedAsset(detail.asset);
     }
-    refreshLibrary({ silent: true });
+    refreshLibrary({ silent: true, force: true });
+  });
+
+  window.addEventListener('burnfolder-studio-authed', function () {
+    refreshLibrary({ silent: true, force: true });
   });
   }
 
@@ -1583,7 +1716,7 @@
         if (shell.mountBar) shell.mountBar();
       });
     }
-    refreshLibrary();
+    refreshLibrary({ silent: true, force: true });
   };
 
   bindDomRefs();

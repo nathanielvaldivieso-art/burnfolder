@@ -1,95 +1,40 @@
 /**
- * Reliable tap handling for touch devices (studio + public site).
- * Fires play/actions on touchend inside the user-gesture window (required on iOS).
- * Uses movement slop so elastic scroll does not cancel taps in PWA standalone mode.
+ * Unified tap handling — studio + public site.
+ *
+ * Every target gets a native click handler (desktop + fallback).
+ * Coarse pointer also gets touchend inside the iOS user-gesture window.
  */
 (function (root) {
   'use strict';
 
   var TAP_SLOP_PX = 10;
+  var COARSE_SLOP_PX = 14;
+  var CLICK_DEDUPE_MS = 500;
+
+  function isCoarsePointer() {
+    if (!root.matchMedia) return false;
+    return root.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  }
+
+  function slopPx() {
+    return isCoarsePointer() ? COARSE_SLOP_PX : TAP_SLOP_PX;
+  }
 
   function movedBeyondSlop(startX, startY, x, y) {
-    return Math.hypot(x - startX, y - startY) > TAP_SLOP_PX;
+    return Math.hypot(x - startX, y - startY) > slopPx();
   }
 
   function touchPoint(event) {
-    var t = (event.changedTouches && event.changedTouches[0]) || (event.touches && event.touches[0]);
+    var t =
+      (event.changedTouches && event.changedTouches[0]) ||
+      (event.touches && event.touches[0]);
     return t || null;
   }
 
-  function on(container, selector, handler, options) {
-    if (!container || !selector || typeof handler !== 'function') return;
-    var opts = options || {};
-    var shouldSkip =
-      typeof opts.shouldSkip === 'function'
-        ? opts.shouldSkip
-        : function () {
-            return false;
-          };
-
-    var active = null;
-
-    container.addEventListener(
-      'touchstart',
-      function (event) {
-        if (shouldSkip(event)) return;
-        var match = event.target.closest(selector);
-        if (!match || !container.contains(match)) return;
-        var t = touchPoint(event);
-        if (!t) return;
-        active = { el: match, startX: t.clientX, startY: t.clientY, moved: false };
-      },
-      { passive: true }
-    );
-
-    container.addEventListener(
-      'touchmove',
-      function (event) {
-        if (!active) return;
-        var t = touchPoint(event);
-        if (!t) return;
-        if (movedBeyondSlop(active.startX, active.startY, t.clientX, t.clientY)) {
-          active.moved = true;
-        }
-      },
-      { passive: true }
-    );
-
-    container.addEventListener('touchend', function (event) {
-      if (!active) return;
-      var match = event.target.closest(selector);
-      if (!match || match !== active.el || !container.contains(match)) {
-        active = null;
-        return;
-      }
-      if (shouldSkip(event) || active.moved) {
-        active = null;
-        return;
-      }
-      var touchHandledAt = Date.now();
-      container.dataset.bfLastTapAt = String(touchHandledAt);
-      active = null;
-      if (event.cancelable) event.preventDefault();
-      event.stopPropagation();
-      handler(event, match);
-    });
-
-    container.addEventListener('click', function (event) {
-      var match = event.target.closest(selector);
-      if (!match || !container.contains(match)) return;
-      if (shouldSkip(event)) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      var last = Number(container.dataset.bfLastTapAt || 0);
-      if (Date.now() - last < 600) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      handler(event, match);
-    });
+  function runHandler(handler, event, el) {
+    if (typeof handler !== 'function') return;
+    if (el === undefined) handler(event);
+    else handler(event, el);
   }
 
   function bind(el, handler, options) {
@@ -102,10 +47,27 @@
             return false;
           };
 
+    var handledAt = 0;
+
+    el.addEventListener('click', function (event) {
+      if (shouldSkip(event)) {
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+      if (Date.now() - handledAt < CLICK_DEDUPE_MS) {
+        if (event.cancelable) event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      handledAt = Date.now();
+      runHandler(handler, event);
+    });
+
+    if (!isCoarsePointer()) return;
+
     var startX = 0;
     var startY = 0;
     var touchMoved = false;
-    var touchHandledAt = 0;
 
     el.addEventListener(
       'touchstart',
@@ -134,28 +96,108 @@
 
     el.addEventListener('touchend', function (event) {
       if (shouldSkip(event) || touchMoved) return;
-      touchHandledAt = Date.now();
+      handledAt = Date.now();
       if (event.cancelable) event.preventDefault();
-      handler(event);
+      runHandler(handler, event);
+    });
+  }
+
+  function on(container, selector, handler, options) {
+    if (!container || !selector || typeof handler !== 'function') return;
+    var opts = options || {};
+    var shouldSkip =
+      typeof opts.shouldSkip === 'function'
+        ? opts.shouldSkip
+        : function () {
+            return false;
+          };
+
+    function matchTarget(event) {
+      var node = event.target && event.target.closest(selector);
+      if (!node || !container.contains(node)) return null;
+      return node;
+    }
+
+    var handledAt = 0;
+
+    container.addEventListener('click', function (event) {
+      var match = matchTarget(event);
+      if (!match) return;
+      if (shouldSkip(event, match)) {
+        if (event.cancelable) event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (Date.now() - handledAt < CLICK_DEDUPE_MS) {
+        if (event.cancelable) event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      handledAt = Date.now();
+      runHandler(handler, event, match);
     });
 
-    el.addEventListener('click', function (event) {
-      if (shouldSkip(event)) {
-        event.preventDefault();
+    if (!isCoarsePointer()) return;
+
+    var active = null;
+
+    container.addEventListener(
+      'touchstart',
+      function (event) {
+        if (shouldSkip(event)) return;
+        var match = matchTarget(event);
+        if (!match) return;
+        var t = touchPoint(event);
+        if (!t) return;
+        active = {
+          el: match,
+          startX: t.clientX,
+          startY: t.clientY,
+          moved: false
+        };
+      },
+      { passive: true }
+    );
+
+    container.addEventListener(
+      'touchmove',
+      function (event) {
+        if (!active) return;
+        var t = touchPoint(event);
+        if (!t) return;
+        if (movedBeyondSlop(active.startX, active.startY, t.clientX, t.clientY)) {
+          active.moved = true;
+        }
+      },
+      { passive: true }
+    );
+
+    container.addEventListener('touchend', function (event) {
+      if (!active) return;
+      var match = matchTarget(event);
+      if (!match || match !== active.el || !container.contains(match)) {
+        active = null;
         return;
       }
-      if (Date.now() - touchHandledAt < 600) {
-        event.preventDefault();
+      if (shouldSkip(event, match) || active.moved) {
+        active = null;
         return;
       }
-      handler(event);
+      handledAt = Date.now();
+      container.dataset.bfLastTapAt = String(handledAt);
+      active = null;
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+      runHandler(handler, event, match);
     });
   }
 
   var api = {
     on: on,
     bind: bind,
-    TAP_SLOP_PX: TAP_SLOP_PX
+    isCoarsePointer: isCoarsePointer,
+    TAP_SLOP_PX: TAP_SLOP_PX,
+    COARSE_SLOP_PX: COARSE_SLOP_PX
   };
 
   root.BurnfolderStudioTap = api;

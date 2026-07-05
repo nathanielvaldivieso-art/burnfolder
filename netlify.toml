@@ -4,6 +4,11 @@
   publish = "."
 
 [[redirects]]
+  from = "/studio/today.html"
+  to = "/studio/dashboard.html"
+  status = 301
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200

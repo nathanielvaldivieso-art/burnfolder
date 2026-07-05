@@ -1,0 +1,75 @@
+---
+description: Mobile touch, tap, scroll, and drag rules for Burnfolder studio and public site. Apply when editing playback rows, studio music/journal, DnD, or touch handlers.
+globs: studio/**/*.{js,css,html},shared/studio-tap.js,scripts.js,style.css
+alwaysApply: false
+---
+
+# Mobile UX contract (set in stone)
+
+One interaction system. Do not invent parallel touch/click layers.
+
+## Modules (only these)
+
+| Concern | Module | Never duplicate |
+|---------|--------|-----------------|
+| Tap / play / primary action | `shared/studio-tap.js` (`BurnfolderTouchTap` / `BurnfolderStudioTap`) | Raw `click` alone on `.music-track-row` or play buttons |
+| Drag / reorder | `studio/js/studio-dnd.js` (`BurnfolderStudioDnD`) | Custom touch drag on track rows |
+| Playback | `shared/mux-playback.js` + shell | Hidden `-9999px` audio; use fixed 1×1 pin |
+
+## Pointer split (studio-tap.js)
+
+- **Per-row binding when rows are created** — not list delegation alone.
+- **Desktop (fine pointer):** plain `click` on each `.music-track-row` (matches album ▶ button).
+- **Mobile (coarse pointer):** `BurnfolderTouchTap.bind(row, handler)` on each row.
+
+## Track row zones (music list)
+
+Each song row has **three zones** — behavior must not overlap:
+
+1. **Grip** (`.studio-track-grip`, `.studio-stream-album-track-handle`) — `touch-action: none`. Hold 400ms → drag. Never starts playback.
+2. **Title** (`.music-track-title`) — horizontal scroll when text overflows (`overflow-x: auto`, `touch-action: pan-x`). Swipe = scroll. Short tap on title = same as row (play). Do not use `ellipsis` alone if hint says "swipe title to scroll".
+3. **Row** (`.music-track-row`) — `touch-action: pan-y`. Play via `wireTrackRowPlay(row)` in `stream-page.js` (desktop: `click`; coarse: `BurnfolderTouchTap.bind`).
+
+**Coarse pointer:** all playback-start actions MUST use `BurnfolderTouchTap` (10px slop, `touchend` in gesture window for iOS).
+
+```javascript
+// stream-page.js — bind when row is built (not list delegation)
+wireTrackRowPlay(row); // desktop: click; coarse: BurnfolderTouchTap.bind
+
+// Single control
+BurnfolderTouchTap.bind(playBtn, handler, { shouldSkip });
+```
+
+See also: `.cursor/rules/studio-stream-playback.mdc` for mux-player HTML + mountBar recursion traps.
+
+## Scroll vs tap
+
+- Page scroll: never block except during active drag (`body.studio-dnd-active`).
+- `body.studio-dnd-pending` (hold timer): do not set `overflow: hidden` — only the grip hold state.
+- Movement > 10px (`TAP_SLOP_PX`) = scroll/drag, not tap.
+- After drag: honor `dataset.studioJustDragged`, `studioDragging`, `studioDragHold` — skip play.
+
+## No-jump (iOS)
+
+- Never `.focus()` fixed bottom bar on coarse pointer.
+- Global audio player: fixed 1×1 pin in viewport, not off-screen.
+
+## Buttons vs rows
+
+- Discrete buttons (delete, hub, toggle, nav links): `touch-action: manipulation`, min 44×44 on mobile. May use `click` OR `BurnfolderTouchTap.bind` — not both without dedupe.
+- Anything that **starts audio**: always `BurnfolderTouchTap`.
+
+## Cache
+
+Touch/DnD/playback changes: bump `shared/site-version.js`, HTML `?v=`, and `sw.js` / `studio/sw.js` cache name together.
+
+## Bug reports (what to ask the user)
+
+When mobile UX breaks, get:
+
+1. **Page** (music / journal / entry / PWA vs Safari tab)
+2. **Gesture** (tap play, scroll list, hold grip, swipe title)
+3. **Expected vs actual** (one sentence each)
+4. **Recording** or screenshot if possible
+
+Do not add one-off fixes per page — fix the shared module or enforce this contract.

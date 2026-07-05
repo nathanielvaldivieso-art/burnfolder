@@ -5,43 +5,53 @@
 
   const SPA_PAGES = {
     'index.html': 'entry',
-    'today.html': 'today',
+    'dashboard.html': 'dashboard',
     'stream.html': 'stream',
     'video.html': 'video',
     'journal.html': 'journal'
   };
 
-  const STREAM_PAGE_SCRIPTS = [
+  const PLAYBACK_CORE = [
+    '../shared/media-session.js',
+    '../shared/playback-recall.js',
+    '../shared/playback-prefetch.js',
+    '../shared/mux-playback.js',
+    '../shared/playback-context.js',
+    '../shared/version-picker.js',
+    '../shared/now-playing-bar.js',
+    'js/studio-playback-shell.js',
+    'js/stream-player.js',
+    'js/stream-now-playing.js'
+  ];
+
+  const STREAM_PAGE_SCRIPTS = PLAYBACK_CORE.concat([
     '../entries.js',
     '../songs.js',
     '../shared/song-versions.js',
-    '../shared/studio-tap.js',
     'js/asset-cloud.js',
     '../shared/cover-art.js',
     '../shared/mux-display-name.js',
     'js/mux-naming.js',
     'js/mux-client.js',
     'js/studio-mux-lib.js',
-    '../shared/playback-context.js',
-    '../shared/version-picker.js',
-    '../shared/now-playing-bar.js',
-    'js/stream-shared.js',
-    'js/upload-queue.js',
     'js/journal-day-store.js',
     'js/journal-contributions.js',
+    '../shared/studio-tap.js',
+    'js/cloud-state.js',
+    'js/stream-shared.js',
+    'js/upload-queue.js',
     'js/cloud-ui.js',
-    'js/stream-player.js',
-    'js/stream-now-playing.js',
     'js/studio-dnd.js',
     'js/share-links.js',
     '../shared/share-hub-ui.js',
+    'js/music-project-collab.js',
     'js/stream-page.js'
-  ];
+  ]);
 
   const PAGE_SCRIPTS = {
     stream: STREAM_PAGE_SCRIPTS,
     video: STREAM_PAGE_SCRIPTS,
-    journal: [
+    journal: PLAYBACK_CORE.concat([
       'js/journal-day-store.js',
       'js/journal-contributions.js',
       'js/mux-client.js',
@@ -49,22 +59,57 @@
       'js/upload-queue.js',
       'js/cloud-ui.js',
       'js/journal-page.js'
-    ],
-    today: ['js/today-page.js', 'js/studio-ai-panel.js'],
-    entry: [
+    ]),
+    dashboard: PLAYBACK_CORE.concat(['js/dashboard-page.js', 'js/studio-ai-panel.js']),
+    entry: PLAYBACK_CORE.concat([
       'js/drafts.js',
       '../shared/studio-tap.js',
       'js/studio-hub.js',
       'js/studio-bridge.js',
       'js/studio-editor-loader.js',
       'js/editor-gate.js'
-    ]
+    ])
   };
 
   let contentRoot = null;
   let loading = false;
   let pendingNavigation = null;
   const loadedScripts = new Set();
+  const htmlCache = new Map();
+
+  function cacheHtmlKey(fetchPath) {
+    return fetchPath;
+  }
+
+  function fetchPageHtml(fetchPath) {
+    const key = cacheHtmlKey(fetchPath);
+    const cached = htmlCache.get(key);
+    if (cached) return Promise.resolve(cached);
+
+    return fetch(fetchPath, { credentials: 'same-origin' }).then(function (response) {
+      if (!response.ok) throw new Error('Page not found');
+      return response.text();
+    }).then(function (html) {
+      htmlCache.set(key, html);
+      return html;
+    });
+  }
+
+  function prefetchSpaPages() {
+    Object.keys(SPA_PAGES).forEach(function (file) {
+      const path = studioPagePath(file);
+      if (htmlCache.has(cacheHtmlKey(path))) return;
+      fetch(path, { credentials: 'same-origin' })
+        .then(function (res) {
+          if (!res.ok) return null;
+          return res.text();
+        })
+        .then(function (html) {
+          if (html) htmlCache.set(cacheHtmlKey(path), html);
+        })
+        .catch(function () {});
+    });
+  }
 
   function shellReady() {
     return window.BurnfolderStudioPlaybackShell && window.BurnfolderStudioPlaybackShell.ensureShell;
@@ -125,6 +170,7 @@
     const auth = window.BurnfolderStudioAuth;
     if (auth && typeof auth.isReady === 'function' && auth.isReady()) {
       document.body.classList.add('studio-ready');
+      document.body.classList.remove('studio-booting');
       if (!document.getElementById('studioAuthGate')) {
         document.body.classList.remove('studio-locked');
       }
@@ -132,6 +178,10 @@
   }
 
   function applyBodyFromPage(doc) {
+    const authed =
+      window.BurnfolderStudioAuth &&
+      typeof window.BurnfolderStudioAuth.isReady === 'function' &&
+      window.BurnfolderStudioAuth.isReady();
     const runtimeClasses = [
       'studio-ready',
       'studio-locked',
@@ -140,6 +190,7 @@
       'studio-has-player'
     ];
     const preserved = runtimeClasses.filter(function (cls) {
+      if (authed && cls === 'studio-booting') return false;
       return document.body.classList.contains(cls);
     });
 
@@ -243,8 +294,8 @@
       window.studioInitStreamPage();
     } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
       window.studioInitJournalPage();
-    } else if (pageKey === 'today' && typeof window.studioInitTodayPage === 'function') {
-      window.studioInitTodayPage();
+    } else if (pageKey === 'dashboard' && typeof window.studioInitDashboardPage === 'function') {
+      window.studioInitDashboardPage();
     } else if (pageKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
       window.studioInitEntryHub();
     }
@@ -285,15 +336,18 @@
       return;
     }
     loading = true;
-    document.body.classList.add('studio-spa-loading');
-    const banner = statusBanner();
-    if (banner) {
-      banner.hidden = false;
-      banner.textContent = 'loading…';
+    const target = resolveStudioNavigation(url);
+    const htmlCached = !!(target && htmlCache.has(cacheHtmlKey(target.fetchPath)));
+    if (!htmlCached) {
+      document.body.classList.add('studio-spa-loading');
+      const banner = statusBanner();
+      if (banner) {
+        banner.hidden = false;
+        banner.textContent = 'loading…';
+      }
     }
 
     try {
-      const target = resolveStudioNavigation(url);
       if (!target) {
         window.location.href = url;
         return;
@@ -312,10 +366,8 @@
         );
       }
 
-      const response = await fetch(target.fetchPath, { credentials: 'same-origin' });
-      if (!response.ok) throw new Error('Page not found');
-
-      const html = await response.text();
+      const response = await fetchPageHtml(target.fetchPath);
+      const html = typeof response === 'string' ? response : await response.text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const nodes = clonePageContent(doc);
       if (!nodes.length) throw new Error('Empty page');
@@ -435,6 +487,8 @@
     if (currentKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
       window.studioInitEntryHub();
     }
+
+    window.setTimeout(prefetchSpaPages, 400);
   }
 
   function pageKeyFromPath(pathname) {

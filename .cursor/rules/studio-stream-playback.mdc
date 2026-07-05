@@ -1,0 +1,104 @@
+---
+description: Canonical studio global playback — steel standard for all studio pages with audio. Apply when adding playback, mux-player, now-playing bar, or click-to-play.
+globs: studio/**/*.{js,css,html},shared/studio-playback-stack.js,shared/mux-playback.js,shared/studio-tap.js
+alwaysApply: false
+---
+
+# Studio global playback (steel standard)
+
+One player system for all studio audio. **Do not fork per page.**
+
+## Modules (only these)
+
+| Role | Module |
+|------|--------|
+| Markup + script list SSOT | `shared/studio-playback-stack.js` (`BurnfolderStudioPlaybackStack`) |
+| Shell, engine, bar mount | `studio/js/studio-playback-shell.js` |
+| Play API | `studio/js/stream-player.js` (`BurnfolderStreamPlayer`) |
+| Now-playing bridge | `studio/js/stream-now-playing.js` |
+| Engine | `shared/mux-playback.js` |
+| Bar UI | `shared/now-playing-bar.js` |
+| Row tap (coarse pointer) | `shared/studio-tap.js` |
+
+## Required on every playback-capable page
+
+### 1. Mux CDN (defer, `<head>`)
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+```
+
+### 2. Script order (sequential — never parallel-load stream scripts)
+
+```
+shared/studio-playback-stack.js   ← MUST load before studio-playback-shell.js
+→ … PLAYBACK_CORE from stack …
+→ studio-playback-shell.js
+→ stream-player.js
+→ stream-now-playing.js
+→ page script
+```
+
+`BurnfolderStudioPlaybackStack.CORE_SCRIPTS` is the canonical list. SPA router `PLAYBACK_CORE` must stay in sync.
+
+### 3. Global shell markup
+
+**Never** `createElement('mux-player')` for `#activeMuxPlayer`.
+
+Shell is injected once via `BurnfolderStudioPlaybackStack.ensureShellMarkup()` — a real `<mux-player>` tag in markup (parsed before defer upgrades it). Static HTML copy optional; stack inject is the SSOT.
+
+IDs (global only — do not reuse in preview UIs):
+
+- `#studioGlobalPlayback` — shell wrapper
+- `#activeMuxPlayer` — global audio element
+- `#bottomBar`, `#streamNowPlayingTitle`, `#streamPlayPause`, `#streamNowPlayingClose`
+
+Entry editor preview uses **separate** IDs inside `.studio-preview-player`: `previewMuxPlayer`, `previewBottomBar`, etc. Global dedupe must **never** steal preview nodes.
+
+## Click-to-play (music list)
+
+Per-row binding at build time in `stream-page.js` — `wireTrackRowPlay(row)`:
+
+- **Desktop:** plain `click` on each `.music-track-row`
+- **Coarse pointer:** `BurnfolderTouchTap.bind(row, …)`
+- After play: `nudgeMuxPlay(playbackId)` in the same click turn
+
+Never list-delegation alone for row play.
+
+## Shell invariants (do not break)
+
+1. **`stream-now-playing.js`** — init through shell first; never `if (!bottomBar) return` before shell mount
+2. **`syncAfterNavigation`** — updates bar state only; **never** calls `mountBar()` (recursion → stack overflow)
+3. **`customElements.upgrade(player)`** when `player.play` missing, before async `whenDefined`
+4. SPA: `#studioGlobalPlayback` persists at `body` level; `#studio-spa-content` swaps page content only
+
+## SPA bootstrap
+
+Every SPA entry page (`index`, `dashboard`, `stream`, `video`, `journal`) must load `studio-playback-stack.js`.
+
+`studio-spa-router.js` prepends `PLAYBACK_CORE` to journal, entry, and dashboard lazy script loads so SPA nav to music/journal always has `BurnfolderStreamPlayer`.
+
+## Inline / preview players (allowed, separate)
+
+- Visible video: `stream-shared.createMuxVideoPlayer()`
+- Designer heroes: `song-page-render.js`, `album-page-render.js`
+- Entry preview: `.studio-preview-player` with `previewMuxPlayer` id
+- Prefetch: `playback-prefetch.js` hidden element
+
+These must **not** use `#activeMuxPlayer` unless inside `#studioGlobalPlayback`.
+
+## New studio page checklist
+
+1. Add mux CDN defer in head
+2. Load `studio-playback-stack.js` before `studio-playback-shell.js`
+3. Load full `CORE_SCRIPTS` (or rely on SPA router if SPA page)
+4. Before first user play: `shell.ensureShell()` + `shell.mountBar()` + `shell.getEngine()`
+5. Play via `BurnfolderStreamPlayer.playItem` / `playQueue` or shell engine directly
+6. Bump `?v=` cache on touched scripts
+
+## Regression check
+
+1. Hard refresh `/studio/stream.html` — songs load, no stack error
+2. Click track → bottom bar + audio
+3. SPA: dashboard → music → journal — play still works
+4. Entry editor preview bar still independent from global shell

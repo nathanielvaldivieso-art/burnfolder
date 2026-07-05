@@ -84,7 +84,17 @@
     });
   }
 
-  function syncAll() {
+  function syncAll(opts) {
+    const options = opts || {};
+    const now = Date.now();
+    if (
+      !options.force &&
+      syncAll.lastAt &&
+      now - syncAll.lastAt < 120000
+    ) {
+      return Promise.resolve(0);
+    }
+    syncAll.lastAt = now;
     return syncLocalLibrary().then(function () {
       return syncMuxLibrary();
     });

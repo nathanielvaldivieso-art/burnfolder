@@ -17,7 +17,7 @@
     const auth = window.BurnfolderStudioAuth;
     if (!auth || auth.getAuthMode() !== 'supabase') return;
 
-    const meta = document.getElementById('todayWorkspaceMeta');
+    const meta = document.getElementById('dashboardWorkspaceMeta');
     const session = auth.getSession();
     if (meta && session && session.accessMode === 'owner') {
       meta.textContent = (session.name || session.slug || 'workspace') + ' · owner';
@@ -53,7 +53,7 @@
     });
   }
 
-  function initTodayPage() {
+  function initDashboardPage() {
     const auth = window.BurnfolderStudioAuth;
     if (auth && auth.isMusicProjectOnly && auth.isMusicProjectOnly()) {
       window.location.replace('/studio/stream.html');
@@ -64,9 +64,9 @@
     if (window.studioInitStudioAiPanel) window.studioInitStudioAiPanel();
   }
 
-  window.studioInitTodayPage = function () {
-    whenReady().then(initTodayPage);
+  window.studioInitDashboardPage = function () {
+    whenReady().then(initDashboardPage);
   };
 
-  window.studioInitTodayPage();
+  window.studioInitDashboardPage();
 })();

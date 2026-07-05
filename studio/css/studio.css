@@ -2392,6 +2392,19 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   transition: background 0.15s ease;
 }
 
+.studio-stream-page .music-track-row .music-track-title {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.studio-stream-page .music-track-row .music-track-title::-webkit-scrollbar {
+  display: none;
+}
+
 .studio-track-grip,
 .studio-stream-album-track-handle {
   touch-action: none;
@@ -4528,6 +4541,7 @@ body.studio-dnd-active {
 body.studio-dnd-pending {
   -webkit-user-select: none;
   user-select: none;
+  /* Do not set overflow:hidden or touch-action:none — user may still scroll the list. */
 }
 
 body.studio-dnd-active.studio-stream-page,
@@ -5353,17 +5367,17 @@ body.studio-song-designer-page .page-wrap {
   margin-bottom: 8px;
 }
 
-.studio-stream-album-hub-collab .studio-today-field {
+.studio-stream-album-hub-collab .studio-dashboard-field {
   font-size: 12px;
   flex: 1 1 100%;
 }
 
-.studio-stream-album-hub-collab .studio-today-field--select {
+.studio-stream-album-hub-collab .studio-dashboard-field--select {
   flex: 0 0 auto;
   font-size: 11px;
 }
 
-.studio-stream-album-hub-collab .studio-today-note {
+.studio-stream-album-hub-collab .studio-dashboard-note {
   font-size: 10px;
   font-family: monospace;
   opacity: 0.55;
@@ -5371,13 +5385,13 @@ body.studio-song-designer-page .page-wrap {
   margin: 0 0 6px;
 }
 
-.studio-stream-album-hub-collab .studio-today-list-row {
+.studio-stream-album-hub-collab .studio-dashboard-list-row {
   font-size: 11px;
   padding: 4px 0;
   border-bottom-color: rgba(0, 0, 0, 0.06);
 }
 
-.studio-stream-album-hub-collab .studio-today-list-row:last-child {
+.studio-stream-album-hub-collab .studio-dashboard-list-row:last-child {
   border-bottom: none;
 }
 
@@ -5560,22 +5574,29 @@ body.studio-song-designer-page .page-wrap {
   }
 }
 
-/* Tier 1 — today page */
-.studio-today-meta {
+/* Tier 1 — dashboard page */
+.studio-dashboard-meta {
   margin: 0 0 24px;
   font-size: 11px;
   opacity: 0.4;
 }
 
-.studio-today-section {
+.studio-dashboard-empty,
+.studio-dashboard-hint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  opacity: 0.45;
+}
+
+.studio-dashboard-section {
   margin-bottom: 32px;
 }
 
-.studio-today-section:last-child {
+.studio-dashboard-section:last-child {
   margin-bottom: 0;
 }
 
-.studio-today-row {
+.studio-dashboard-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -5583,7 +5604,7 @@ body.studio-song-designer-page .page-wrap {
   margin-bottom: 12px;
 }
 
-.studio-today-field {
+.studio-dashboard-field {
   flex: 1 1 100px;
   min-width: 0;
   font: inherit;
@@ -5594,14 +5615,14 @@ body.studio-song-designer-page .page-wrap {
   background: transparent;
 }
 
-.studio-today-field--select {
+.studio-dashboard-field--select {
   flex: 0 1 auto;
   width: auto;
   appearance: none;
   cursor: pointer;
 }
 
-.studio-today-action {
+.studio-dashboard-action {
   font: inherit;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -5613,17 +5634,17 @@ body.studio-song-designer-page .page-wrap {
   cursor: pointer;
 }
 
-.studio-today-action:hover,
-.studio-today-action:focus {
+.studio-dashboard-action:hover,
+.studio-dashboard-action:focus {
   opacity: 1;
 }
 
-.studio-today-list {
+.studio-dashboard-list {
   display: flex;
   flex-direction: column;
 }
 
-.studio-today-list-row {
+.studio-dashboard-list-row {
   display: flex;
   align-items: baseline;
   gap: 12px;
@@ -5632,16 +5653,16 @@ body.studio-song-designer-page .page-wrap {
   font-size: 14px;
 }
 
-.studio-today-list-date {
+.studio-dashboard-list-date {
   font-variant-numeric: tabular-nums;
 }
 
-.studio-today-list-label {
+.studio-dashboard-list-label {
   flex: 1;
   opacity: 0.5;
 }
 
-.studio-today-remove {
+.studio-dashboard-remove {
   margin-left: auto;
   font: inherit;
   font-size: 14px;
@@ -5653,12 +5674,12 @@ body.studio-song-designer-page .page-wrap {
   cursor: pointer;
 }
 
-.studio-today-remove:hover,
-.studio-today-remove:focus {
+.studio-dashboard-remove:hover,
+.studio-dashboard-remove:focus {
   opacity: 0.7;
 }
 
-.studio-today-note {
+.studio-dashboard-note {
   margin: 10px 0 0;
   font: inherit;
   font-size: 13px;
@@ -5668,13 +5689,13 @@ body.studio-song-designer-page .page-wrap {
   opacity: 0.55;
 }
 
-.studio-today-ai {
+.studio-dashboard-ai {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
 }
 
-.studio-today-ai .studio-journal-textarea {
+.studio-dashboard-ai .studio-journal-textarea {
   margin-bottom: 0;
 }

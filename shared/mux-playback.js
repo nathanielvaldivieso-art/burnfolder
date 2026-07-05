@@ -146,12 +146,24 @@
     function retryPlay(player, song, allowBlockedFallback) {
       if (!player || !song) return;
       if (typeof player.play !== 'function') {
-        if (typeof customElements !== 'undefined') {
+        if (typeof customElements !== 'undefined' && customElements.get('mux-player')) {
+          try {
+            customElements.upgrade(player);
+          } catch (e) {
+            /* noop */
+          }
+        }
+        if (typeof player.play !== 'function' && typeof customElements !== 'undefined') {
           customElements.whenDefined('mux-player').then(function () {
+            try {
+              customElements.upgrade(player);
+            } catch (e) {
+              /* noop */
+            }
             retryPlay(player, song, allowBlockedFallback);
           });
+          return;
         }
-        return;
       }
       const playPromise = player.play();
       if (playPromise === undefined) return;
