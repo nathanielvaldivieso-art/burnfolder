@@ -42,13 +42,28 @@
     const titleEl = opts.titleEl || document.getElementById('songTitle') || document.getElementById('streamNowPlayingTitle');
     const playBtn = opts.playBtnEl || document.getElementById('bottomPlayPause') || document.getElementById('streamPlayPause');
     const closeBtn = opts.closeBtnEl || document.getElementById('closeBtn') || document.getElementById('streamNowPlayingClose');
-    const progressBarArea = opts.progressEl || document.getElementById('progressBarArea');
-    const progressFill = document.getElementById('progress');
-    const playheadEl = document.getElementById('progressPlayhead');
+    const progressBarArea =
+      opts.progressEl ||
+      bar.querySelector('#progressBarArea') ||
+      bar.querySelector('.progress-bar-area') ||
+      document.getElementById('progressBarArea');
+    const progressFill = progressBarArea
+      ? progressBarArea.querySelector('#progress') ||
+        progressBarArea.querySelector('.progress')
+      : document.getElementById('progress');
+    const playheadEl = progressBarArea
+      ? progressBarArea.querySelector('#progressPlayhead') ||
+        progressBarArea.querySelector('.progress-playhead')
+      : document.getElementById('progressPlayhead');
     const muxPlayer =
-      opts.muxPlayerEl || document.getElementById('activeMuxPlayer');
+      opts.muxPlayerEl || bar.querySelector('#activeMuxPlayer') || document.getElementById('activeMuxPlayer');
 
     if (!bar || !titleEl) return null;
+
+    function resolveMuxPlayer() {
+      if (typeof opts.getMuxPlayer === 'function') return opts.getMuxPlayer();
+      return muxPlayer;
+    }
 
     const ctx = globalRef.BurnfolderPlaybackContext;
     const picker = globalRef.BurnfolderVersionPicker;
@@ -68,8 +83,9 @@
     }
 
     function updateProgress() {
-      if (!muxPlayer || !progressFill || !muxPlayer.duration || Number.isNaN(muxPlayer.duration)) return;
-      const pct = Math.min(100, Math.max(0, (muxPlayer.currentTime / muxPlayer.duration) * 100));
+      const player = resolveMuxPlayer();
+      if (!player || !progressFill || !player.duration || Number.isNaN(player.duration)) return;
+      const pct = Math.min(100, Math.max(0, (player.currentTime / player.duration) * 100));
       progressFill.style.width = pct + '%';
       if (playheadEl) playheadEl.style.left = pct + '%';
     }
@@ -81,7 +97,8 @@
     }
 
     function playingFromPlayer() {
-      return !!(muxPlayer && !muxPlayer.paused);
+      const player = resolveMuxPlayer();
+      return !!(player && !player.paused);
     }
 
     function togglePlayFromBar() {
@@ -111,7 +128,8 @@
     }
 
     function canSeek() {
-      return !!getActiveSong() && !!muxPlayer && !!muxPlayer.duration && !Number.isNaN(muxPlayer.duration);
+      const player = resolveMuxPlayer();
+      return !!getActiveSong() && !!player && !!player.duration && !Number.isNaN(player.duration);
     }
 
     let isDragging = false;
@@ -130,15 +148,16 @@
       if (!cachedRect) cachedRect = progressBarArea.getBoundingClientRect();
       const clientX = event.touches ? event.touches[0].clientX : event.clientX;
       const ratio = Math.max(0, Math.min(1, (clientX - cachedRect.left) / cachedRect.width));
-      showHoverTime(clientX, cachedRect.top, ratio * muxPlayer.duration);
+      showHoverTime(clientX, cachedRect.top, ratio * resolveMuxPlayer().duration);
       if (progressFill) progressFill.style.width = ratio * 100 + '%';
       if (playheadEl) playheadEl.style.left = ratio * 100 + '%';
       if (ts - lastSeekAt >= SEEK_THROTTLE) {
         if (pendingFrame) cancelAnimationFrame(pendingFrame);
         pendingFrame = requestAnimationFrame(function () {
           try {
-            const newTime = ratio * muxPlayer.duration;
-            if (Math.abs(muxPlayer.currentTime - newTime) > 0.1) muxPlayer.currentTime = newTime;
+            const player = resolveMuxPlayer();
+            const newTime = ratio * player.duration;
+            if (Math.abs(player.currentTime - newTime) > 0.1) player.currentTime = newTime;
           } catch (err) {
             /* ignore errors during rapid seeking */
           }
@@ -178,7 +197,8 @@
 
       titleEl.textContent = titleForSong(song);
       if (playBtn) {
-        const playing = d.playing !== undefined ? !!d.playing : !!(muxPlayer && !muxPlayer.paused);
+        const player = resolveMuxPlayer();
+        const playing = d.playing !== undefined ? !!d.playing : !!(player && !player.paused);
         renderPlayButton(playing);
       }
       if (pickerApi) pickerApi.render();
@@ -241,7 +261,7 @@
         }
         const rect = progressBarArea.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-        showHoverTime(event.clientX, rect.top, ratio * muxPlayer.duration);
+        showHoverTime(event.clientX, rect.top, ratio * resolveMuxPlayer().duration);
       });
       progressBarArea.addEventListener('mouseleave', function () {
         if (!isDragging) hideHoverTime();
@@ -280,13 +300,14 @@
       window.addEventListener('blur', endDrag);
     }
 
-    if (muxPlayer) {
-      muxPlayer.addEventListener('timeupdate', updateProgress);
-      muxPlayer.addEventListener('loadedmetadata', updateProgress);
-      muxPlayer.addEventListener('play', function () {
+    const boundPlayer = resolveMuxPlayer();
+    if (boundPlayer) {
+      boundPlayer.addEventListener('timeupdate', updateProgress);
+      boundPlayer.addEventListener('loadedmetadata', updateProgress);
+      boundPlayer.addEventListener('play', function () {
         renderPlayButton(true);
       });
-      muxPlayer.addEventListener('pause', function () {
+      boundPlayer.addEventListener('pause', function () {
         renderPlayButton(false);
       });
       // No buffering spinner: it shifted the play/close buttons each time a track

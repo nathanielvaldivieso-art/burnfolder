@@ -37,6 +37,7 @@
     '../shared/mux-playback.js',
     '../shared/playback-context.js',
     '../shared/version-picker.js',
+    '../shared/studio-tap.js',
     '../shared/now-playing-bar.js',
     'js/studio-playback-shell.js',
     'js/stream-player.js',

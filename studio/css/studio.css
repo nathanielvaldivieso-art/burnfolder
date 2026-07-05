@@ -2694,9 +2694,9 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
 @media (hover: none) {
   .bottom-progress-bar .close-btn {
-    display: inline-flex;
     font-size: 16px;
     opacity: 0.5;
+    pointer-events: auto;
   }
 }
 

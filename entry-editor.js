@@ -2711,6 +2711,9 @@ ${tracks.join(',\n')}
 
         node.contentEditable = 'true';
         node.classList.add('studio-preview-text-editable');
+        if (window.BurnfolderDisableInputAutocorrect) {
+          window.BurnfolderDisableInputAutocorrect.apply(node);
+        }
 
         node.addEventListener('focus', function () {
           window.studioSelectedBlockId = blockId;

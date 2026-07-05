@@ -46,3 +46,9 @@
     resetZoom: resetZoom
   };
 })(typeof window !== 'undefined' ? window : this);
+
+(function () {
+  var s = document.createElement('script');
+  s.src = '../shared/disable-input-autocorrect.js?v=20260705b';
+  document.head.appendChild(s);
+})();

@@ -11,6 +11,7 @@
   let engine = null;
   let muxReadyPromise = null;
   let muxScriptPromise = null;
+  let mountBarRetryQueued = false;
 
   function isPreviewNode(node) {
     if (stack && stack.isPreviewPlaybackNode) return stack.isPreviewPlaybackNode(node);
@@ -198,11 +199,29 @@
     return engine;
   }
 
+  function scheduleMountBarRetry() {
+    if (mountBarRetryQueued || barApi) return;
+    mountBarRetryQueued = true;
+    const retry = function () {
+      mountBarRetryQueued = false;
+      if (!barApi) mountBar();
+    };
+    if (document.readyState === 'complete') {
+      window.setTimeout(retry, 0);
+    } else {
+      window.addEventListener('load', retry, { once: true });
+    }
+  }
+
   function mountBar() {
     ensureShell();
     const shell = document.getElementById(SHELL_ID);
     const bar = shell ? shell.querySelector('#bottomBar') : null;
-    if (!bar || !window.BurnfolderNowPlayingBar) return barApi;
+    if (!bar) return barApi;
+    if (!window.BurnfolderNowPlayingBar) {
+      scheduleMountBarRetry();
+      return barApi;
+    }
 
     if (barApi) {
       syncAfterNavigation();
@@ -214,7 +233,11 @@
       titleEl: shell.querySelector('#streamNowPlayingTitle'),
       playBtnEl: shell.querySelector('#streamPlayPause'),
       closeBtnEl: shell.querySelector('#streamNowPlayingClose'),
+      progressEl: bar.querySelector('#progressBarArea'),
       muxPlayerEl: getShellPlayer(),
+      getMuxPlayer: function () {
+        return getShellPlayer();
+      },
       bodyActiveClass: 'stream-playback-active',
       playbackEventName: 'burnfolder-stream-playback',
       getActiveSong: function () {

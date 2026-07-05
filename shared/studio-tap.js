@@ -202,4 +202,20 @@
 
   root.BurnfolderStudioTap = api;
   root.BurnfolderTouchTap = api;
+
+  if (!root.BurnfolderDisableInputAutocorrect) {
+    var scripts = root.document.getElementsByTagName('script');
+    var tapSrc = '';
+    for (var i = scripts.length - 1; i >= 0; i--) {
+      if (scripts[i].src && /studio-tap\.js/.test(scripts[i].src)) {
+        tapSrc = scripts[i].src;
+        break;
+      }
+    }
+    var loader = root.document.createElement('script');
+    loader.src = tapSrc
+      ? tapSrc.replace(/studio-tap\.js.*$/, 'disable-input-autocorrect.js?v=20260705b')
+      : 'shared/disable-input-autocorrect.js?v=20260705b';
+    root.document.head.appendChild(loader);
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : window);
