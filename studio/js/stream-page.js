@@ -1286,6 +1286,12 @@
       if (m.coverArt) m.coverAlt = m.title || m.coverAlt || 'cover art';
       shared.saveStackMeta(m, groupId);
     });
+    nameInput.addEventListener('mousedown', function (event) {
+      event.stopPropagation();
+    });
+    nameInput.addEventListener('click', function (event) {
+      event.stopPropagation();
+    });
     const metaEl = document.createElement('span');
     metaEl.className = 'studio-stream-album-meta';
     metaEl.textContent = String(tracks.length);

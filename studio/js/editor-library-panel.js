@@ -693,11 +693,33 @@
       bindEditorDnD();
     }
 
+    function updateAlbumMeta() {
+      const groups = gridEl.querySelectorAll('.studio-stream-album-group');
+      if (!groups.length) {
+        render();
+        return;
+      }
+      groups.forEach(function (groupEl) {
+        const groupId = groupEl.dataset.groupId || '';
+        const meta = shared.loadStackMeta(groupId);
+        const nameInput = groupEl.querySelector('.studio-stream-album-name-input');
+        const typingName = nameInput && document.activeElement === nameInput;
+        if (nameInput && !typingName) nameInput.value = meta.title || '';
+        if (!typingName) {
+          applyCoverPreview(groupEl.querySelector('.studio-stream-album-cover'), meta);
+          syncAlbumCoverClearBtn(groupEl.querySelector('.studio-stream-album-cover-wrap'), meta);
+        }
+        const metaEl = groupEl.querySelector('.studio-stream-album-meta');
+        const trackCount = shared.findGroupById(groupId);
+        if (metaEl && trackCount) metaEl.textContent = String(trackCount.tracks.length);
+      });
+    }
+
     root.addEventListener('burnfolder-stack-changed', function () {
       render();
     });
     root.addEventListener('burnfolder-stack-meta-changed', function () {
-      render();
+      updateAlbumMeta();
     });
 
     return { render: render };

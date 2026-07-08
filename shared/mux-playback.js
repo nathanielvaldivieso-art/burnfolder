@@ -127,8 +127,35 @@
             playQueuedTrack(activeQueueIdx + 1);
           }
         },
-        seekbackward: null,
-        seekforward: null
+        seekbackward: function (details) {
+          const player = getPlayer();
+          if (!player) return;
+          const skip = (details && Number(details.seekOffset)) || 10;
+          player.currentTime = Math.max(0, (player.currentTime || 0) - skip);
+          notify();
+          mediaSessionApi.setPositionState(player);
+        },
+        seekforward: function (details) {
+          const player = getPlayer();
+          if (!player) return;
+          const skip = (details && Number(details.seekOffset)) || 10;
+          const duration = Number(player.duration);
+          const next = (player.currentTime || 0) + skip;
+          player.currentTime = Number.isFinite(duration) ? Math.min(next, duration) : next;
+          notify();
+          mediaSessionApi.setPositionState(player);
+        },
+        seekto: function (details) {
+          const player = getPlayer();
+          if (!player || !details || !Number.isFinite(details.seekTime)) return;
+          const duration = Number(player.duration);
+          const target = details.seekTime;
+          player.currentTime = Number.isFinite(duration)
+            ? Math.max(0, Math.min(target, duration))
+            : Math.max(0, target);
+          notify();
+          mediaSessionApi.setPositionState(player);
+        }
       });
     }
 

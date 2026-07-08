@@ -274,6 +274,11 @@
       renderMeta();
     });
 
+    window.addEventListener('burnfolder-stack-meta-changed', function () {
+      stackMeta = shared.loadStackMeta();
+      renderMeta();
+    });
+
     render();
     renderMeta();
 

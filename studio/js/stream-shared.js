@@ -164,7 +164,11 @@
     window.localStorage.setItem(GROUPS_KEY, JSON.stringify(safe));
     cloudPut(CLOUD_GROUPS_KEY, safe);
     if (!options.skipLegacy) syncLegacyFromGroups(safe);
-    window.dispatchEvent(new CustomEvent('burnfolder-stack-changed'));
+    // Meta-only saves use silent + burnfolder-stack-meta-changed so typing an
+    // album title does not remount every album card after each keystroke.
+    if (!options.silent) {
+      window.dispatchEvent(new CustomEvent('burnfolder-stack-changed'));
+    }
   }
 
   function findGroupById(groupId) {
@@ -432,7 +436,7 @@
     const group = groupId ? groups.find(function (g) { return g.id === groupId; }) : groups[0];
     if (!group) return emptyMeta();
     group.meta = normalizeMeta(meta);
-    saveGroups(groups);
+    saveGroups(groups, { silent: true });
     window.dispatchEvent(new CustomEvent('burnfolder-stack-meta-changed'));
     return group.meta;
   }

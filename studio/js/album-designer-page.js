@@ -272,7 +272,10 @@
     const meta = shared.loadStackMeta(activeAlbumId);
     syncingTitle = true;
     if (albumTitleEl) {
-      albumTitleEl.value = meta.title || '';
+      // Never clobber the field while the user is typing.
+      if (document.activeElement !== albumTitleEl) {
+        albumTitleEl.value = meta.title || '';
+      }
       albumTitleEl.disabled = !group;
     }
     syncingTitle = false;

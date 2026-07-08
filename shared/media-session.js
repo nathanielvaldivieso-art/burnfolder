@@ -148,6 +148,7 @@
       'nexttrack',
       'seekbackward',
       'seekforward',
+      'seekto',
       'stop'
     ];
     actions.forEach(function (action) {
