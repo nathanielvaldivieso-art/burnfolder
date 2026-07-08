@@ -1190,7 +1190,6 @@ mux-player#activeMuxPlayer {
 }
 
 .bottom-bar-controls {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
