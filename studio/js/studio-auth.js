@@ -36,10 +36,27 @@
     );
   }
 
+  /** Drop every persisted studio credential. Sign-in is required on each visit. */
+  function clearPersistedAuth() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(LEGACY_TOKEN_KEY);
+    } catch (e) {
+      /* noop */
+    }
+    try {
+      localStorage.removeItem(SESSION_PERSIST_KEY);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+      // Legacy dual-write key from older builds
+      localStorage.removeItem(SESSION_KEY);
+    } catch (e) {
+      /* noop */
+    }
+  }
+
   function loadSession() {
     try {
-      const raw =
-        sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_PERSIST_KEY);
+      const raw = sessionStorage.getItem(SESSION_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch (e) {
       return null;
@@ -49,44 +66,33 @@
   function saveSession(next) {
     session = next;
     if (next) {
-      const payload = JSON.stringify(next);
-      sessionStorage.setItem(SESSION_KEY, payload);
-      try {
-        localStorage.setItem(SESSION_PERSIST_KEY, payload);
-      } catch (e) {
-        /* quota */
-      }
-    } else {
-      sessionStorage.removeItem(SESSION_KEY);
+      // Tab-session only — never localStorage. Cold visits must sign in again.
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
       try {
         localStorage.removeItem(SESSION_PERSIST_KEY);
+        localStorage.removeItem(SESSION_KEY);
       } catch (e) {
         /* noop */
       }
+    } else {
+      clearPersistedAuth();
     }
   }
 
   function loadLegacyToken() {
-    return (
-      sessionStorage.getItem(LEGACY_TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY) || ''
-    );
+    return sessionStorage.getItem(LEGACY_TOKEN_KEY) || '';
   }
 
   function saveLegacyToken(token) {
     if (token) {
       sessionStorage.setItem(LEGACY_TOKEN_KEY, token);
       try {
-        localStorage.setItem(LEGACY_TOKEN_KEY, token);
-      } catch (e) {
-        /* quota */
-      }
-    } else {
-      sessionStorage.removeItem(LEGACY_TOKEN_KEY);
-      try {
         localStorage.removeItem(LEGACY_TOKEN_KEY);
       } catch (e) {
         /* noop */
       }
+    } else {
+      clearPersistedAuth();
     }
   }
 
@@ -187,39 +193,6 @@
     const gate = document.getElementById('studioAuthGate');
     if (gate) gate.remove();
     if (typeof showGate === 'function') showGate();
-  }
-
-  function restoreSupabaseSession(existing, config) {
-    session = existing;
-    markReady();
-    verifySupabaseSession(existing)
-      .then(function (ok) {
-        if (ok) {
-          session = loadSession() || existing;
-          return;
-        }
-        saveSession(null);
-        session = null;
-        revokeSession(function () {
-          showSupabaseLoginGate(config);
-        });
-      })
-      .catch(function () {
-        /* offline / transient — keep the cached session */
-      });
-  }
-
-  function restoreLegacySession(token) {
-    markReady();
-    verifyLegacyToken(token)
-      .then(function (ok) {
-        if (ok) return;
-        saveLegacyToken('');
-        revokeSession(showLegacyLoginGate);
-      })
-      .catch(function () {
-        /* offline / transient — keep the cached session */
-      });
   }
 
   function whenReady() {
@@ -486,22 +459,17 @@
   }
 
   function boot() {
+    // Always require a fresh unlock on each full page load / visit.
+    // Clears localStorage leftovers from older builds that persisted JWT/password.
+    clearPersistedAuth();
+    session = null;
+    ready = false;
+
     fetchPublicConfig().then(function (config) {
       authMode = config.authMode === 'supabase' ? 'supabase' : 'legacy';
 
       if (authMode === 'supabase') {
-        const existing = loadSession();
-        if (existing && existing.access_token) {
-          restoreSupabaseSession(existing, config);
-          return;
-        }
         showSupabaseLoginGate(config);
-        return;
-      }
-
-      const legacy = loadLegacyToken();
-      if (legacy) {
-        restoreLegacySession(legacy);
         return;
       }
       showLegacyLoginGate();
