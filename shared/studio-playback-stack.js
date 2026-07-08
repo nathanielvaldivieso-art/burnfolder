@@ -22,10 +22,11 @@
     '<div class="song-title-wrap"><span class="song-title" id="streamNowPlayingTitle">—</span></div>' +
     '<div class="bottom-bar-controls">' +
     '<button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>' +
+    '</div>' +
     '<div class="progress-bar-area" id="progressBarArea">' +
     '<div class="progress" id="progress"></div>' +
     '<div class="progress-playhead" id="progressPlayhead"></div>' +
-    '</div></div>' +
+    '</div>' +
     '<div class="loading-spinner" id="loadingSpinner"></div>' +
     '</div></div></div>';
 

@@ -1190,6 +1190,8 @@ mux-player#activeMuxPlayer {
 }
 
 .bottom-bar-controls {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1969,6 +1971,7 @@ body.checkout-open {
   overflow: hidden;
 }
 
+/* Sibling of .bottom-bar-controls (not nested) so absolute coords use the full bar. */
 .progress-bar-area {
   position: absolute;
   top: 0;

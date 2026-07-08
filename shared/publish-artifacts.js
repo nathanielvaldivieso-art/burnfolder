@@ -273,10 +273,10 @@
     <span class="song-title" id="songTitle">Track Title</span>
     <div class="bottom-bar-controls">
       <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">&#9654;</button>
-      <div class="progress-bar-area" id="progressBarArea">
-        <div class="progress" id="progress"></div>
-        <div class="progress-playhead" id="progressPlayhead"></div>
-      </div>
+    </div>
+    <div class="progress-bar-area" id="progressBarArea">
+      <div class="progress" id="progress"></div>
+      <div class="progress-playhead" id="progressPlayhead"></div>
     </div>
     <div class="loading-spinner" id="loadingSpinner"></div>
   </div>
