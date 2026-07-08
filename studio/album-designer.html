@@ -8,8 +8,8 @@
   <title>album page — burnfolder studio</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="../style.css?v=20260708c">
-  <link rel="stylesheet" href="css/studio.css?v=20260708c">
+  <link rel="stylesheet" href="../style.css?v=20260708e">
+  <link rel="stylesheet" href="css/studio.css?v=20260708e">
 </head>
 <body class="studio-page studio-song-designer-page studio-album-designer-page">
   <header class="site-header studio-header">
@@ -33,10 +33,24 @@
     </div>
 
     <div class="studio-song-designer-pick">
-      <label class="studio-song-designer-field">
-        <span class="studio-song-designer-label">album</span>
-        <select id="albumDesignerPick" class="studio-song-designer-select"></select>
-      </label>
+      <div class="studio-song-designer-pick-row">
+        <label class="studio-song-designer-field">
+          <span class="studio-song-designer-label">album</span>
+          <select id="albumDesignerPick" class="studio-song-designer-select"></select>
+        </label>
+        <label class="studio-song-designer-field studio-song-designer-field--grow">
+          <span class="studio-song-designer-label">title</span>
+          <input
+            type="text"
+            id="albumDesignerTitle"
+            class="studio-song-designer-input"
+            placeholder="untitled"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="Album title"
+          >
+        </label>
+      </div>
       <p class="studio-song-designer-meta" id="albumDesignerMeta">—</p>
     </div>
 
@@ -112,6 +126,6 @@
   <script src="js/song-page-store.js?v=20260703f"></script>
   <script src="js/album-page-store.js?v=20260703f"></script>
   <script src="js/stream-shared.js?v=20260703f"></script>
-  <script src="js/album-designer-page.js?v=20260703f"></script>
+  <script src="js/album-designer-page.js?v=20260708d"></script>
 </body>
 </html>

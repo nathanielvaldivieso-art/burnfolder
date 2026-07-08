@@ -244,18 +244,38 @@
         .catch(function () {});
     }
 
-    function playAlbum(group, startIndex) {
+    function playAlbum(group, start) {
       const tracks = group.tracks || [];
       if (!tracks.length) return;
       const meta = group.meta || {};
+      const opts = typeof start === 'object' && start ? start : { startIndex: start || 0 };
+      const startPlaybackId = opts.startPlaybackId || '';
+      let startIndex = typeof opts.startIndex === 'number' ? opts.startIndex : 0;
+
       const songs = tracks.map(function (track) {
         const resolved = resolveStackTrack(track);
         return {
           title: labelForItem(resolved) || track.title || 'untitled',
-          playbackId: track.playbackId,
+          playbackId: resolved.playbackId || track.playbackId,
           coverArt: meta.coverArt || ''
         };
       });
+
+      if (startPlaybackId) {
+        const byId = songs.findIndex(function (song) {
+          return song.playbackId === startPlaybackId;
+        });
+        if (byId >= 0) startIndex = byId;
+      }
+
+      const player = window.BurnfolderStreamPlayer;
+      if (player && player.playQueue) {
+        player.playQueue(songs, startIndex, {
+          coverArt: meta.coverArt || '',
+          startPlaybackId: startPlaybackId || (songs[startIndex] && songs[startIndex].playbackId) || ''
+        });
+        return;
+      }
       if (typeof root.playTrackQueue === 'function') {
         root.playTrackQueue(songs, startIndex || 0);
       }
@@ -293,9 +313,24 @@
 
       row.appendChild(name);
       row.appendChild(dur);
-      row.addEventListener('click', function () {
-        playAlbum(group, index);
-      });
+
+      function activate(event) {
+        if (event && event.target && event.target.closest('.studio-stream-album-track-handle')) {
+          return;
+        }
+        playAlbum(group, {
+          startPlaybackId: row.dataset.playbackId || '',
+          fallbackId: track.playbackId || '',
+          startIndex: index
+        });
+      }
+
+      const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+      if (tap && tap.isCoarsePointer && tap.isCoarsePointer() && tap.bind) {
+        tap.bind(row, activate);
+      } else {
+        row.addEventListener('click', activate);
+      }
 
       li.appendChild(handle);
       li.appendChild(num);
@@ -383,7 +418,7 @@
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.className = 'studio-stream-album-name-input';
-      nameInput.placeholder = '';
+      nameInput.placeholder = 'untitled';
       nameInput.value = meta.title || '';
       nameInput.spellcheck = false;
       nameInput.autocomplete = 'off';
@@ -415,10 +450,17 @@
       playBtn.className = 'studio-stream-album-play';
       playBtn.setAttribute('aria-label', 'Play');
       playBtn.textContent = '▶';
-      playBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
+      function activateAlbumPlay(event) {
+        if (event) event.stopPropagation();
         playAlbum(group, 0);
-      });
+        if (playBtn.blur) playBtn.blur();
+      }
+      const tap = root.BurnfolderTouchTap || root.BurnfolderStudioTap;
+      if (tap && tap.isCoarsePointer && tap.isCoarsePointer() && tap.bind) {
+        tap.bind(playBtn, activateAlbumPlay);
+      } else {
+        playBtn.addEventListener('click', activateAlbumPlay);
+      }
 
       const toggle = document.createElement('button');
       toggle.type = 'button';

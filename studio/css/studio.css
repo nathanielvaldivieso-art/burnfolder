@@ -2268,11 +2268,29 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   line-height: 1;
   cursor: pointer;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.studio-stream-album-play:hover {
-  background: #000;
-  color: #fff;
+/* Hover invert only on real hover devices — touch sticky-:hover was
+   flashing project ▶ when tapping the now-playing bar. */
+@media (hover: hover) and (pointer: fine) {
+  .studio-stream-album-play:hover {
+    background: #000;
+    color: #fff;
+  }
+}
+
+@media (hover: none) {
+  .studio-stream-album-play:hover,
+  .studio-stream-album-play:focus:not(:focus-visible) {
+    background: #fff;
+    color: #000;
+  }
+
+  .studio-stream-album-play:active {
+    background: #000;
+    color: #fff;
+  }
 }
 
 .studio-stream-album-toggle {
@@ -4936,10 +4954,22 @@ body.studio-song-designer-page .page-wrap {
   margin-bottom: 18px;
 }
 
+.studio-song-designer-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
 .studio-song-designer-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.studio-song-designer-field--grow {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .studio-song-designer-label {
@@ -4949,7 +4979,8 @@ body.studio-song-designer-page .page-wrap {
   opacity: 0.6;
 }
 
-.studio-song-designer-select {
+.studio-song-designer-select,
+.studio-song-designer-input {
   border: 1px solid #000;
   background: #fff;
   color: #000;
@@ -4957,6 +4988,11 @@ body.studio-song-designer-page .page-wrap {
   font-size: 0.9em;
   padding: 8px 10px;
   max-width: 100%;
+  box-sizing: border-box;
+}
+
+.studio-song-designer-input {
+  width: 100%;
 }
 
 .studio-song-designer-meta {

@@ -105,6 +105,8 @@
       if (typeof opts.onTogglePlay !== 'function') return;
       renderPlayButton(!playingFromPlayer());
       opts.onTogglePlay();
+      // Keep focus off the bar on coarse pointers (no-jump + no sticky invert).
+      if (playBtn && playBtn.blur) playBtn.blur();
     }
 
     // ── progress seek: click + drag + touch-drag with hover timestamp (burnfolder.com parity) ──

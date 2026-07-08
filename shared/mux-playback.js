@@ -442,9 +442,22 @@
     }
 
     function primeTrack(song) {
-      const player = getPlayer();
       const normalized = normalizeSong(song);
-      if (!player || !normalized) return false;
+      if (!normalized) return false;
+      // Prefer the prefetch pool. Rewriting #activeMuxPlayer on hover/touch-down
+      // caused intermittent wrong-song starts when the live element raced play().
+      if (root.BurnfolderPlaybackPrefetch && root.BurnfolderPlaybackPrefetch.prefetch) {
+        root.BurnfolderPlaybackPrefetch.prefetch(normalized.playbackId);
+        if (normalized.coverArt && root.BurnfolderPlaybackPrefetch.warmArtwork) {
+          root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId, normalized.coverArt);
+        }
+        return true;
+      }
+      const player = getPlayer();
+      if (!player) return false;
+      if (activeSong && activeSong.playbackId && activeSong.playbackId !== normalized.playbackId) {
+        return false;
+      }
       if (player.getAttribute('playback-id') === normalized.playbackId) return true;
       player.setAttribute('preload', 'auto');
       player.setAttribute('playback-id', normalized.playbackId);

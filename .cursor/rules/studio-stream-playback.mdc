@@ -62,6 +62,8 @@ Per-row binding at build time in `stream-page.js` — `wireTrackRowPlay(row)`:
 - **Desktop:** plain `click` on each `.music-track-row`
 - **Coarse pointer:** `BurnfolderTouchTap.bind(row, …)`
 - After play: `nudgeMuxPlay(playbackId)` in the same click turn
+- **Start by `playbackId`**, never DOM/group index alone — `playQueue` remaps after filtering videos via `startPlaybackId`
+- **Do not** rewrite `#activeMuxPlayer` on `pointerdown` prime — prefetch only (`BurnfolderPlaybackPrefetch`)
 
 Never list-delegation alone for row play.
 

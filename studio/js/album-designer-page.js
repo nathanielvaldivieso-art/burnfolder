@@ -14,6 +14,7 @@
   const initialAlbumId = (params.get('album') || '').trim();
 
   const albumPick = document.getElementById('albumDesignerPick');
+  const albumTitleEl = document.getElementById('albumDesignerTitle');
   const albumMeta = document.getElementById('albumDesignerMeta');
   const notesEl = document.getElementById('albumDesignerNotes');
   const heroVideoEl = document.getElementById('albumDesignerHeroVideo');
@@ -35,6 +36,7 @@
   let currentPage = null;
   let saveTimer = null;
   let loadingPage = false;
+  let syncingTitle = false;
 
   function setStatus(msg, kind) {
     if (window.BurnfolderStudioStatus) {
@@ -248,6 +250,59 @@
     });
   }
 
+  function albumTitleLabel(meta) {
+    return (meta && meta.title) || 'untitled';
+  }
+
+  function syncAlbumPickLabel(albumId) {
+    if (!albumPick || !albumId) return;
+    const opt = Array.from(albumPick.options).find(function (o) {
+      return o.value === albumId;
+    });
+    if (!opt) return;
+    const group = shared.findGroupById(albumId);
+    const meta = shared.loadStackMeta(albumId);
+    const count = group && group.tracks ? group.tracks.length : 0;
+    opt.textContent = albumTitleLabel(meta) + ' (' + count + ')';
+  }
+
+  function paintAlbumChrome() {
+    if (!activeAlbumId) return;
+    const group = shared.findGroupById(activeAlbumId);
+    const meta = shared.loadStackMeta(activeAlbumId);
+    syncingTitle = true;
+    if (albumTitleEl) {
+      albumTitleEl.value = meta.title || '';
+      albumTitleEl.disabled = !group;
+    }
+    syncingTitle = false;
+    if (albumMeta) {
+      albumMeta.textContent = group
+        ? albumTitleLabel(meta) + ' · ' + group.tracks.length + ' tracks'
+        : 'album not found';
+    }
+    syncAlbumPickLabel(activeAlbumId);
+  }
+
+  function saveAlbumTitle(title) {
+    if (!activeAlbumId || syncingTitle) return;
+    const meta = shared.loadStackMeta(activeAlbumId);
+    meta.title = title || '';
+    if (meta.coverArt) meta.coverAlt = meta.title || meta.coverAlt || 'cover art';
+    syncingTitle = true;
+    shared.saveStackMeta(meta, activeAlbumId);
+    syncingTitle = false;
+    const group = shared.findGroupById(activeAlbumId);
+    if (albumMeta) {
+      albumMeta.textContent = group
+        ? albumTitleLabel(meta) + ' · ' + group.tracks.length + ' tracks'
+        : 'album not found';
+    }
+    syncAlbumPickLabel(activeAlbumId);
+    paintPreview();
+    setStatus('saved');
+  }
+
   function paintPreview() {
     if (!albumRender || !previewRoot || !activeAlbumId) return;
     const group = shared.findGroupById(activeAlbumId);
@@ -287,12 +342,7 @@
       renderMediaEditor();
 
       const group = shared.findGroupById(albumId);
-      const meta = shared.loadStackMeta(albumId);
-      if (albumMeta) {
-        albumMeta.textContent = group
-          ? (meta.title || 'untitled') + ' · ' + group.tracks.length + ' tracks'
-          : 'album not found';
-      }
+      paintAlbumChrome();
       if (previewBtn) {
         previewBtn.href = shared.albumPageUrl(albumId);
         previewBtn.hidden = !group;
@@ -306,12 +356,13 @@
   function populateAlbumPick() {
     if (!albumPick) return;
     const groups = albumGroups();
+    const keepId = albumPick.value || activeAlbumId || initialAlbumId;
     albumPick.innerHTML = '';
     groups.forEach(function (group) {
       const meta = shared.loadStackMeta(group.id);
       const opt = document.createElement('option');
       opt.value = group.id;
-      opt.textContent = (meta.title || 'untitled') + ' (' + group.tracks.length + ')';
+      opt.textContent = albumTitleLabel(meta) + ' (' + group.tracks.length + ')';
       albumPick.appendChild(opt);
     });
 
@@ -320,12 +371,19 @@
       opt.value = '';
       opt.textContent = 'no albums yet';
       albumPick.appendChild(opt);
+      if (albumTitleEl) {
+        syncingTitle = true;
+        albumTitleEl.value = '';
+        albumTitleEl.disabled = true;
+        syncingTitle = false;
+      }
+      if (albumMeta) albumMeta.textContent = '—';
       return;
     }
 
     const pick =
-      initialAlbumId && groups.some(function (g) { return g.id === initialAlbumId; })
-        ? initialAlbumId
+      keepId && groups.some(function (g) { return g.id === keepId; })
+        ? keepId
         : groups[0].id;
     albumPick.value = pick;
     loadAlbumPage(pick);
@@ -341,6 +399,18 @@
       loadAlbumPage(id);
     });
   }
+
+  if (albumTitleEl) {
+    albumTitleEl.addEventListener('input', function () {
+      saveAlbumTitle(albumTitleEl.value);
+    });
+  }
+
+  window.addEventListener('burnfolder-stack-meta-changed', function () {
+    if (!activeAlbumId || syncingTitle) return;
+    paintAlbumChrome();
+    paintPreview();
+  });
 
   if (notesEl) notesEl.addEventListener('input', scheduleSave);
   if (heroVideoEl) heroVideoEl.addEventListener('change', scheduleSave);

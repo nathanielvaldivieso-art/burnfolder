@@ -1701,13 +1701,39 @@ mux-player#activeMuxPlayer {
   width: 20px;
   height: 20px;
 }
-.bottom-play-pause-btn:hover,
+
+@media (hover: hover) and (pointer: fine) {
+  .bottom-play-pause-btn:hover {
+    background: #000;
+    border-color: #000;
+    color: #fff;
+  }
+}
+
 .bottom-play-pause-btn:focus {
+  outline: none;
+}
+
+.bottom-play-pause-btn:focus-visible {
   background: #000;
   border-color: #000;
   color: #fff;
 }
-.bottom-play-pause-btn:focus { outline: none; }
+
+@media (hover: none) {
+  .bottom-play-pause-btn:hover,
+  .bottom-play-pause-btn:focus:not(:focus-visible) {
+    background: #f8f8f8;
+    border-color: #000;
+    color: #000;
+  }
+
+  .bottom-play-pause-btn:active {
+    background: #000;
+    border-color: #000;
+    color: #fff;
+  }
+}
 
 .bottom-tip-wrap {
   position: relative;

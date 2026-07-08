@@ -500,13 +500,12 @@
         setStatus('could not play album — reload the page', 'error');
         return;
       }
-      const ol = row.closest('.studio-stream-album-tracks');
-      const tracks = ol
-        ? Array.from(ol.querySelectorAll('.studio-stream-album-track'))
-        : [];
-      const index = tracks.indexOf(albumTrack);
-      if (index < 0) return;
-      playAlbum(group, index);
+      // Always start by the row's resolved playbackId — never DOM index.
+      // Index skews after video filtering and after newest-version upgrades.
+      playAlbum(group, {
+        startPlaybackId: playbackId,
+        fallbackId: albumTrack.dataset.playbackId || ''
+      });
       if (row.blur) row.blur();
       return;
     }
@@ -526,12 +525,18 @@
 
   function primeTrackRow(row) {
     if (!row || shouldSkipTrackPlay(row)) return;
+    const playbackId = row.dataset.playbackId || '';
+    if (!playbackId) return;
+
+    // Prefetch only — never touch the live player until the real play gesture.
+    if (window.BurnfolderPlaybackPrefetch && window.BurnfolderPlaybackPrefetch.prefetch) {
+      window.BurnfolderPlaybackPrefetch.prefetch(playbackId);
+      return;
+    }
+
     ensurePlaybackReady();
     const player = getPlayer();
     if (!player || !player.primeItem) return;
-
-    const playbackId = row.dataset.playbackId || '';
-    if (!playbackId) return;
 
     const albumTrack = row.closest('.studio-stream-album-track');
     if (albumTrack) {
@@ -540,12 +545,14 @@
       const group = groupId ? shared.findGroupById(groupId) : null;
       if (!group) return;
       const items = albumItemsForGroup(group);
-      const ol = row.closest('.studio-stream-album-tracks');
-      const tracks = ol
-        ? Array.from(ol.querySelectorAll('.studio-stream-album-track'))
-        : [];
-      const index = tracks.indexOf(albumTrack);
-      if (index >= 0 && items[index]) player.primeItem(items[index]);
+      const match =
+        items.find(function (item) {
+          return item && item.playbackId === playbackId;
+        }) ||
+        items.find(function (item) {
+          return item && item.playbackId === albumTrack.dataset.playbackId;
+        });
+      if (match) player.primeItem(match);
       return;
     }
 
@@ -1054,7 +1061,7 @@
       });
   }
 
-  function playAlbum(group, index) {
+  function playAlbum(group, start) {
     if (!group) return;
     ensurePlaybackReady();
     const player = getPlayer();
@@ -1065,13 +1072,33 @@
     const items = albumItemsForGroup(group);
     if (!items.length) return;
     if (expandedVideoId) closeExpandedVideo();
-    const started = items[index || 0];
+
+    const opts = typeof start === 'object' && start ? start : { startIndex: start || 0 };
+    const startPlaybackId = opts.startPlaybackId || '';
+    const fallbackId = opts.fallbackId || '';
+    let startIndex = typeof opts.startIndex === 'number' ? opts.startIndex : 0;
+
+    if (startPlaybackId || fallbackId) {
+      const byResolved = items.findIndex(function (item) {
+        return item && item.playbackId === startPlaybackId;
+      });
+      if (byResolved >= 0) {
+        startIndex = byResolved;
+      } else if (fallbackId) {
+        const byStack = (group.tracks || []).findIndex(function (track) {
+          return track && track.playbackId === fallbackId;
+        });
+        if (byStack >= 0) startIndex = byStack;
+      }
+    }
+
+    const started = items[startIndex] || items[0];
+    const playOpts = {
+      coverArt: (group.meta && group.meta.coverArt) || '',
+      startPlaybackId: (started && started.playbackId) || startPlaybackId || ''
+    };
     if (started && started.playbackId) recordPlay(started.playbackId);
-    if (
-      player.playQueue(items, index || 0, {
-        coverArt: (group.meta && group.meta.coverArt) || ''
-      }) === false
-    ) {
+    if (player.playQueue(items, startIndex, playOpts) === false) {
       setStatus('could not start playback', 'error');
       return;
     }
@@ -1248,7 +1275,7 @@
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.className = 'studio-stream-album-name-input';
-    nameInput.placeholder = '';
+    nameInput.placeholder = 'untitled';
     nameInput.value = meta.title || '';
     nameInput.spellcheck = false;
     nameInput.autocomplete = 'off';
@@ -1273,10 +1300,18 @@
     playBtn.className = 'studio-stream-album-play';
     playBtn.setAttribute('aria-label', 'Play');
     playBtn.textContent = '▶';
-    playBtn.addEventListener('click', function (event) {
-      event.stopPropagation();
+    function activateAlbumPlay(event) {
+      if (event) event.stopPropagation();
       playAlbum(group, 0);
-    });
+      // Drop sticky :hover/:focus so bar play/pause never visually mirrors this control.
+      if (playBtn.blur) playBtn.blur();
+    }
+    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    if (tap && tap.isCoarsePointer && tap.isCoarsePointer() && tap.bind) {
+      tap.bind(playBtn, activateAlbumPlay);
+    } else {
+      playBtn.addEventListener('click', activateAlbumPlay);
+    }
 
     const toggle = document.createElement('button');
     toggle.type = 'button';

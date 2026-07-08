@@ -121,24 +121,35 @@
     hubPlayBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
   }
 
-  function playAlbumFrom(index) {
+  function playAlbumFrom(index, startPlaybackId) {
     const tracks = albumTracks();
     if (!tracks.length || !player) return;
-    const idx = typeof index === 'number' ? index : 0;
+    const wantId = startPlaybackId || '';
+    let idx = typeof index === 'number' ? index : 0;
+    if (wantId) {
+      const byId = tracks.findIndex(function (item) {
+        return item && item.playbackId === wantId;
+      });
+      if (byId >= 0) idx = byId;
+    }
     const active = player.getActiveSong();
     const onAlbum =
       active &&
       tracks.some(function (item) {
         return item.playbackId === active.playbackId;
       });
-    if (onAlbum && active.playbackId === tracks[idx].playbackId) {
+    if (onAlbum && tracks[idx] && active.playbackId === tracks[idx].playbackId) {
       player.togglePause();
       syncTracklistPlayback();
       syncAlbumPlayButton();
       return;
     }
     const meta = shared.loadStackMeta(group.id);
-    player.playQueue(tracks, idx, { coverArt: meta.coverArt || '' });
+    const target = tracks[idx] || tracks[0];
+    player.playQueue(tracks, idx, {
+      coverArt: meta.coverArt || '',
+      startPlaybackId: (target && target.playbackId) || wantId || ''
+    });
     syncTracklistPlayback();
     syncAlbumPlayButton();
   }
@@ -190,7 +201,7 @@
           const idx = tracks.findIndex(function (item) {
             return item.playbackId === row.playbackId;
           });
-          playAlbumFrom(idx >= 0 ? idx : 0);
+          playAlbumFrom(idx >= 0 ? idx : 0, row.playbackId || '');
         }
       });
 
