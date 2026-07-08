@@ -128,7 +128,9 @@
 
     titleEl.addEventListener('click', toggle);
     titleEl.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter' || event.key === ' ') {
+      // Enter opens the menu. Space is reserved for global play/pause
+      // (document handlers in scripts.js / studio-playback-shell.js).
+      if (event.key === 'Enter') {
         event.preventDefault();
         toggle(event);
       }

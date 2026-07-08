@@ -390,6 +390,8 @@ Each track on the music page no longer shows the entry date inline; use the **no
 
 ## Subscribers and deploy (Netlify + GitHub)
 
+- **Production host:** `burnfolder.com` → Netlify (`burnfolder.netlify.app`). **Not** GitHub Pages. The repo’s Pages workflow (`pages-build-deployment`) can succeed while production stays stale if Netlify autodeploy is disconnected.
+- **Backup deploy:** `.github/workflows/netlify-deploy.yml` POSTs a Netlify Build Hook on every `main` push. One-time: Netlify → Build hooks → add hook for `main` → copy URL → GitHub secret `NETLIFY_BUILD_HOOK`. Also reconnect the Netlify site to this GitHub repo so git pushes trigger builds without the hook.
 - **Canonical list:** `/.netlify/functions/subscribe` stores emails in **Netlify Blobs** (store name `burnfolder-newsletter`, key `subscriber-emails`). They are **not** committed to git.
 - **`subscribers.json` in the repo** is an empty placeholder only (`{"subscribers":[]}`). Do not put real addresses there.
 - **One-time seed (optional):** set Netlify env `SUBSCRIBER_SEED_EMAILS` to a comma-separated list; on first subscribe after deploy, the function seeds the blob if it was empty, then you can remove the env var.

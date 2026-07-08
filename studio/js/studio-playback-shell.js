@@ -302,15 +302,21 @@
     window.__studioSpacePlayBound = true;
     document.addEventListener('keydown', function (event) {
       if (event.code !== 'Space' && event.key !== ' ') return;
+      if (event.defaultPrevented) return;
       if (isTypingTarget(event.target)) return;
       ensureShell();
       mountBar();
+      const eng = getEngine();
+      const song = eng && eng.getActiveSong ? eng.getActiveSong() : null;
+      if (!song || !song.playbackId) return;
       const shell = document.getElementById(SHELL_ID);
       const bar = shell ? shell.querySelector('#bottomBar') : null;
-      const eng = getEngine();
-      if (!eng || !eng.getActiveSong()) return;
-      if (!bar || bar.style.display !== 'flex') return;
+      const barOpen =
+        (bar && bar.style.display === 'flex') ||
+        document.body.classList.contains('stream-playback-active');
+      if (!barOpen) return;
       event.preventDefault();
+      event.stopPropagation();
       eng.togglePlayPause();
     });
   }

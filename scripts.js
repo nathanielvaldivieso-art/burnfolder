@@ -2219,12 +2219,19 @@ function isTypingTarget(target) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if ((e.code === 'Space' || e.key === ' ') && getActiveSong() && bottomBar.style.display === 'flex') {
-    if (isTypingTarget(e.target)) return;
-    e.preventDefault();
-    togglePlayPause();
-    focusPlayControl();
-  }
+  if (e.code !== 'Space' && e.key !== ' ') return;
+  if (e.defaultPrevented) return;
+  if (!getActiveSong()) return;
+  const barOpen =
+    (bottomBar && bottomBar.style.display === 'flex') ||
+    document.body.classList.contains('now-playing-active') ||
+    document.body.classList.contains('stream-playback-active');
+  if (!barOpen) return;
+  if (isTypingTarget(e.target)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  togglePlayPause();
+  focusPlayControl();
 });
 
 // Close button is wired through BurnfolderNowPlayingBar onClose (see mountNowPlayingBar).
