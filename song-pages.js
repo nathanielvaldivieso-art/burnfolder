@@ -1,7 +1,7 @@
 // Song page content — published from burnfolder studio
 window.burnfolderSongPages = {
   "sometimes": {
-    "notes": "In the intro - pads come back a little and add more bass to them",
+    "notes": "",
     "lyrics": "",
     "versions": {
       "7VAAvi4x01KJBoNhJPvuOS5LDx02oN9NUhuDEHK2nPpPI": {

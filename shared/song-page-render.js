@@ -59,19 +59,37 @@
     return !!versionLyrics(page, playbackId);
   }
 
-  function versionHasContent(page, playbackId) {
-    return !!(versionLyrics(page, playbackId) || versionNotes(page, playbackId));
+  function catalogVersionList(catalogVersions) {
+    return Array.isArray(catalogVersions)
+      ? catalogVersions.filter(function (song) {
+          return song && song.playbackId;
+        })
+      : [];
   }
 
-  function defaultVersionId(page, catalogVersions) {
-    const list = Array.isArray(catalogVersions) ? catalogVersions : [];
-    for (let i = 0; i < list.length; i += 1) {
-      const song = list[i];
-      if (song && song.playbackId && versionHasContent(page, song.playbackId)) {
-        return song.playbackId;
-      }
+  function playbackIdInCatalog(playbackId, list) {
+    return !!(playbackId && list.some(function (song) {
+      return song.playbackId === playbackId;
+    }));
+  }
+
+  // Prefer the version the user picked or is playing — never jump to another mix
+  // just because it has lyrics/notes saved.
+  function resolveSelectedVersionId(rootEl, catalogVersions, opts) {
+    const options = opts || {};
+    const list = catalogVersionList(catalogVersions);
+    if (!list.length) return '';
+
+    if (rootEl && playbackIdInCatalog(rootEl.dataset.songVersionSelected, list)) {
+      return rootEl.dataset.songVersionSelected;
     }
-    return list[0] && list[0].playbackId ? list[0].playbackId : '';
+    if (playbackIdInCatalog(options.preferredPlaybackId, list)) {
+      return options.preferredPlaybackId;
+    }
+    if (playbackIdInCatalog(options.activePlaybackId, list)) {
+      return options.activePlaybackId;
+    }
+    return list[0].playbackId;
   }
 
   function versionLabel(song, versionsApi) {
@@ -221,12 +239,10 @@
   function buildVersionPicker(rootEl, page, catalogVersions, opts) {
     const picker = rootEl.querySelector('[data-song-field="version-picker"]');
     const lyricsPanel = rootEl.querySelector('[data-song-panel="lyrics"]');
-    if (!picker) return defaultVersionId(page, catalogVersions);
+    const list = catalogVersionList(catalogVersions);
+    if (!picker) return resolveSelectedVersionId(rootEl, list, opts);
 
     const versionsApi = root.BurnfolderSongVersions;
-    const list = Array.isArray(catalogVersions) ? catalogVersions.filter(function (s) {
-      return s && s.playbackId;
-    }) : [];
 
     picker.innerHTML = '';
     if (!list.length) {
@@ -234,10 +250,7 @@
       return '';
     }
 
-    const selected =
-      rootEl.dataset.songVersionSelected ||
-      defaultVersionId(page, list) ||
-      list[0].playbackId;
+    const selected = resolveSelectedVersionId(rootEl, list, opts);
 
     list.forEach(function (song) {
       const chip = document.createElement('button');
@@ -398,6 +411,7 @@
     versionContent: function (page, playbackId) {
       return { lyrics: versionLyrics(page, playbackId), notes: versionNotes(page, playbackId) };
     },
+    resolveSelectedVersionId: resolveSelectedVersionId,
     selectVersion: function (rootEl, page, playbackId, options) {
       if (!rootEl || !page || !playbackId) return;
       renderVersionLyrics(rootEl, page, playbackId, options || {});

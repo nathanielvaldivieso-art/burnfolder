@@ -883,6 +883,12 @@ function renderMusicPage() {
   entryLink.textContent = release.entryDate;
   article.appendChild(entryLink);
 
+  const albumLink = document.createElement('a');
+  albumLink.className = 'music-release-journal music-release-album';
+  albumLink.href = 'album.html?album=photonegative';
+  albumLink.textContent = 'album hub';
+  article.appendChild(albumLink);
+
   root.appendChild(article);
   syncTracklistPlayback();
 
@@ -921,10 +927,23 @@ function playTrackBySong(song) {
   if (idx !== -1) {
     // Play the tapped version but keep the full page queue for album advance.
     startPlayback(song, queue, idx);
+    syncSongHubVersionSelection(song);
     return;
   }
 
   startPlayback(song, [song], 0);
+  syncSongHubVersionSelection(song);
+}
+
+let songHubContext = null;
+
+function syncSongHubVersionSelection(song) {
+  if (!song || !song.playbackId || !songHubContext) return;
+  const songKey = getTrackGroupKey(song.title);
+  if (!songKey || songKey !== songHubContext.groupKey) return;
+  const renderApi = window.BurnfolderSongPageRender;
+  if (!renderApi || !songHubContext.hubRoot || !songHubContext.page) return;
+  renderApi.selectVersion(songHubContext.hubRoot, songHubContext.page, song.playbackId);
 }
 
 function renderSongHubPage() {
@@ -977,6 +996,8 @@ function renderSongHubPage() {
     page = store.getPublishedPage(targetKey) || page;
   }
 
+  songHubContext = { groupKey: targetKey, page, hubRoot };
+
   const renderSongHubContent = () => {
     const sortMode = sortEl.value || 'newest';
     const sorted = sv
@@ -1019,12 +1040,16 @@ function renderSongHubPage() {
     syncSongHubPlayButton();
 
     if (renderApi) {
+      const active = getActiveSong();
+      const activeOnHub =
+        active && sorted.some((item) => item.playbackId === active.playbackId);
       renderApi.apply(hubRoot, {
         page: page,
         baseTitle: baseTitle,
         library: [],
         shared: window.BurnfolderStreamShared || null,
         catalogVersions: sorted,
+        activePlaybackId: activeOnHub ? active.playbackId : '',
         onVersionSelect: (playbackId) => {
           const active = getActiveSong();
           if (active && active.playbackId === playbackId) return;
@@ -1084,6 +1109,184 @@ function syncAlbumHubPlayButton() {
   hubPlayBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
 }
 
+function renderAlbumHubLinks(rootEl, links) {
+  const panel = rootEl.querySelector('[data-album-panel="links"]');
+  const mount = rootEl.querySelector('[data-album-field="links"]');
+  if (!mount) return;
+
+  mount.innerHTML = '';
+  const rows = Array.isArray(links) ? links.filter((link) => link && link.label) : [];
+  if (!rows.length) {
+    if (panel) {
+      panel.hidden = true;
+      panel.classList.add('is-empty');
+    }
+    return;
+  }
+
+  rows.forEach((link) => {
+    const href = String(link.href || '').trim();
+    const pending = !!link.pending || !href;
+    if (pending) {
+      const span = document.createElement('span');
+      span.className = 'album-hub-link album-hub-link--pending';
+      span.textContent = link.label;
+      mount.appendChild(span);
+      return;
+    }
+    const a = document.createElement('a');
+    a.className = 'album-hub-link';
+    a.href = href;
+    a.textContent = link.label;
+    mount.appendChild(a);
+  });
+
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.remove('is-empty');
+  }
+}
+
+function renderAlbumHubCredits(rootEl, credits) {
+  const panel = rootEl.querySelector('[data-album-panel="credits"]');
+  const mount = rootEl.querySelector('[data-album-field="credits"]');
+  const renderApi = window.BurnfolderAlbumPageRender;
+  const text = String(credits || '').trim();
+  if (!mount) return;
+
+  if (!text) {
+    if (panel) {
+      panel.hidden = true;
+      panel.classList.add('is-empty');
+    }
+    mount.innerHTML = '';
+    return;
+  }
+
+  mount.innerHTML = renderApi && renderApi.textToHtml ? renderApi.textToHtml(text) : text;
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.remove('is-empty');
+  }
+}
+
+function renderAlbumHubDarkroom(rootEl, published, tracks, catalog, sv, onPlayVersion) {
+  const panel = rootEl.querySelector('[data-album-panel="darkroom"]');
+  const introEl = rootEl.querySelector('[data-album-field="darkroom-intro"]');
+  const tracksEl = rootEl.querySelector('[data-album-field="darkroom-tracks"]');
+  const journalEl = rootEl.querySelector('[data-album-field="darkroom-journal"]');
+  const renderApi = window.BurnfolderAlbumPageRender;
+  if (!panel || !tracksEl) return;
+
+  const intro = String((published && published.darkroomIntro) || '').trim();
+  if (introEl) {
+    introEl.innerHTML = renderApi && renderApi.textToHtml ? renderApi.textToHtml(intro) : intro;
+    introEl.hidden = !intro;
+  }
+
+  tracksEl.innerHTML = '';
+  const rows = Array.isArray(tracks) ? tracks : [];
+  let hasVersions = false;
+
+  rows.forEach((track) => {
+    const groupKey =
+      (track && track.groupKey) ||
+      (sv && track.title ? sv.getTrackGroupKey(track.title) : '');
+    const versions =
+      sv && groupKey ? sv.collectVersionsByGroupKey(catalog, groupKey) : [];
+    if (versions.length < 2) return;
+    hasVersions = true;
+
+    const block = document.createElement('article');
+    block.className = 'album-darkroom-track';
+
+    const head = document.createElement('h3');
+    head.className = 'album-darkroom-track-title';
+    head.textContent = track.title || 'untitled';
+    block.appendChild(head);
+
+    const picker = document.createElement('div');
+    picker.className = 'song-hub-version-picker album-darkroom-picker';
+    picker.setAttribute('role', 'tablist');
+    picker.setAttribute('aria-label', (track.title || 'track') + ' versions');
+
+    versions.forEach((song) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'song-hub-version-chip';
+      chip.dataset.playbackId = song.playbackId;
+      chip.setAttribute('role', 'tab');
+      const isReleaseCut = song.playbackId === track.playbackId;
+      chip.classList.toggle('is-active', isReleaseCut);
+      chip.setAttribute('aria-selected', isReleaseCut ? 'true' : 'false');
+
+      const label = document.createElement('span');
+      label.className = 'song-hub-version-chip-label';
+      label.textContent = sv && sv.getTrackDateLabel ? sv.getTrackDateLabel(song) || song.title : song.title;
+      chip.appendChild(label);
+
+      chip.addEventListener('click', () => {
+        picker.querySelectorAll('.song-hub-version-chip').forEach((node) => {
+          const active = node.dataset.playbackId === song.playbackId;
+          node.classList.toggle('is-active', active);
+          node.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        if (typeof onPlayVersion === 'function') onPlayVersion(song);
+      });
+
+      picker.appendChild(chip);
+    });
+
+    block.appendChild(picker);
+
+    if (sv) {
+      const songHref = sv.getSongHubHref({ title: track.title }, '');
+      const songPages = window.burnfolderSongPages || {};
+      const pageKey = sv.getTrackGroupKey(track.title);
+      if (songPages[pageKey]) {
+        const songLink = document.createElement('a');
+        songLink.className = 'album-darkroom-song-link icon-btn';
+        songLink.href = songHref;
+        songLink.textContent = 'song page';
+        block.appendChild(songLink);
+      }
+    }
+
+    tracksEl.appendChild(block);
+  });
+
+  if (journalEl) {
+    journalEl.innerHTML = '';
+    const arc = Array.isArray(published && published.journalArc) ? published.journalArc : [];
+    arc.forEach((date, index) => {
+      const label = String(date || '').trim();
+      if (!label) return;
+      if (index > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'album-darkroom-journal-sep';
+        sep.textContent = '·';
+        sep.setAttribute('aria-hidden', 'true');
+        journalEl.appendChild(sep);
+      }
+      const link = document.createElement('a');
+      link.className = 'album-darkroom-journal-link';
+      link.href = label + '.html';
+      link.textContent = label;
+      journalEl.appendChild(link);
+    });
+    journalEl.hidden = !arc.length;
+  }
+
+  if (!hasVersions && !intro && !(published && published.journalArc && published.journalArc.length)) {
+    panel.hidden = true;
+    panel.classList.add('is-empty');
+    return;
+  }
+
+  panel.hidden = false;
+  panel.classList.remove('is-empty');
+}
+
 function renderAlbumHubPage() {
   const hubRoot = document.getElementById('albumHubPage');
   if (!hubRoot) return;
@@ -1112,14 +1315,23 @@ function renderAlbumHubPage() {
   const tracks = (published.tracks || [])
     .map((ref) => {
       const hit = allSongs.find((song) => song.playbackId === ref.playbackId);
-      if (hit) return hit;
+      if (hit) {
+        return {
+          ...hit,
+          title: String(ref.title || '').trim() || hit.title
+        };
+      }
       return { title: ref.title || 'untitled', playbackId: ref.playbackId };
     })
     .filter((track) => track.playbackId);
 
   renderApi.apply(hubRoot, {
     albumPage: published,
-    meta: { title: published.title || 'Album', coverArt: published.coverArt || '' },
+    meta: {
+      title: published.title || 'Album',
+      coverArt: published.coverArt || '',
+      tagline: published.subtitle || ''
+    },
     tracks,
     songPages,
     songCatalog: catalog,
@@ -1135,7 +1347,54 @@ function renderAlbumHubPage() {
       const idx = tracks.findIndex((track) => track.playbackId === row.playbackId);
       playAlbumHubQueue(tracks, tracks[idx >= 0 ? idx : 0]);
     },
+    onRendered: (rows) => {
+      const tagline = String(published.subtitle || '').trim();
+      const subtitleEl = hubRoot.querySelector('[data-album-field="subtitle"]');
+      const metaEl = hubRoot.querySelector('[data-album-field="track-meta"]');
+
+      if (tagline && subtitleEl) {
+        subtitleEl.textContent = tagline;
+      }
+
+      if (metaEl && renderApi.compileTrackRows) {
+        const summaryRows = renderApi.compileTrackRows({
+          tracks,
+          songPages,
+          songCatalog: catalog,
+          versionsApi: sv,
+          itemLabel: (item) => item.title || 'untitled'
+        });
+        const shared = window.BurnfolderStreamShared;
+        const items = summaryRows.map((row) => ({
+          playbackId: row.playbackId,
+          duration: row.item && row.item.duration
+        }));
+        let metaText = '';
+        if (shared && shared.sumTrackDurations && shared.albumTrackCountMeta) {
+          const sum = shared.sumTrackDurations(items);
+          metaText = shared.albumTrackCountMeta(items.length, sum.complete ? sum.total : 0);
+        } else if (items.length) {
+          metaText = items.length + ' track' + (items.length === 1 ? '' : 's');
+        }
+        if (metaText) {
+          metaEl.textContent = metaText;
+          metaEl.hidden = false;
+        } else {
+          metaEl.hidden = true;
+        }
+      }
+    }
   });
+
+  renderAlbumHubLinks(hubRoot, published.links);
+  renderAlbumHubCredits(hubRoot, published.credits);
+  renderAlbumHubDarkroom(hubRoot, published, tracks, catalog, sv, (song) => {
+    playTrackBySong(song);
+  });
+
+  if (published.title) {
+    document.title = `${published.title} — burnfolder.com`;
+  }
 
   const hubPlayBtn = document.getElementById('albumHubPlay');
   if (hubPlayBtn && !hubPlayBtn.dataset.bound) {

@@ -252,12 +252,18 @@
       bindSongHubPlay(sorted);
 
       if (renderApi && currentSongPage && main) {
+        const active = player ? player.getActiveSong() : null;
+        const activeOnHub =
+          active && sorted.some(function (item) {
+            return item.playbackId === active.playbackId;
+          });
         renderApi.apply(main, {
           page: currentSongPage,
           baseTitle: baseTitle,
           library: libraryCache,
           shared: shared,
           catalogVersions: sorted,
+          activePlaybackId: activeOnHub ? active.playbackId : '',
           onVersionSelect: function (playbackId) {
             const activeSong = player.getActiveSong();
             if (activeSong && activeSong.playbackId === playbackId) return;
@@ -293,12 +299,18 @@
       const matching = versionsApi.collectVersionsByGroupKey(songCatalog, groupKey);
       const sortMode = sortEl ? sortEl.value || 'newest' : 'newest';
       const sorted = versionsApi.sortVersions(matching, sortMode);
+      const active = player ? player.getActiveSong() : null;
+      const activeOnHub =
+        active && sorted.some(function (item) {
+          return item.playbackId === active.playbackId;
+        });
       renderApi.apply(mainEl, {
         page: page,
         baseTitle: baseTitle,
         library: libraryCache,
         shared: shared,
-        catalogVersions: sorted
+        catalogVersions: sorted,
+        activePlaybackId: activeOnHub ? active.playbackId : ''
       });
       if (designBtn) {
         designBtn.href = 'song-designer.html?song=' + encodeURIComponent(groupKey);

@@ -151,6 +151,22 @@
     return out;
   }
 
+  function reconcileVersionsToCatalog(versions, catalogPlaybackIds) {
+    const allowed = new Set(
+      (catalogPlaybackIds || []).map(function (id) {
+        return String(id || '').trim();
+      }).filter(Boolean)
+    );
+    if (!allowed.size) return versions || {};
+    const out = {};
+    Object.keys(versions || {}).forEach(function (id) {
+      const key = String(id || '').trim();
+      if (!key || !allowed.has(key)) return;
+      out[key] = normalizeVersionEntry(versions[id]);
+    });
+    return out;
+  }
+
   function hasContent(page) {
     const p = normalizePage('', page);
     if (p.notes.trim()) return true;
@@ -187,13 +203,16 @@
     return ensureHydrated().then(function () {
       const store = readStore();
       const current = normalizePage(key, store.pages[key]);
+      const mergedVersions = Object.assign(
+        {},
+        current.versions || {},
+        (patch && patch.versions) || {}
+      );
       const next = normalizePage(
         key,
         Object.assign({}, current, patch || {}, {
           groupKey: key,
-          versions: pruneVersions(
-            (patch && patch.versions) || current.versions || {}
-          ),
+          versions: pruneVersions(mergedVersions),
           updatedAt: new Date().toISOString()
         })
       );
@@ -325,6 +344,7 @@
     emptyPage: emptyPage,
     normalizePage: normalizePage,
     normalizeVersionEntry: normalizeVersionEntry,
+    reconcileVersionsToCatalog: reconcileVersionsToCatalog,
     versionHasContent: versionHasContent,
     hasContent: hasContent,
     ensureHydrated: ensureHydrated,

@@ -505,12 +505,14 @@
       previewSubtitle.textContent =
         group.count + ' version' + (group.count === 1 ? '' : 's');
     }
+    if (activeVersionId) previewRoot.dataset.songVersionSelected = activeVersionId;
     renderApi.apply(previewRoot, {
       page: currentPage,
       baseTitle: group ? group.title : '',
       library: libraryCache,
       shared: shared,
       catalogVersions: catalogVersions,
+      preferredPlaybackId: activeVersionId,
       showVersionPicker: true,
       onVersionSelect: function (playbackId) {
         const target = catalogVersions.find(function (item) {
@@ -786,20 +788,33 @@
     updateLinks(group);
 
     return store.getPage(groupKey).then(function (page) {
-      currentPage = page;
       const catalogVersions = catalogVersionsForGroup(groupKey);
-      activeVersionId = pickDefaultVersionId(page, catalogVersions);
-      const migration = migrateLegacyPageLyrics(page, catalogVersions, activeVersionId);
+      const catalogIds = catalogVersions.map(function (song) {
+        return song.playbackId;
+      });
+      const reconciled = store.reconcileVersionsToCatalog(page.versions || {}, catalogIds);
+      const versionsChanged =
+        Object.keys(reconciled).sort().join('\0') !==
+        Object.keys(page.versions || {}).sort().join('\0');
+      let workingPage = versionsChanged
+        ? Object.assign({}, page, { versions: reconciled })
+        : page;
+      if (versionsChanged) {
+        store.savePage(groupKey, { versions: reconciled }).catch(function () {});
+      }
+      currentPage = workingPage;
+      activeVersionId = pickDefaultVersionId(currentPage, catalogVersions);
+      const migration = migrateLegacyPageLyrics(currentPage, catalogVersions, activeVersionId);
       if (migration) {
-        currentPage = Object.assign({}, page, migration);
+        currentPage = Object.assign({}, currentPage, migration);
         if (migration.versions) currentPage.versions = migration.versions;
         store.savePage(groupKey, migration).catch(function () {});
       }
       if (notesEl) notesEl.value = currentPage.notes || '';
       renderDesignerVersionPicker();
       fillVersionEditorFields(activeVersionId);
-      fillVideoSelect(heroVideoEl, page.heroVideoPlaybackId || '');
-      paintCoverPreview(page);
+      fillVideoSelect(heroVideoEl, currentPage.heroVideoPlaybackId || '');
+      paintCoverPreview(currentPage);
       renderMediaEditor();
       paintPreview();
       mountShareHub();

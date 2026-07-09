@@ -25,7 +25,11 @@
       <div class="song-hub-header-text">
         <h2 class="song-hub-title" data-album-field="title">Album</h2>
         <p class="song-hub-subtitle" data-album-field="subtitle">—</p>
+        <p class="song-hub-meta" data-album-field="track-meta" hidden></p>
       </div>
+      <button type="button" class="song-hub-play" id="albumHubPlay" hidden aria-label="Play album">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><polygon points="8,5 20,12 8,19" fill="currentColor"/></svg>
+      </button>
     </div>
 
     <div data-album-panel="cover" class="song-hub-cover-wrap" hidden>
@@ -34,6 +38,10 @@
 
     <div data-album-panel="video" class="song-hub-panel" hidden>
       <div data-album-field="video-hero" class="song-hub-video-hero"></div>
+    </div>
+
+    <div data-album-panel="links" class="song-hub-panel" hidden>
+      <nav class="album-hub-links" data-album-field="links" aria-label="Album links"></nav>
     </div>
 
     <div class="song-hub-panel">
@@ -64,11 +72,27 @@
       <div data-album-field="compiled-notes"></div>
     </div>
 
+    <div data-album-panel="credits" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">Credits</p>
+      </div>
+      <div class="song-hub-notes" data-album-field="credits"></div>
+    </div>
+
     <div data-album-panel="visuals" class="song-hub-panel" hidden>
       <div class="song-hub-panel-top">
         <p class="song-hub-label">Visuals</p>
       </div>
       <div class="song-hub-content-grid" data-album-field="visuals-grid"></div>
+    </div>
+
+    <div data-album-panel="darkroom" class="song-hub-panel" hidden>
+      <div class="song-hub-panel-top">
+        <p class="song-hub-label">the darkroom</p>
+      </div>
+      <div class="song-hub-notes album-darkroom-intro" data-album-field="darkroom-intro"></div>
+      <div data-album-field="darkroom-tracks"></div>
+      <nav class="album-darkroom-journal" data-album-field="darkroom-journal" aria-label="Journal arc"></nav>
     </div>
   </div>
 
@@ -91,9 +115,10 @@
     </div>
   </div>
 
-  <script src="songs.js?v=20260708l"></script>
+  <script src="entries.js?v=20260709a"></script>
+  <script src="songs.js?v=20260709a"></script>
   <script src="song-pages.js?v=20260708l"></script>
-  <script src="album-pages.js?v=20260708l"></script>
+  <script src="album-pages.js?v=20260709a"></script>
   <script src="shared/song-versions.js?v=20260708l"></script>
   <script src="shared/song-page-render.js?v=20260708l"></script>
   <script src="shared/album-page-render.js?v=20260708f"></script>
