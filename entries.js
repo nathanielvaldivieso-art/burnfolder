@@ -4,6 +4,36 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "7.8.26": {
+    "date": "7.8.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "im feeling very organized right now. like a rhombus. i have a marketing plan. i have many plans. i was there during the spaceship mission, all of them actually.. ever have a baconeggandcheeseburger? i invented it",
+        "textSize": "md"
+      },
+      {
+        "type": "audio",
+        "title": "SOMETIMES 7.8.26",
+        "playbackId": "4MY1eOPKNpR3492qFO4ihLM4rzhwsOZ4lThYRHZpz02U"
+      },
+      {
+        "type": "audio",
+        "title": "PHOTO NEGATIVE 7.8.26",
+        "playbackId": "cLHw2U5QnTrJhn14E6ISMNF4eT602f02svbYCJPZZ02S3I"
+      },
+      {
+        "type": "audio",
+        "title": "IT DOESNT MATTER 7.5.26",
+        "playbackId": "hCls02k6rr2jI02Wy5Q7fcwK00RBT9QCkonzp00ipUMmDaY"
+      },
+      {
+        "type": "text",
+        "text": "i dont fold my clothes i just throw them in the drawer cause of my get money additude. i exclusively use large square ice cubes. i dont avoid eye contact i resent it because they dont deserve it. im also really nice. ask anyone. ask anyone at the international brotherhood of magicians. they all know me.",
+        "textSize": "md"
+      }
+    ]
+  },
   "7.1.26": {
     "date": "7.1.26",
     "blocks": [
@@ -139,7 +169,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
