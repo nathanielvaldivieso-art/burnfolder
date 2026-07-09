@@ -1,7 +1,7 @@
 # PHOTONEGATIVE — Release Plan
 
 **Status:** Active north-star plan (July 2026)  
-**How to use:** work **The feed** top to bottom. Stop at gates. Check off as you go. Tell Copilot *"implement feed step N"* when you're ready to build.  
+**How to use:** work **The feed** top to bottom. Stop at gates. Check off as you go. Tell Copilot *"implement feed step N"* when you're ready to build. Steps 63–68 require step 62 Tier 3 decision.  
 **Supersedes for near-term:** `STUDIO-MASTER-PLAN.md` until step 62 completes.
 
 ---
@@ -121,6 +121,17 @@ Work in order. Each step is one advance. Build steps reference existing infra un
 - [ ] **61** `[measure]` Record metrics snapshot: Spotify saves, monthly listeners, newsletter subs/opens, direct sales, site traffic, share-link plays.
 - [ ] **62** `[review]` Decide: extend push OR resume `STUDIO-MASTER-PLAN.md` (Tier 3 analytics first). Threshold: one playlist/press win OR meaningful saves/sales signal.
 
+### Post-feed — autonomous marketing pipeline (after step 62)
+
+Spec: **`PHOTONEGATIVE-MARKETING-PIPELINE.md`**. Only start when step 62 chooses Tier 3 resume. Tasks only — never journal or caption copy.
+
+- [ ] **63** `[data]` Stand up relational store (SQLite local or Postgres/Supabase) — three layers: catalog/performance, fan traffic, creative asset inventory.
+- [ ] **64** `[data]` Wire Layer A ingest — LabelGrid API or simulated DDEX endpoints (ISRC, UPC, daily streams/saves by DSP, geo, UGC counts).
+- [ ] **65** `[data]` Wire Layer B ingest — Cloudflare Web Analytics + album hub / smart-link click logs (visits, CTR to DSPs, time on page).
+- [ ] **66** `[data]` Seed Layer C — creative asset inventory JSON/DB from steps 15–20 assets (Asset_ID, track, type, status, description).
+- [ ] **67** `[agent]` Python task agent — daily snapshot → LLM with system prompt from spec §4 → exactly 3 micro-tasks.
+- [ ] **68** `[alert]` Daily alert channel — webhook, Slack, Telegram, or logfile; operator reads tasks, executes manually.
+
 ---
 
 ## Release cut table
@@ -186,7 +197,7 @@ Top to bottom on `album.html?album=photonegative`:
 
 ## Deferred until step 62
 
-Tier 4 SaaS · marketing planner UI · LabelGrid API · multi-tenant galleries · IG analytics integration · song pages for all 4 tracks · physical merch unless ready · living album on `music.html`
+Tier 4 SaaS · **autonomous marketing pipeline** (`PHOTONEGATIVE-MARKETING-PIPELINE.md`, feed steps 63–68) · marketing planner UI · LabelGrid API · multi-tenant galleries · IG analytics integration · song pages for all 4 tracks · physical merch unless ready · living album on `music.html`
 
 ---
 
@@ -212,6 +223,7 @@ Tier 4 SaaS · marketing planner UI · LabelGrid API · multi-tenant galleries �
 | `album.html` | Album hub shell |
 | `studio/album-designer.html` | Compose + push album hub |
 | `STUDIO-MASTER-PLAN.md` | Platform vision (paused until step 62) |
+| `PHOTONEGATIVE-MARKETING-PIPELINE.md` | Autonomous marketing data pipeline + daily task agent spec (post step 62) |
 | `COPILOT.md` | Gallery voice + build priorities |
 
 ---
