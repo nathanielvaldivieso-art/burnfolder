@@ -906,9 +906,17 @@ function getEntryPageHref(song) {
 function playTrackBySong(song) {
   if (!song || !song.playbackId) return;
 
-  const idx = window.currentSongs.findIndex((item) => item.playbackId === song.playbackId);
+  const queue = Array.isArray(window.currentSongs) ? window.currentSongs : [];
+  let idx = queue.findIndex((item) => item.playbackId === song.playbackId);
+  if (idx === -1) {
+    const key = getTrackGroupKey(song.title);
+    if (key) {
+      idx = queue.findIndex((item) => getTrackGroupKey(item.title) === key);
+    }
+  }
   if (idx !== -1) {
-    playTrack(idx);
+    // Play the tapped version but keep the full page queue for album advance.
+    startPlayback(song, queue, idx);
     return;
   }
 

@@ -257,11 +257,21 @@
         return true;
       }
 
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
+      const atEnd =
+        Number.isFinite(duration) &&
+        duration > 0 &&
+        Number.isFinite(current) &&
+        current >= duration - 0.08;
+      if (atEnd) {
+        advanceQueueAfterEnd(player);
+        return true;
+      }
+
       const hidden = typeof document !== 'undefined' && document.hidden;
       if (player.paused && !hidden) return false;
 
-      const duration = Number(player.duration);
-      const current = Number(player.currentTime);
       if (!Number.isFinite(duration) || duration <= 0) return false;
       if (!Number.isFinite(current) || current < 0) return false;
       const remaining = duration - current;
@@ -291,9 +301,14 @@
       endedPlayer = player;
       endedBound = true;
       positionBound = false;
-      player.addEventListener('ended', function () {
+      function onEnded() {
         advanceQueueAfterEnd(player);
-      });
+      }
+      player.addEventListener('ended', onEnded);
+      const nativeMedia = player.media;
+      if (nativeMedia && nativeMedia !== player && typeof nativeMedia.addEventListener === 'function') {
+        nativeMedia.addEventListener('ended', onEnded);
+      }
       player.addEventListener('timeupdate', function () {
         maybeAdvanceQueue(player);
       });
