@@ -103,8 +103,8 @@
 
     function togglePlayFromBar() {
       if (typeof opts.onTogglePlay !== 'function') return;
-      renderPlayButton(!playingFromPlayer());
       opts.onTogglePlay();
+      renderPlayButton(playingFromPlayer());
       // Keep focus off the bar on coarse pointers (no-jump + no sticky invert).
       if (playBtn && playBtn.blur) playBtn.blur();
     }

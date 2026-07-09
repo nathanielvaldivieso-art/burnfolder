@@ -46,6 +46,7 @@ function focusPlayControl() {
 // Single shared now-playing bar instance (shared/now-playing-bar.js). Owns play button,
 // title menu/version picker, progress + drag/hover seek, spinner. See COPILOT.md.
 let nowPlayingBar = null;
+let siteMuxPlayback = null;
 let stripeClient = null;
 let checkoutElements = null;
 let checkoutCard = null;
@@ -217,7 +218,8 @@ function createTipUI() {
 
   wrap.appendChild(tipBtn);
   wrap.appendChild(menu);
-  controls.insertBefore(wrap, progressBarArea);
+  // progress-bar-area is a sibling of .bottom-bar-controls (not nested) since 20260708a.
+  controls.appendChild(wrap);
 
   document.addEventListener('click', (e) => {
     if (!wrap.contains(e.target)) {
@@ -529,7 +531,7 @@ function playReleaseQueue(tracks, startIndex = 0) {
   activeQueueIdx = startIndex;
   activeSongOverride = queue[startIndex];
   activeIdx = startIndex;
-  playQueuedTrack(startIndex);
+  startPlayback(queue[startIndex], activeQueue, startIndex);
   syncTracklistPlayback();
 }
 
@@ -1885,7 +1887,6 @@ function preservePlaybackAcrossNavigation() {
 
 window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 
-createTipUI();
 mountNowPlayingBar();
 renderSongHubPage();
 renderAlbumHubPage();
@@ -2063,8 +2064,6 @@ function syncPlaybackChromeState() {
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
 
-let siteMuxPlayback = null;
-
 function getSiteMuxPlayback() {
   if (!siteMuxPlayback && activeMuxPlayer && window.BurnfolderMuxPlayback) {
     siteMuxPlayback = window.BurnfolderMuxPlayback.create({
@@ -2182,13 +2181,13 @@ function playTrackQueue(queueSongs, queueStartIdx) {
 window.playTrackQueue = playTrackQueue;
 
 function playQueuedTrack(queueIdx) {
+  const song = activeQueue && activeQueue[queueIdx];
+  if (!song) return;
   const engine = getSiteMuxPlayback();
   if (engine) {
-    engine.playQueuedTrack(queueIdx);
+    engine.startPlayback(song, activeQueue, queueIdx, { immediatePlay: true });
     return;
   }
-  const song = activeQueue[queueIdx];
-  if (!song) return;
   startPlayback(song, activeQueue, queueIdx);
 }
 
@@ -2261,4 +2260,10 @@ function applyVolumeToPlayer() {
 
 function initializeVolumeControl() {
   applyVolumeToPlayer();
+}
+
+try {
+  createTipUI();
+} catch (err) {
+  console.warn('Tip UI setup failed:', err);
 }
