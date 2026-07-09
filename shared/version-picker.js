@@ -1,5 +1,5 @@
 /**
- * Now-playing title menu: go to song / go to entry / version list.
+ * Now-playing title menu: go to song / go to album / go to entry / version list.
  * Matches burnfolder.com bottom bar UX (scripts.js createVersionPickerUI).
  */
 (function (root, factory) {
@@ -82,6 +82,16 @@
         goSong.textContent = 'go to song';
         goSong.addEventListener('click', close);
         actionsEl.appendChild(goSong);
+      }
+
+      const albumHref = opts.getAlbumHref ? opts.getAlbumHref(active) : '';
+      if (albumHref) {
+        const goAlbum = document.createElement('a');
+        goAlbum.className = 'icon-btn version-picker-go-link';
+        goAlbum.href = albumHref;
+        goAlbum.textContent = 'go to album';
+        goAlbum.addEventListener('click', close);
+        actionsEl.appendChild(goAlbum);
       }
 
       const entryHref = opts.getEntryHref ? opts.getEntryHref(active) : '';

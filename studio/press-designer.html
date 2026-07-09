@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="../shared/studio-pwa-viewport.js?v=20260709b"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>press — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css?v=20260709b">
+  <link rel="stylesheet" href="css/studio.css?v=20260709b">
+</head>
+<body class="studio-page studio-song-designer-page studio-press-designer-page">
+  <header class="site-header studio-header">
+    <a href="/studio/index.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="/studio/dashboard.html" class="studio-main-nav-link" data-nav="dashboard">dashboard</a>
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link page-nav" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-song-designer-layout">
+    <div class="studio-song-designer-toolbar">
+      <p class="page-id">press / EPK</p>
+      <div class="studio-song-designer-toolbar-actions">
+        <a class="icon-btn" id="pressDesignerPreviewBtn" href="../press.html" target="_blank" rel="noopener">site preview</a>
+        <button type="button" class="icon-btn studio-song-push-btn" id="pressDesignerPushBtn">push to site</button>
+      </div>
+    </div>
+
+    <p class="studio-song-designer-meta" id="pressDesignerMeta">electronic press kit for burnfolder.com/press.html</p>
+
+    <div class="studio-song-designer-split">
+      <section class="studio-song-designer-editor" aria-label="Press page editor">
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">artist</h2>
+          <p class="studio-song-designer-hint">3–5 lines, lowercase. archive-box voice — no hype.</p>
+          <textarea id="pressDesignerArtist" class="studio-song-designer-textarea" rows="5" spellcheck="false"></textarea>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">release</h2>
+          <label class="studio-song-designer-label" for="pressDesignerReleaseLine">release line</label>
+          <input id="pressDesignerReleaseLine" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off">
+          <label class="studio-song-designer-label" for="pressDesignerPullQuote">pull quote</label>
+          <input id="pressDesignerPullQuote" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off">
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">story</h2>
+          <p class="studio-song-designer-hint">photonegative → burnfolder hook. for press only — not journal voice.</p>
+          <textarea id="pressDesignerStory" class="studio-song-designer-textarea studio-song-designer-textarea--tall" rows="7" spellcheck="false"></textarea>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <div class="studio-song-designer-section-head">
+            <h2 class="studio-song-designer-section-title">links</h2>
+            <button type="button" class="icon-btn" id="pressDesignerAddLinkBtn">+ link</button>
+          </div>
+          <p class="studio-song-designer-hint">spotify / apple can stay pending until gate 38. leave href empty and check pending.</p>
+          <ul id="pressDesignerLinksList" class="studio-press-row-list"></ul>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <div class="studio-song-designer-section-head">
+            <h2 class="studio-song-designer-section-title">assets</h2>
+            <button type="button" class="icon-btn" id="pressDesignerAddAssetBtn">+ asset</button>
+          </div>
+          <p class="studio-song-designer-hint">downloadable files for press. check download for cover art links.</p>
+          <ul id="pressDesignerAssetsList" class="studio-press-row-list"></ul>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">credits</h2>
+          <textarea id="pressDesignerCredits" class="studio-song-designer-textarea" rows="4" spellcheck="false"></textarea>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">contact</h2>
+          <label class="studio-song-designer-label" for="pressDesignerContactEmail">email</label>
+          <input id="pressDesignerContactEmail" class="studio-song-designer-input" type="email" spellcheck="false" autocomplete="off">
+        </section>
+      </section>
+
+      <aside class="studio-song-designer-preview-wrap" aria-label="Live preview">
+        <h2 class="studio-song-designer-section-title">live preview</h2>
+        <div class="studio-song-designer-preview page-press" id="pressDesignerPreviewRoot">
+          <p class="page-id">press</p>
+          <div data-press-field="body"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <p class="studio-song-designer-status" id="pressDesignerStatus" aria-live="polite"></p>
+
+  <script src="js/studio-version.js?v=20260709b"></script>
+  <script src="js/studio-status.js?v=20260709b"></script>
+  <script src="js/studio-auth.js?v=20260709b"></script>
+  <script src="js/cloud-state.js?v=20260709b"></script>
+  <script src="../press-page.js?v=20260709b"></script>
+  <script src="../shared/press-page-render.js?v=20260709b"></script>
+  <script src="js/press-page-store.js?v=20260709b"></script>
+  <script src="js/press-designer-page.js?v=20260709b"></script>
+</body>
+</html>

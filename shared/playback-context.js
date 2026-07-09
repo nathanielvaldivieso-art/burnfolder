@@ -122,6 +122,80 @@
     return page + '.html';
   }
 
+  function albumIdFromTitle(title) {
+    return String(title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
+  }
+
+  function resolveAlbumIdForSong(song) {
+    if (!song) return '';
+
+    const playbackId = String(song.playbackId || '').trim();
+    const pages = globalRef.burnfolderAlbumPages || {};
+    const pageIds = Object.keys(pages);
+
+    if (playbackId) {
+      for (let i = 0; i < pageIds.length; i += 1) {
+        const id = pageIds[i];
+        const page = pages[id];
+        const tracks = Array.isArray(page && page.tracks) ? page.tracks : [];
+        if (
+          tracks.some(function (track) {
+            return track && track.playbackId === playbackId;
+          })
+        ) {
+          return id;
+        }
+      }
+    }
+
+    const albumTitle = song.album ? String(song.album).trim() : '';
+    if (albumTitle) {
+      for (let i = 0; i < pageIds.length; i += 1) {
+        const id = pageIds[i];
+        const page = pages[id];
+        if (page && String(page.title || '').trim() === albumTitle) return id;
+      }
+      const slug = albumIdFromTitle(albumTitle);
+      if (slug && pages[slug]) return slug;
+    }
+
+    const shared = globalRef.BurnfolderStreamShared;
+    if (shared && shared.findGroupForTrack && playbackId) {
+      const group = shared.findGroupForTrack(playbackId);
+      if (group && group.id) return group.id;
+    }
+
+    const featured = globalRef.musicFeaturedRelease || {};
+    const featuredTitle = featured.albumTitle ? String(featured.albumTitle).trim() : '';
+    if (featuredTitle && (albumTitle === featuredTitle || playbackId)) {
+      for (let i = 0; i < pageIds.length; i += 1) {
+        const id = pageIds[i];
+        const page = pages[id];
+        if (page && String(page.title || '').trim() === featuredTitle) return id;
+      }
+      const featuredSlug = albumIdFromTitle(featuredTitle);
+      if (featuredSlug && pages[featuredSlug]) return featuredSlug;
+      if (albumTitle === featuredTitle && featuredSlug) return featuredSlug;
+    }
+
+    return '';
+  }
+
+  function albumHubHref(song) {
+    const albumId = resolveAlbumIdForSong(song);
+    if (!albumId) return '';
+
+    if (isStudio()) {
+      const shared = globalRef.BurnfolderStreamShared;
+      if (shared && shared.albumDesignerUrl) return shared.albumDesignerUrl(albumId);
+      return 'album-designer.html?album=' + encodeURIComponent(albumId);
+    }
+
+    return 'album.html?album=' + encodeURIComponent(albumId);
+  }
+
   function versionsForActive(activeSong, extraSongs) {
     if (!activeSong || !activeSong.playbackId) return [];
     const sv = globalRef.BurnfolderSongVersions;
@@ -159,6 +233,8 @@
     versionsForActive: versionsForActive,
     songHubHref: songHubHref,
     entryHref: entryHref,
+    resolveAlbumIdForSong: resolveAlbumIdForSong,
+    albumHubHref: albumHubHref,
     displayTitleForPlayback: displayTitleForPlayback,
     labelForLibraryItem: labelForLibraryItem
   };

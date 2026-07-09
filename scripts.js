@@ -602,12 +602,14 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
           : songVersionsApi()
             ? songVersionsApi().normalizeTrackTitle(song.title)
             : song.title;
-    row.dataset.playbackId = current.playbackId;
+    const playbackId = current && current.playbackId ? current.playbackId : '';
+    row.dataset.playbackId = playbackId;
     row.setAttribute('aria-label', 'Play ' + label);
     name.textContent = label;
-    if (!dur.dataset.loaded) {
-      preloadTrackDuration(dur, current.playbackId);
-      dur.dataset.loaded = '1';
+    if (dur.dataset.playbackId !== playbackId) {
+      dur.dataset.playbackId = playbackId;
+      dur.textContent = '--:--';
+      preloadTrackDuration(dur, playbackId, current && current.duration);
     }
   }
 
@@ -689,18 +691,41 @@ function fillTracklistContainer(container, entries, options) {
 
   const pf = window.BurnfolderPlaybackPrefetch;
   if (pf && entries && entries.length) {
-    pf.prefetchList(
-      entries.map(function (entry) {
-        return entry && entry.song && entry.song.playbackId;
-      }),
-      6
-    );
+    const ids = [];
+    list.querySelectorAll('.music-track-row').forEach(function (row) {
+      const id = row.dataset.playbackId;
+      if (id) ids.push(id);
+    });
+    pf.prefetchList(ids.length ? ids : entries.map(function (entry) {
+      return entry && entry.song && entry.song.playbackId;
+    }), 8);
   }
 }
 
 window.buildTracklistItem = buildTracklistItem;
 window.playTrackBySong = playTrackBySong;
 window.fillTracklistContainer = fillTracklistContainer;
+
+function syncTracklistDurationsFromEvent(event) {
+  const detail = event && event.detail;
+  const playbackId = detail && detail.playbackId;
+  const duration = detail && detail.duration;
+  if (!playbackId || !Number.isFinite(duration) || duration <= 0) return;
+  const pf = window.BurnfolderPlaybackPrefetch;
+  if (!pf) return;
+  document.querySelectorAll('.music-track-row').forEach((row) => {
+    if (row.dataset.playbackId !== playbackId) return;
+    const dur = row.querySelector('.music-track-duration');
+    if (!dur) return;
+    dur.dataset.playbackId = playbackId;
+    dur.textContent = pf.formatDuration(duration);
+  });
+}
+
+if (!window.__burnfolderTracklistDurationSync) {
+  window.__burnfolderTracklistDurationSync = true;
+  window.addEventListener('burnfolder-duration-ready', syncTracklistDurationsFromEvent);
+}
 
 function syncTracklistPlayback() {
   const activeSong = getActiveSong();
@@ -873,21 +898,10 @@ function renderMusicPage() {
       song,
       displayTitle: getTracklistDisplayTitle(song, { inAlbum: true }),
       onPlay: (toPlay) => playTrackBySong(toPlay || song),
-    }))
+    })),
+    { freezePlayback: true }
   );
   article.appendChild(tracklistHost.firstChild);
-
-  const entryLink = document.createElement('a');
-  entryLink.className = 'music-release-journal';
-  entryLink.href = `${release.entryDate}.html`;
-  entryLink.textContent = release.entryDate;
-  article.appendChild(entryLink);
-
-  const albumLink = document.createElement('a');
-  albumLink.className = 'music-release-journal music-release-album';
-  albumLink.href = 'album.html?album=photonegative';
-  albumLink.textContent = 'album hub';
-  article.appendChild(albumLink);
 
   root.appendChild(article);
   syncTracklistPlayback();
@@ -1421,6 +1435,19 @@ function renderAlbumHubPage() {
 }
 
 window.renderAlbumHubPage = renderAlbumHubPage;
+
+function renderPressPage() {
+  const root = document.getElementById('pressPage');
+  if (!root) return;
+
+  const renderApi = window.BurnfolderPressPageRender;
+  const page = window.burnfolderPressPage;
+  if (!renderApi || !page) return;
+
+  renderApi.apply(root, { page });
+}
+
+window.renderPressPage = renderPressPage;
 
 function createCheckoutPopup() {
   if (document.getElementById('purchaseOverlay')) return;
@@ -2161,6 +2188,7 @@ window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 mountNowPlayingBar();
 renderSongHubPage();
 renderAlbumHubPage();
+renderPressPage();
 
 // Store reference to active player globally
 if (!window.globalMuxPlayer) {

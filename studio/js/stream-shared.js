@@ -633,6 +633,12 @@
     return 'stream-album.html?album=' + encodeURIComponent(id);
   }
 
+  function albumDesignerUrl(albumId) {
+    const id = String(albumId || '').trim();
+    if (!id) return 'album-designer.html';
+    return 'album-designer.html?album=' + encodeURIComponent(id);
+  }
+
   function buildStreamSongCatalog(libraryCache) {
     const sv = window.BurnfolderSongVersions;
     if (!sv) return Array.isArray(window.allSongs) ? window.allSongs.slice() : [];
@@ -770,6 +776,7 @@
     thumbnailUrl: thumbnailUrl,
     songPageUrl: songPageUrl,
     albumPageUrl: albumPageUrl,
+    albumDesignerUrl: albumDesignerUrl,
     buildStreamSongCatalog: buildStreamSongCatalog,
     entryPageHref: entryPageHref,
     stackPageUrl: stackPageUrl,

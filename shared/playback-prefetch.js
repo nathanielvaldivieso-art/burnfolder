@@ -6,7 +6,7 @@
   'use strict';
 
   const POOL_SIZE = 2;
-  const DURATION_KEY = 'burnfolderMuxDurations';
+  const DURATION_KEY = 'burnfolderMuxDurationsV2';
   const PRECONNECT_ORIGINS = [
     'https://cdn.jsdelivr.net',
     'https://stream.mux.com',
@@ -148,6 +148,12 @@
       'loadedmetadata',
       function () {
         scheduled.delete(id);
+        if (slot.playbackId !== id) {
+          root.setTimeout(function () {
+            prefetch(id, options);
+          }, 0);
+          return;
+        }
         const d = slot.el.duration;
         if (d && Number.isFinite(d)) writeDurationCache(id, d);
         if (options.durEl) options.durEl.textContent = formatDuration(d);
