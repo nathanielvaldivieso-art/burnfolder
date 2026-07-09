@@ -1,18 +1,16 @@
 name: Trigger Netlify production deploy
 
 # burnfolder.com is served by Netlify (burnfolder.netlify.app).
-# GitHub "pages-build-deployment" does NOT update that site — if Netlify's
-# GitHub autodeploy is disconnected, pushes go to Pages only and production
-# stays stale. This workflow fires a Netlify Build Hook as a backup.
+# Primary path: Netlify's GitHub integration deploys on push to main.
+# This workflow is an optional backup — it POSTs a Netlify Build Hook when
+# NETLIFY_BUILD_HOOK is configured. If the secret is missing, we skip (do not fail).
 #
-# One-time setup:
+# Optional one-time setup for the backup hook:
 # 1. Netlify → Site configuration → Build & deploy → Build hooks → Add hook
 #    (branch: main). Copy the URL.
 # 2. GitHub → Settings → Secrets → Actions → New repository secret
 #    Name: NETLIFY_BUILD_HOOK
 #    Value: the build hook URL
-# 3. Prefer also reconnecting the Netlify site to this GitHub repo so
-#    auto-deploys work again without the hook.
 
 on:
   push:
@@ -23,23 +21,32 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Netlify build hook
+      - name: Ping Netlify build hook (optional backup)
         env:
           NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
         run: |
           set -euo pipefail
           if [ -z "${NETLIFY_BUILD_HOOK:-}" ]; then
-            echo "::error::Secret NETLIFY_BUILD_HOOK is not set."
-            echo "Create a Build Hook in Netlify (Site → Build hooks) for branch main,"
-            echo "then add it as a GitHub Actions secret named NETLIFY_BUILD_HOOK."
-            echo "Until then, production (burnfolder.com) will not update from pushes."
-            exit 1
+            echo "::notice::NETLIFY_BUILD_HOOK is not set — skipping backup hook."
+            echo "Netlify GitHub autodeploy should still deploy main pushes."
+            echo "To enable this backup: Netlify → Build hooks → add hook for main,"
+            echo "then GitHub → Settings → Secrets → NETLIFY_BUILD_HOOK."
+            exit 0
           fi
           code=$(curl -sS -o /tmp/nf-hook.out -w "%{http_code}" -X POST "$NETLIFY_BUILD_HOOK")
           echo "Build hook HTTP $code"
           cat /tmp/nf-hook.out || true
           echo
           case "$code" in
-            200|201|202) echo "Netlify deploy triggered." ;;
+            200|201|202) echo "Netlify backup deploy triggered." ;;
             *) echo "::error::Build hook failed with HTTP $code"; exit 1 ;;
           esac
+
+      - name: Verify production is reachable
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://burnfolder.com/")
+          echo "burnfolder.com HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Production returned HTTP $code — check Netlify deploy status."
+          fi
