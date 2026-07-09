@@ -522,6 +522,36 @@ function getFeaturedMusicRelease() {
   return null;
 }
 
+function resolveAlbumPageHref(releaseOrTitle, tracks) {
+  const ctx = window.BurnfolderPlaybackContext;
+  const pages = window.burnfolderAlbumPages || {};
+  const title =
+    typeof releaseOrTitle === 'string'
+      ? releaseOrTitle
+      : String((releaseOrTitle && releaseOrTitle.title) || '').trim();
+  const trackList =
+    tracks || (releaseOrTitle && releaseOrTitle.tracks) || [];
+
+  if (title) {
+    for (const id of Object.keys(pages)) {
+      const page = pages[id];
+      if (page && String(page.title || '').trim() === title) {
+        return `album.html?album=${encodeURIComponent(id)}`;
+      }
+    }
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (slug && pages[slug]) {
+      return `album.html?album=${encodeURIComponent(slug)}`;
+    }
+  }
+
+  const first = trackList[0];
+  if (ctx && first && ctx.albumHubHref) {
+    return ctx.albumHubHref(first) || '';
+  }
+  return '';
+}
+
 function playReleaseQueue(tracks, startIndex = 0) {
   const queue = (tracks || []).filter((track) => track && track.playbackId);
   if (!queue.length) return;
@@ -848,7 +878,17 @@ function renderMusicPage() {
     cover.className = 'music-release-cover';
     cover.src = release.coverArt;
     cover.alt = release.coverAlt;
-    hero.appendChild(cover);
+    const albumHref = resolveAlbumPageHref(release);
+    if (albumHref) {
+      const link = document.createElement('a');
+      link.className = 'music-release-cover-link';
+      link.href = albumHref;
+      link.setAttribute('aria-label', `Open ${release.title || 'album'} hub`);
+      link.appendChild(cover);
+      hero.appendChild(link);
+    } else {
+      hero.appendChild(cover);
+    }
   }
 
   const meta = document.createElement('div');
@@ -923,6 +963,7 @@ function renderMusicPage() {
 }
 
 window.renderMusicPage = renderMusicPage;
+window.resolveAlbumPageHref = resolveAlbumPageHref;
 
 /** Journal entry page for this recording (`M.DD.YY.html`), if applicable. */
 function getEntryPageHref(song) {
@@ -1353,6 +1394,11 @@ function renderAlbumHubPage() {
   if (tracks.length) {
     window.currentSongs = tracks.slice();
   }
+
+  window.__albumHubPlayTrack = function (row) {
+    const idx = tracks.findIndex((track) => track.playbackId === row.playbackId);
+    playAlbumHubQueue(tracks, tracks[idx >= 0 ? idx : 0]);
+  };
 
   renderApi.apply(hubRoot, {
     albumPage: published,

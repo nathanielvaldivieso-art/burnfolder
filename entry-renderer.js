@@ -87,6 +87,23 @@
     parent.appendChild(slot);
   }
 
+  function albumHubHrefForTitle(title) {
+    const pages = window.burnfolderAlbumPages || {};
+    const albumTitle = String(title || '').trim();
+    if (!albumTitle) return '';
+    for (const id of Object.keys(pages)) {
+      const page = pages[id];
+      if (page && String(page.title || '').trim() === albumTitle) {
+        return 'album.html?album=' + encodeURIComponent(id);
+      }
+    }
+    const slug = albumTitle.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (slug && pages[slug]) {
+      return 'album.html?album=' + encodeURIComponent(slug);
+    }
+    return '';
+  }
+
   function renderBlock(block, entry, wrap) {
     if (block.type === 'spacing') {
       const spacer = document.createElement('div');
@@ -125,7 +142,17 @@
         cover.src = block.coverArt;
         cover.alt = block.coverAlt || block.title || 'album cover';
         cover.className = 'entry-album-cover';
-        album.appendChild(cover);
+        const albumHref = albumHubHrefForTitle(block.title || '');
+        if (albumHref) {
+          const link = document.createElement('a');
+          link.className = 'entry-album-cover-link';
+          link.href = albumHref;
+          link.setAttribute('aria-label', `Open ${block.title || 'album'} hub`);
+          link.appendChild(cover);
+          album.appendChild(link);
+        } else {
+          album.appendChild(cover);
+        }
       }
 
       if (block.title) {

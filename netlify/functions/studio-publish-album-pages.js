@@ -24,6 +24,36 @@ function buildAlbumPagesJs(pages) {
   );
 }
 
+function parseExistingAlbumPagesJs(text) {
+  if (!text) return {};
+  const match = text.match(/window\.burnfolderAlbumPages\s*=\s*(\{[\s\S]*\});?\s*$/);
+  if (!match) return {};
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return {};
+  }
+}
+
+function mergeAlbumPages(existing, incoming) {
+  const out = Object.assign({}, existing || {});
+  Object.keys(incoming || {}).forEach(function (key) {
+    const prev = existing && existing[key] ? existing[key] : {};
+    const next = incoming[key];
+    out[key] = Object.assign({}, prev, next, {
+      notes: typeof next.notes === 'string' ? next.notes : '',
+      heroVideoPlaybackId: String(next.heroVideoPlaybackId || '').trim(),
+      media: Array.isArray(next.media) ? next.media : [],
+      title: String(next.title || prev.title || '').trim(),
+      coverArt: String(next.coverArt || prev.coverArt || '').trim(),
+      tracks:
+        Array.isArray(next.tracks) && next.tracks.length ? next.tracks : prev.tracks || [],
+      updatedAt: next.updatedAt || new Date().toISOString()
+    });
+  });
+  return out;
+}
+
 function normalizePages(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const out = {};
@@ -107,7 +137,12 @@ exports.handler = async function (event) {
       };
     }
 
-    const content = buildAlbumPagesJs(pages);
+    const octokit = github.createOctokit();
+    const cfg = github.getRepoConfig();
+    const existingFile = await github.getFileText(octokit, cfg, 'album-pages.js');
+    const existing = parseExistingAlbumPagesJs(existingFile && existingFile.content);
+    const merged = mergeAlbumPages(existing, pages);
+    const content = buildAlbumPagesJs(merged);
     const commit = await github.commitFiles('Publish album pages from studio', [
       { path: 'album-pages.js', content: content }
     ]);

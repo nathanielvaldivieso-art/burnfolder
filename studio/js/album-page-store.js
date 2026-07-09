@@ -89,13 +89,36 @@
     };
   }
 
-  function hasContent(page) {
+  function hasStudioContent(page) {
     const p = normalizePage('', page);
     if (p.notes.trim()) return true;
     if (p.heroVideoPlaybackId) return true;
     return p.media.some(function (item) {
       return !!(item.title || item.playbackId || item.href || item.text || item.imageData);
     });
+  }
+
+  function hasStackAlbum(albumId, shared) {
+    const id = String(albumId || '').trim();
+    if (!id || !shared || !shared.findGroupById) return false;
+    const group = shared.findGroupById(id);
+    return !!(group && Array.isArray(group.tracks) && group.tracks.length);
+  }
+
+  function collectPublishAlbumIds(store, shared) {
+    const ids = new Set();
+    if (shared && shared.loadGroups) {
+      shared.loadGroups().forEach(function (group) {
+        if (group && group.id && Array.isArray(group.tracks) && group.tracks.length) {
+          ids.add(group.id);
+        }
+      });
+    }
+    Object.keys(store.pages || {}).forEach(function (key) {
+      const page = normalizePage(key, store.pages[key]);
+      if (page.published || hasStudioContent(page)) ids.add(key);
+    });
+    return ids;
   }
 
   function getPage(albumId) {
@@ -119,7 +142,8 @@
           updatedAt: new Date().toISOString()
         })
       );
-      if (hasContent(next)) next.published = true;
+      const shared = root.BurnfolderStreamShared;
+      if (hasStudioContent(next) || hasStackAlbum(id, shared)) next.published = true;
       store.pages[id] = next;
       writeStore(store);
       return next;
@@ -136,14 +160,10 @@
   function resolvePage(albumId, preferStudio) {
     const id = String(albumId || '').trim();
     if (preferStudio) {
-      return getPage(id).then(function (studioPage) {
-        if (hasContent(studioPage)) return studioPage;
-        const pub = getPublishedPage(id);
-        return pub || studioPage;
-      });
+      return getPage(id);
     }
     const pub = getPublishedPage(id);
-    if (pub && hasContent(pub)) return Promise.resolve(pub);
+    if (pub && hasStudioContent(pub)) return Promise.resolve(pub);
     return getPage(id);
   }
 
@@ -173,11 +193,18 @@
     const ctx = groupContext || {};
     const shared = ctx.shared || root.BurnfolderStreamShared;
     const out = {};
-    Object.keys(store.pages).forEach(function (key) {
+    collectPublishAlbumIds(store, shared).forEach(function (key) {
       const page = normalizePage(key, store.pages[key]);
-      if (!page.published || !hasContent(page)) return;
       const group = shared && shared.findGroupById ? shared.findGroupById(key) : null;
-      const meta = group && group.meta ? group.meta : shared && shared.loadStackMeta ? shared.loadStackMeta(key) : {};
+      if (!group || !group.tracks || !group.tracks.length) {
+        if (!hasStudioContent(page)) return;
+      }
+      const meta =
+        group && group.meta
+          ? group.meta
+          : shared && shared.loadStackMeta
+            ? shared.loadStackMeta(key)
+            : {};
       out[key] = {
         notes: page.notes,
         heroVideoPlaybackId: page.heroVideoPlaybackId,
@@ -214,7 +241,7 @@
       const pages = getPublishedPayload(groupContext);
       const count = Object.keys(pages).length;
       if (!count) {
-        return Promise.reject(new Error('nothing to push — add album page content first'));
+        return Promise.reject(new Error('nothing to push — add an album stack first'));
       }
 
       const authReady =
@@ -247,7 +274,8 @@
     makeId: makeId,
     emptyPage: emptyPage,
     normalizePage: normalizePage,
-    hasContent: hasContent,
+    hasContent: hasStudioContent,
+    hasStudioContent: hasStudioContent,
     ensureHydrated: ensureHydrated,
     getPage: getPage,
     savePage: savePage,

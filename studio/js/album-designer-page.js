@@ -478,7 +478,7 @@
         });
         const pageCount = Object.keys(payload).length;
         if (!pageCount) {
-          setStatus('add content before pushing', 'error');
+          setStatus('no albums to push — add an album stack first', 'error');
           return Promise.resolve();
         }
 

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://stream.mux.com" crossorigin>
   <link rel="preconnect" href="https://image.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="style.css?v=20260709k">
+  <link rel="stylesheet" href="style.css?v=20260709m">
 </head>
 <body>
   <header class="site-header">
@@ -116,39 +116,24 @@
     </div>
   </div>
 
-  <script src="album-pages.js?v=20260709k"></script>
-  <script src="entries.js?v=20260709k"></script>
-  <script src="songs.js?v=20260709k"></script>
-  <script src="song-pages.js?v=20260709k"></script>
-  <script src="shared/song-versions.js?v=20260709k"></script>
-  <script src="shared/song-page-render.js?v=20260709k"></script>
-  <script src="shared/album-page-render.js?v=20260709k"></script>
-  <script src="shared/playback-prefetch.js?v=20260709k"></script>
-  <script src="shared/studio-tap.js?v=20260709k"></script>
-  <script src="shared/mux-playback.js?v=20260709k"></script>
-  <script src="shared/media-session.js?v=20260709k"></script>
-  <script src="shared/playback-recall.js?v=20260709k"></script>
-  <script src="shared/playback-context.js?v=20260709k"></script>
-  <script src="shared/version-picker.js?v=20260709k"></script>
-  <script src="shared/now-playing-bar.js?v=20260709k"></script>
-  <script src="scripts.js?v=20260709k"></script>
-  <script src="shared/site-version.js?v=20260709k"></script>
-  <script src="shared/register-sw.js?v=20260709k"></script>
-  <script>
-    (function () {
-      function ensureAlbumHubRendered() {
-        if (typeof window.renderAlbumHubPage !== 'function') return;
-        if (!document.getElementById('albumHubPage')) return;
-        const params = new URLSearchParams(window.location.search);
-        if (!(params.get('album') || '').trim()) return;
-        const list = document.querySelector(
-          '#albumHubPage [data-album-field="tracklist"] .music-tracklist-item'
-        );
-        if (!list) window.renderAlbumHubPage();
-      }
-      window.addEventListener('pageshow', ensureAlbumHubRendered);
-      window.addEventListener('load', ensureAlbumHubRendered);
-    })();
-  </script>
+  <script src="album-pages.js?v=20260709m"></script>
+  <script src="song-pages.js?v=20260709m"></script>
+  <script src="shared/song-versions.js?v=20260709m"></script>
+  <script src="shared/song-page-render.js?v=20260709m"></script>
+  <script src="shared/album-page-render.js?v=20260709m"></script>
+  <script src="shared/playback-prefetch.js?v=20260709m"></script>
+  <script src="shared/studio-tap.js?v=20260709m"></script>
+  <script src="shared/album-hub-boot.js?v=20260709m"></script>
+  <script src="entries.js?v=20260709m" defer></script>
+  <script src="songs.js?v=20260709m" defer></script>
+  <script src="shared/mux-playback.js?v=20260709m" defer></script>
+  <script src="shared/media-session.js?v=20260709m" defer></script>
+  <script src="shared/playback-recall.js?v=20260709m" defer></script>
+  <script src="shared/playback-context.js?v=20260709m" defer></script>
+  <script src="shared/version-picker.js?v=20260709m" defer></script>
+  <script src="shared/now-playing-bar.js?v=20260709m" defer></script>
+  <script src="scripts.js?v=20260709m" defer></script>
+  <script src="shared/site-version.js?v=20260709m" defer></script>
+  <script src="shared/register-sw.js?v=20260709m" defer></script>
 </body>
 </html>

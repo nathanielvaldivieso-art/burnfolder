@@ -46,6 +46,14 @@
     return size === 'sm' || size === 'lg' ? size : 'md';
   }
 
+  function albumHubHrefForPublishedTitle(title) {
+    const albumTitle = String(title || '').trim();
+    if (!albumTitle) return '';
+    const slug = albumTitle.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (!slug) return '';
+    return `album.html?album=${encodeURIComponent(slug)}`;
+  }
+
   function textParagraphClass(block) {
     const size = normalizeTextSize(block && block.textSize);
     return size === 'md' ? 'page-annotation' : 'page-annotation entry-text--' + size;
@@ -201,9 +209,18 @@
     if (block.type === 'album') {
       const albumParts = ['  <div class="entry-album">'];
       if (block.coverArt && String(block.coverArt).trim()) {
-        albumParts.push(
-          `    <img src="${escapeHtml(String(block.coverArt).trim())}" alt="${escapeHtml(block.coverAlt || block.title || 'album cover')}" class="entry-album-cover">`
-        );
+        const coverSrc = escapeHtml(String(block.coverArt).trim());
+        const coverAlt = escapeHtml(block.coverAlt || block.title || 'album cover');
+        const albumHref = albumHubHrefForPublishedTitle(block.title);
+        if (albumHref) {
+          albumParts.push(
+            `    <a href="${escapeHtml(albumHref)}" class="entry-album-cover-link" aria-label="Open ${escapeHtml(block.title || 'album')} hub">`
+          );
+          albumParts.push(`      <img src="${coverSrc}" alt="${coverAlt}" class="entry-album-cover">`);
+          albumParts.push('    </a>');
+        } else {
+          albumParts.push(`    <img src="${coverSrc}" alt="${coverAlt}" class="entry-album-cover">`);
+        }
       }
       if (block.title && String(block.title).trim()) {
         albumParts.push(`    <p class="entry-album-title">${escapeHtml(String(block.title).trim())}</p>`);

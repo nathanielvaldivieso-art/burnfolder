@@ -54,6 +54,13 @@
     }
   }
 
+  function isHubNavigation(href) {
+    if (!href) return false;
+    const path = String(href).split('?')[0].split('#')[0];
+    const base = path.replace(/^\//, '').toLowerCase();
+    return base === 'album.html' || base === 'song.html' || base === 'album' || base === 'song';
+  }
+
   function handleLinkClick(e) {
     const link = e.target.closest('a');
     if (!link) return;
@@ -63,6 +70,11 @@
 
     // Only intercept internal links (not external, mailto, etc)
     if (href.startsWith('http') || href.startsWith('mailto') || href.startsWith('#')) {
+      return;
+    }
+
+    // Album/song hubs need their own script boot (query params + render APIs).
+    if (isHubNavigation(href)) {
       return;
     }
 
@@ -166,6 +178,16 @@
     // Re-render song hub page content when present
     if (typeof window.renderSongHubPage === 'function') {
       window.renderSongHubPage();
+    }
+
+    // Re-render album hub page content when present
+    if (typeof window.renderAlbumHubPage === 'function') {
+      window.renderAlbumHubPage();
+    } else if (
+      window.BurnfolderAlbumHubBoot &&
+      typeof window.BurnfolderAlbumHubBoot.schedule === 'function'
+    ) {
+      window.BurnfolderAlbumHubBoot.schedule();
     }
   }
 

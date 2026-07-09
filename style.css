@@ -625,6 +625,19 @@ p, h1, .song-title, .page-annotation {
   filter: contrast(1.04) saturate(0.92);
 }
 
+.entry-album-cover-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.entry-album-cover-link:hover .entry-album-cover,
+.entry-album-cover-link:focus-visible .entry-album-cover {
+  filter: contrast(1.04) saturate(0.92) brightness(0.96);
+}
+
 .entry-album-title {
   margin: 0 0 18px 0;
   font-size: 0.85em;
@@ -1081,6 +1094,17 @@ body.page-music .music-release-hero {
   gap: 24px;
   align-items: end;
   margin-bottom: 36px;
+}
+
+body.page-music .music-release-cover-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+body.page-music .music-release-cover-link:hover .music-release-cover,
+body.page-music .music-release-cover-link:focus-visible .music-release-cover {
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.18);
 }
 
 body.page-music .music-release-cover {
