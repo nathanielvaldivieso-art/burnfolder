@@ -2406,8 +2406,23 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
-  padding-right: 36px;
-  transition: background 0.15s ease;
+  padding: 14px 36px 14px 0;
+  transition: background 0.12s ease;
+}
+
+.studio-stream-track-item:has(.music-track-row:hover),
+.studio-stream-track-item:has(.music-track-row:focus-visible),
+.studio-stream-track-item:has(.music-track-row.is-active),
+.studio-stream-track-item:has(.music-track-row.is-playing),
+.studio-stream-album-track:has(.music-track-row:hover),
+.studio-stream-album-track:has(.music-track-row:focus-visible),
+.studio-stream-album-track:has(.music-track-row.is-active),
+.studio-stream-album-track:has(.music-track-row.is-playing),
+.studio-editor-mux-item:has(.music-track-row:hover),
+.studio-editor-mux-item:has(.music-track-row:focus-visible),
+.studio-editor-mux-item:has(.music-track-row.is-active),
+.studio-editor-mux-item:has(.music-track-row.is-playing) {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .studio-stream-page .music-track-row .music-track-title {
@@ -2546,6 +2561,17 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 }
 
 @media (hover: none) {
+  .music-tracklist-item:has(.music-track-row:hover),
+  .music-tracklist-item:has(.music-track-row:focus:not(:focus-visible)),
+  .studio-stream-track-item:has(.music-track-row:hover),
+  .studio-stream-track-item:has(.music-track-row:focus:not(:focus-visible)),
+  .studio-stream-album-track:has(.music-track-row:hover),
+  .studio-stream-album-track:has(.music-track-row:focus:not(:focus-visible)),
+  .studio-editor-mux-item:has(.music-track-row:hover),
+  .studio-editor-mux-item:has(.music-track-row:focus:not(:focus-visible)) {
+    background: transparent;
+  }
+
   .studio-stream-page .music-track-row:hover,
   .studio-stream-page .music-track-row:focus {
     background: transparent;
@@ -2672,8 +2698,9 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
 
   .studio-stream-page .music-track-row,
   .studio-editor-page .music-track-row {
-    padding: 11px 2px 11px 0;
-    gap: 10px;
+    padding: 14px 36px 14px 0;
+    gap: 14px;
+    min-height: 44px;
   }
 
   .studio-stream-page .music-track-duration,

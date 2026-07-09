@@ -727,6 +727,20 @@ if (!window.__burnfolderTracklistDurationSync) {
   window.addEventListener('burnfolder-duration-ready', syncTracklistDurationsFromEvent);
 }
 
+function hubPlayButtonHtml(playing) {
+  const bar = window.BurnfolderNowPlayingBar;
+  if (bar && bar.playButtonHtml) return bar.playButtonHtml(playing);
+  return playing
+    ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>'
+    : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
+}
+
+function applyHubPlayButton(btn, playing, label) {
+  if (!btn) return;
+  btn.innerHTML = hubPlayButtonHtml(playing);
+  btn.setAttribute('aria-label', (playing ? 'Pause ' : 'Play ') + label);
+}
+
 function syncTracklistPlayback() {
   const activeSong = getActiveSong();
   document.querySelectorAll('.music-track-row').forEach((row) => {
@@ -737,17 +751,17 @@ function syncTracklistPlayback() {
   });
 
   const playBtn = document.getElementById('musicPortfolioPlay');
-  if (playBtn && activeSong) {
+  if (playBtn) {
     const portfolio = document.getElementById('musicPortfolio');
     if (portfolio && portfolio.contains(playBtn)) {
-      const onThisRelease = Array.from(portfolio.querySelectorAll('.music-track-row')).some(
-        (row) => row.dataset.playbackId === activeSong.playbackId
-      );
-      if (onThisRelease) {
-        const playing = !activeMuxPlayer.paused;
-        playBtn.classList.toggle('is-playing', playing);
-        playBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
-      }
+      const activeSong = getActiveSong();
+      const onThisRelease =
+        activeSong &&
+        Array.from(portfolio.querySelectorAll('.music-track-row')).some(
+          (row) => row.dataset.playbackId === activeSong.playbackId
+        );
+      const playing = !!(onThisRelease && activeMuxPlayer && !activeMuxPlayer.paused);
+      applyHubPlayButton(playBtn, playing, 'album');
     }
   }
 
@@ -774,8 +788,7 @@ function syncSongHubPlayButton() {
     activeSong &&
     Array.from(rows).some((row) => row.dataset.playbackId === activeSong.playbackId);
   const playing = !!(onThisSong && activeMuxPlayer && !activeMuxPlayer.paused);
-  hubPlayBtn.classList.toggle('is-playing', playing);
-  hubPlayBtn.setAttribute('aria-label', playing ? 'Pause song' : 'Play song');
+  applyHubPlayButton(hubPlayBtn, playing, 'song');
 }
 
 function playSongHubQueue(sorted, song, hubRoot, page, renderApi) {
@@ -858,11 +871,10 @@ function renderMusicPage() {
 
   const playBtn = document.createElement('button');
   playBtn.type = 'button';
-  playBtn.className = 'music-release-play';
+  playBtn.className = 'bottom-play-pause-btn music-release-play';
   playBtn.id = 'musicPortfolioPlay';
+  playBtn.innerHTML = hubPlayButtonHtml(false);
   playBtn.setAttribute('aria-label', 'Play album');
-  playBtn.innerHTML =
-    '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><polygon points="8,5 20,12 8,19" fill="currentColor"/></svg>';
 
   playBtn.addEventListener('click', () => {
     const activeSong = getActiveSong();
@@ -1119,8 +1131,7 @@ function syncAlbumHubPlayButton() {
     activeSong &&
     Array.from(rows).some((row) => row.dataset.playbackId === activeSong.playbackId);
   const playing = !!(onThisAlbum && activeMuxPlayer && !activeMuxPlayer.paused);
-  hubPlayBtn.classList.toggle('is-playing', playing);
-  hubPlayBtn.setAttribute('aria-label', playing ? 'Pause album' : 'Play album');
+  applyHubPlayButton(hubPlayBtn, playing, 'album');
 }
 
 function renderAlbumHubLinks(rootEl, links) {
@@ -1339,6 +1350,10 @@ function renderAlbumHubPage() {
     })
     .filter((track) => track.playbackId);
 
+  if (tracks.length) {
+    window.currentSongs = tracks.slice();
+  }
+
   renderApi.apply(hubRoot, {
     albumPage: published,
     meta: {
@@ -1351,7 +1366,7 @@ function renderAlbumHubPage() {
     songCatalog: catalog,
     versionsApi: sv,
     itemLabel: (item) => item.title || 'untitled',
-    showSongLinks: true,
+    showSongLinks: false,
     songPageUrl: (item) => {
       if (!sv) return 'song.html';
       const song = sv.resolvePlaybackInCatalog(catalog, item.playbackId);
@@ -2186,9 +2201,15 @@ function preservePlaybackAcrossNavigation() {
 window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 
 mountNowPlayingBar();
-renderSongHubPage();
-renderAlbumHubPage();
-renderPressPage();
+
+function bootHubPages() {
+  renderSongHubPage();
+  renderAlbumHubPage();
+  renderPressPage();
+}
+
+bootHubPages();
+window.addEventListener('pageshow', bootHubPages);
 
 // Store reference to active player globally
 if (!window.globalMuxPlayer) {
@@ -2211,15 +2232,18 @@ if (savedState && audioList) {
       activeQueue = window.currentSongs.slice();
       activeQueueIdx = songIndex;
       // Check if player already has this track loaded
-      const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id');
+      const currentPlaybackId = activeMuxPlayer
+        ? activeMuxPlayer.getAttribute('playback-id')
+        : '';
       if (currentPlaybackId === state.playbackId) {
         // Same track, just update UI - don't reload
         bottomBar.style.display = 'flex';
         updateUI();
         initializeVolumeControl();
-      } else {
+      } else if (activeMuxPlayer) {
         // Different track or first load
         setTimeout(() => {
+          if (!activeMuxPlayer) return;
           activeMuxPlayer.setAttribute('playback-id', state.playbackId);
           activeMuxPlayer.setAttribute('metadata-video-title', state.title);
           // mux-player reacts to playback-id changes automatically — no .load() needed
@@ -2236,12 +2260,13 @@ if (savedState && audioList) {
           }, { once: true });
         }, 50);
       }
-    } else if (fallbackSong) {
+    } else if (fallbackSong && activeMuxPlayer) {
       activeSongOverride = fallbackSong;
       activeIdx = -1;
       activeQueue = [fallbackSong];
       activeQueueIdx = 0;
       setTimeout(() => {
+        if (!activeMuxPlayer) return;
         activeMuxPlayer.setAttribute('playback-id', fallbackSong.playbackId);
         activeMuxPlayer.setAttribute('metadata-video-title', fallbackSong.title);
         activeMuxPlayer.addEventListener('loadedmetadata', () => {
@@ -2341,7 +2366,6 @@ function updateUI() {
   }
   if (activeSong) {
     bottomBar.style.display = 'flex';
-    focusPlayControl();
   } else {
     bottomBar.style.display = 'none';
     if (!bar) songTitleEl.textContent = '';
