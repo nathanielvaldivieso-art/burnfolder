@@ -45,7 +45,7 @@
     if (!page || !playbackId) return '';
     const versions = page.versions && typeof page.versions === 'object' ? page.versions : {};
     const entry = versions[playbackId] || {};
-    return String(entry.lyrics || page.lyrics || '').trim();
+    return String(entry.lyrics || '').trim();
   }
 
   function versionNotes(page, playbackId) {

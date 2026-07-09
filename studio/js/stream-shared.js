@@ -273,6 +273,52 @@
     return m + ':' + (sec < 10 ? '0' : '') + sec;
   }
 
+  function resolveDurationSeconds(playbackId, knownSeconds) {
+    const known = Number(knownSeconds);
+    if (Number.isFinite(known) && known > 0) return known;
+    const pf = window.BurnfolderPlaybackPrefetch;
+    if (pf && pf.getCachedDuration) {
+      const cached = pf.getCachedDuration(playbackId);
+      if (cached) return cached;
+    }
+    return 0;
+  }
+
+  function sumTrackDurations(tracks, resolveItem) {
+    let total = 0;
+    let complete = (tracks || []).length > 0;
+    (tracks || []).forEach(function (track) {
+      const item = resolveItem ? resolveItem(track) : track;
+      if (!item || !item.playbackId) {
+        complete = false;
+        return;
+      }
+      const sec = resolveDurationSeconds(item.playbackId, item.duration);
+      if (sec > 0) total += sec;
+      else complete = false;
+    });
+    return { total: total, complete: complete };
+  }
+
+  function albumTrackCountMeta(count, totalSeconds, options) {
+    const opts = options || {};
+    const n = count || 0;
+    const withWord = opts.withWord !== false;
+    const base = withWord ? n + ' track' + (n === 1 ? '' : 's') : String(n);
+    if (!totalSeconds || totalSeconds <= 0) return base;
+    const dur = formatDuration(totalSeconds);
+    return dur ? base + ' · ' + dur : base;
+  }
+
+  function albumGroupMetaLabel(tracks, resolveItem) {
+    const summary = sumTrackDurations(tracks, resolveItem);
+    return albumTrackCountMeta(
+      (tracks || []).length,
+      summary.complete ? summary.total : 0,
+      { withWord: false }
+    );
+  }
+
   let streamVideoEl = null;
   let streamVideoPlaybackId = null;
 
@@ -694,6 +740,10 @@
     normalizeStreamItem: normalizeStreamItem,
     normalizeLibrary: normalizeLibrary,
     formatDuration: formatDuration,
+    resolveDurationSeconds: resolveDurationSeconds,
+    sumTrackDurations: sumTrackDurations,
+    albumTrackCountMeta: albumTrackCountMeta,
+    albumGroupMetaLabel: albumGroupMetaLabel,
     createMuxVideoPlayer: createMuxVideoPlayer,
     stopStreamAudio: stopStreamAudio,
     mountStreamVideo: mountStreamVideo,

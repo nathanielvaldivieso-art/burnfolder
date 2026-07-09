@@ -2,7 +2,9 @@
 
 **Status:** Full vision document synthesizing all planning conversations (July 2026). A follow-up pass will filter this through current resources and realistic scope.
 
-**Last updated:** July 4, 2026
+**Near-term priority:** Platform work is **paused** until PHOTONEGATIVE breaks. Operational plan: **`PHOTONEGATIVE-RELEASE-PLAN.md`** (album hub, EPK, homepage, distro, content, deferrals). Resume this document at §17 tiers after the 90-day push review.
+
+**Last updated:** July 8, 2026
 
 **Sources this plan reflects:**
 - `COPILOT.md` artist OS vision and shipped studio architecture

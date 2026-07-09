@@ -1,5 +1,11 @@
 # burnfolder.com — Copilot context
 
+## Active release plan
+
+**`PHOTONEGATIVE-RELEASE-PLAN.md`** is the near-term operating plan. Work **The feed** (steps 01–62)
+top to bottom. Tell Copilot *"implement feed step N"* to build. Platform features from
+`STUDIO-MASTER-PLAN.md` are deferred until step 62.
+
 ## What this site is
 burnfolder.com is a personal artistic hub and portfolio. It is structured as a series of
 dated journal entries. Branching from those entries, all music is collected on the music

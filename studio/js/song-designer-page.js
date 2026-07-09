@@ -360,14 +360,28 @@
 
   function versionEntryForEditor(page, playbackId) {
     const versions = (page && page.versions) || {};
-    const entry = store.normalizeVersionEntry(versions[playbackId]);
-    const hasAnyVersionContent = Object.keys(versions).some(function (id) {
-      return store.versionHasContent(versions[id]);
+    return store.normalizeVersionEntry(versions[playbackId]);
+  }
+
+  function migrateLegacyPageLyrics(page, versions, preferredPlaybackId) {
+    const legacyLyrics = page && typeof page.lyrics === 'string' ? page.lyrics.trim() : '';
+    if (!legacyLyrics) return null;
+    const list = versions || [];
+    const hasVersionLyrics = Object.keys(page.versions || {}).some(function (id) {
+      return store.normalizeVersionEntry(page.versions[id]).lyrics.trim();
     });
-    if (!entry.lyrics && !hasAnyVersionContent && page && page.lyrics) {
-      entry.lyrics = page.lyrics;
-    }
-    return entry;
+    if (hasVersionLyrics) return { lyrics: '' };
+    const playbackId =
+      preferredPlaybackId ||
+      (list[0] && list[0].playbackId ? list[0].playbackId : '');
+    if (!playbackId) return null;
+    const versionsPatch = Object.assign({}, page.versions || {});
+    const existing = store.normalizeVersionEntry(versionsPatch[playbackId]);
+    versionsPatch[playbackId] = store.normalizeVersionEntry({
+      lyrics: legacyLyrics,
+      notes: existing.notes
+    });
+    return { lyrics: '', versions: versionsPatch };
   }
 
   function flushActiveVersionFields() {
@@ -773,8 +787,15 @@
 
     return store.getPage(groupKey).then(function (page) {
       currentPage = page;
-      activeVersionId = pickDefaultVersionId(page, catalogVersionsForGroup(groupKey));
-      if (notesEl) notesEl.value = page.notes || '';
+      const catalogVersions = catalogVersionsForGroup(groupKey);
+      activeVersionId = pickDefaultVersionId(page, catalogVersions);
+      const migration = migrateLegacyPageLyrics(page, catalogVersions, activeVersionId);
+      if (migration) {
+        currentPage = Object.assign({}, page, migration);
+        if (migration.versions) currentPage.versions = migration.versions;
+        store.savePage(groupKey, migration).catch(function () {});
+      }
+      if (notesEl) notesEl.value = currentPage.notes || '';
       renderDesignerVersionPicker();
       fillVersionEditorFields(activeVersionId);
       fillVideoSelect(heroVideoEl, page.heroVideoPlaybackId || '');

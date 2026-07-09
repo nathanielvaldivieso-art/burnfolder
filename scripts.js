@@ -756,6 +756,12 @@ function syncSongHubPlayButton() {
 function playSongHubQueue(sorted, song, hubRoot, page, renderApi) {
   if (!sorted || !sorted.length || !song || !song.playbackId) return;
 
+  if (renderApi && page && hubRoot) {
+    renderApi.selectVersion(hubRoot, page, song.playbackId);
+  }
+
+  window.currentSongs = sorted.slice();
+
   const idx = sorted.findIndex((item) => item.playbackId === song.playbackId);
   const active = getActiveSong();
   const onHub = active && sorted.some((item) => item.playbackId === active.playbackId);
@@ -767,13 +773,11 @@ function playSongHubQueue(sorted, song, hubRoot, page, renderApi) {
       activeMuxPlayer.play().catch(() => {});
       updateUI();
     }
+    syncTracklistPlayback();
     return;
   }
 
   startPlayback(song, sorted, idx >= 0 ? idx : 0);
-  if (renderApi && page && hubRoot) {
-    renderApi.selectVersion(hubRoot, page, song.playbackId);
-  }
 }
 
 window.syncTracklistPlayback = syncTracklistPlayback;
@@ -984,11 +988,11 @@ function renderSongHubPage() {
       sorted.map((song) => ({
         song,
         displayTitle: song.title,
-        onPlay: (toPlay) => {
-          const target = toPlay || song;
-          playSongHubQueue(sorted, target, hubRoot, page, renderApi);
+        onPlay: () => {
+          playSongHubQueue(sorted, song, hubRoot, page, renderApi);
         },
-      }))
+      })),
+      { freezePlayback: true }
     );
     syncTracklistPlayback();
 
@@ -2238,7 +2242,8 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
   e.stopPropagation();
   togglePlayPause();
-  focusPlayControl();
+  // Keep focus off the bar — :focus-visible inverts the button on every Space press.
+  if (bottomPlayBtn && bottomPlayBtn.blur) bottomPlayBtn.blur();
 });
 
 // Close button is wired through BurnfolderNowPlayingBar onClose (see mountNowPlayingBar).

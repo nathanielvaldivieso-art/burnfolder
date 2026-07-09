@@ -111,17 +111,25 @@
     };
   }
 
+  function versionsHaveLyrics(versions) {
+    return Object.keys(versions || {}).some(function (id) {
+      return normalizeVersionEntry(versions[id]).lyrics.trim();
+    });
+  }
+
   function normalizePage(groupKey, page) {
     const key = String(groupKey || (page && page.groupKey) || '')
       .toLowerCase()
       .trim();
     const base = emptyPage(key);
     if (!page || typeof page !== 'object') return base;
+    const versions = normalizeVersions(page.versions);
+    const legacyLyrics = typeof page.lyrics === 'string' ? page.lyrics.trim() : '';
     return {
       groupKey: key,
       notes: resolveNotes(page),
-      lyrics: typeof page.lyrics === 'string' ? page.lyrics : '',
-      versions: normalizeVersions(page.versions),
+      lyrics: legacyLyrics && !versionsHaveLyrics(versions) ? legacyLyrics : '',
+      versions: versions,
       heroVideoPlaybackId: String(page.heroVideoPlaybackId || '').trim(),
       coverArt: String(page.coverArt || '').trim(),
       coverAssetId: String(page.coverAssetId || '').trim(),
@@ -246,8 +254,8 @@
       if (!page.published || !hasContent(page)) return;
       out[key] = {
         notes: page.notes,
-        lyrics: page.lyrics,
-        versions: page.versions,
+        lyrics: '',
+        versions: pruneVersions(page.versions),
         heroVideoPlaybackId: page.heroVideoPlaybackId,
         coverArt: page.coverArt,
         coverAssetId: page.coverAssetId || '',

@@ -185,6 +185,12 @@
       return shared.allGroupedPlaybackIds ? shared.allGroupedPlaybackIds() : new Set();
     }
 
+    function albumMetaText(tracks) {
+      return shared.albumGroupMetaLabel(tracks, function (track) {
+        return resolveStackTrack(track);
+      });
+    }
+
     function expandGroupForResult(result, targetId) {
       if (result && result.groupId) {
         setAlbumExpanded(result.groupId, true);
@@ -438,7 +444,7 @@
 
       const metaEl = document.createElement('span');
       metaEl.className = 'studio-stream-album-meta';
-      metaEl.textContent = String(tracks.length);
+      metaEl.textContent = albumMetaText(tracks);
       info.appendChild(nameInput);
       info.appendChild(metaEl);
 
@@ -711,7 +717,7 @@
         }
         const metaEl = groupEl.querySelector('.studio-stream-album-meta');
         const trackCount = shared.findGroupById(groupId);
-        if (metaEl && trackCount) metaEl.textContent = String(trackCount.tracks.length);
+        if (metaEl && trackCount) metaEl.textContent = albumMetaText(trackCount.tracks);
       });
     }
 
@@ -719,6 +725,9 @@
       render();
     });
     root.addEventListener('burnfolder-stack-meta-changed', function () {
+      updateAlbumMeta();
+    });
+    root.addEventListener('burnfolder-duration-ready', function () {
       updateAlbumMeta();
     });
 

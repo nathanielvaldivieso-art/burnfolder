@@ -27,6 +27,87 @@
     el.classList.add('is-empty');
   }
 
+  function formatDuration(seconds) {
+    const pf = root.BurnfolderPlaybackPrefetch;
+    if (pf && pf.formatDuration) return pf.formatDuration(seconds);
+    const shared = root.BurnfolderStreamShared;
+    if (shared && shared.formatDuration) return shared.formatDuration(seconds);
+    const s = Number(seconds);
+    if (!Number.isFinite(s) || s <= 0) return '';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  function attachTrackDuration(durEl, playbackId, knownSeconds) {
+    const pf = root.BurnfolderPlaybackPrefetch;
+    if (pf && pf.requestDuration) {
+      pf.requestDuration(durEl, playbackId, knownSeconds);
+      return;
+    }
+    if (durEl) durEl.textContent = formatDuration(knownSeconds) || '--:--';
+  }
+
+  function sumRowDurations(rows) {
+    const pf = root.BurnfolderPlaybackPrefetch;
+    let total = 0;
+    let complete = (rows || []).length > 0;
+    (rows || []).forEach(function (row) {
+      const known = Number(row.item && row.item.duration);
+      let sec = Number.isFinite(known) && known > 0 ? known : 0;
+      if (!sec && pf && pf.getCachedDuration) {
+        sec = pf.getCachedDuration(row.playbackId) || 0;
+      }
+      if (sec > 0) total += sec;
+      else complete = false;
+    });
+    return { total: total, complete: complete };
+  }
+
+  function refreshAlbumSubtitle(subtitleEl, rows) {
+    if (!subtitleEl) return;
+    const shared = root.BurnfolderStreamShared;
+    const items = (rows || []).map(function (row) {
+      return {
+        playbackId: row.playbackId,
+        duration: row.item && row.item.duration
+      };
+    });
+    if (shared && shared.sumTrackDurations && shared.albumTrackCountMeta) {
+      const sum = shared.sumTrackDurations(items);
+      subtitleEl.textContent = shared.albumTrackCountMeta(
+        items.length,
+        sum.complete ? sum.total : 0
+      );
+      return;
+    }
+    const summary = sumRowDurations(rows);
+    const base = items.length + ' track' + (items.length === 1 ? '' : 's');
+    if (!summary.complete || !summary.total) {
+      subtitleEl.textContent = base;
+      return;
+    }
+    const dur = formatDuration(summary.total);
+    subtitleEl.textContent = dur ? base + ' · ' + dur : base;
+  }
+
+  function bindAlbumSubtitleDurationSync(rootEl) {
+    if (!rootEl || rootEl._albumDurationSyncBound) return;
+    rootEl._albumDurationSyncBound = true;
+    root.addEventListener('burnfolder-duration-ready', function (event) {
+      const detail = event.detail || {};
+      const rows = rootEl._albumHubRows || [];
+      if (
+        !rows.some(function (row) {
+          return row.playbackId === detail.playbackId;
+        })
+      ) {
+        return;
+      }
+      refreshAlbumSubtitle(rootEl.querySelector('[data-album-field="subtitle"]'), rows);
+    });
+  }
+
   function pageNotes(page) {
     if (!page) return '';
     if (songRender && songRender.pageNotes) return songRender.pageNotes(page);
@@ -39,7 +120,7 @@
     if (songRender && songRender.versionLyrics) return songRender.versionLyrics(page, playbackId);
     const versions = page.versions && typeof page.versions === 'object' ? page.versions : {};
     const entry = versions[playbackId] || {};
-    return String(entry.lyrics || page.lyrics || '').trim();
+    return String(entry.lyrics || '').trim();
   }
 
   function defaultVersionId(page, catalogVersions) {
@@ -152,6 +233,23 @@
           event.stopPropagation();
         });
         rowBtn.appendChild(link);
+      }
+
+      const dur = document.createElement('span');
+      dur.className = 'music-track-duration';
+      dur.setAttribute('aria-hidden', 'true');
+      const knownDuration = row.item && row.item.duration;
+      dur.textContent = formatDuration(knownDuration) || '--:--';
+      if (!formatDuration(knownDuration) && row.playbackId) {
+        attachTrackDuration(dur, row.playbackId, knownDuration);
+      }
+      rowBtn.appendChild(dur);
+
+      const pf = root.BurnfolderPlaybackPrefetch;
+      if (pf && pf.attachRow && row.playbackId) {
+        pf.attachRow(rowBtn, function () {
+          return row.playbackId;
+        });
       }
 
       if (typeof options.onTrackSelect === 'function') {
@@ -371,8 +469,20 @@
     const albumTitle = meta.title || 'Album';
     if (titleEl) titleEl.textContent = albumTitle;
     if (subtitleEl) {
-      subtitleEl.textContent =
-        rows.length + ' track' + (rows.length === 1 ? '' : 's');
+      rootEl._albumHubRows = rows;
+      bindAlbumSubtitleDurationSync(rootEl);
+      refreshAlbumSubtitle(subtitleEl, rows);
+      const pf = root.BurnfolderPlaybackPrefetch;
+      if (pf && pf.prefetchList) {
+        pf.prefetchList(
+          rows
+            .map(function (row) {
+              return row.playbackId;
+            })
+            .filter(Boolean),
+          rows.length
+        );
+      }
     }
 
     if (meta.coverArt && coverEl) {

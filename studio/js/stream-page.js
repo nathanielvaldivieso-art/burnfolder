@@ -856,6 +856,12 @@
     return versionsApi.stripTrailingDate(fullTitle) || fullTitle;
   }
 
+  function albumMetaText(tracks) {
+    return shared.albumGroupMetaLabel(tracks, function (track) {
+      return resolveStackTrackItem(track);
+    });
+  }
+
   function buildTrashIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('aria-hidden', 'true');
@@ -1294,7 +1300,7 @@
     });
     const metaEl = document.createElement('span');
     metaEl.className = 'studio-stream-album-meta';
-    metaEl.textContent = String(tracks.length);
+    metaEl.textContent = albumMetaText(tracks);
     info.appendChild(nameInput);
     info.appendChild(metaEl);
 
@@ -1404,7 +1410,7 @@
       }
       const metaEl = groupEl.querySelector('.studio-stream-album-meta');
       const trackCount = shared.findGroupById(groupId);
-      if (metaEl && trackCount) metaEl.textContent = String(trackCount.tracks.length);
+      if (metaEl && trackCount) metaEl.textContent = albumMetaText(trackCount.tracks);
     });
   }
 
@@ -1697,6 +1703,10 @@
   });
 
   window.addEventListener('burnfolder-stack-meta-changed', function () {
+    updateAlbumMeta();
+  });
+
+  window.addEventListener('burnfolder-duration-ready', function () {
     updateAlbumMeta();
   });
 

@@ -24,6 +24,29 @@ function buildSongPagesJs(pages) {
   );
 }
 
+function normalizeVersionEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return { lyrics: '', notes: '' };
+  }
+  return {
+    lyrics: typeof entry.lyrics === 'string' ? entry.lyrics : '',
+    notes: typeof entry.notes === 'string' ? entry.notes : ''
+  };
+}
+
+function pruneVersions(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  Object.keys(raw).forEach(function (id) {
+    const key = String(id || '').trim();
+    if (!key) return;
+    const row = normalizeVersionEntry(raw[id]);
+    if (!row.lyrics.trim() && !row.notes.trim()) return;
+    out[key] = row;
+  });
+  return out;
+}
+
 function normalizePages(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const out = {};
@@ -41,11 +64,8 @@ function normalizePages(input) {
           : typeof page.backstory === 'string'
             ? page.backstory
             : '',
-      lyrics: typeof page.lyrics === 'string' ? page.lyrics : '',
-      versions:
-        page.versions && typeof page.versions === 'object' && !Array.isArray(page.versions)
-          ? page.versions
-          : {},
+      lyrics: '',
+      versions: pruneVersions(page.versions),
       heroVideoPlaybackId: String(page.heroVideoPlaybackId || '').trim(),
       coverArt: String(page.coverArt || '').trim(),
       media: Array.isArray(page.media) ? page.media : [],
