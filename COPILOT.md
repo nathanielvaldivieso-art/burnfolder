@@ -2,9 +2,10 @@
 
 ## Active release plan
 
-**`PHOTONEGATIVE-RELEASE-PLAN.md`** is the near-term operating plan. Work **The feed** (steps 01–62)
-top to bottom. Tell Copilot *"implement feed step N"* to build. Platform features from
-`STUDIO-MASTER-PLAN.md` are deferred until step 62.
+**`PHOTONEGATIVE-RELEASE-PLAN.md`** is the near-term operating plan. Work **The feed** (steps 01–68)
+top to bottom. Tell Copilot *"implement feed step N"* to build. Steps 63–68 (autonomous marketing
+pipeline) start only after step 62 chooses Tier 3 resume — spec in **`PHOTONEGATIVE-MARKETING-PIPELINE.md`**.
+Platform features from `STUDIO-MASTER-PLAN.md` are deferred until step 62.
 
 ## What this site is
 burnfolder.com is a personal artistic hub and portfolio. It is structured as a series of

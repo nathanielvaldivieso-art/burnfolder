@@ -614,6 +614,7 @@ Not full accounting — export to external tools for tax prep:
 ### 9.11 Marketing, PR & sync
 
 - Content / marketing planner — idea → drafting → scheduled → posted
+- **PHOTONEGATIVE autonomous task agent** — see `PHOTONEGATIVE-MARKETING-PIPELINE.md` (feed steps 63–68): ingest DSP + traffic + asset inventory → LLM → 3 daily micro-tasks via alert channel; tasks only, never gallery copy
 - Playlist pitching log (manual tracking — no automated spam)
 - EPK / press kit from vault assets
 - Sync licensing pipeline stages
