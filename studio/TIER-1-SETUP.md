@@ -1,6 +1,6 @@
 # Tier 1 setup — Burnfolder Studio
 
-One-time operator checklist after Copilot deploys Tier 1 code. Full vision: `STUDIO-MASTER-PLAN.md`.
+One-time operator checklist after Copilot deploys Tier 1 code. Full plan: `STUDIO-MASTER-PLAN.md` (§0 near-term, §17 Tier 1).
 
 ## 1. Run Supabase migrations (required)
 

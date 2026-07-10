@@ -1,10 +1,16 @@
 # burnfolder.com — Copilot context
 
-## Active release plan
+## Active plan (next ~6 months)
 
-**`PHOTONEGATIVE-RELEASE-PLAN.md`** is the near-term operating plan. Work **The feed** (steps 01–62)
-top to bottom. Tell Copilot *"implement feed step N"* to build. Platform features from
-`STUDIO-MASTER-PLAN.md` are deferred until step 62.
+**`STUDIO-MASTER-PLAN.md`** is the single operating plan.
+
+- **§0** — PHOTONEGATIVE: Platform (**P#**), Deliverables (**D#**), Launch/Push (**L#** / **R#**). Two parallel tracks; platform may run ahead of masters.
+- **§9.5** — Analytics / growth map (what to measure + solo-label tools).
+- **§17** — Frugal tiers after push review **R12**.
+
+Tell Copilot *"implement platform step P#"* for §0 infrastructure. Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
+
+`PHOTONEGATIVE-RELEASE-PLAN.md` and `MUSIC-GROWTH-*.md` are short pointers into this file.
 
 ## What this site is
 burnfolder.com is a personal artistic hub and portfolio. It is structured as a series of

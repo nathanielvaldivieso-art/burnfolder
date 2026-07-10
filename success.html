@@ -25,9 +25,39 @@
     <a href="index.html" class="icon-btn" style="margin-top:32px;text-decoration:none;" id="successLink">Back to Home</a>
   </div>
   <div class="page-watermark">success</div>
+  <script src="shop-products.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
     const isTip = params.get('type') === 'tip';
+    const isDigital = params.get('type') === 'digital';
+    const productId = params.get('product') || '';
+
+    function readRememberedPurchase() {
+      try {
+        const raw = sessionStorage.getItem('burnfolderDigitalPurchase');
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+
+    function resolveDigitalProduct() {
+      const remembered = readRememberedPurchase();
+      const catalog = window.burnfolderShopProducts;
+      const products = catalog && Array.isArray(catalog.products) ? catalog.products : [];
+      let fromCatalog = null;
+      if (productId) {
+        fromCatalog = products.find(function (p) { return p && p.id === productId; }) || null;
+      }
+      if (!fromCatalog && remembered && remembered.id) {
+        fromCatalog = products.find(function (p) { return p && p.id === remembered.id; }) || null;
+      }
+      return {
+        title: (fromCatalog && fromCatalog.title) || (remembered && remembered.title) || 'digital album',
+        downloadHref: (fromCatalog && fromCatalog.downloadHref) || (remembered && remembered.downloadHref) || ''
+      };
+    }
 
     if (isTip) {
       document.getElementById('successTitle').textContent = 'Tip Confirmed';
@@ -35,9 +65,28 @@
       document.getElementById('successThanks').textContent = 'your support keeps this work moving.';
       document.getElementById('successLink').setAttribute('href', 'music.html');
       document.getElementById('successLink').textContent = 'Back to Music';
+    } else if (isDigital) {
+      const product = resolveDigitalProduct();
+      document.getElementById('successTitle').textContent = 'Purchase confirmed';
+      document.getElementById('successMessage').textContent =
+        'payment successful for ' + product.title + '.';
+      document.getElementById('successThanks').textContent = product.downloadHref
+        ? 'your download is ready.'
+        : 'download link will appear here once the file is published.';
+      const link = document.getElementById('successLink');
+      if (product.downloadHref) {
+        link.setAttribute('href', product.downloadHref);
+        link.setAttribute('download', '');
+        link.textContent = 'Download';
+      } else {
+        link.setAttribute('href', 'album.html?album=photonegative');
+        link.textContent = 'Back to album';
+      }
     } else {
       localStorage.removeItem('cart');
     }
   </script>
+<script src="shared/analytics-config.js"></script>
+<script src="shared/analytics-beacon.js"></script>
 </body>
 </html>

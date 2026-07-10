@@ -1,25 +1,154 @@
-# Burnfolder Studio — Artist OS Master Plan
+# Burnfolder — Master Plan (next ~6 months)
 
-**Status:** Full vision document synthesizing all planning conversations (July 2026). A follow-up pass will filter this through current resources and realistic scope.
+**Status:** Single operating plan (July 9, 2026). Gallery release + Studio platform are one roadmap.  
+**How to use:** Work **§0** (PHOTONEGATIVE) top to bottom on two parallel tracks. Use **§1+** for architecture, analytics (§9.5), and frugal tiers (§17) when you need depth or post-push platform work.  
+**Copilot:** *"implement platform step P#"* for §0 code; *"Implement Tier N per STUDIO-MASTER-PLAN.md section 17"* for tier builds.  
+**Alias:** `PHOTONEGATIVE-RELEASE-PLAN.md` redirects here.
 
-**Near-term priority:** Platform work is **paused** until PHOTONEGATIVE breaks. Operational plan: **`PHOTONEGATIVE-RELEASE-PLAN.md`** (album hub, EPK, homepage, distro, content, deferrals). Resume this document at §17 tiers after the 90-day push review.
+**Last updated:** July 9, 2026
 
-**Last updated:** July 8, 2026
-
-**Sources this plan reflects:**
-- `COPILOT.md` artist OS vision and shipped studio architecture
-- Pre-push 18-item studio backlog (security, UX, modules)
-- ChatGPT distro brainstorm (LabelGrid / white-label / ISRC / provider migration)
-- AI integration decisions (provider, modes, voice boundary)
-- Social/analytics gap analysis + YouTube/Instagram slate
-- Multi-tenant pivot (dogfood the real product, not a single-user fork)
-- Dashboard + analytics AI direction (streaming ingest → digest on `/studio/dashboard.html`)
+**Sources:** `COPILOT.md`, studio backlog, LabelGrid/distro brainstorm, AI/social/analytics decisions, multi-tenant pivot, PHOTONEGATIVE release feed, growth data map (§9.5).
 
 ---
 
-## 1. North star
+## 0. Next six months — PHOTONEGATIVE
 
-**Burnfolder Studio** is a **multi-tenant artist OS** — a private control plane where artists run their entire practice on the go, then choose what goes public.
+Prove that **art made with integrity can reach people commercially**. PHOTONEGATIVE is the proof object; burnfolder (gallery + studio) is the proof system.
+
+**Off-site thesis** (social only — never on journal entries):
+
+> music made slowly, released on purpose — on a site that doesn't treat you like inventory.
+
+**Canonical link:** `burnfolder.com/album.html?album=photonegative`
+
+### Tracks (parallel)
+
+```
+A — Platform (laptop)              B — Deliverables (studio / art)
+build shells, shop, listening      masters, cover, photos, copy,
+intelligence, song pages           fragments, lead single, LabelGrid
+              \                     /
+               v                   v
+            C — Drop-in + Launch → Push → measure (R12)
+```
+
+**Rule:** Platform may run ahead. Do **not** freeze the music page, submit LabelGrid, or post launch fragments until B says the picture is taken.
+
+| Surface | What it is | Where |
+|---------|------------|-------|
+| **Release cut** | Frozen masters | DSP, `music.html`, top of album hub |
+| **The darkroom** | Versions, process | Bottom of album hub, journal arc |
+
+After freeze: `useLatestVersions: false` on `musicFeaturedRelease`.
+
+### Status (July 9, 2026)
+
+| Track | Reality |
+|-------|---------|
+| **A — Platform** | Hub / press / home / music / shop PWYW / Cloudflare live. Gaps: **P16–P19** listening intelligence, song-page shells, visuals, thoughts. |
+| **B — Deliverables** | Not frozen. Candidate Mux IDs on hub; cover 1024²; no press photos / track visuals / launch clips. |
+| **C — Launch** | Blocked on B freeze + DSP gate. |
+
+**Laptop next:** P16 → P7–P8. **Studio next:** D1–D5 → masters → lead single → hi-res cover.
+
+### A — Platform
+
+#### Done
+
+- [x] **P1** Album hub shell (title, subtitle, cover, play-all, candidate tracklist, links placeholders, darkroom + journal arc)
+- [x] **P2** Press / EPK shell + copy
+- [x] **P3** Homepage intro → album hub
+- [x] **P4** `music.html` hero → album hub
+- [x] **P5** Shop digital PWYW + Studio `shop-designer.html` backdoor
+- [x] **P6** Cloudflare Web Analytics beacon
+
+#### Open — build anytime
+
+- [ ] **P7** Song page shells (all 4 tracks)
+- [ ] **P8** Album hub tracklist → song page links
+- [ ] **P9** Empty slots: thoughts, visuals, press photos, 30s preview
+- [ ] **P10** Optional homepage tagline: *music made slowly, released on purpose.*
+- [ ] **P11** Press download paths that survive hi-res swaps
+
+#### Listening intelligence (essential — ahead of masters)
+
+Canonical detail: **§9.5**. Cloudflare is page traffic only.
+
+- [ ] **P16** First-party public play events (song, page, seconds, completion; privacy-light)
+- [ ] **P17** Dashboard `#dashboardAnalyticsFeed` — plays + linger + share-link counts
+- [ ] **P18** UTM/referrer + outbound Spotify/Apple clicks
+- [ ] **P19** Shop PWYW + tip totals beside listen metrics
+
+DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block P16–P19 on DSP.
+
+#### Drop-in (only after B freeze)
+
+- [ ] **P12** Final hub playbackIds
+- [ ] **P13** `useLatestVersions: false`
+- [ ] **P14** Final cover, visuals, thoughts, lyrics, credits
+- [ ] **P15** Spotify + Apple URLs on hub + press
+
+### B — Deliverables
+
+#### Freeze
+
+- [ ] **D1–D4** Listen-through SOMETIMES, FIRE ESCAPE, PHOTO NEGATIVE, IT DOESNT MATTER
+- [ ] **D5** Export `PHOTONEGATIVE_{TRACK}_MASTER.wav` (all 4)
+- [ ] **D6** Credits and splits per track
+- [ ] **D7** Confirm release cut table (below)
+- [ ] **D8** Choose lead single (FIRE ESCAPE or SOMETIMES)
+- [ ] **D9** Declare freeze complete
+
+#### Copy / assets / distro
+
+- [ ] **D10** Album hub thoughts pull from 5.17.26
+- [x] **D11** Press copy · [x] **D12** Homepage intro
+- [ ] **D13** Lyrics/notes for title track + lead single
+- [ ] **D14** Hi-res cover (≥3000²) · **D15** press photos · **D16** four track visuals
+- [ ] **D17–D21** Launch fragments (edit, link to hub)
+- [ ] **D22–D24** LabelGrid create → metadata/ISRC/UPC → submit
+
+**⛔ GATE** — Wait for Spotify + Apple live (usually 3–14 days). Finish A + remaining B during the wait. No public launch until gate clears.
+
+### C — Launch + push
+
+- [ ] **L1–L2** Drop-in P12–P15 + verify production
+- [ ] **L3** Release journal entry (document the picture — not hype)
+- [ ] **L4–L8** Five off-site fragments → album hub / 5.17.26
+- [ ] **R1–R3** Pitch spreadsheet + lead single batch 1 + press batch 1
+- [ ] **R4–R11** Track posts, more pitches, finished-adjacent journals
+- [ ] **R12** Metrics snapshot → extend push **or** continue §17 Tier 3. Threshold: one playlist/press win OR meaningful saves/sales.
+
+### Release cut table
+
+| # | Song | Release cut (playbackId / file) | ISRC |
+|---|------|----------------------------------|------|
+| 1 | SOMETIMES | `4MY1eOPKNpR3492qFO4ihLM4rzhwsOZ4lThYRHZpz02U` *(candidate)* | |
+| 2 | FIRE ESCAPE | `cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc` *(candidate)* | |
+| 3 | PHOTO NEGATIVE | `cLHw2U5QnTrJhn14E6ISMNF4eT602f02svbYCJPZZ02S3I` *(candidate)* | |
+| 4 | IT DOESNT MATTER | `hCls02k6rr2jI02Wy5Q7fcwK00RBT9QCkonzp00ipUMmDaY` *(candidate)* | |
+
+**Lead single (D8):** _______________ · **UPC (D23):** _______________
+
+### §0 references
+
+**Album hub:** header/subtitle done · cover needs hi-res (D14) · tracklist candidates (D7) · links placeholders + shop · thoughts empty (D10) · credits generic (D6) · lyrics need P7–P8 + D13 · darkroom done · visuals empty (D16).
+
+**Press:** copy done · streaming after gate · cover download live · photos/preview pending.
+
+**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions · promo to unstable cuts · playlist spam · waiting on LabelGrid API / R2 / Tier 4 before shipping · blocking laptop work on unfinished masters.
+
+**Deferred past R12:** Tier 4 SaaS · marketing planner · multi-tenant galleries · IG analytics · physical merch unless ready · living album on `music.html` · full DSP/Cloudflare-in-Studio (after P16–P19).
+
+**Key URLs:** album hub · `music.html` · `press.html` · `5.17.26.html` · `shop.html` · home.
+
+**Legend:** `[x]` done · `[ ]` open · **P#** platform · **D#** deliverable · **L#** launch · **R#** push.
+
+---
+
+## 1. North star (Studio / platform)
+
+**Burnfolder Studio** is a **multi-tenant artist OS** — a private control plane where artists run their entire practice on the go, then choose what goes public. For the next six months, §0 is how that OS proves itself on burnfolder.com.
 
 | Layer | Role |
 |-------|------|
@@ -418,40 +547,100 @@ Gates before distro submit or gallery publish:
 
 ### 9.5 Analytics
 
-**Dashboard is the analytics surface** — one page (`/studio/dashboard.html`), not a separate analytics tab. Two sections:
+Metrics exist to change **what you release, pitch, post, and double down on** — not to decorate a dashboard. Cloudflare pageviews are table stakes; what propels careers is signal tied to decisions.
+
+**Dashboard** (`/studio/dashboard.html`) is the only analytics surface — not a separate tab.
 
 | Section | Role |
 |---------|------|
-| **Streaming** | Ingested metrics from DSPs, Mux, share links, YouTube/Instagram — per-track/per-release views |
-| **AI** | Digest and analyze that data — trends, period comparisons, focus suggestions; **never invent numbers** |
+| **Streaming** | Site plays/linger, share links, DSP, YouTube/IG — per-track / per-release |
+| **AI** | Digest that snapshot — trends, comparisons, focus; **never invent numbers** |
 
-**Tier 1 (shipped shell):** dashboard page with streaming placeholder + on-demand AI panel. Share-link `playCount` + `lastPlayedAt` are the only live metrics until Tier 3 ingest.
-
-**Target unified feed (Tier 3+):**
-
-| Source | Metrics |
-|--------|---------|
-| Distro provider | Spotify, Apple, Amazon, TikTok Music — streams, listeners, revenue |
-| Mux | On-site / embed plays |
-| Share links | Private listen plays (existing — first feed) |
-| YouTube | Views, watch time |
-| Instagram | Reach, saves, reel plays |
-| Bandcamp / SoundCloud | v2 — same pull pattern |
-| Site traffic | Cloudflare Web Analytics |
-| Commerce | Tips, orders, conversion |
-
-Normalized store: workspace Blob `dspMetrics` or Supabase table — `{ platform, isrc, streams, listeners, revenue, date }`.
-
-**AI + analytics flow (Tier 3):**
+#### Why measure (decision loop)
 
 ```
-sync-analytics.js → normalized dspMetrics + share-link aggregates
-  → dashboard #dashboardAnalyticsFeed renders tables/charts
-  → studio-ai.js receives optional metrics snapshot in POST body
-  → AI summarizes patterns, compares periods, suggests focus — grounded in provided data only
+Discover → Land (site or DSP) → Engage (song or story) → Commit (save / follow / buy / share) → Amplify → Discover
 ```
 
-**Current state:** share-link counts only in backend; dashboard UI shows placeholder until Tier 3 ingest ships. No site traffic, Mux dashboard, or DSP stats in studio yet.
+Every metric answers **who**, **what**, **where**, **when**, or **what next**.
+
+| Signal | What to capture | Decision unlocked |
+|--------|-----------------|-------------------|
+| **Demand** | Plays, linger/completion, replay, skip; DSP saves; share-link plays; release-cut vs darkroom linger | Which song gets oxygen / pitch |
+| **Path** | UTM/referrer, landing page, hub→song→shop→newsletter, outbound Spotify/Apple clicks | Which fragment or door works |
+| **Audience** | Geo (DSP + coarse site), new vs returning, playlist sources, press referral quality, fan language (manual) | Who to court next — no creepy profiles |
+| **Distribution** | Streams by platform, playlist lift, algorithmic vs editorial vs follower, 28-day listeners | Where to push; don’t spray |
+| **Commitment** | PWYW amounts, tip vs album, newsletter strength, repeat supporters | Proof the thesis commercially |
+| **Creative R&D** | Fragment→hub attribution, darkroom opens, lyrics/notes dwell | What to make next (integrity, not chart hacks) |
+| **Timing** | Peak hour/day, decay after post/playlist | When to strike |
+
+**Ignore / demote:** raw pageviews without song/path context; vanity followers; AI “insights” without numbers; major-label stream thresholds early; privacy-hostile identity graphs.
+
+#### System map
+
+```
+Site first-party              External                    Studio
+─────────────────             ────────────                ──────
+Song plays / linger      ─┐   Cloudflare page traffic ─┐
+Paths / UTM / clicks     ─┤   DSP (LabelGrid + S4A)  ──┼→ #dashboardAnalyticsFeed
+Shop PWYW / tips         ─┤   YouTube / IG Insights  ─┤         ↓
+Share-link plays         ─┘   Newsletter list size   ─┘   AI digest → pitch / post / lead
+```
+
+| Layer | Job | Status |
+|-------|-----|--------|
+| First-party site plays + linger + path | Unique advantage — hub / darkroom / journal | Missing — **P16–P18** |
+| Share-link plays | Pre-release trusted feedback | Live backend; not on dashboard — **P17** |
+| Cloudflare | Traffic volume / trends | Beacon live; Studio ingest optional |
+| Shop / tips / newsletter | Commitment | Stripe + newsletter live; Studio rollup — **P19** |
+| DSP streams / saves / playlists | Commercial reach | After LabelGrid + **Spotify/Apple for Artists** |
+| YouTube / IG | Fragment performance | Manual first; OAuth Tier 3/4 |
+| Unified feed + AI digest | One place to decide | Shell until P16–P19 / Tier 3 |
+
+#### Solo-label tools (fraction of label budget)
+
+Prefer **free first-party dashboards + Studio** over paid A&R suites until playlist pitching is a weekly job.
+
+| Tool | Delivers | Gap / rule |
+|------|----------|------------|
+| **Cloudflare Web Analytics** | Pageviews, coarse referrers | Not song plays or linger — keep for volume |
+| **P16 first-party events** | Site plays, seconds heard, completion, page, songGroupKey, darkroom vs cut | Essential; prefer over Mux Data for burnfolder metadata |
+| **Mux Data** (optional) | Watch time / QoE (free ≤~100k views/mo) | Supplement only — won’t know darkroom vs release cut alone |
+| **Share links** | Play counts | Wire to dashboard (P17) |
+| **Stripe** | Tips + `digital_album` amounts | Aggregate in P19 |
+| **Newsletter Blobs** | List size + blast | Opens/clicks deferred |
+| **LabelGrid** analytics API | Streams by platform/date/country; approx saves | Trends in Studio (Tier 3); lag 1–3 days; statements = money truth |
+| **Spotify for Artists** + **Apple Music for Artists** | Saves, playlist sources, algorithmic vs editorial | **Required** after DSP live — LabelGrid does not replace these |
+| **YouTube Studio** / **IG Insights** | Fragment performance | Manual until OAuth |
+| **Songstats** or **Chartmetric Artist** | Playlist intel across platforms | **Defer** (~$5–15/mo) until pitching weekly |
+
+**Do not buy** Chartmetric Premium, radio suites, or a second smart-link product before P18. No Linktree — album hub is link-in-bio.
+
+#### Build order
+
+**Near-term (PHOTONEGATIVE Platform — ahead of masters):**
+
+1. **P16** — First-party public play events (Mux start/progress/end → song, page, seconds, completion; privacy-light)
+2. **P17** — `#dashboardAnalyticsFeed`: per-song plays + linger + share-link counts
+3. **P18** — UTM/referrer on land; outbound Spotify/Apple click events
+4. **P19** — Shop PWYW + tip totals beside listen metrics
+
+**After DSP live:** claim Spotify for Artists + Apple Music for Artists; use free dashboards in tandem with site feed.
+
+**Tier 3:** LabelGrid `getAnalytics` + share aggregates + site play aggregates → `dspMetrics`; optional Cloudflare GraphQL into Studio; YouTube OAuth; AI `metricsSnapshot`.
+
+```
+sync-analytics.js → dspMetrics + share-link aggregates + site play aggregates
+  → #dashboardAnalyticsFeed
+  → studio-ai.js optional metricsSnapshot
+  → AI summarizes — grounded in provided data only
+```
+
+Normalized store: workspace Blob `dspMetrics` or Supabase — `{ platform, isrc, streams, listeners, revenue, date }` plus first-party play aggregates shaped for the same feed.
+
+**Current state:** share-link counts in backend; Cloudflare beacon on public site; no site play/linger telemetry; dashboard placeholder until P16–P19. No DSP stats in studio yet.
+
+*Expanded tool matrix (optional): `MUSIC-GROWTH-TOOLS.md`. Near-term checklist: **§0** P16–P19.*
 
 ### 9.6 Social integrations
 
@@ -482,7 +671,7 @@ sync-analytics.js → normalized dspMetrics + share-link aggregates
 
 **AI does:**
 
-- **Digest streaming analytics** — summarize DSP/share-link/Mux/social metrics when a snapshot is provided; compare periods; spot trends (**never invent numbers**)
+- **Digest streaming analytics** — summarize DSP / site-play / share-link / social metrics when a snapshot is provided; compare periods; spot trends (**never invent numbers**)
 - Release planning + sequencing
 - Design **briefs** (direction, constraints — not finished copy)
 - Pre-release checklist + gap reports
@@ -749,7 +938,9 @@ SPA shell keeps global playback alive across nav. Entry hub ↔ editor via `edit
 | AI boundary | Ops only — no copy, captions, entry design; practice librarian organizes only — no performance critique |
 | Practice librarian | Tags + AI compile + goals — Phase 2+ (§9.7.1); metadata-only to AI |
 | Social | **YouTube** Tier 3; **Instagram** Tier 4 |
-| Site traffic | **Cloudflare Web Analytics** |
+| Site traffic | **Cloudflare Web Analytics** (volume only — not song plays) |
+| Listening intelligence | First-party site plays/linger/path (**P16–P19**) before DSP ingest; Spotify/Apple for Artists required after DSP live |
+| Paid A&R suites | Songstats / Chartmetric Artist only when pitching weekly — not before |
 | Vault | **Cloudflare R2** — masters + **project/session files** |
 | Project vault | R2 `projects/{songGroupKey}/` — session files linked to songs; AI retrieval Tier 2 (§9.7.2) |
 | Auth | **Supabase** |
@@ -791,7 +982,7 @@ SPA shell keeps global playback alive across nav. Entry hub ↔ editor via `edit
 ```
 Tier 1  Supabase login + collaborators + your existing studio on burnfolder.com
 Tier 2  Cloudflare R2 masters + LabelGrid → Spotify/Apple + cover art on site
-Tier 3  Dashboard streaming ingest (LabelGrid + share links + Mux) + AI digest + YouTube + catalog import
+Tier 3  Dashboard streaming ingest (LabelGrid + site plays + share links) + AI digest + YouTube + catalog import; Spotify/Apple for Artists as free DSP truth
 Tier 4  Other artists pay $15/mo → theirname.burnfolder.com + Instagram
 Tier 5  Ignore until LabelGrid can't scale (Revelator) — years away
 ```
@@ -1216,7 +1407,7 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 
 **Trigger:** At least one release is live on DSPs and you want stream counts in one place.
 
-**Add:** LabelGrid analytics + Mux + share links in studio dashboard, **YouTube** connect, **LabelGrid catalog import**, fan list + orders (read-only).
+**Add:** LabelGrid analytics + first-party site play aggregates + share links in studio dashboard, **YouTube** connect, **LabelGrid catalog import**, fan list + orders (read-only). Spotify for Artists / Apple Music for Artists remain the free DSP truth layer (manual or later sync) — see §9.5.
 
 ---
 
@@ -1224,19 +1415,25 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 
 | Step | Your time | What you're doing |
 |------|-----------|-------------------|
-| Step 1 — Cloudflare Web Analytics | **15–20 min** | Add site, copy beacon snippet for Copilot |
+| Step 1 — Cloudflare Web Analytics | **15–20 min** | Confirm beacon live (already on gallery); optional API token only if pulling into Studio |
+| Step 1b — Claim DSP artist dashboards | **30–60 min** | Spotify for Artists + Apple Music for Artists for the live release |
 | Step 2 — YouTube OAuth | **1–2 h** | Google Cloud project — **budget 2 h** if first time; most common snag |
 | Step 3 — Catalog prep | **30–60 min** | List LabelGrid releases + missing vault masters |
-| Copilot build | **1–2 h** | One Cursor session |
+| Copilot build | **1–2 h** | One Cursor session (ingest + dashboard; P16–P19 if not already shipped) |
 | Step 4 — Verify | **30–45 min** | Connect YouTube, run import, check dashboard streaming section + ask AI about trends |
 | **Tier 3 total** | **~4–7 h** | Mostly one afternoon |
 | **Ongoing** | **~30 min/month** | Glance analytics before planning next release |
 
 **Step 1 — Cloudflare Web Analytics (free site traffic)**
 
-1. Cloudflare dashboard → **Web Analytics** → Add site `burnfolder.com`
-2. Copy the JS beacon snippet Copilot will place in gallery pages (or give Copilot the snippet from dashboard)
-3. No env var required — snippet-only is fine
+1. Cloudflare dashboard → **Web Analytics** → site `burnfolder.com` (beacon already wired via `shared/analytics-config.js`)
+2. Optional later: Account Analytics API token if Studio should show traffic beside plays (§9.5 — convenience, not core)
+3. Remember: Cloudflare ≠ song linger — that is P16
+
+**Step 1b — DSP artist dashboards (required free layer)**
+
+1. Claim **Spotify for Artists** + **Apple Music for Artists** for the live release
+2. Use for saves, playlist sources, algorithmic vs editorial — LabelGrid trends do not replace this (§9.5)
 
 **Step 2 — YouTube (only social platform in Tier 3)**
 
@@ -1259,7 +1456,8 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 
 **Step 4 — Verify Tier 3**
 
-- [ ] Dashboard **streaming** section shows LabelGrid streams for at least one track
+- [ ] Dashboard **streaming** section shows LabelGrid streams *and* site play/linger (if P16 live) for at least one track
+- [ ] Spotify for Artists / Apple Music for Artists claimed for the release
 - [ ] AI digest: ask dashboard AI "which track gained streams this week?" — answer grounded in ingested metrics, not invented
 - [ ] YouTube connect works → video view count visible on dashboard
 - [ ] **Import catalog** pulls LabelGrid discography into studio
@@ -1285,13 +1483,14 @@ For **local** dev, mirror the same keys in repo root `.env` (file is gitignored 
 **Build tasks**
 
 1. **Analytics ingest** — cron or on-demand `netlify/functions/sync-analytics.js`:
-   - Pull from distro adapter `getAnalytics`, Mux Data API (if available), aggregate share-link counts from Blobs
+   - Pull from distro adapter `getAnalytics`, aggregate share-link counts from Blobs, merge first-party site play aggregates (P16)
+   - Optional Mux Data API for QoE only — prefer first-party events for song/page/darkroom identity (§9.5)
    - Store normalized rows in workspace Blob `dspMetrics` or Supabase table
 2. **Dashboard streaming UI** — extend `studio/dashboard.html` + `studio/js/dashboard-page.js`:
-   - Populate `#dashboardAnalyticsFeed` with per-track/per-release tables — minimal, monospace, mobile-readable
+   - Populate `#dashboardAnalyticsFeed` with per-track/per-release tables — minimal, monospace, mobile-readable (site linger + DSP + shares)
    - Hide `#dashboardAnalyticsEmpty` when data exists
 3. **AI metrics digest** — extend `studio-ai.js` POST body:
-   - Optional `metricsSnapshot` from latest `dspMetrics` + share-link aggregates (server-side fetch, workspace-scoped)
+   - Optional `metricsSnapshot` from latest `dspMetrics` + share-link + site play aggregates (server-side fetch, workspace-scoped)
    - System prompt: summarize patterns, compare periods — **never invent numbers** (see §9.5)
 4. **YouTube only** — `social-youtube-auth.js`, `social-youtube-callback.js`:
    - No Instagram code in Tier 3
@@ -1426,7 +1625,7 @@ Multi-tenant architecture **thin in Tier 1**, full vision **documented** in sect
 
 When working on Burnfolder Studio at any tier, Copilot must:
 
-1. **Read** `STUDIO-MASTER-PLAN.md` (current tier section) and `COPILOT.md` before editing
+1. **Read** `STUDIO-MASTER-PLAN.md` (**§0** for near-term; current tier §17 when building tiers) and `COPILOT.md` before editing
 2. **Never commit** secrets, `.env`, or API keys
 3. **Never push** to git unless operator explicitly asks
 4. **Scope every change** to the active tier — reject scope creep in commit messages and diffs
@@ -1441,13 +1640,14 @@ When operator says *"implement Tier N"*, Copilot runs the **For Copilot** block 
 
 ---
 
-## 19. Next step (~2–3 h to start)
+## 19. Next step
 
-| Step | Your time |
-|------|-----------|
-| Supabase setup | 45–60 min |
-| Anthropic API key | 15–20 min |
-| Netlify env vars | 30–45 min |
-| Tell Copilot to implement Tier 1 | 2–4 h across 1–2 sessions |
+**Default (next ~6 months):** open **§0** — laptop **P16** (or P7–P8); studio **D1–D5**.
 
-Do not create LabelGrid, R2, or YouTube accounts until their tier.
+| If you need… | Go to |
+|--------------|--------|
+| Release / platform checklist | **§0** |
+| What to measure / tools | **§9.5** |
+| Post-R12 platform tiers | **§17** |
+
+Do not create LabelGrid, R2, or YouTube accounts until their tier (unless §0 Distro **D22** needs LabelGrid for the release).

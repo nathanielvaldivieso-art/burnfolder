@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="../shared/studio-pwa-viewport.js?v=20260709l"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>shop — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css?v=20260709k">
+  <link rel="stylesheet" href="css/studio.css?v=20260709k">
+</head>
+<body class="studio-page studio-song-designer-page studio-shop-designer-page">
+  <header class="site-header studio-header">
+    <a href="/studio/index.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="/studio/dashboard.html" class="studio-main-nav-link" data-nav="dashboard">dashboard</a>
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link page-nav" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-song-designer-layout">
+    <div class="studio-song-designer-toolbar">
+      <p class="page-id">shop / product</p>
+      <div class="studio-song-designer-toolbar-actions">
+        <a class="icon-btn" href="../shop.html" target="_blank" rel="noopener">site preview</a>
+        <button type="button" class="icon-btn studio-song-push-btn" id="shopDesignerPushBtn">push to site</button>
+      </div>
+    </div>
+
+    <p class="studio-song-designer-meta">owner backdoor — digital album for burnfolder.com/shop.html. upload cover here; paste download path/url when the zip is ready.</p>
+
+    <div class="studio-song-designer-split">
+      <section class="studio-song-designer-editor" aria-label="Shop product editor">
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">product</h2>
+          <label class="studio-song-designer-label" for="shopDesignerId">id</label>
+          <input id="shopDesignerId" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off">
+          <label class="studio-song-designer-label" for="shopDesignerTitle">title</label>
+          <input id="shopDesignerTitle" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off">
+          <label class="studio-song-designer-label" for="shopDesignerSubtitle">subtitle</label>
+          <input id="shopDesignerSubtitle" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off">
+          <label class="studio-song-designer-label" for="shopDesignerBlurb">blurb</label>
+          <textarea id="shopDesignerBlurb" class="studio-song-designer-textarea" rows="3" spellcheck="false"></textarea>
+          <label class="studio-press-row-flag" style="margin-top:12px;">
+            <input id="shopDesignerActive" type="checkbox" checked>
+            active on shop
+          </label>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">cover</h2>
+          <p class="studio-song-designer-hint">upload replaces the image on push (under 4MB). path is written into the catalog.</p>
+          <label class="studio-song-designer-label" for="shopDesignerCoverPath">path</label>
+          <input id="shopDesignerCoverPath" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off" placeholder="IMAGES/…">
+          <label class="studio-song-designer-label" for="shopDesignerCoverFile">upload</label>
+          <input id="shopDesignerCoverFile" class="studio-song-designer-input" type="file" accept="image/*">
+          <img id="shopDesignerCoverPreview" class="studio-song-designer-cover-preview" alt="" hidden>
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">download</h2>
+          <p class="studio-song-designer-hint">shown on success after pay. leave empty until the zip/file is ready — checkout still works.</p>
+          <label class="studio-song-designer-label" for="shopDesignerDownloadHref">path or url</label>
+          <input id="shopDesignerDownloadHref" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off" placeholder="DOWNLOADS/PHOTONEGATIVE.zip or https://…">
+        </section>
+
+        <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">pay what you want</h2>
+          <label class="studio-song-designer-label" for="shopDesignerMin">minimum $</label>
+          <input id="shopDesignerMin" class="studio-song-designer-input" type="number" min="1" max="500" step="0.01">
+          <label class="studio-song-designer-label" for="shopDesignerMax">maximum $</label>
+          <input id="shopDesignerMax" class="studio-song-designer-input" type="number" min="1" max="500" step="0.01">
+          <label class="studio-song-designer-label" for="shopDesignerAmounts">suggested amounts</label>
+          <input id="shopDesignerAmounts" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off" placeholder="5, 10, 15">
+        </section>
+      </section>
+
+      <aside class="studio-song-designer-preview-wrap" aria-label="Live preview">
+        <h2 class="studio-song-designer-section-title">live preview</h2>
+        <div class="studio-song-designer-preview" id="shopDesignerPreviewRoot"></div>
+      </aside>
+    </div>
+  </main>
+
+  <p class="studio-song-designer-status" id="shopDesignerStatus" aria-live="polite"></p>
+
+  <script src="js/studio-version.js?v=20260709l"></script>
+  <script src="js/studio-status.js?v=20260709l"></script>
+  <script src="js/studio-auth.js?v=20260709l"></script>
+  <script src="js/cloud-state.js?v=20260709l"></script>
+  <script src="../shop-products.js?v=20260709l"></script>
+  <script src="../shared/shop-products-render.js?v=20260709l"></script>
+  <script src="js/shop-products-store.js?v=20260709l"></script>
+  <script src="js/shop-designer-page.js?v=20260709l"></script>
+</body>
+</html>

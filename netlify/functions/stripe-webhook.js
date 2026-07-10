@@ -45,7 +45,7 @@ exports.handler = async function(event) {
     const requiresShipping = String(meta.requires_shipping || '').toLowerCase() === 'true';
     const orderType = meta.order_type || 'shop';
 
-    if (!requiresShipping || orderType === 'tip') {
+    if (!requiresShipping || orderType === 'tip' || orderType === 'digital_album') {
       console.log('Skipping Shippo label for non-shippable payment:', pi.id, orderType);
       return {
         statusCode: 200,

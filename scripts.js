@@ -54,6 +54,44 @@ let checkoutPaymentRequest = null;
 let checkoutPaymentRequestButton = null;
 let checkoutMode = 'cart';
 let checkoutTipAmount = 1;
+let checkoutDigitalProduct = null;
+
+function getDigitalProductBounds(product) {
+  const minAmount = Math.max(1, Number(product && product.minAmount) || 1);
+  const maxAmount = Math.min(500, Math.max(minAmount, Number(product && product.maxAmount) || 500));
+  return { minAmount, maxAmount };
+}
+
+function parseDigitalAmount(rawValue, product) {
+  const bounds = getDigitalProductBounds(product);
+  const normalized = String(rawValue || '').replace(/[^0-9.]/g, '');
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+  const rounded = Math.round(amount * 100) / 100;
+  if (rounded < bounds.minAmount || rounded > bounds.maxAmount) return null;
+  return rounded;
+}
+
+function rememberDigitalPurchase(product) {
+  if (!product || !product.id) return;
+  try {
+    sessionStorage.setItem(
+      'burnfolderDigitalPurchase',
+      JSON.stringify({
+        id: product.id,
+        title: product.title || '',
+        downloadHref: product.downloadHref || ''
+      })
+    );
+  } catch {
+    // no-op
+  }
+}
+
+function digitalSuccessUrl(product) {
+  const id = product && product.id ? encodeURIComponent(product.id) : '';
+  return 'success.html?type=digital' + (id ? '&product=' + id : '');
+}
 
 function formatTipAmount(amount) {
   const numeric = Number(amount);
@@ -1653,6 +1691,13 @@ function renderCheckoutSummary() {
       <p class="checkout-popup-line">Tip amount: $${formatTipAmount(checkoutTipAmount)}</p>
     `;
     shippingFields.style.display = 'none';
+  } else if (checkoutMode === 'digital') {
+    const title = (checkoutDigitalProduct && checkoutDigitalProduct.title) || 'Digital album';
+    summary.innerHTML = `
+      <p class="checkout-popup-title">${title}</p>
+      <p class="checkout-popup-line">Amount: $${formatTipAmount(checkoutTipAmount)}</p>
+    `;
+    shippingFields.style.display = 'none';
   } else {
     const cart = getCartItems();
     const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -1697,7 +1742,7 @@ function renderCheckoutSummary() {
 }
 
 function getCheckoutAmountCents() {
-  if (checkoutMode === 'tip') {
+  if (checkoutMode === 'tip' || checkoutMode === 'digital') {
     return Math.max(0, Number(checkoutTipAmount) * 100);
   }
 
@@ -1752,6 +1797,19 @@ async function startHostedWalletCheckout() {
     if (checkoutMode === 'tip') {
       endpoint = '/.netlify/functions/create-tip-checkout-session';
       payload = { amount: checkoutTipAmount };
+    } else if (checkoutMode === 'digital') {
+      if (!checkoutDigitalProduct || !checkoutDigitalProduct.id) {
+        throw new Error('Missing digital product.');
+      }
+      const bounds = getDigitalProductBounds(checkoutDigitalProduct);
+      endpoint = '/.netlify/functions/create-digital-checkout-session';
+      payload = {
+        amount: checkoutTipAmount,
+        productId: checkoutDigitalProduct.id,
+        productTitle: checkoutDigitalProduct.title || 'Digital album',
+        minAmount: bounds.minAmount,
+        maxAmount: bounds.maxAmount
+      };
     } else {
       const cart = getCartItems();
       if (cart.length === 0) throw new Error('Your cart is empty.');
@@ -1829,11 +1887,18 @@ async function mountCheckoutWalletButton() {
   const amount = getCheckoutAmountCents();
   if (!amount) return;
 
+  const walletLabel =
+    checkoutMode === 'tip'
+      ? 'Burnfolder Tip'
+      : checkoutMode === 'digital'
+        ? (checkoutDigitalProduct && checkoutDigitalProduct.title) || 'Digital album'
+        : 'Burnfolder Order';
+
   checkoutPaymentRequest = stripeClient.paymentRequest({
     country: 'US',
     currency: 'usd',
     total: {
-      label: checkoutMode === 'tip' ? 'Burnfolder Tip' : 'Burnfolder Order',
+      label: walletLabel,
       amount
     },
     requestPayerName: true,
@@ -1899,6 +1964,35 @@ async function mountCheckoutWalletButton() {
           payment_method: ev.paymentMethod.id,
           receipt_email: ev.payerEmail || undefined
         };
+      } else if (checkoutMode === 'digital') {
+        if (!checkoutDigitalProduct || !checkoutDigitalProduct.id) {
+          ev.complete('fail');
+          throw new Error('Missing digital product.');
+        }
+        const bounds = getDigitalProductBounds(checkoutDigitalProduct);
+        const res = await fetch('/.netlify/functions/create-digital-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: checkoutTipAmount,
+            productId: checkoutDigitalProduct.id,
+            productTitle: checkoutDigitalProduct.title || 'Digital album',
+            minAmount: bounds.minAmount,
+            maxAmount: bounds.maxAmount,
+            email: ev.payerEmail || ''
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.clientSecret) {
+          ev.complete('fail');
+          throw new Error(data.error || 'Could not create digital payment intent.');
+        }
+
+        clientSecret = data.clientSecret;
+        confirmOpts = {
+          payment_method: ev.paymentMethod.id,
+          receipt_email: ev.payerEmail || undefined
+        };
       } else {
         const cart = getCartItems();
         if (cart.length === 0) {
@@ -1955,13 +2049,21 @@ async function mountCheckoutWalletButton() {
         localStorage.removeItem('cart');
         updateCartFloat();
         if (status) status.textContent = 'Payment successful. Your order is confirmed.';
+        setTimeout(() => {
+          closeCheckoutPopup();
+        }, 1200);
+      } else if (checkoutMode === 'digital') {
+        rememberDigitalPurchase(checkoutDigitalProduct);
+        if (status) status.textContent = 'Payment successful. Preparing download…';
+        setTimeout(() => {
+          window.location.href = digitalSuccessUrl(checkoutDigitalProduct);
+        }, 700);
       } else {
         if (status) status.textContent = 'Payment successful. Thank you for supporting burnfolder.';
+        setTimeout(() => {
+          closeCheckoutPopup();
+        }, 1200);
       }
-
-      setTimeout(() => {
-        closeCheckoutPopup();
-      }, 1200);
     } catch (err) {
       try {
         ev.complete('fail');
@@ -1999,10 +2101,11 @@ async function ensureCheckoutCardMounted() {
   }
 }
 
-async function openCheckoutPopup(mode, amount) {
+async function openCheckoutPopup(mode, amount, product) {
   createCheckoutPopup();
   checkoutMode = mode;
   checkoutTipAmount = amount || 1;
+  checkoutDigitalProduct = mode === 'digital' ? product || null : null;
 
   const overlay = document.getElementById('purchaseOverlay');
   const title = document.getElementById('purchaseTitle');
@@ -2012,10 +2115,15 @@ async function openCheckoutPopup(mode, amount) {
 
   if (!overlay || !title || !status || !errors || !payBtn) return;
 
-  title.textContent = mode === 'tip' ? 'Support Burnfolder' : 'Checkout';
-  payBtn.textContent = mode === 'tip' ? `Pay $${checkoutTipAmount}` : 'Pay';
   if (mode === 'tip') {
+    title.textContent = 'Support Burnfolder';
     payBtn.textContent = `Pay $${formatTipAmount(checkoutTipAmount)}`;
+  } else if (mode === 'digital') {
+    title.textContent = (checkoutDigitalProduct && checkoutDigitalProduct.title) || 'Digital album';
+    payBtn.textContent = `Pay $${formatTipAmount(checkoutTipAmount)}`;
+  } else {
+    title.textContent = 'Checkout';
+    payBtn.textContent = 'Pay';
   }
   status.textContent = '';
   errors.textContent = '';
@@ -2032,6 +2140,15 @@ async function openCheckoutPopup(mode, amount) {
     status.textContent = err.message || 'Checkout unavailable.';
   }
 }
+
+function openDigitalCheckout(product, amount) {
+  if (!product || !product.id) return;
+  const parsed = parseDigitalAmount(amount, product);
+  if (!parsed) return;
+  openCheckoutPopup('digital', parsed, product);
+}
+
+window.openDigitalCheckout = openDigitalCheckout;
 
 function closeCheckoutPopup() {
   const overlay = document.getElementById('purchaseOverlay');
@@ -2070,6 +2187,29 @@ async function handlePopupCheckoutSubmit(e) {
       const data = await res.json();
       if (!res.ok || !data.clientSecret) {
         throw new Error(data.error || 'Could not create tip payment intent.');
+      }
+
+      clientSecret = data.clientSecret;
+      confirmOpts = { payment_method: { card: checkoutCard } };
+    } else if (checkoutMode === 'digital') {
+      if (!checkoutDigitalProduct || !checkoutDigitalProduct.id) {
+        throw new Error('Missing digital product.');
+      }
+      const bounds = getDigitalProductBounds(checkoutDigitalProduct);
+      const res = await fetch('/.netlify/functions/create-digital-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: checkoutTipAmount,
+          productId: checkoutDigitalProduct.id,
+          productTitle: checkoutDigitalProduct.title || 'Digital album',
+          minAmount: bounds.minAmount,
+          maxAmount: bounds.maxAmount
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.clientSecret) {
+        throw new Error(data.error || 'Could not create digital payment intent.');
       }
 
       clientSecret = data.clientSecret;
@@ -2133,13 +2273,21 @@ async function handlePopupCheckoutSubmit(e) {
       localStorage.removeItem('cart');
       updateCartFloat();
       status.textContent = 'Payment successful. Your order is confirmed.';
+      setTimeout(() => {
+        closeCheckoutPopup();
+      }, 1200);
+    } else if (checkoutMode === 'digital') {
+      rememberDigitalPurchase(checkoutDigitalProduct);
+      status.textContent = 'Payment successful. Preparing download…';
+      setTimeout(() => {
+        window.location.href = digitalSuccessUrl(checkoutDigitalProduct);
+      }, 700);
     } else {
       status.textContent = 'Payment successful. Thank you for supporting burnfolder.';
+      setTimeout(() => {
+        closeCheckoutPopup();
+      }, 1200);
     }
-
-    setTimeout(() => {
-      closeCheckoutPopup();
-    }, 1200);
   } catch (err) {
     status.textContent = err.message || 'Checkout failed.';
     payBtn.disabled = false;

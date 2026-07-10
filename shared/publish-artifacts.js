@@ -314,6 +314,8 @@
 <script src="scripts.js?v=${version}"></script>
 <script src="shared/site-version.js"></script>
 <script src="shared/register-sw.js"></script>
+<script src="shared/analytics-config.js"></script>
+<script src="shared/analytics-beacon.js"></script>
 </body>
 </html>
 `;

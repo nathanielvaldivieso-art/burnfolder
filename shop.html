@@ -22,7 +22,7 @@
 
   <div class="page-wrap">
     <p class="page-id">shop</p>
-    <p class="page-annotation">coming sooooon heheheheh</p>
+    <div id="shopProductsRoot" class="shop-products" aria-live="polite"></div>
     <div id="audioList" style="display:none"></div>
   </div>
   <div class="page-watermark">shop</div>
@@ -44,8 +44,10 @@
   </div>
 
   <script src="entries.js"></script>
-<script src="entry-renderer.js"></script>
-<script src="songs.js"></script>
+  <script src="entry-renderer.js"></script>
+  <script src="songs.js"></script>
+  <script src="shop-products.js"></script>
+  <script src="shared/shop-products-render.js"></script>
   <script src="stripe-publishable.js"></script>
   <script src="spa-router.js"></script>
   <script src="shared/studio-tap.js?v=20260709l"></script>
@@ -55,5 +57,38 @@
   <script src="scripts.js?v=20260709l"></script>
   <script src="shared/site-version.js"></script>
   <script src="shared/register-sw.js"></script>
+<script src="shared/analytics-config.js"></script>
+<script src="shared/analytics-beacon.js"></script>
+  <script>
+    (function () {
+      const root = document.getElementById('shopProductsRoot');
+      const api = window.BurnfolderShopProductsRender;
+      if (!root || !api) return;
+
+      function promptCustom(product) {
+        const bounds = {
+          min: Number(product.minAmount) || 1,
+          max: Number(product.maxAmount) || 500
+        };
+        const raw = window.prompt(
+          'amount ($' + bounds.min + '–$' + bounds.max + ')',
+          String(product.suggestedAmounts && product.suggestedAmounts[0] ? product.suggestedAmounts[0] : bounds.min)
+        );
+        if (raw == null) return;
+        if (typeof window.openDigitalCheckout === 'function') {
+          window.openDigitalCheckout(product, raw);
+        }
+      }
+
+      api.apply(root, {
+        onBuy: function (product, amount) {
+          if (typeof window.openDigitalCheckout === 'function') {
+            window.openDigitalCheckout(product, amount);
+          }
+        },
+        onCustom: promptCustom
+      });
+    })();
+  </script>
 </body>
 </html>

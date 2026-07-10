@@ -331,6 +331,50 @@ p, h1, .song-title, .page-annotation {
   color: inherit;
 }
 
+/* ── shop / digital products ── */
+
+.shop-products {
+  margin-top: 8px;
+  max-width: 360px;
+}
+
+.shop-product {
+  margin-bottom: 40px;
+}
+
+.shop-product-cover {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 0 16px;
+}
+
+.shop-product-title {
+  margin: 0;
+  font-size: 1.05em;
+  letter-spacing: 0.02em;
+}
+
+.shop-product-subtitle,
+.shop-product-blurb,
+.shop-product-note {
+  margin: 8px 0 0;
+  font-size: 0.88em;
+  line-height: 1.7;
+  max-width: 360px;
+}
+
+.shop-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.shop-amount-btn {
+  min-width: 3.2em;
+}
+
 .entry-spacing {
   width: 100%;
   max-width: 360px;
