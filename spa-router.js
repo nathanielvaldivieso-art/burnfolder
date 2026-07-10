@@ -54,11 +54,51 @@
     }
   }
 
-  function isHubNavigation(href) {
+  function hubPageName(pathname) {
+    const raw = String(pathname || '')
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/\/+$/, '');
+    const base = raw.split('/').pop() || '';
+    return base.toLowerCase();
+  }
+
+  // Album/song hubs ship their own script boot (album-pages.js, render APIs).
+  // Soft-swapping their HTML into another page leaves the empty shell until refresh.
+  function isHubNavigation(href, baseHref) {
     if (!href) return false;
-    const path = String(href).split('?')[0].split('#')[0];
-    const base = path.replace(/^\//, '').toLowerCase();
-    return base === 'album.html' || base === 'song.html' || base === 'album' || base === 'song';
+    try {
+      const resolved = new URL(href, baseHref || window.location.href);
+      if (resolved.origin !== window.location.origin) return false;
+      const name = hubPageName(resolved.pathname);
+      return (
+        name === 'album.html' ||
+        name === 'song.html' ||
+        name === 'album' ||
+        name === 'song'
+      );
+    } catch (_) {
+      const path = String(href).split('?')[0].split('#')[0];
+      const name = hubPageName(path);
+      return (
+        name === 'album.html' ||
+        name === 'song.html' ||
+        name === 'album' ||
+        name === 'song'
+      );
+    }
+  }
+
+  function hardNavigate(url) {
+    window.location.assign(url);
+  }
+
+  function albumHubCanRender() {
+    return !!(window.burnfolderAlbumPages && window.BurnfolderAlbumPageRender);
+  }
+
+  function songHubCanRender() {
+    return !!(window.burnfolderSongPages && window.BurnfolderSongPageRender);
   }
 
   function handleLinkClick(e) {
@@ -73,8 +113,8 @@
       return;
     }
 
-    // Album/song hubs need their own script boot (query params + render APIs).
-    if (isHubNavigation(href)) {
+    // Full document load so hub boot scripts actually run.
+    if (isHubNavigation(href, link.href || window.location.href)) {
       return;
     }
 
@@ -86,11 +126,21 @@
   }
 
   function handlePopState(e) {
-    // Load the page from the URL
-    loadPage(window.location.pathname);
+    const dest =
+      window.location.pathname + window.location.search + window.location.hash;
+    if (isHubNavigation(dest)) {
+      hardNavigate(dest);
+      return;
+    }
+    loadPage(dest);
   }
 
   async function navigateTo(url) {
+    if (isHubNavigation(url)) {
+      hardNavigate(url);
+      return;
+    }
+
     // Update URL without reload
     history.pushState({}, '', url);
     
@@ -99,6 +149,11 @@
   }
 
   async function loadPage(url) {
+    if (isHubNavigation(url)) {
+      hardNavigate(url);
+      return;
+    }
+
     try {
       // Fetch the new page
       const response = await fetch(url);
@@ -131,6 +186,16 @@
       contentContainer.innerHTML = '';
       contentContainer.appendChild(newContent);
 
+      // Hub shells cannot render without their page-specific scripts — hard-load instead.
+      if (document.getElementById('albumHubPage') && !albumHubCanRender()) {
+        hardNavigate(url);
+        return;
+      }
+      if (document.getElementById('songHubPage') && !songHubCanRender()) {
+        hardNavigate(url);
+        return;
+      }
+
       // Re-initialize any page-specific scripts
       reinitializePageScripts();
 
@@ -146,7 +211,7 @@
     } catch (error) {
       console.error('Navigation error:', error);
       // Fall back to normal navigation
-      window.location.href = url;
+      hardNavigate(url);
     }
   }
 
