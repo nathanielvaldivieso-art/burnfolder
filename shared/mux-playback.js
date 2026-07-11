@@ -314,11 +314,6 @@
       });
     }
 
-    function advanceThresholdSec() {
-      /* iOS throttles timeupdate when locked — advance slightly early only then. */
-      return 1.5;
-    }
-
     function stopHiddenAdvancePoll() {
       if (hiddenAdvanceTimer === null) return;
       window.clearInterval(hiddenAdvanceTimer);
@@ -365,35 +360,24 @@
         return true;
       }
 
+      /* Visible tabs: wait for ended — never pre-empt the tail of a track. */
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      if (!hidden) return false;
+
+      /* Hidden/lock-screen fallback: iOS may not fire ended reliably. */
       const duration = Number(player.duration);
       const current = Number(player.currentTime);
-      const atEnd =
+      if (
         Number.isFinite(duration) &&
         duration > 0 &&
         Number.isFinite(current) &&
-        current >= duration - 0.08;
-      if (atEnd) {
+        current >= duration - 0.12
+      ) {
         advanceQueueAfterEnd(player);
         return true;
       }
 
-      const hidden = typeof document !== 'undefined' && document.hidden;
-      if (player.paused && !hidden) return false;
-
-      /* Visible tabs wait for ended / atEnd — early handoff chops the last ~0.5s. */
-      if (!hidden) return false;
-
-      if (!Number.isFinite(duration) || duration <= 0) return false;
-      if (!Number.isFinite(current) || current < 0) return false;
-      const remaining = duration - current;
-      if (remaining > advanceThresholdSec()) return false;
-
-      const nextIdx = activeQueueIdx + 1;
-      if (nextIdx >= activeQueue.length) return false;
-
-      queueAdvanceLock = true;
-      playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
-      return true;
+      return false;
     }
 
     function advanceQueueAfterEnd(player) {
@@ -407,7 +391,7 @@
         window.clearTimeout(recallTimer);
         recallTimer = null;
         queueAdvanceLock = true;
-        playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
+        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
       } else {
         notify({ playing: false });
         flushRecallSave();
@@ -488,7 +472,7 @@
       const wasPlaying = !player.paused;
       startPlayback(activeSong, activeQueue, activeQueueIdx, {
         immediatePlay: wasPlaying,
-        seamlessAdvance: false
+        queueHandoff: false
       });
       return true;
     }
@@ -497,7 +481,7 @@
       const player = getPlayer();
       const normalized = normalizeSong(song);
       if (!player || !normalized) {
-        if (!(playbackOpts && playbackOpts.seamlessAdvance)) {
+        if (!(playbackOpts && (playbackOpts.queueHandoff || playbackOpts.seamlessAdvance))) {
           queueAdvanceLock = false;
         }
         return false;
@@ -514,7 +498,8 @@
       }
 
       const startOpts = playbackOpts || {};
-      if (!startOpts.seamlessAdvance) {
+      const isQueueHandoff = startOpts.queueHandoff === true || startOpts.seamlessAdvance === true;
+      if (!isQueueHandoff) {
         queueAdvanceLock = false;
       }
       const immediatePlay =
@@ -533,35 +518,56 @@
 
       const sameSource = player.getAttribute('playback-id') === normalized.playbackId;
       if (!sameSource) {
-        if (!startOpts.seamlessAdvance) {
-          player.pause();
-        }
+        player.pause();
         player.setAttribute('playback-id', normalized.playbackId);
-        /* Always start a new source at 0 so queue handoffs don't inherit the prior playhead. */
         if (!(startOpts.recall && startOpts.recall.currentTime)) {
-          try {
-            player.currentTime = 0;
-          } catch (e) {
-            /* noop */
+          if (isQueueHandoff) {
+            player.addEventListener(
+              'loadedmetadata',
+              function () {
+                if (
+                  !activeSong ||
+                  activeSong.playbackId !== normalized.playbackId ||
+                  (startOpts.recall && startOpts.recall.currentTime)
+                ) {
+                  return;
+                }
+                try {
+                  player.currentTime = 0;
+                } catch (err) {
+                  /* noop */
+                }
+                if (immediatePlay && player.paused) {
+                  retryPlay(player, normalized, false);
+                }
+              },
+              { once: true }
+            );
+          } else {
+            try {
+              player.currentTime = 0;
+            } catch (e) {
+              /* noop */
+            }
+            player.addEventListener(
+              'loadedmetadata',
+              function () {
+                if (
+                  !activeSong ||
+                  activeSong.playbackId !== normalized.playbackId ||
+                  (startOpts.recall && startOpts.recall.currentTime)
+                ) {
+                  return;
+                }
+                try {
+                  player.currentTime = 0;
+                } catch (err) {
+                  /* noop */
+                }
+              },
+              { once: true }
+            );
           }
-          player.addEventListener(
-            'loadedmetadata',
-            function () {
-              if (
-                !activeSong ||
-                activeSong.playbackId !== normalized.playbackId ||
-                (startOpts.recall && startOpts.recall.currentTime)
-              ) {
-                return;
-              }
-              try {
-                player.currentTime = 0;
-              } catch (err) {
-                /* noop */
-              }
-            },
-            { once: true }
-          );
         }
       }
       player.setAttribute('metadata-video-title', normalized.title);
@@ -572,7 +578,7 @@
 
       notify();
 
-      if (startOpts.seamlessAdvance) {
+      if (isQueueHandoff) {
         flushRecallSave();
       }
 
@@ -588,7 +594,7 @@
       }
 
       // iOS requires play() during the tap handler — don't wait for canplay first.
-      if (immediatePlay) {
+      if (immediatePlay && !isQueueHandoff) {
         retryPlay(player, normalized, false);
       }
 
@@ -601,6 +607,7 @@
           notify({ playing: false });
           return;
         }
+        if (isQueueHandoff) return;
         if (player.paused) ensurePlaying();
       }
 
@@ -608,7 +615,16 @@
       player.addEventListener('loadedmetadata', onMediaReady, { once: true });
 
       window.setTimeout(function () {
-        if (
+        if (isQueueHandoff) {
+          if (
+            player.paused &&
+            activeSong &&
+            activeSong.playbackId === normalized.playbackId &&
+            !(startOpts.recall && startOpts.recall.wasPlaying === false)
+          ) {
+            ensurePlaying();
+          }
+        } else if (
           player.paused &&
           activeSong &&
           activeSong.playbackId === normalized.playbackId &&

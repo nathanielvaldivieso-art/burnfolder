@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-site-v28',
+  cacheName: 'burnfolder-site-v29',
   includeRoot: true,
   freshSuffixes: ['/entries.js', '/songs.js', '/album-pages.js', '/song-pages.js', '/spa-router.js', '/shared/site-version.js'],
   staticPrefixes: ['/shared/', '/IMAGES/']
