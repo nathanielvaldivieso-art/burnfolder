@@ -1,6 +1,26 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Shippo = require('shippo');
 const shippo = Shippo(process.env.SHIPPO_API_KEY);
+const { analyticsStore, recordCommerceOrder } = require('./lib/site-analytics-store');
+
+async function recordPaymentAnalytics(event, pi) {
+  try {
+    const meta = pi.metadata || {};
+    const orderType = meta.order_type || 'shop';
+    const kind =
+      orderType === 'tip' ? 'tip' : orderType === 'digital_album' ? 'digital' : 'shop';
+    const store = analyticsStore(event);
+    await recordCommerceOrder(store, {
+      kind: kind,
+      cents: Number(pi.amount_received || pi.amount || 0) || 0,
+      productTitle: meta.product_title || meta.order_type || kind,
+      at: new Date().toISOString(),
+      id: pi.id || ''
+    });
+  } catch (err) {
+    console.error('Commerce analytics record failed:', err.message);
+  }
+}
 
 // Your return address
 const FROM_ADDRESS = {
@@ -44,6 +64,8 @@ exports.handler = async function(event) {
     const meta = pi.metadata || {};
     const requiresShipping = String(meta.requires_shipping || '').toLowerCase() === 'true';
     const orderType = meta.order_type || 'shop';
+
+    await recordPaymentAnalytics(event, pi);
 
     if (!requiresShipping || orderType === 'tip' || orderType === 'digital_album') {
       console.log('Skipping Shippo label for non-shippable payment:', pi.id, orderType);

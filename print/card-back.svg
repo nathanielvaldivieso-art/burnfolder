@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="3.5in" height="2in" viewBox="0 0 3.5 2">
+  <rect width="3.5" height="2" fill="#fff"/>
+  <!-- QR ~1.15in, centered; links to https://burnfolder.com -->
+  <image x="1.175" y="0.425" width="1.15" height="1.15" xlink:href="qr-burnfolder.svg"/>
+</svg>

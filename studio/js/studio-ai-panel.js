@@ -24,10 +24,15 @@
       event.preventDefault();
       const auth = window.BurnfolderStudioAuth;
       out.textContent = '…';
+      const payload = { message: input.value.trim() };
+      if (typeof window.studioGetAnalyticsSnapshot === 'function') {
+        const snap = window.studioGetAnalyticsSnapshot();
+        if (snap) payload.metricsSnapshot = snap;
+      }
       fetch(apiBase() + '/studio-ai', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, auth.getAuthHeaders()),
-        body: JSON.stringify({ message: input.value.trim() })
+        body: JSON.stringify(payload)
       })
         .then(function (res) {
           return res.json().then(function (data) {

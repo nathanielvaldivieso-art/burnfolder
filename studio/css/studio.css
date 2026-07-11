@@ -5762,3 +5762,54 @@ body.studio-song-designer-page .page-wrap {
 .studio-dashboard-ai .studio-journal-textarea {
   margin-bottom: 0;
 }
+
+.studio-analytics-block {
+  margin-bottom: 22px;
+}
+
+.studio-analytics-heading {
+  margin: 0 0 10px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.studio-analytics-subhead {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  opacity: 0.4;
+}
+
+.studio-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px 16px;
+  margin-bottom: 8px;
+}
+
+.studio-analytics-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.studio-analytics-metric-label {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  opacity: 0.4;
+}
+
+.studio-analytics-metric-value {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-analytics-list {
+  margin-top: 4px;
+}
+

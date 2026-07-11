@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>burnfolder — business card</title>
+  <style>
+    :root {
+      --c-black: #000;
+      --c-white: #fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      background: #e8e8e8;
+      color: var(--c-black);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+    }
+    h1 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+    }
+    p { margin: 0 0 28px; max-width: 36em; line-height: 1.5; opacity: 0.7; }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+      margin-bottom: 36px;
+    }
+    .side label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      margin-bottom: 8px;
+    }
+    /* Site brand type: monospace, 600, 0.08em tracking, uppercase */
+    .card {
+      width: 3.5in;
+      height: 2in;
+      background: var(--c-white);
+      color: var(--c-black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .card-front {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: none;
+    }
+    .card-back img {
+      width: 1.15in;
+      height: 1.15in;
+      image-rendering: pixelated;
+    }
+    ul {
+      margin: 0;
+      padding-left: 1.2em;
+      opacity: 0.75;
+      line-height: 1.6;
+    }
+    code { font-size: 12px; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      h1, p, ul, .side label { display: none; }
+      .row { gap: 0; margin: 0; }
+      .card { box-shadow: none; page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+  <h1>burnfolder business card</h1>
+  <p>
+    Matches site brand type (<code>monospace</code>, weight 600, letter-spacing 0.08em), lowercase.
+    Front: site URL. Back: QR → <code>https://burnfolder.com</code>.
+  </p>
+
+  <div class="row">
+    <div class="side">
+      <label>Front</label>
+      <div class="card card-front">burnfolder.com</div>
+    </div>
+    <div class="side">
+      <label>Back</label>
+      <div class="card card-back">
+        <img src="qr-burnfolder.png" alt="QR code to burnfolder.com" width="174" height="174">
+      </div>
+    </div>
+  </div>
+
+  <h1>Give the print shop</h1>
+  <ul>
+    <li><code>card-front-3.5x2-300dpi.png</code> — front, trim size</li>
+    <li><code>card-back-3.5x2-300dpi.png</code> — back, trim size</li>
+    <li>or the <code>*-bleed-300dpi.png</code> pair if they want 0.125&quot; bleed</li>
+    <li>Stock: uncoated or soft-touch matte, 14–16pt. No gloss.</li>
+    <li>Qty: 100 to start</li>
+  </ul>
+</body>
+</html>

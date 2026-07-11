@@ -74,10 +74,10 @@ After freeze: `useLatestVersions: false` on `musicFeaturedRelease`.
 
 Canonical detail: **§9.5**. Cloudflare is page traffic only.
 
-- [ ] **P16** First-party public play events (song, page, seconds, completion; privacy-light)
-- [ ] **P17** Dashboard `#dashboardAnalyticsFeed` — plays + linger + share-link counts
-- [ ] **P18** UTM/referrer + outbound Spotify/Apple clicks
-- [ ] **P19** Shop PWYW + tip totals beside listen metrics
+- [x] **P16** First-party public play events (song, page, seconds, completion; privacy-light)
+- [x] **P17** Dashboard `#dashboardAnalyticsFeed` — plays + linger + share-link counts
+- [x] **P18** UTM/referrer + outbound Spotify/Apple clicks
+- [x] **P19** Shop PWYW + tip totals beside listen metrics
 
 DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block P16–P19 on DSP.
 
@@ -589,13 +589,13 @@ Share-link plays         ─┘   Newsletter list size   ─┘   AI digest → 
 
 | Layer | Job | Status |
 |-------|-----|--------|
-| First-party site plays + linger + path | Unique advantage — hub / darkroom / journal | Missing — **P16–P18** |
-| Share-link plays | Pre-release trusted feedback | Live backend; not on dashboard — **P17** |
-| Cloudflare | Traffic volume / trends | Beacon live; Studio ingest optional |
-| Shop / tips / newsletter | Commitment | Stripe + newsletter live; Studio rollup — **P19** |
+| First-party site plays + linger + path | Unique advantage — hub / darkroom / journal | Live — `site-analytics.js` + ingest |
+| Share-link plays | Pre-release trusted feedback | Live on dashboard via `studio-analytics` |
+| Cloudflare | Traffic volume / trends | Beacon live; Studio GraphQL optional via env |
+| Shop / tips / newsletter | Commitment | Stripe webhook → commerce rollup + newsletter count |
 | DSP streams / saves / playlists | Commercial reach | After LabelGrid + **Spotify/Apple for Artists** |
 | YouTube / IG | Fragment performance | Manual first; OAuth Tier 3/4 |
-| Unified feed + AI digest | One place to decide | Shell until P16–P19 / Tier 3 |
+| Unified feed + AI digest | One place to decide | Live snapshot → AI panel |
 
 #### Solo-label tools (fraction of label budget)
 
@@ -638,7 +638,7 @@ sync-analytics.js → dspMetrics + share-link aggregates + site play aggregates
 
 Normalized store: workspace Blob `dspMetrics` or Supabase — `{ platform, isrc, streams, listeners, revenue, date }` plus first-party play aggregates shaped for the same feed.
 
-**Current state:** share-link counts in backend; Cloudflare beacon on public site; no site play/linger telemetry; dashboard placeholder until P16–P19. No DSP stats in studio yet.
+**Current state:** P16–P19 live — first-party plays/linger/path/UTM/outbound, share links, Stripe commerce, newsletter count on `#dashboardAnalyticsFeed`; AI receives `metricsSnapshot`. DSP ingest remains Tier 3.
 
 *Expanded tool matrix (optional): `MUSIC-GROWTH-TOOLS.md`. Near-term checklist: **§0** P16–P19.*
 

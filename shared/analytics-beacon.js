@@ -1,30 +1,52 @@
 /**
  * Loads Cloudflare Web Analytics beacon on production public pages only.
  * Token comes from shared/analytics-config.js (BurnfolderAnalytics.cloudflareToken).
+ * Also boots first-party site-analytics.js (plays / linger / UTM / outbound).
  */
 (function () {
   'use strict';
 
+  var host = location.hostname || '';
+  var path = location.pathname || '';
+  var isStudio = path.indexOf('/studio/') === 0;
+  var isProduction = /(^|\.)burnfolder\.com$/i.test(host);
+  var isLocal = host === 'localhost' || host === '127.0.0.1';
+
+  function scriptBase() {
+    var current = document.currentScript;
+    if (current && current.src) {
+      return current.src.replace(/[^/]+$/, '');
+    }
+    return '/shared/';
+  }
+
+  function loadSiteAnalytics() {
+    if (isStudio) return;
+    if (!isProduction && !isLocal) return;
+    if (window.BurnfolderSiteAnalytics) return;
+    if (document.querySelector('script[data-bf-site-analytics]')) return;
+    var script = document.createElement('script');
+    script.src = scriptBase() + 'site-analytics.js';
+    script.defer = true;
+    script.setAttribute('data-bf-site-analytics', '1');
+    document.head.appendChild(script);
+  }
+
+  loadSiteAnalytics();
+
   var cfg = window.BurnfolderAnalytics || {};
   var token = String(cfg.cloudflareToken || '').trim();
-  if (!token) return;
-
-  var host = location.hostname || '';
-  var isProduction = /(^|\.)burnfolder\.com$/i.test(host);
-  if (!isProduction) return;
-
-  // Studio is internal — don't pollute public traffic stats.
-  if ((location.pathname || '').indexOf('/studio/') === 0) return;
+  if (!token || !isProduction || isStudio) return;
 
   if (document.querySelector('script[data-cf-beacon]')) return;
 
-  var script = document.createElement('script');
-  script.defer = true;
-  script.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+  var cf = document.createElement('script');
+  cf.defer = true;
+  cf.src = 'https://static.cloudflareinsights.com/beacon.min.js';
   // spa:true so album/song query-param navigations still count via spa-router.
-  script.setAttribute(
+  cf.setAttribute(
     'data-cf-beacon',
     JSON.stringify({ token: token, spa: true })
   );
-  document.head.appendChild(script);
+  document.head.appendChild(cf);
 })();

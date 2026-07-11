@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3.5in" height="2in" viewBox="0 0 3.5 2">
+  <rect width="3.5" height="2" fill="#fff"/>
+  <text x="1.75" y="1.02"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        font-family="Menlo, Monaco, Consolas, Courier New, monospace"
+        font-size="0.145"
+        font-weight="600"
+        letter-spacing="0.0116"
+        fill="#000">burnfolder.com</text>
+</svg>

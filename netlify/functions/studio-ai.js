@@ -14,15 +14,22 @@ function systemPrompt(access) {
     'You are Burnfolder Studio assistant for workspace "' +
     (access.name || access.slug || 'studio') +
     '". Role: ops and analytics — digest streaming service data (streams, listeners, trends), release planning, checklists, capability answers. ' +
-    'When metrics are provided, summarize patterns, compare periods, and suggest focus — do not invent numbers. ' +
+    'When a metricsSnapshot JSON is provided, treat it as ground truth: summarize patterns, compare fields that exist, and suggest focus. ' +
+    'Do not invent numbers, platforms, or trends that are not in the snapshot. If a lane is empty or pending, say so. ' +
     'NEVER write entry copy, captions, lyrics, or marketing text. ' +
-    'Tier 1: no distro yet; share-link play counts only until DSP feeds connect. ' +
     'Gallery voice: lowercase, sparse, archival — artist writes all published text.'
   );
 }
 
-async function callAnthropic(message, access) {
+async function callAnthropic(message, access, metricsSnapshot) {
   const model = process.env.AI_MODEL || 'claude-haiku-4-5';
+  let userContent = message;
+  if (metricsSnapshot && typeof metricsSnapshot === 'object') {
+    userContent =
+      message +
+      '\n\nmetricsSnapshot (ground truth — do not invent beyond this):\n' +
+      JSON.stringify(metricsSnapshot).slice(0, 12000);
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -34,7 +41,7 @@ async function callAnthropic(message, access) {
       model: model,
       max_tokens: 1024,
       system: systemPrompt(access),
-      messages: [{ role: 'user', content: message }]
+      messages: [{ role: 'user', content: userContent }]
     })
   });
   const data = await res.json().catch(function () {
@@ -90,8 +97,11 @@ exports.handler = async function (event) {
     };
   }
 
+  const metricsSnapshot =
+    body.metricsSnapshot && typeof body.metricsSnapshot === 'object' ? body.metricsSnapshot : null;
+
   try {
-    const reply = await callAnthropic(message, access);
+    const reply = await callAnthropic(message, access, metricsSnapshot);
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true, reply: reply }) };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ message: error.message || 'AI failed' }) };

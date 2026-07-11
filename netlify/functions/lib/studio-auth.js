@@ -3,7 +3,7 @@
 function studioCorsHeaders(methods) {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Workspace-Id',
     'Access-Control-Allow-Methods': methods || 'GET, POST, OPTIONS',
     'Content-Type': 'application/json'
   };
