@@ -4,9 +4,9 @@ const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-a
 const { getStore, connectLambda } = require('@netlify/blobs');
 const {
   analyticsStore,
-  readAggregates,
-  readCommerce,
-  readRecentDays
+  readPeriodBuckets,
+  normalizePeriod,
+  PERIODS
 } = require('./lib/site-analytics-store');
 const { shareStore, listShares } = require('./lib/share-links-store');
 
@@ -21,7 +21,7 @@ function sortByPlays(rows) {
 }
 
 function dollars(cents) {
-  return Math.round((Number(cents) || 0)) / 100;
+  return Math.round(Number(cents) || 0) / 100;
 }
 
 async function newsletterCount(event) {
@@ -35,17 +35,24 @@ async function newsletterCount(event) {
   }
 }
 
-async function shareLinkSummary(event) {
+async function shareLinkSummary(event, sinceIso) {
   try {
     const store = shareStore(event);
     const shares = await listShares(store, {});
     const active = shares.filter(function (s) {
       return !s.revokedAt;
     });
-    const totalPlays = active.reduce(function (sum, s) {
+    const sinceMs = sinceIso ? new Date(sinceIso).getTime() : 0;
+    const inPeriod = sinceIso
+      ? active.filter(function (s) {
+          const at = s.lastPlayedAt ? new Date(s.lastPlayedAt).getTime() : 0;
+          return at >= sinceMs;
+        })
+      : active;
+    const totalPlays = inPeriod.reduce(function (sum, s) {
       return sum + (Number(s.playCount) || 0);
     }, 0);
-    const top = active
+    const top = inPeriod
       .slice()
       .sort(function (a, b) {
         return (b.playCount || 0) - (a.playCount || 0);
@@ -64,15 +71,23 @@ async function shareLinkSummary(event) {
       });
     return {
       linkCount: active.length,
+      activeInPeriod: inPeriod.length,
       totalPlays: totalPlays,
-      top: top
+      top: top,
+      playCountsAreLifetime: !!sinceIso
     };
   } catch (error) {
-    return { linkCount: 0, totalPlays: 0, top: [], error: error.message || 'share links unavailable' };
+    return {
+      linkCount: 0,
+      activeInPeriod: 0,
+      totalPlays: 0,
+      top: [],
+      error: error.message || 'share links unavailable'
+    };
   }
 }
 
-async function cloudflareSummary() {
+async function cloudflareSummary(periodKey) {
   const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
   const apiToken = (process.env.CLOUDFLARE_API_TOKEN || '').trim();
   const siteTag = (
@@ -88,7 +103,17 @@ async function cloudflareSummary() {
     };
   }
 
-  const since = new Date(Date.now() - 7 * 86400000).toISOString();
+  const days =
+    periodKey === 'hour' || periodKey === 'day'
+      ? 1
+      : periodKey === 'week'
+        ? 7
+        : periodKey === 'month'
+          ? 30
+          : periodKey === 'year'
+            ? 365
+            : 7;
+  const since = new Date(Date.now() - days * 86400000).toISOString();
   const query =
     'query {' +
     ' viewer {' +
@@ -135,7 +160,7 @@ async function cloudflareSummary() {
     const row = Array.isArray(groups) && groups[0] ? groups[0] : null;
     return {
       configured: true,
-      windowDays: 7,
+      windowDays: days,
       pageviews: row ? Number(row.count) || 0 : 0,
       visits: row && row.sum ? Number(row.sum.visits) || 0 : 0
     };
@@ -145,73 +170,85 @@ async function cloudflareSummary() {
 }
 
 function buildSnapshot(parts) {
-  const agg = parts.aggregates || {};
+  const bucket = parts.bucket || {};
   const songs = sortByPlays(
-    Object.keys(agg.songs || {}).map(function (k) {
-      return agg.songs[k];
+    Object.keys(bucket.songs || {}).map(function (k) {
+      return bucket.songs[k];
     })
   ).slice(0, 20);
 
-  const paths = Object.keys(agg.paths || {})
+  const paths = Object.keys(bucket.paths || {})
     .map(function (k) {
-      return agg.paths[k];
+      return bucket.paths[k];
     })
     .sort(function (a, b) {
       return (b.lands || 0) + (b.plays || 0) - ((a.lands || 0) + (a.plays || 0));
     })
     .slice(0, 12);
 
-  const utm = Object.keys(agg.utm || {})
+  const utm = Object.keys(bucket.utm || {})
     .map(function (k) {
-      return agg.utm[k];
+      return bucket.utm[k];
     })
     .sort(function (a, b) {
       return (b.lands || 0) - (a.lands || 0);
     })
     .slice(0, 12);
 
-  const referrers = Object.keys(agg.referrers || {})
+  const referrers = Object.keys(bucket.referrers || {})
     .map(function (k) {
-      return agg.referrers[k];
+      return bucket.referrers[k];
     })
     .sort(function (a, b) {
       return (b.lands || 0) - (a.lands || 0);
     })
     .slice(0, 12);
 
-  const outbound = Object.keys(agg.outbound || {})
+  const outbound = Object.keys(bucket.outboundByDest || {})
     .map(function (k) {
-      return agg.outbound[k];
+      return bucket.outboundByDest[k];
     })
     .sort(function (a, b) {
       return (b.clicks || 0) - (a.clicks || 0);
     });
 
-  const commerce = parts.commerce || {};
+  const pathways = Object.keys(bucket.pathways || {})
+    .map(function (k) {
+      return bucket.pathways[k];
+    })
+    .sort(function (a, b) {
+      return (b.count || 0) - (a.count || 0);
+    })
+    .slice(0, 20);
+
+  const commerce = bucket.commerce || {};
   const shares = parts.shares || {};
+  const window = parts.window || {};
 
   return {
     generatedAt: new Date().toISOString(),
+    period: window.period || 'week',
+    periodLabel: (PERIODS[window.period] && PERIODS[window.period].label) || window.period,
+    since: window.since || null,
+    until: window.until || null,
     site: {
-      lands: (agg.lands && agg.lands.total) || 0,
-      landsWithUtm: (agg.lands && agg.lands.withUtm) || 0,
-      songPlays: songs.reduce(function (n, s) {
+      lands: Number(bucket.lands) || 0,
+      landsWithUtm: Number(bucket.landsWithUtm) || 0,
+      songPlays: Number(bucket.plays) || songs.reduce(function (n, s) {
         return n + (s.plays || 0);
       }, 0),
-      listenSeconds: songs.reduce(function (n, s) {
-        return n + (s.seconds || 0);
-      }, 0),
-      completions: songs.reduce(function (n, s) {
-        return n + (s.completions || 0);
-      }, 0),
-      updatedAt: agg.updatedAt || null
+      listenSeconds: Number(bucket.seconds) || 0,
+      completions: Number(bucket.completions) || 0,
+      outbound: Number(bucket.outbound) || 0,
+      updatedAt: bucket.updatedAt || null
     },
     songs: songs,
     paths: paths,
+    pathways: pathways,
     utm: utm,
     referrers: referrers,
     outbound: outbound,
-    days: parts.days || [],
+    series: parts.series || [],
     shares: shares,
     commerce: {
       tips: {
@@ -226,15 +263,16 @@ function buildSnapshot(parts) {
         count: (commerce.shop && commerce.shop.count) || 0,
         dollars: dollars(commerce.shop && commerce.shop.cents)
       },
-      recent: commerce.recent || [],
-      updatedAt: commerce.updatedAt || null
+      recent: parts.commerceRecent || [],
+      updatedAt: null
     },
     newsletter: { subscribers: parts.newsletterCount },
     cloudflare: parts.cloudflare || { configured: false },
     dsp: {
       status: 'pending',
       note: 'Spotify for Artists + Apple Music for Artists + LabelGrid connect after DSP goes live (Tier 3).'
-    }
+    },
+    periods: Object.keys(PERIODS)
   };
 }
 
@@ -254,21 +292,23 @@ exports.handler = async function (event) {
     return { statusCode: access.statusCode, headers, body: JSON.stringify(access.body) };
   }
 
+  const qs = event.queryStringParameters || {};
+  const period = normalizePeriod(qs.period || 'week');
+
   try {
     const store = analyticsStore(event);
-    const [aggregates, commerce, days, shares, newsletterCountValue, cloudflare] = await Promise.all([
-      readAggregates(store),
-      readCommerce(store),
-      readRecentDays(store, 14),
-      shareLinkSummary(event),
+    const periodData = await readPeriodBuckets(store, period);
+    const [shares, newsletterCountValue, cloudflare] = await Promise.all([
+      shareLinkSummary(event, periodData.window.since),
       newsletterCount(event),
-      cloudflareSummary()
+      cloudflareSummary(period)
     ]);
 
     const snapshot = buildSnapshot({
-      aggregates: aggregates,
-      commerce: commerce,
-      days: days,
+      window: periodData.window,
+      bucket: periodData.bucket,
+      series: periodData.series,
+      commerceRecent: periodData.commerceRecent,
       shares: shares,
       newsletterCount: newsletterCountValue,
       cloudflare: cloudflare

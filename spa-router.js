@@ -208,6 +208,14 @@
       // Scroll to top
       window.scrollTo(0, 0);
 
+      try {
+        window.dispatchEvent(
+          new CustomEvent('burnfolder-spa-navigated', { detail: { url: url } })
+        );
+      } catch (e) {
+        /* noop */
+      }
+
     } catch (error) {
       console.error('Navigation error:', error);
       // Fall back to normal navigation

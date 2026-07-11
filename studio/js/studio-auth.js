@@ -32,11 +32,12 @@
       u.indexOf('/studio-workspace') > -1 ||
       u.indexOf('/studio-music-projects') > -1 ||
       u.indexOf('/studio-ai') > -1 ||
-      u.indexOf('/studio-export') > -1
+      u.indexOf('/studio-export') > -1 ||
+      u.indexOf('/studio-analytics') > -1
     );
   }
 
-  /** Drop every persisted studio credential. Sign-in is required on each visit. */
+  /** Clear stored credentials (logout / definitive auth rejection only). */
   function clearPersistedAuth() {
     try {
       sessionStorage.removeItem(SESSION_KEY);
@@ -47,7 +48,6 @@
     try {
       localStorage.removeItem(SESSION_PERSIST_KEY);
       localStorage.removeItem(LEGACY_TOKEN_KEY);
-      // Legacy dual-write key from older builds
       localStorage.removeItem(SESSION_KEY);
     } catch (e) {
       /* noop */
@@ -56,7 +56,8 @@
 
   function loadSession() {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
+      // Prefer durable localStorage so refresh / new tabs stay signed in.
+      const raw = localStorage.getItem(SESSION_PERSIST_KEY) || sessionStorage.getItem(SESSION_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch (e) {
       return null;
@@ -66,10 +67,18 @@
   function saveSession(next) {
     session = next;
     if (next) {
-      // Tab-session only — never localStorage. Cold visits must sign in again.
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      const raw = JSON.stringify(next);
       try {
-        localStorage.removeItem(SESSION_PERSIST_KEY);
+        localStorage.setItem(SESSION_PERSIST_KEY, raw);
+      } catch (e) {
+        /* noop */
+      }
+      try {
+        sessionStorage.setItem(SESSION_KEY, raw);
+      } catch (e) {
+        /* noop */
+      }
+      try {
         localStorage.removeItem(SESSION_KEY);
       } catch (e) {
         /* noop */
@@ -80,14 +89,26 @@
   }
 
   function loadLegacyToken() {
-    return sessionStorage.getItem(LEGACY_TOKEN_KEY) || '';
+    try {
+      return (
+        sessionStorage.getItem(LEGACY_TOKEN_KEY) ||
+        localStorage.getItem(LEGACY_TOKEN_KEY) ||
+        ''
+      );
+    } catch (e) {
+      return '';
+    }
   }
 
   function saveLegacyToken(token) {
     if (token) {
-      sessionStorage.setItem(LEGACY_TOKEN_KEY, token);
       try {
-        localStorage.removeItem(LEGACY_TOKEN_KEY);
+        sessionStorage.setItem(LEGACY_TOKEN_KEY, token);
+      } catch (e) {
+        /* noop */
+      }
+      try {
+        localStorage.setItem(LEGACY_TOKEN_KEY, token);
       } catch (e) {
         /* noop */
       }
@@ -307,13 +328,19 @@
         'X-Workspace-Id': existing.workspaceId || ''
       }
     }).then(function (res) {
-      if (res.status === 401 && existing.refresh_token) {
-        return refreshSupabaseToken(existing).then(function (data) {
-          if (!applyRefreshedTokens(existing, data)) return false;
-          return verifySupabaseSession(existing);
-        });
+      if (res.status === 401 || res.status === 403) {
+        if (existing.refresh_token) {
+          return refreshSupabaseToken(existing).then(function (data) {
+            if (!applyRefreshedTokens(existing, data)) return { ok: false, authFailed: true };
+            return verifySupabaseSession(existing);
+          });
+        }
+        return { ok: false, authFailed: true };
       }
-      if (!res.ok) return false;
+      if (!res.ok) {
+        // Transient server error — keep the cached session.
+        return { ok: true, soft: true };
+      }
       return res.json().then(function (data) {
         const ws = data.workspace || {};
         existing.workspaceId = ws.id;
@@ -323,7 +350,7 @@
         existing.accessMode = ws.accessMode || 'owner';
         existing.projects = Array.isArray(data.projects) ? data.projects : [];
         saveSession(existing);
-        return true;
+        return { ok: true };
       });
     });
   }
@@ -331,12 +358,62 @@
   function refreshSessionIfNeeded() {
     if (authMode !== 'supabase' || !session || !session.access_token) return Promise.resolve();
     return verifySupabaseSession(session)
-      .then(function (ok) {
-        if (!ok) return;
-        session = loadSession() || session;
+      .then(function (result) {
+        if (result && result.ok) {
+          session = loadSession() || session;
+          return;
+        }
+        if (result && result.authFailed) {
+          clearPersistedAuth();
+          session = null;
+          ready = false;
+        }
       })
       .catch(function () {
         /* keep current session until an API call fails */
+      });
+  }
+
+  function restoreSupabaseSession(config, existing) {
+    session = existing;
+    supabaseConfig = config;
+
+    const start = existing.refresh_token
+      ? refreshSupabaseToken(existing)
+          .then(function (data) {
+            if (data && data.access_token) applyRefreshedTokens(existing, data);
+            return existing;
+          })
+          .catch(function () {
+            return existing;
+          })
+      : Promise.resolve(existing);
+
+    return start
+      .then(function (sess) {
+        return verifySupabaseSession(sess);
+      })
+      .then(function (result) {
+        if (result && result.ok) {
+          session = loadSession() || existing;
+          markReady();
+          return;
+        }
+        if (result && result.authFailed) {
+          clearPersistedAuth();
+          session = null;
+          showSupabaseLoginGate(config);
+          return;
+        }
+        // Unknown shape — stay signed in with cache.
+        session = existing;
+        markReady();
+      })
+      .catch(function () {
+        // Network blip — do not force re-login.
+        session = existing;
+        saveSession(existing);
+        markReady();
       });
   }
 
@@ -459,19 +536,43 @@
   }
 
   function boot() {
-    // Always require a fresh unlock on each full page load / visit.
-    // Clears localStorage leftovers from older builds that persisted JWT/password.
-    clearPersistedAuth();
-    session = null;
+    showBooting();
     ready = false;
 
     fetchPublicConfig().then(function (config) {
       authMode = config.authMode === 'supabase' ? 'supabase' : 'legacy';
+      supabaseConfig = config;
 
       if (authMode === 'supabase') {
+        const existing = loadSession();
+        if (existing && existing.access_token) {
+          return restoreSupabaseSession(config, existing);
+        }
+        session = null;
         showSupabaseLoginGate(config);
         return;
       }
+
+      const legacyToken = loadLegacyToken();
+      if (legacyToken) {
+        return verifyLegacyToken(legacyToken)
+          .then(function (ok) {
+            if (ok) {
+              saveLegacyToken(legacyToken);
+              markReady();
+              return;
+            }
+            // Wrong password only — clear. Network errors fall to catch.
+            clearPersistedAuth();
+            showLegacyLoginGate();
+          })
+          .catch(function () {
+            // Keep legacy token through network blips.
+            saveLegacyToken(legacyToken);
+            markReady();
+          });
+      }
+      session = null;
       showLegacyLoginGate();
     });
   }

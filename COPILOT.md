@@ -524,7 +524,7 @@ until the cache name changes.
 
 When `SUPABASE_URL` + `SUPABASE_ANON_KEY` are set in Netlify, studio uses **Supabase email login** instead of the legacy single password.
 
-- **Client (`studio/js/studio-auth.js`):** fetches `/studio-public-config` → Supabase sign-in form. **Sign-in is required on every full page load** (persisted JWT/password in localStorage is cleared; tab `sessionStorage` is only used after unlock for that visit). `window.fetch` attaches `Authorization: Bearer <jwt>` and `X-Workspace-Id` to studio APIs (`/mux-`, `/studio-state`, `/studio-publish`, `/studio-share-links`, `/studio-workspace`, `/studio-ai`, `/studio-export`).
+- **Client (`studio/js/studio-auth.js`):** fetches `/studio-public-config` → Supabase sign-in form. Session persists in `localStorage` across refreshes (refresh token + workspace verify on boot). Lock button clears it. `window.fetch` attaches `Authorization: Bearer <jwt>` and `X-Workspace-Id` to studio APIs (`/mux-`, `/studio-state`, `/studio-publish`, `/studio-share-links`, `/studio-workspace`, `/studio-ai`, `/studio-export`).
 - **Server (`netlify/functions/lib/workspace-auth.js`):** verifies JWT via Supabase; resolves workspace membership; scopes Netlify Blob keys as `ws_{workspaceIdNoHyphens}_{logicalKey}`. Roles: **owner** (publish, invites, export), **collaborator** (write), **guest** (read-only — POST blocked).
 - **Legacy fallback:** if Supabase env vars are missing, `STUDIO_API_SECRET` password gate still works (`netlify/functions/lib/studio-auth.js`).
 - **First login:** `ensureDefaultWorkspace()` creates slug `burnfolder` + owner membership.

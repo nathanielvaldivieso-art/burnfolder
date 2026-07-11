@@ -3,8 +3,8 @@
 const { studioCorsHeaders } = require('./lib/studio-auth');
 const { analyticsStore, ingestEvents } = require('./lib/site-analytics-store');
 
-const MAX_EVENTS = 40;
-const MAX_BODY = 48 * 1024;
+const MAX_EVENTS = 80;
+const MAX_BODY = 96 * 1024;
 
 function corsHeaders() {
   return studioCorsHeaders('POST, OPTIONS');
@@ -18,7 +18,8 @@ function sanitizeEvent(raw) {
     type !== 'play_start' &&
     type !== 'play_progress' &&
     type !== 'play_end' &&
-    type !== 'outbound'
+    type !== 'outbound' &&
+    type !== 'pathway'
   ) {
     return null;
   }
@@ -30,6 +31,23 @@ function sanitizeEvent(raw) {
     sessionId:
       typeof raw.sessionId === 'string' ? raw.sessionId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) : ''
   };
+
+  if (type === 'pathway') {
+    const steps = Array.isArray(raw.steps)
+      ? raw.steps
+          .map(function (s) {
+            return String(s || '')
+              .trim()
+              .slice(0, 48);
+          })
+          .filter(Boolean)
+          .slice(0, 8)
+      : [];
+    if (steps.length < 2) return null;
+    event.steps = steps;
+    event.finalized = true;
+    return event;
+  }
 
   if (type === 'land') {
     event.referrerHost = typeof raw.referrerHost === 'string' ? raw.referrerHost.slice(0, 80) : '';
@@ -53,7 +71,27 @@ function sanitizeEvent(raw) {
   event.cut = typeof raw.cut === 'string' ? raw.cut.slice(0, 32) : 'unknown';
   event.seconds = Math.max(0, Math.min(Number(raw.seconds) || 0, 60 * 60));
   event.prevSeconds = Math.max(0, Math.min(Number(raw.prevSeconds) || 0, 60 * 60));
+  event.startSeconds = Math.max(0, Math.min(Number(raw.startSeconds) || 0, 60 * 60));
+  event.stopSeconds = Math.max(0, Math.min(Number(raw.stopSeconds) || event.seconds || 0, 60 * 60));
+  event.duration = Math.max(0, Math.min(Number(raw.duration) || 0, 60 * 60));
   event.completed = !!raw.completed;
+  event.listenSeconds = Math.max(0, Math.min(Number(raw.listenSeconds) || 0, 60 * 60));
+  if (raw.heatCounts && typeof raw.heatCounts === 'object') {
+    const counts = {};
+    Object.keys(raw.heatCounts).slice(0, 1200).forEach(function (key) {
+      const sec = Math.max(0, Math.min(Math.floor(Number(key) || 0), 20 * 60 - 1));
+      const n = Math.max(0, Math.min(Math.floor(Number(raw.heatCounts[key]) || 0), 1000));
+      if (n > 0) counts[sec] = (counts[sec] || 0) + n;
+    });
+    event.heatCounts = counts;
+  } else if (Array.isArray(raw.heatPasses)) {
+    // Legacy list form — keep duplicates (each entry is one pass).
+    event.heatPasses = raw.heatPasses
+      .map(function (n) {
+        return Math.max(0, Math.min(Math.floor(Number(n) || 0), 20 * 60 - 1));
+      })
+      .slice(0, 1200);
+  }
   return event;
 }
 

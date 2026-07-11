@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://stream.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="../style.css?v=20260710a">
-  <link rel="stylesheet" href="css/studio.css?v=20260710a">
+  <link rel="stylesheet" href="../style.css?v=20260710l">
+  <link rel="stylesheet" href="css/studio.css?v=20260710t">
 </head>
 <body class="studio-page studio-dashboard-page">
   <header class="site-header studio-header">
@@ -25,13 +25,33 @@
     </nav>
   </header>
 
-  <main class="page-wrap studio-dashboard-layout">
-    <p class="page-id">dashboard</p>
-    <p class="studio-dashboard-meta" id="dashboardWorkspaceMeta" hidden></p>
+  <div class="studio-analytics-nav" id="dashboardAnalyticsNav" hidden>
+    <nav class="studio-analytics-tabs" id="dashboardAnalyticsTabs" role="tablist" aria-label="Analytics">
+      <button type="button" class="studio-analytics-tab is-active" data-pane="listen" role="tab" aria-selected="true">listen</button>
+      <button type="button" class="studio-analytics-tab" data-pane="traffic" role="tab" aria-selected="false">traffic</button>
+      <button type="button" class="studio-analytics-tab" data-pane="money" role="tab" aria-selected="false">money</button>
+    </nav>
+    <label class="studio-analytics-period-wrap">
+      <span class="studio-analytics-period-label">range</span>
+      <select id="dashboardAnalyticsPeriod" class="studio-analytics-period-select" aria-label="Time range">
+        <option value="hour">hour</option>
+        <option value="day">day</option>
+        <option value="week" selected>week</option>
+        <option value="month">month</option>
+        <option value="year">year</option>
+        <option value="all">all</option>
+      </select>
+    </label>
+  </div>
 
+  <nav class="studio-analytics-subtabs" id="dashboardListenSubtabs" hidden aria-label="Listen source">
+    <button type="button" class="studio-analytics-subtab is-active" data-listen="site">site</button>
+    <button type="button" class="studio-analytics-subtab" data-listen="dsp">dsp</button>
+  </nav>
+
+  <main class="page-wrap studio-dashboard-layout">
     <section class="studio-dashboard-section" id="dashboardAnalyticsSection">
-      <h2 class="studio-journal-section-title">streaming</h2>
-      <p class="studio-dashboard-empty" id="dashboardAnalyticsEmpty">loading site plays, share links, and money…</p>
+      <p class="studio-dashboard-empty" id="dashboardAnalyticsEmpty">loading…</p>
       <div id="dashboardAnalyticsFeed" hidden aria-live="polite"></div>
     </section>
 
@@ -52,10 +72,10 @@
     </section>
   </main>
 
-  <script src="js/studio-auth.js?v=20260710a"></script>
-  <script src="../shared/studio-playback-stack.js?v=20260710a"></script>
-  <script src="js/studio-spa-router.js?v=20260710a"></script>
-  <script src="js/dashboard-page.js?v=20260710a"></script>
-  <script src="js/studio-ai-panel.js?v=20260710a"></script>
+  <script src="js/studio-auth.js?v=20260710l"></script>
+  <script src="../shared/studio-playback-stack.js?v=20260710l"></script>
+  <script src="js/studio-spa-router.js?v=20260710l"></script>
+  <script src="js/dashboard-page.js?v=20260710aa"></script>
+  <script src="js/studio-ai-panel.js?v=20260710l"></script>
 </body>
 </html>

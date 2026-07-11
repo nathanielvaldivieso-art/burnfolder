@@ -1,24 +1,31 @@
 /**
  * First-party site analytics (P16–P18).
  * Privacy-light: anonymous session id, no emails/fingerprints.
- * Skips studio paths. Batches to site-analytics-ingest.
+ * Tracks page pathways per session for the studio leaderboard.
  */
 (function (root) {
   'use strict';
 
-  var ENDPOINT = '/.netlify/functions/site-analytics-ingest';
   var SESSION_KEY = 'bf_analytics_sid';
   var LAND_KEY = 'bf_analytics_land';
   var UTM_KEY = 'bf_analytics_utm';
-  var FLUSH_MS = 4000;
-  var HEARTBEAT_MS = 15000;
-  var MAX_QUEUE = 30;
+  var PATH_KEY = 'bf_analytics_path';
+  var PATH_SENT_KEY = 'bf_analytics_path_sent';
+  var FLUSH_MS = 1500;
+  var HEARTBEAT_MS = 1000;
+  var MAX_QUEUE = 60;
+  var MAX_PATH_STEPS = 8;
+  var SEEK_BACK_SEC = 1.5;
+  var MAX_HEAT_SECONDS = 20 * 60;
 
   var queue = [];
+  var heatBuffer = {}; // groupKey -> { meta, duration, counts: {sec: n}, listenSeconds }
   var flushTimer = null;
   var heartbeatTimer = null;
   var active = null;
   var started = false;
+  var lastTrackedPage = '';
+  var flushInFlight = false;
 
   function apiBase() {
     var host = root.location && root.location.hostname;
@@ -64,6 +71,68 @@
       if (params.has(key)) keep.push(key + '=' + params.get(key));
     });
     return path + (keep.length ? '?' + keep.join('&') : '');
+  }
+
+  function shortLabel(page) {
+    var raw = String(page || '/');
+    var pathOnly = raw.split('?')[0] || '/';
+    var file = pathOnly.split('/').pop() || '';
+    var query = raw.indexOf('?') >= 0 ? raw.slice(raw.indexOf('?') + 1) : '';
+    var params = new URLSearchParams(query);
+
+    if (!file || file === 'index.html') return 'home';
+    if (file === 'album.html') {
+      return params.get('album') ? 'album:' + params.get('album') : 'album';
+    }
+    if (file === 'song.html') {
+      return params.get('song') ? 'song:' + params.get('song') : 'song';
+    }
+    if (file === 'music.html') return 'music';
+    if (file === 'shop.html') return 'shop';
+    if (file === 'press.html') return 'press';
+    if (file === 'content.html') return 'video';
+    if (file === 'cart.html') return 'cart';
+    if (file === 'checkout.html') return 'checkout';
+    if (file === 'success.html') return 'success';
+    if (file === 'listen.html') return 'share';
+    if (/^\d{1,2}\.\d{1,2}\.\d{2}\.html$/.test(file)) {
+      return 'journal:' + file.replace(/\.html$/, '');
+    }
+    return file.replace(/\.html$/, '') || 'page';
+  }
+
+  function loadPath() {
+    try {
+      var raw = root.sessionStorage.getItem(PATH_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function savePath(steps) {
+    try {
+      root.sessionStorage.setItem(PATH_KEY, JSON.stringify(steps || []));
+    } catch (e) {
+      /* noop */
+    }
+  }
+
+  function pathAlreadySent(signature) {
+    try {
+      return root.sessionStorage.getItem(PATH_SENT_KEY) === signature;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markPathSent(signature) {
+    try {
+      root.sessionStorage.setItem(PATH_SENT_KEY, signature);
+    } catch (e) {
+      /* noop */
+    }
   }
 
   function readUtm() {
@@ -126,9 +195,91 @@
     event.ts = event.ts || new Date().toISOString();
     event.sessionId = sessionId();
     event.page = event.page || pagePath();
+    // Heat rides in heatBuffer — never put giant pass lists on the droppable queue.
+    if (event.heatPasses) delete event.heatPasses;
+    if (event.heatCounts) delete event.heatCounts;
     queue.push(event);
-    if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE);
+    if (queue.length > MAX_QUEUE) {
+      // Prefer dropping non-play noise; never drop play_start / play_end.
+      var kept = [];
+      var dropped = 0;
+      for (var i = 0; i < queue.length; i++) {
+        var ev = queue[i];
+        var essential =
+          ev.type === 'play_start' ||
+          ev.type === 'play_end' ||
+          ev.type === 'land' ||
+          ev.type === 'pathway';
+        if (essential || kept.length < MAX_QUEUE - 8) kept.push(ev);
+        else dropped += 1;
+      }
+      queue = kept.slice(-MAX_QUEUE);
+    }
     scheduleFlush();
+  }
+
+  function bufferHeat(meta, secondsList, duration, listenDelta) {
+    if (!meta || !meta.groupKey || !secondsList || !secondsList.length) return;
+    var key = meta.groupKey;
+    if (!heatBuffer[key]) {
+      heatBuffer[key] = {
+        groupKey: meta.groupKey,
+        title: meta.title || '',
+        playbackId: meta.playbackId || '',
+        cut: meta.cut || 'unknown',
+        duration: 0,
+        listenSeconds: 0,
+        counts: {}
+      };
+    }
+    var row = heatBuffer[key];
+    if (meta.title) row.title = meta.title;
+    if (meta.playbackId) row.playbackId = meta.playbackId;
+    if (meta.cut) row.cut = meta.cut;
+    row.duration = Math.max(row.duration, Number(duration) || 0);
+    row.listenSeconds += Math.max(0, Number(listenDelta) || 0);
+    for (var i = 0; i < secondsList.length; i++) {
+      var s = Math.floor(Number(secondsList[i]) || 0);
+      if (s < 0 || s >= MAX_HEAT_SECONDS) continue;
+      row.counts[s] = (Number(row.counts[s]) || 0) + 1;
+    }
+    scheduleFlush();
+  }
+
+  function heatEventsFromBuffer() {
+    var events = [];
+    Object.keys(heatBuffer).forEach(function (key) {
+      var row = heatBuffer[key];
+      var counts = row.counts || {};
+      var secs = Object.keys(counts)
+        .map(function (k) {
+          return Number(k);
+        })
+        .filter(function (n) {
+          return counts[n] > 0;
+        })
+        .sort(function (a, b) {
+          return a - b;
+        });
+      if (!secs.length && !(row.listenSeconds > 0)) return;
+      // One compact event per song — survives queue pressure.
+      events.push({
+        type: 'play_progress',
+        groupKey: row.groupKey,
+        title: row.title,
+        playbackId: row.playbackId,
+        cut: row.cut,
+        seconds: secs.length ? secs[secs.length - 1] + 1 : 0,
+        prevSeconds: secs.length ? secs[0] : 0,
+        duration: row.duration,
+        heatCounts: counts,
+        listenSeconds: row.listenSeconds,
+        ts: new Date().toISOString(),
+        sessionId: sessionId(),
+        page: pagePath()
+      });
+    });
+    return events;
   }
 
   function scheduleFlush() {
@@ -138,15 +289,57 @@
 
   function flush() {
     flushTimer = null;
-    if (!queue.length || !shouldTrack()) return;
-    var batch = queue.slice();
+    if (flushInFlight || !shouldTrack()) return;
+    var heatEvents = heatEventsFromBuffer();
+    var batch = heatEvents.concat(queue);
+    if (!batch.length) return;
     queue = [];
+    // Detach current heat buffer so in-flight listens keep accumulating safely.
+    var shippedHeat = heatBuffer;
+    heatBuffer = {};
+    flushInFlight = true;
     var url = apiBase().replace(/\/$/, '') + '/site-analytics-ingest';
     var body = JSON.stringify({ events: batch });
+
+    function mergeShippedBack() {
+      Object.keys(shippedHeat).forEach(function (key) {
+        var src = shippedHeat[key];
+        if (!heatBuffer[key]) {
+          heatBuffer[key] = src;
+          return;
+        }
+        var dst = heatBuffer[key];
+        dst.duration = Math.max(dst.duration, src.duration);
+        dst.listenSeconds += src.listenSeconds || 0;
+        Object.keys(src.counts || {}).forEach(function (sec) {
+          dst.counts[sec] = (Number(dst.counts[sec]) || 0) + (Number(src.counts[sec]) || 0);
+        });
+      });
+    }
+
+    function fail() {
+      flushInFlight = false;
+      mergeShippedBack();
+      queue = batch
+        .filter(function (ev) {
+          return !ev.heatCounts;
+        })
+        .concat(queue)
+        .slice(0, MAX_QUEUE);
+      scheduleFlush();
+    }
+
+    function ok() {
+      flushInFlight = false;
+    }
+
     try {
       if (root.navigator && typeof root.navigator.sendBeacon === 'function') {
         var blob = new Blob([body], { type: 'application/json' });
-        if (root.navigator.sendBeacon(url, blob)) return;
+        if (root.navigator.sendBeacon(url, blob)) {
+          ok();
+          return;
+        }
       }
     } catch (e) {
       /* fall through */
@@ -157,9 +350,54 @@
       body: body,
       keepalive: true,
       mode: 'cors'
-    }).catch(function () {
-      queue = batch.concat(queue).slice(0, MAX_QUEUE);
+    })
+      .then(function (res) {
+        if (!res || !res.ok) fail();
+        else ok();
+      })
+      .catch(function () {
+        fail();
+      });
+  }
+
+  function finalizePathway(extraStep) {
+    var steps = loadPath().slice();
+    if (extraStep) {
+      if (steps[steps.length - 1] !== extraStep) steps.push(extraStep);
+    }
+    if (steps.length < 2) return;
+    steps = steps.slice(0, MAX_PATH_STEPS);
+    var signature = steps.join(' → ');
+    if (pathAlreadySent(signature)) return;
+    markPathSent(signature);
+    enqueue({
+      type: 'pathway',
+      steps: steps,
+      finalized: true
     });
+  }
+
+  function recordStep(page) {
+    if (!shouldTrack()) return;
+    var full = page || pagePath();
+    if (full === lastTrackedPage) return;
+    lastTrackedPage = full;
+
+    var label = shortLabel(full);
+    var steps = loadPath();
+    if (steps[steps.length - 1] === label) return;
+
+    steps.push(label);
+    if (steps.length > MAX_PATH_STEPS) {
+      finalizePathway();
+      steps = [label];
+      try {
+        root.sessionStorage.removeItem(PATH_SENT_KEY);
+      } catch (e) {
+        /* noop */
+      }
+    }
+    savePath(steps);
   }
 
   function playerSeconds() {
@@ -178,12 +416,17 @@
 
   function startPlay(song) {
     if (!song || !song.playbackId) return;
+    var startAt = playerSeconds();
+    var startFloor = Math.floor(startAt);
     active = {
       playbackId: String(song.playbackId),
       title: String(song.title || 'untitled'),
       groupKey: groupKeyForTitle(song.title),
       cut: inferCut(song),
-      reportedSeconds: 0,
+      startSeconds: startAt,
+      reportedSeconds: startAt,
+      creditedThrough: startFloor - 1,
+      creditedSecs: {},
       startedAt: Date.now()
     };
     enqueue({
@@ -192,48 +435,158 @@
       title: active.title,
       playbackId: active.playbackId,
       cut: active.cut,
-      seconds: 0,
-      prevSeconds: 0
+      seconds: startAt,
+      prevSeconds: startAt,
+      startSeconds: startAt,
+      duration: playerDuration()
     });
+    creditRange(startFloor, startFloor, 0);
     startHeartbeat();
+    bindPlayerTimeUpdate();
+  }
+
+  function activeMeta() {
+    if (!active) return null;
+    return {
+      groupKey: active.groupKey,
+      title: active.title,
+      playbackId: active.playbackId,
+      cut: active.cut
+    };
+  }
+
+  function creditRange(fromInclusive, toInclusive, listenDelta) {
+    if (!active) return;
+    var from = Math.max(0, Math.floor(fromInclusive));
+    var to = Math.max(from, Math.floor(toInclusive));
+    if (!active.creditedSecs) active.creditedSecs = {};
+    var passes = [];
+    for (var s = from; s <= to && s < MAX_HEAT_SECONDS; s++) {
+      // One pass per second per listen segment — prevents boundary spikes.
+      if (active.creditedSecs[s]) continue;
+      active.creditedSecs[s] = 1;
+      passes.push(s);
+    }
+    if (!passes.length && !(listenDelta > 0)) return;
+    bufferHeat(activeMeta(), passes, playerDuration(), listenDelta);
+    if (passes.length) {
+      active.creditedThrough = Math.max(active.creditedThrough, passes[passes.length - 1]);
+    } else if (to >= from) {
+      active.creditedThrough = Math.max(active.creditedThrough, to);
+    }
+  }
+
+  function creditToPlayhead(forceEnd, fillToDuration) {
+    if (!active) return;
+    var t = playerSeconds();
+    var duration = playerDuration();
+    if (!forceEnd && t + SEEK_BACK_SEC < active.reportedSeconds) return;
+
+    if (t < active.reportedSeconds && active.reportedSeconds - t < 0.5) {
+      t = active.reportedSeconds;
+    }
+
+    var stopAt = forceEnd ? Math.max(t, active.reportedSeconds) : t;
+    if (forceEnd && fillToDuration && duration > 0) {
+      stopAt = Math.max(stopAt, duration);
+    }
+
+    var through = Math.max(0, Math.floor(stopAt - 1e-6));
+    if (forceEnd && fillToDuration && duration > 0) {
+      through = Math.max(through, Math.floor(duration - 1e-6));
+    }
+
+    var from = active.creditedThrough + 1;
+    var listenDelta = Math.max(0, stopAt - active.reportedSeconds);
+    if (through >= from) {
+      // Credit the full contiguous range in one buffer write (no per-second events).
+      creditRange(from, through, listenDelta);
+    } else if (listenDelta > 0) {
+      bufferHeat(activeMeta(), [], duration, listenDelta);
+    }
+    active.reportedSeconds = Math.max(active.reportedSeconds, stopAt);
   }
 
   function reportProgress(forceEnd, completed) {
     if (!active) return;
     var seconds = playerSeconds();
-    if (seconds < active.reportedSeconds) seconds = active.reportedSeconds;
     var prev = active.reportedSeconds;
-    if (!forceEnd && seconds - prev < 5) return;
-    enqueue({
-      type: forceEnd ? 'play_end' : 'play_progress',
-      groupKey: active.groupKey,
-      title: active.title,
-      playbackId: active.playbackId,
-      cut: active.cut,
-      seconds: seconds,
-      prevSeconds: prev,
-      completed: !!completed
-    });
-    active.reportedSeconds = seconds;
+
+    if (!forceEnd && seconds + SEEK_BACK_SEC < prev) {
+      reportProgress(true, false);
+      var restartAt = seconds;
+      active = {
+        playbackId: active.playbackId,
+        title: active.title,
+        groupKey: active.groupKey,
+        cut: active.cut,
+        startSeconds: restartAt,
+        reportedSeconds: restartAt,
+        creditedThrough: Math.floor(restartAt) - 1,
+        creditedSecs: {},
+        startedAt: Date.now()
+      };
+      enqueue({
+        type: 'play_start',
+        groupKey: active.groupKey,
+        title: active.title,
+        playbackId: active.playbackId,
+        cut: active.cut,
+        seconds: restartAt,
+        prevSeconds: restartAt,
+        startSeconds: restartAt,
+        duration: playerDuration()
+      });
+      creditToPlayhead(false, false);
+      return;
+    }
+
+    if (forceEnd) {
+      var duration = playerDuration();
+      var fill = !!(completed || (duration > 0 && Math.max(seconds, prev) >= duration * 0.85));
+      creditToPlayhead(true, fill);
+      enqueue({
+        type: 'play_end',
+        groupKey: active.groupKey,
+        title: active.title,
+        playbackId: active.playbackId,
+        cut: active.cut,
+        seconds: active.reportedSeconds,
+        prevSeconds: prev,
+        startSeconds: active.startSeconds || 0,
+        stopSeconds: active.reportedSeconds,
+        duration: duration,
+        completed: !!completed
+      });
+      return;
+    }
+
+    creditToPlayhead(false, false);
   }
 
   function endPlay(reason) {
     if (!active) return;
     var duration = playerDuration();
     var seconds = playerSeconds();
+    if (seconds < active.reportedSeconds) seconds = active.reportedSeconds;
     var completed =
       reason === 'ended' ||
-      (duration > 0 && seconds >= duration * 0.9);
+      (duration > 0 && seconds >= duration * 0.85);
+    if (reason === 'ended' && duration > 0) {
+      active.reportedSeconds = Math.max(active.reportedSeconds, duration);
+      completed = true;
+    }
     reportProgress(true, completed);
     active = null;
     stopHeartbeat();
+    flush();
   }
 
   function startHeartbeat() {
     stopHeartbeat();
     heartbeatTimer = root.setInterval(function () {
       if (!active) return;
-      reportProgress(false, false);
+      creditToPlayhead(false, false);
     }, HEARTBEAT_MS);
   }
 
@@ -243,6 +596,16 @@
     heartbeatTimer = null;
   }
 
+  function bindPlayerTimeUpdate() {
+    var player = root.document && document.getElementById('activeMuxPlayer');
+    if (!player || player.dataset.bfAnalyticsTime === '1') return;
+    player.dataset.bfAnalyticsTime = '1';
+    player.addEventListener('timeupdate', function () {
+      if (!active) return;
+      creditToPlayhead(false, false);
+    });
+  }
+
   function onPlaybackChanged(event) {
     var detail = (event && event.detail) || {};
     var song = detail.song;
@@ -250,9 +613,18 @@
       endPlay('stop');
       return;
     }
-    if (!detail.playing) return;
+    if (!detail.playing) {
+      endPlay('pause');
+      return;
+    }
     if (!active || active.playbackId !== song.playbackId) {
       endPlay('switch');
+      startPlay(song);
+      return;
+    }
+    var t = playerSeconds();
+    if (t + SEEK_BACK_SEC < active.reportedSeconds) {
+      endPlay('seek-back');
       startPlay(song);
     }
   }
@@ -264,6 +636,7 @@
     player.addEventListener('ended', function () {
       endPlay('ended');
     });
+    bindPlayerTimeUpdate();
   }
 
   function classifyOutbound(href) {
@@ -280,14 +653,43 @@
     var node = event.target;
     while (node && node.tagName !== 'A') node = node.parentElement;
     if (!node || !node.href) return;
+
     var dest = classifyOutbound(node.href);
-    if (!dest) return;
-    enqueue({
-      type: 'outbound',
-      dest: dest,
-      href: String(node.href).slice(0, 240)
-    });
-    flush();
+    if (dest) {
+      enqueue({
+        type: 'outbound',
+        dest: dest,
+        href: String(node.href).slice(0, 240)
+      });
+      finalizePathway('out:' + dest);
+      flush();
+      return;
+    }
+
+    try {
+      var url = new URL(node.href, root.location.href);
+      if (url.origin === root.location.origin && url.pathname.indexOf('/studio/') !== 0) {
+        // Soft-track likely next step; SPA event will confirm.
+        var next =
+          url.pathname +
+          (url.search
+            ? '?' +
+              ['album', 'song', 't', 'entry']
+                .map(function (key) {
+                  return url.searchParams.has(key) ? key + '=' + url.searchParams.get(key) : '';
+                })
+                .filter(Boolean)
+                .join('&')
+            : '');
+        // Don't record yet for full page loads — init/land handles it.
+        if (root.history && typeof root.history.pushState === 'function') {
+          /* spa may handle */
+        }
+        void next;
+      }
+    } catch (e) {
+      /* noop */
+    }
   }
 
   function sendLand() {
@@ -304,16 +706,24 @@
     });
   }
 
+  function onNavigated() {
+    recordStep(pagePath());
+    bindPlayerEnded();
+  }
+
   function init() {
     if (started || !shouldTrack()) return;
     started = true;
     readUtm();
     sendLand();
+    recordStep(pagePath());
     bindPlayerEnded();
     root.addEventListener('burnfolder-playback-changed', onPlaybackChanged);
+    root.addEventListener('burnfolder-spa-navigated', onNavigated);
     root.document.addEventListener('click', onClick, true);
     root.addEventListener('pagehide', function () {
       endPlay('pagehide');
+      finalizePathway();
       flush();
     });
     root.document.addEventListener('visibilitychange', function () {
@@ -324,10 +734,7 @@
         bindPlayerEnded();
       }
     });
-    // SPA navigations
-    root.addEventListener('popstate', function () {
-      bindPlayerEnded();
-    });
+    root.addEventListener('popstate', onNavigated);
   }
 
   root.BurnfolderSiteAnalytics = {
@@ -335,6 +742,7 @@
     flush: flush,
     trackOutbound: function (dest, href) {
       enqueue({ type: 'outbound', dest: dest || 'other', href: href || '' });
+      finalizePathway('out:' + (dest || 'other'));
       flush();
     }
   };

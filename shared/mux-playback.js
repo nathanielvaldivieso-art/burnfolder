@@ -207,9 +207,8 @@
     }
 
     function advanceThresholdSec() {
-      /* iOS throttles timeupdate when locked — advance slightly early. */
-      if (typeof document !== 'undefined' && document.hidden) return 1.5;
-      return 0.5;
+      /* iOS throttles timeupdate when locked — advance slightly early only then. */
+      return 1.5;
     }
 
     function stopHiddenAdvancePoll() {
@@ -271,6 +270,9 @@
 
       const hidden = typeof document !== 'undefined' && document.hidden;
       if (player.paused && !hidden) return false;
+
+      /* Visible tabs wait for ended / atEnd — early handoff chops the last ~0.5s. */
+      if (!hidden) return false;
 
       if (!Number.isFinite(duration) || duration <= 0) return false;
       if (!Number.isFinite(current) || current < 0) return false;
@@ -404,9 +406,34 @@
       if (!sameSource) {
         if (!startOpts.seamlessAdvance) {
           player.pause();
-          player.currentTime = 0;
         }
         player.setAttribute('playback-id', normalized.playbackId);
+        /* Always start a new source at 0 so queue handoffs don't inherit the prior playhead. */
+        if (!(startOpts.recall && startOpts.recall.currentTime)) {
+          try {
+            player.currentTime = 0;
+          } catch (e) {
+            /* noop */
+          }
+          player.addEventListener(
+            'loadedmetadata',
+            function () {
+              if (
+                !activeSong ||
+                activeSong.playbackId !== normalized.playbackId ||
+                (startOpts.recall && startOpts.recall.currentTime)
+              ) {
+                return;
+              }
+              try {
+                player.currentTime = 0;
+              } catch (err) {
+                /* noop */
+              }
+            },
+            { once: true }
+          );
+        }
       }
       player.setAttribute('metadata-video-title', normalized.title);
 
