@@ -89,6 +89,12 @@
         if (tagline && subtitleEl) {
           subtitleEl.textContent = tagline;
         }
+        // Only show track-meta when a custom subtitle is set; otherwise the
+        // auto subtitle already carries track count + duration.
+        if (!tagline) {
+          if (metaEl) metaEl.hidden = true;
+          return;
+        }
         if (metaEl && renderApi.compileTrackRows) {
           const summaryRows = renderApi.compileTrackRows({
             tracks: tracks,

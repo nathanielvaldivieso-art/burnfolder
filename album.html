@@ -22,19 +22,19 @@
   </header>
 
   <div class="page-wrap" id="albumHubPage">
-    <p class="page-id">album hub</p>
-
     <div class="song-hub-header">
       <div class="song-hub-header-text">
         <h2 class="song-hub-title" data-album-field="title">Album</h2>
         <p class="song-hub-subtitle" data-album-field="subtitle">—</p>
         <p class="song-hub-meta" data-album-field="track-meta" hidden></p>
       </div>
-      <button type="button" class="bottom-play-pause-btn song-hub-play" id="albumHubPlay" hidden aria-label="Play album"></button>
     </div>
 
-    <div data-album-panel="cover" class="song-hub-cover-wrap" hidden>
-      <img data-album-field="cover" class="song-hub-cover-image" alt="">
+    <div class="song-hub-cover-row">
+      <div data-album-panel="cover" class="song-hub-cover-wrap" hidden>
+        <img data-album-field="cover" class="song-hub-cover-image" alt="">
+      </div>
+      <button type="button" class="bottom-play-pause-btn song-hub-play" id="albumHubPlay" hidden aria-label="Play album"></button>
     </div>
 
     <div data-album-panel="video" class="song-hub-panel" hidden>
@@ -46,9 +46,6 @@
     </div>
 
     <div class="song-hub-panel">
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">Tracks</p>
-      </div>
       <div data-album-field="tracklist"></div>
     </div>
 
@@ -59,13 +56,6 @@
       <div class="song-hub-notes" data-album-field="thoughts"></div>
     </div>
 
-    <div data-album-panel="compiled-lyrics" class="song-hub-panel" hidden>
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">Lyrics</p>
-      </div>
-      <div data-album-field="compiled-lyrics"></div>
-    </div>
-
     <div data-album-panel="compiled-notes" class="song-hub-panel" hidden>
       <div class="song-hub-panel-top">
         <p class="song-hub-label">Notes</p>
@@ -73,27 +63,11 @@
       <div data-album-field="compiled-notes"></div>
     </div>
 
-    <div data-album-panel="credits" class="song-hub-panel" hidden>
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">Credits</p>
-      </div>
-      <div class="song-hub-notes" data-album-field="credits"></div>
-    </div>
-
     <div data-album-panel="visuals" class="song-hub-panel" hidden>
       <div class="song-hub-panel-top">
         <p class="song-hub-label">Visuals</p>
       </div>
       <div class="song-hub-content-grid" data-album-field="visuals-grid"></div>
-    </div>
-
-    <div data-album-panel="darkroom" class="song-hub-panel" hidden>
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">the darkroom</p>
-      </div>
-      <div class="song-hub-notes album-darkroom-intro" data-album-field="darkroom-intro"></div>
-      <div data-album-field="darkroom-tracks"></div>
-      <nav class="album-darkroom-journal" data-album-field="darkroom-journal" aria-label="Journal arc"></nav>
     </div>
   </div>
 

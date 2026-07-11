@@ -73,22 +73,21 @@
         duration: row.item && row.item.duration
       };
     });
-    if (shared && shared.sumTrackDurations && shared.albumTrackCountMeta) {
+    if (shared && shared.sumTrackDurations && shared.formatDuration) {
       const sum = shared.sumTrackDurations(items);
-      subtitleEl.textContent = shared.albumTrackCountMeta(
-        items.length,
-        sum.complete ? sum.total : 0
-      );
+      if (sum.complete && sum.total > 0) {
+        subtitleEl.textContent = shared.formatDuration(sum.total) || '—';
+        return;
+      }
+      subtitleEl.textContent = '—';
       return;
     }
     const summary = sumRowDurations(rows);
-    const base = items.length + ' track' + (items.length === 1 ? '' : 's');
     if (!summary.complete || !summary.total) {
-      subtitleEl.textContent = base;
+      subtitleEl.textContent = '—';
       return;
     }
-    const dur = formatDuration(summary.total);
-    subtitleEl.textContent = dur ? base + ' · ' + dur : base;
+    subtitleEl.textContent = formatDuration(summary.total) || '—';
   }
 
   function bindAlbumSubtitleDurationSync(rootEl) {
@@ -210,10 +209,6 @@
       li.className = 'music-tracklist-item album-hub-track-item';
       li.dataset.playbackId = row.playbackId || '';
 
-      const num = document.createElement('span');
-      num.className = 'music-track-num';
-      num.textContent = String(row.index + 1);
-
       const rowBtn = document.createElement('button');
       rowBtn.type = 'button';
       rowBtn.className = 'music-track-row';
@@ -264,7 +259,6 @@
         }
       }
 
-      li.appendChild(num);
       li.appendChild(rowBtn);
       ol.appendChild(li);
     });

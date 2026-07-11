@@ -1,7 +1,8 @@
 const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
 const github = require('./lib/github-commit');
 
-const MAX_BODY_BYTES = 512 * 1024;
+const MAX_BODY_BYTES = 6 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 function corsHeaders() {
   return studioCorsHeaders('POST, OPTIONS');
@@ -48,16 +49,31 @@ function normalizePage(input) {
     ? input.assets.map(normalizeAssetRow).filter(Boolean)
     : [];
   return {
-    artist: typeof input.artist === 'string' ? input.artist : '',
+    pressPhoto: typeof input.pressPhoto === 'string' ? input.pressPhoto : '',
+    bio:
+      typeof input.bio === 'string'
+        ? input.bio
+        : typeof input.artist === 'string'
+          ? input.artist
+          : '',
     releaseLine: typeof input.releaseLine === 'string' ? input.releaseLine : '',
     pullQuote: typeof input.pullQuote === 'string' ? input.pullQuote : '',
-    story: typeof input.story === 'string' ? input.story : '',
-    credits: typeof input.credits === 'string' ? input.credits : '',
     contactEmail: typeof input.contactEmail === 'string' ? input.contactEmail : '',
     links: links,
     assets: assets,
     updatedAt: input.updatedAt || new Date().toISOString()
   };
+}
+
+function normalizePhotoAsset(asset) {
+  if (!asset || typeof asset !== 'object') return null;
+  const path = String(asset.path || '').trim();
+  const base64 = String(asset.base64 || '').trim();
+  if (!path || !base64 || !/^IMAGES\//i.test(path)) return null;
+  if (!/\.(png|jpe?g|webp|gif)$/i.test(path)) return null;
+  const approxBytes = Math.floor((base64.length * 3) / 4);
+  if (approxBytes > MAX_PHOTO_BYTES) return null;
+  return { path: path, content: base64, encoding: 'base64' };
 }
 
 function buildPressPageJs(page) {
@@ -94,7 +110,7 @@ exports.handler = async function (event) {
     return {
       statusCode: 413,
       headers,
-      body: JSON.stringify({ message: 'Press page payload is too large' })
+      body: JSON.stringify({ message: 'Press page payload is too large (photo under 4MB)' })
     };
   }
 
@@ -118,10 +134,11 @@ exports.handler = async function (event) {
       };
     }
 
-    const content = buildPressPageJs(page);
-    const commit = await github.commitFiles('Publish press page from studio', [
-      { path: 'press-page.js', content: content }
-    ]);
+    const commitFiles = [{ path: 'press-page.js', content: buildPressPageJs(page) }];
+    const photo = normalizePhotoAsset(body.photoAsset);
+    if (photo) commitFiles.push(photo);
+
+    const commit = await github.commitFiles('Publish press page from studio', commitFiles);
 
     return {
       statusCode: 200,
@@ -131,7 +148,9 @@ exports.handler = async function (event) {
         commitSha: commit.sha,
         commitUrl: commit.url,
         publishUrl: 'https://burnfolder.com/press.html',
-        message: 'Pushed press page to burnfolder.com. Netlify will deploy shortly.'
+        message: photo
+          ? 'Pushed press page + photo to burnfolder.com. Netlify will deploy shortly.'
+          : 'Pushed press page to burnfolder.com. Netlify will deploy shortly.'
       })
     };
   } catch (error) {

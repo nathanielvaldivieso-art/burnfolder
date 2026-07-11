@@ -72,11 +72,10 @@
 
   function emptyPage() {
     return {
-      artist: '',
+      pressPhoto: '',
+      bio: '',
       releaseLine: '',
       pullQuote: '',
-      story: '',
-      credits: '',
       contactEmail: '',
       links: [],
       assets: [],
@@ -88,12 +87,17 @@
   function normalizePage(page) {
     const base = emptyPage();
     if (!page || typeof page !== 'object') return base;
+    const bio =
+      typeof page.bio === 'string'
+        ? page.bio.trim()
+        : typeof page.artist === 'string'
+          ? page.artist.trim()
+          : '';
     return {
-      artist: typeof page.artist === 'string' ? page.artist.trim() : '',
+      pressPhoto: typeof page.pressPhoto === 'string' ? page.pressPhoto.trim() : '',
+      bio: bio,
       releaseLine: typeof page.releaseLine === 'string' ? page.releaseLine.trim() : '',
       pullQuote: typeof page.pullQuote === 'string' ? page.pullQuote.trim() : '',
-      story: typeof page.story === 'string' ? page.story.trim() : '',
-      credits: typeof page.credits === 'string' ? page.credits.trim() : '',
       contactEmail: typeof page.contactEmail === 'string' ? page.contactEmail.trim() : '',
       links: Array.isArray(page.links)
         ? page.links.map(normalizeLinkRow).filter(Boolean)
@@ -109,11 +113,10 @@
   function hasContent(page) {
     const p = normalizePage(page);
     if (
-      p.artist ||
+      p.pressPhoto ||
+      p.bio ||
       p.releaseLine ||
       p.pullQuote ||
-      p.story ||
-      p.credits ||
       p.contactEmail
     ) {
       return true;
@@ -175,11 +178,10 @@
     const page = normalizePage(store.page);
     if (!page.published || !hasContent(page)) return null;
     return {
-      artist: page.artist,
+      pressPhoto: page.pressPhoto,
+      bio: page.bio,
       releaseLine: page.releaseLine,
       pullQuote: page.pullQuote,
-      story: page.story,
-      credits: page.credits,
       contactEmail: page.contactEmail,
       links: page.links.map(function (row) {
         return {
@@ -198,6 +200,40 @@
       }),
       updatedAt: page.updatedAt
     };
+  }
+
+  function setPendingPhoto(asset) {
+    return ensureHydrated().then(function () {
+      const store = readStore();
+      store.pendingPhoto = asset || null;
+      writeStore(store);
+      return store.pendingPhoto;
+    });
+  }
+
+  function getPendingPhoto() {
+    return ensureHydrated().then(function () {
+      return readStore().pendingPhoto || null;
+    });
+  }
+
+  function clearPendingPhoto() {
+    return setPendingPhoto(null);
+  }
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const result = String(reader.result || '');
+        const comma = result.indexOf(',');
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = function () {
+        reject(new Error('could not read file'));
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function getFunctionsBase() {
@@ -225,23 +261,38 @@
 
       return authReady
         .then(function () {
+          return getPendingPhoto();
+        })
+        .then(function (pendingPhoto) {
+          const body = { page: page };
+          if (pendingPhoto && pendingPhoto.path && pendingPhoto.base64) {
+            body.photoAsset = {
+              path: pendingPhoto.path,
+              base64: pendingPhoto.base64
+            };
+          }
           return root.fetch(getFunctionsBase() + '/studio-publish-press-page', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ page: page })
+            body: JSON.stringify(body)
           });
         })
         .then(function (res) {
-          return res.json().catch(function () {
-            return {};
-          }).then(function (data) {
-            if (!res.ok) {
-              const msg = (data && data.message) || 'push failed (' + res.status + ')';
-              return Promise.reject(new Error(msg));
-            }
-            root.burnfolderPressPage = page;
-            return data;
-          });
+          return res
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (data) {
+              if (!res.ok) {
+                const msg = (data && data.message) || 'push failed (' + res.status + ')';
+                return Promise.reject(new Error(msg));
+              }
+              root.burnfolderPressPage = page;
+              return clearPendingPhoto().then(function () {
+                return data;
+              });
+            });
         });
     });
   }
@@ -259,6 +310,10 @@
     getPublishedPage: getPublishedPage,
     resolvePage: resolvePage,
     getPublishedPayload: getPublishedPayload,
+    setPendingPhoto: setPendingPhoto,
+    getPendingPhoto: getPendingPhoto,
+    clearPendingPhoto: clearPendingPhoto,
+    fileToBase64: fileToBase64,
     pushToSite: pushToSite
   };
 })(typeof window !== 'undefined' ? window : globalThis);

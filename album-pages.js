@@ -2,17 +2,14 @@
 window.burnfolderAlbumPages = {
   "photonegative": {
     "title": "PHOTO NEGATIVE",
-    "subtitle": "four songs about when to stop editing yourself",
+    "subtitle": "",
     "coverArt": "IMAGES/PHOTO-NEGATIVE-COVER.png",
     "notes": "",
     "credits": "burnfolder — writing, production, performance, design",
-    "darkroomIntro": "older versions and process notes live here. the release cut above is the picture — this is the contact sheet.",
-    "journalArc": ["2.25.26", "5.17.26", "5.29.26", "6.1.26", "6.4.26", "6.24.26", "7.8.26"],
     "links": [
       { "label": "spotify", "href": "", "pending": true },
       { "label": "apple music", "href": "", "pending": true },
-      { "label": "support / download", "href": "shop.html" },
-      { "label": "5.17.26", "href": "5.17.26.html" }
+      { "label": "tidal", "href": "", "pending": true }
     ],
     "tracks": [
       {

@@ -23,25 +23,11 @@ const closeBtn = document.getElementById('closeBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const activeMuxPlayer = document.getElementById('activeMuxPlayer');
 
-function isCoarsePointer() {
-  return (
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(pointer: coarse)').matches
-  );
-}
-
-// Never move focus to the fixed bottom bar on touch: iOS scrolls the page to a
-// focused fixed element even with preventScroll, which reads as the page "jumping"
-// when you tap a song. Space-to-toggle works via the document keydown handler, so
-// keyboard users lose nothing. Only fine-pointer (desktop) gets a focus ring.
+// Never move focus to the fixed bottom bar: browsers scroll to focused fixed
+// elements even with preventScroll, which reads as the page jumping. Space-to-
+// toggle works via the document keydown handler, so keyboard users lose nothing.
 function focusPlayControl() {
-  if (!bottomPlayBtn || typeof bottomPlayBtn.focus !== 'function') return;
-  if (isCoarsePointer()) return;
-  try {
-    bottomPlayBtn.focus({ preventScroll: true });
-  } catch (_) {
-    /* ignore */
-  }
+  /* intentionally no-op — focusing #bottomPlayPause jumps the page */
 }
 // Single shared now-playing bar instance (shared/now-playing-bar.js). Owns play button,
 // title menu/version picker, progress + drag/hover seek, spinner. See COPILOT.md.
@@ -1179,12 +1165,7 @@ function playAlbumHubQueue(sorted, song) {
   const onAlbum = active && sorted.some((item) => item.playbackId === active.playbackId);
 
   if (onAlbum && active.playbackId === song.playbackId) {
-    if (activeMuxPlayer && !activeMuxPlayer.paused) {
-      togglePlayPause();
-    } else if (activeMuxPlayer) {
-      activeMuxPlayer.play().catch(() => {});
-      updateUI();
-    }
+    togglePlayPause();
     return;
   }
 
@@ -1274,123 +1255,6 @@ function renderAlbumHubCredits(rootEl, credits) {
   }
 }
 
-function renderAlbumHubDarkroom(rootEl, published, tracks, catalog, sv, onPlayVersion) {
-  const panel = rootEl.querySelector('[data-album-panel="darkroom"]');
-  const introEl = rootEl.querySelector('[data-album-field="darkroom-intro"]');
-  const tracksEl = rootEl.querySelector('[data-album-field="darkroom-tracks"]');
-  const journalEl = rootEl.querySelector('[data-album-field="darkroom-journal"]');
-  const renderApi = window.BurnfolderAlbumPageRender;
-  if (!panel || !tracksEl) return;
-
-  const intro = String((published && published.darkroomIntro) || '').trim();
-  if (introEl) {
-    introEl.innerHTML = renderApi && renderApi.textToHtml ? renderApi.textToHtml(intro) : intro;
-    introEl.hidden = !intro;
-  }
-
-  tracksEl.innerHTML = '';
-  const rows = Array.isArray(tracks) ? tracks : [];
-  let hasVersions = false;
-
-  rows.forEach((track) => {
-    const groupKey =
-      (track && track.groupKey) ||
-      (sv && track.title ? sv.getTrackGroupKey(track.title) : '');
-    const versions =
-      sv && groupKey ? sv.collectVersionsByGroupKey(catalog, groupKey) : [];
-    if (versions.length < 2) return;
-    hasVersions = true;
-
-    const block = document.createElement('article');
-    block.className = 'album-darkroom-track';
-
-    const head = document.createElement('h3');
-    head.className = 'album-darkroom-track-title';
-    head.textContent = track.title || 'untitled';
-    block.appendChild(head);
-
-    const picker = document.createElement('div');
-    picker.className = 'song-hub-version-picker album-darkroom-picker';
-    picker.setAttribute('role', 'tablist');
-    picker.setAttribute('aria-label', (track.title || 'track') + ' versions');
-
-    versions.forEach((song) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'song-hub-version-chip';
-      chip.dataset.playbackId = song.playbackId;
-      chip.setAttribute('role', 'tab');
-      const isReleaseCut = song.playbackId === track.playbackId;
-      chip.classList.toggle('is-active', isReleaseCut);
-      chip.setAttribute('aria-selected', isReleaseCut ? 'true' : 'false');
-
-      const label = document.createElement('span');
-      label.className = 'song-hub-version-chip-label';
-      label.textContent = sv && sv.getTrackDateLabel ? sv.getTrackDateLabel(song) || song.title : song.title;
-      chip.appendChild(label);
-
-      chip.addEventListener('click', () => {
-        picker.querySelectorAll('.song-hub-version-chip').forEach((node) => {
-          const active = node.dataset.playbackId === song.playbackId;
-          node.classList.toggle('is-active', active);
-          node.setAttribute('aria-selected', active ? 'true' : 'false');
-        });
-        if (typeof onPlayVersion === 'function') onPlayVersion(song);
-      });
-
-      picker.appendChild(chip);
-    });
-
-    block.appendChild(picker);
-
-    if (sv) {
-      const songHref = sv.getSongHubHref({ title: track.title }, '');
-      const songPages = window.burnfolderSongPages || {};
-      const pageKey = sv.getTrackGroupKey(track.title);
-      if (songPages[pageKey]) {
-        const songLink = document.createElement('a');
-        songLink.className = 'album-darkroom-song-link icon-btn';
-        songLink.href = songHref;
-        songLink.textContent = 'song page';
-        block.appendChild(songLink);
-      }
-    }
-
-    tracksEl.appendChild(block);
-  });
-
-  if (journalEl) {
-    journalEl.innerHTML = '';
-    const arc = Array.isArray(published && published.journalArc) ? published.journalArc : [];
-    arc.forEach((date, index) => {
-      const label = String(date || '').trim();
-      if (!label) return;
-      if (index > 0) {
-        const sep = document.createElement('span');
-        sep.className = 'album-darkroom-journal-sep';
-        sep.textContent = '·';
-        sep.setAttribute('aria-hidden', 'true');
-        journalEl.appendChild(sep);
-      }
-      const link = document.createElement('a');
-      link.className = 'album-darkroom-journal-link';
-      link.href = label + '.html';
-      link.textContent = label;
-      journalEl.appendChild(link);
-    });
-    journalEl.hidden = !arc.length;
-  }
-
-  if (!hasVersions && !intro && !(published && published.journalArc && published.journalArc.length)) {
-    panel.hidden = true;
-    panel.classList.add('is-empty');
-    return;
-  }
-
-  panel.hidden = false;
-  panel.classList.remove('is-empty');
-}
-
 function renderAlbumHubPage() {
   const hubRoot = document.getElementById('albumHubPage');
   if (!hubRoot) return;
@@ -1469,6 +1333,13 @@ function renderAlbumHubPage() {
         subtitleEl.textContent = tagline;
       }
 
+      // Only show track-meta when a custom subtitle is set; otherwise the
+      // auto subtitle already carries track count + duration.
+      if (!tagline) {
+        if (metaEl) metaEl.hidden = true;
+        return;
+      }
+
       if (metaEl && renderApi.compileTrackRows) {
         const summaryRows = renderApi.compileTrackRows({
           tracks,
@@ -1500,10 +1371,6 @@ function renderAlbumHubPage() {
   });
 
   renderAlbumHubLinks(hubRoot, published.links);
-  renderAlbumHubCredits(hubRoot, published.credits);
-  renderAlbumHubDarkroom(hubRoot, published, tracks, catalog, sv, (song) => {
-    playTrackBySong(song);
-  });
 
   if (published.title) {
     document.title = `${published.title} — burnfolder.com`;
@@ -1512,22 +1379,24 @@ function renderAlbumHubPage() {
   const hubPlayBtn = document.getElementById('albumHubPlay');
   if (hubPlayBtn && !hubPlayBtn.dataset.bound) {
     hubPlayBtn.dataset.bound = '1';
-    hubPlayBtn.addEventListener('click', () => {
+    const onHubPlay = () => {
       const startSong = tracks[0];
       if (!startSong) return;
       const active = getActiveSong();
       const onAlbum = active && tracks.some((item) => item.playbackId === active.playbackId);
       if (onAlbum) {
-        if (activeMuxPlayer && !activeMuxPlayer.paused) {
-          togglePlayPause();
-        } else if (activeMuxPlayer) {
-          activeMuxPlayer.play().catch(() => {});
-          updateUI();
-        }
-        return;
+        togglePlayPause();
+      } else {
+        playAlbumHubQueue(tracks, startSong);
       }
-      playAlbumHubQueue(tracks, startSong);
-    });
+      if (hubPlayBtn.blur) hubPlayBtn.blur();
+    };
+    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    if (tap && tap.bind) {
+      tap.bind(hubPlayBtn, onHubPlay);
+    } else {
+      hubPlayBtn.addEventListener('click', onHubPlay);
+    }
   }
 
   syncAlbumHubPlayButton();
@@ -2734,6 +2603,25 @@ function isTypingTarget(target) {
   return Boolean(el.closest('[contenteditable="true"]'));
 }
 
+function isPlayControl(el) {
+  if (!el || el.nodeType !== 1) return false;
+  return (
+    el === bottomPlayBtn ||
+    el.id === 'albumHubPlay' ||
+    el.id === 'songHubPlay' ||
+    el.id === 'musicPortfolioPlay' ||
+    el.classList.contains('song-hub-play') ||
+    el.classList.contains('music-release-play')
+  );
+}
+
+function blurPlayControls() {
+  const active = document.activeElement;
+  if (isPlayControl(active) && typeof active.blur === 'function') {
+    active.blur();
+  }
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' && e.key !== ' ') return;
   if (e.defaultPrevented) return;
@@ -2746,9 +2634,21 @@ document.addEventListener('keydown', (e) => {
   if (isTypingTarget(e.target)) return;
   e.preventDefault();
   e.stopPropagation();
+  // Mark this key cycle so keyup on a focused play button does not re-fire click
+  // (which would double-toggle) or scroll the page.
+  window.__burnfolderSpacePlay = true;
   togglePlayPause();
-  // Keep focus off the bar — :focus-visible inverts the button on every Space press.
-  if (bottomPlayBtn && bottomPlayBtn.blur) bottomPlayBtn.blur();
+  blurPlayControls();
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.code !== 'Space' && e.key !== ' ') return;
+  if (!window.__burnfolderSpacePlay) return;
+  window.__burnfolderSpacePlay = false;
+  if (isTypingTarget(e.target)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  blurPlayControls();
 });
 
 // Close button is wired through BurnfolderNowPlayingBar onClose (see mountNowPlayingBar).

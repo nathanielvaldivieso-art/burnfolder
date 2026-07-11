@@ -6,11 +6,12 @@
 
   if (!store || !renderApi) return;
 
-  const artistEl = document.getElementById('pressDesignerArtist');
+  const pressPhotoEl = document.getElementById('pressDesignerPressPhoto');
+  const pressPhotoFileEl = document.getElementById('pressDesignerPressPhotoFile');
+  const pressPhotoPreviewEl = document.getElementById('pressDesignerPressPhotoPreview');
+  const bioEl = document.getElementById('pressDesignerBio');
   const releaseLineEl = document.getElementById('pressDesignerReleaseLine');
   const pullQuoteEl = document.getElementById('pressDesignerPullQuote');
-  const storyEl = document.getElementById('pressDesignerStory');
-  const creditsEl = document.getElementById('pressDesignerCredits');
   const contactEmailEl = document.getElementById('pressDesignerContactEmail');
   const linksList = document.getElementById('pressDesignerLinksList');
   const assetsList = document.getElementById('pressDesignerAssetsList');
@@ -23,6 +24,7 @@
   let currentPage = store.emptyPage();
   let saveTimer = null;
   let loadingPage = false;
+  let pendingPreviewUrl = '';
 
   function setStatus(msg, kind) {
     if (window.BurnfolderStudioStatus) {
@@ -34,20 +36,34 @@
 
   function readEditorState() {
     return {
-      artist: artistEl ? artistEl.value : '',
+      pressPhoto: pressPhotoEl ? pressPhotoEl.value : '',
+      bio: bioEl ? bioEl.value : '',
       releaseLine: releaseLineEl ? releaseLineEl.value : '',
       pullQuote: pullQuoteEl ? pullQuoteEl.value : '',
-      story: storyEl ? storyEl.value : '',
-      credits: creditsEl ? creditsEl.value : '',
       contactEmail: contactEmailEl ? contactEmailEl.value : '',
       links: (currentPage.links || []).slice(),
       assets: (currentPage.assets || []).slice()
     };
   }
 
+  function updatePhotoPreview(src) {
+    if (!pressPhotoPreviewEl) return;
+    if (src) {
+      pressPhotoPreviewEl.src = src;
+      pressPhotoPreviewEl.hidden = false;
+    } else {
+      pressPhotoPreviewEl.removeAttribute('src');
+      pressPhotoPreviewEl.hidden = true;
+    }
+  }
+
   function paintPreview() {
     if (!previewRoot) return;
-    renderApi.apply(previewRoot, { page: readEditorState() });
+    const state = readEditorState();
+    if (pendingPreviewUrl) {
+      state.pressPhoto = pendingPreviewUrl;
+    }
+    renderApi.apply(previewRoot, { page: state });
   }
 
   function scheduleSave() {
@@ -178,12 +194,13 @@
   function fillEditor(page) {
     loadingPage = true;
     currentPage = store.normalizePage(page);
-    if (artistEl) artistEl.value = currentPage.artist || '';
+    if (pressPhotoEl) pressPhotoEl.value = currentPage.pressPhoto || '';
+    if (bioEl) bioEl.value = currentPage.bio || '';
     if (releaseLineEl) releaseLineEl.value = currentPage.releaseLine || '';
     if (pullQuoteEl) pullQuoteEl.value = currentPage.pullQuote || '';
-    if (storyEl) storyEl.value = currentPage.story || '';
-    if (creditsEl) creditsEl.value = currentPage.credits || '';
     if (contactEmailEl) contactEmailEl.value = currentPage.contactEmail || '';
+    pendingPreviewUrl = '';
+    updatePhotoPreview(currentPage.pressPhoto || '');
     renderRowLists();
     paintPreview();
     loadingPage = false;
@@ -203,6 +220,15 @@
       .resolvePage(true)
       .then(function (page) {
         fillEditor(mergeWithPublished(page));
+        return store.getPendingPhoto();
+      })
+      .then(function (pending) {
+        if (pending && pending.previewUrl) {
+          pendingPreviewUrl = pending.previewUrl;
+          if (pressPhotoEl && pending.path) pressPhotoEl.value = pending.path;
+          updatePhotoPreview(pending.previewUrl);
+          paintPreview();
+        }
         setStatus('');
       })
       .catch(function (err) {
@@ -210,12 +236,60 @@
       });
   }
 
-  bindTextInput(artistEl);
+  bindTextInput(pressPhotoEl);
+  bindTextInput(bioEl);
   bindTextInput(releaseLineEl);
   bindTextInput(pullQuoteEl);
-  bindTextInput(storyEl);
-  bindTextInput(creditsEl);
   bindTextInput(contactEmailEl);
+
+  if (pressPhotoEl) {
+    pressPhotoEl.addEventListener('input', function () {
+      pendingPreviewUrl = '';
+      updatePhotoPreview(pressPhotoEl.value.trim());
+    });
+  }
+
+  if (pressPhotoFileEl) {
+    pressPhotoFileEl.addEventListener('change', function () {
+      const file = pressPhotoFileEl.files && pressPhotoFileEl.files[0];
+      if (!file) return;
+      if (!/^image\//.test(file.type)) {
+        setStatus('photo must be an image', 'error');
+        return;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        setStatus('photo must be under 4MB', 'error');
+        return;
+      }
+
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const path = 'IMAGES/PRESS-PHOTO.' + (ext || 'jpg');
+
+      setStatus('reading photo…');
+      store
+        .fileToBase64(file)
+        .then(function (base64) {
+          const previewUrl = URL.createObjectURL(file);
+          return store
+            .setPendingPhoto({
+              path: path,
+              base64: base64,
+              previewUrl: previewUrl,
+              name: file.name
+            })
+            .then(function () {
+              pendingPreviewUrl = previewUrl;
+              if (pressPhotoEl) pressPhotoEl.value = path;
+              updatePhotoPreview(previewUrl);
+              scheduleSave();
+              setStatus('photo ready — push to upload');
+            });
+        })
+        .catch(function (err) {
+          setStatus(err.message || 'photo read failed', 'error');
+        });
+    });
+  }
 
   if (addLinkBtn) {
     addLinkBtn.addEventListener('click', function () {
@@ -253,7 +327,7 @@
 
         if (
           !window.confirm(
-            'Push press page to burnfolder.com?\n\nThis updates press-page.js on the live site.'
+            'Push press page to burnfolder.com?\n\nThis updates press-page.js (and press photo if you picked one).'
           )
         ) {
           return Promise.resolve();
@@ -266,6 +340,9 @@
         return store
           .pushToSite()
           .then(function (data) {
+            pendingPreviewUrl = '';
+            updatePhotoPreview((pressPhotoEl && pressPhotoEl.value) || '');
+            paintPreview();
             setStatus((data && data.message) || 'pushed to site', 'success');
           })
           .catch(function (err) {

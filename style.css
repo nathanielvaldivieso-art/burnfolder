@@ -1021,6 +1021,15 @@ body.page-music .music-release:has(> .music-tracklist) {
   transition: background 0.12s ease;
 }
 
+.album-hub-track-item {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.album-hub-track-item .music-track-row {
+  padding-left: 12px;
+}
+
 .music-tracklist-item:has(.music-track-row:hover),
 .music-tracklist-item:has(.music-track-row:focus-visible),
 .music-tracklist-item:has(.music-track-row.is-active),
@@ -1675,8 +1684,29 @@ mux-player#activeMuxPlayer {
   opacity: 0.7;
 }
 
+.song-hub-cover-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 0 0 14px 0;
+  max-width: 100%;
+}
+
 .song-hub-cover-wrap {
   margin: 0 0 14px 0;
+}
+
+.song-hub-cover-row .song-hub-cover-wrap {
+  margin: 0;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: calc(100% - var(--now-playing-btn-size) - 16px);
+}
+
+.song-hub-cover-row > .song-hub-play {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-bottom: 4px;
 }
 
 .song-hub-cover-image {
@@ -2868,6 +2898,53 @@ body.page-press .press-heading {
   opacity: 0.45;
 }
 
+body.page-press .press-photo {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin: 0 0 16px;
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
+}
+
+body.page-press .press-photo + .page-annotation {
+  margin-top: 0;
+}
+
+body.page-press .press-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 16px;
+  border: 1px dashed rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.03);
+  color: inherit;
+  font-size: 0.78em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+body.page-press .press-placeholder--photo {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 4 / 3;
+}
+
+body.page-press .press-placeholder--bio {
+  min-height: 7.5em;
+  padding: 18px 16px;
+  text-align: left;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+body.page-press .press-placeholder--photo + .press-placeholder--bio,
+body.page-press .press-photo + .press-placeholder--bio {
+  margin-top: 0;
+}
+
 body.page-press .press-quote {
   margin: 16px 0 0;
   font-style: italic;
@@ -2886,7 +2963,7 @@ body.page-press .press-link {
   text-transform: uppercase;
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  border-bottom: none;
 }
 
 body.page-press .press-link:hover,
@@ -2895,8 +2972,9 @@ body.page-press .press-link:focus {
 }
 
 body.page-press .press-link--pending {
-  opacity: 0.35;
+  opacity: 1;
   border-bottom: none;
+  cursor: default;
 }
 
 body.page-press .press-assets {
@@ -2913,58 +2991,6 @@ body.page-press .press-assets a {
   color: inherit;
   text-decoration: none;
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
-}
-
-.album-darkroom-intro {
-  margin-bottom: 20px;
-}
-
-.album-darkroom-track + .album-darkroom-track {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.album-darkroom-track-title {
-  margin: 0 0 10px;
-  font-size: 0.85em;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.album-darkroom-picker {
-  margin-bottom: 8px;
-}
-
-.album-darkroom-song-link {
-  margin-top: 8px;
-}
-
-.album-darkroom-journal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.album-darkroom-journal-link {
-  font-size: 0.85em;
-  letter-spacing: 0.08em;
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
-}
-
-.album-darkroom-journal-link:hover,
-.album-darkroom-journal-link:focus {
-  opacity: 0.65;
-}
-
-.album-darkroom-journal-sep {
-  opacity: 0.35;
 }
 
 .studio-press-row-list {

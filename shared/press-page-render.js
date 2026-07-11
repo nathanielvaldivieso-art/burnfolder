@@ -17,10 +17,13 @@
     const section = document.createElement('section');
     section.className = 'press-section';
 
-    const head = document.createElement('h2');
-    head.className = 'press-heading';
-    head.textContent = heading;
-    section.appendChild(head);
+    const title = String(heading || '').trim();
+    if (title) {
+      const head = document.createElement('h2');
+      head.className = 'press-heading';
+      head.textContent = title;
+      section.appendChild(head);
+    }
 
     const body = document.createElement('div');
     body.innerHTML = bodyHtml;
@@ -99,10 +102,25 @@
 
     bodyMount.innerHTML = '';
 
-    const artist = String(page.artist || '').trim();
-    if (artist) {
-      appendSection(bodyMount, 'artist', '<p class="page-annotation">' + textToHtml(artist) + '</p>');
+    const pressPhoto = String(page.pressPhoto || '').trim();
+    const bio = String(page.bio || '').trim();
+    let bioHtml = '';
+    if (pressPhoto) {
+      bioHtml +=
+        '<img class="press-photo" src="' +
+        escapeHtml(pressPhoto) +
+        '" alt="press photo">';
+    } else {
+      bioHtml +=
+        '<div class="press-placeholder press-placeholder--photo" aria-hidden="true">press photo</div>';
     }
+    if (bio) {
+      bioHtml += '<p class="page-annotation">' + textToHtml(bio) + '</p>';
+    } else {
+      bioHtml +=
+        '<div class="press-placeholder press-placeholder--bio" aria-hidden="true"></div>';
+    }
+    appendSection(bodyMount, '', bioHtml);
 
     const releaseLine = String(page.releaseLine || '').trim();
     const pullQuote = String(page.pullQuote || '').trim();
@@ -117,24 +135,14 @@
       appendSection(bodyMount, 'release', releaseHtml);
     }
 
-    const story = String(page.story || '').trim();
-    if (story) {
-      appendSection(bodyMount, 'story', '<p class="page-annotation">' + textToHtml(story) + '</p>');
-    }
-
     const linksHtml = renderLinks(page.links);
     if (linksHtml) {
-      appendSection(bodyMount, 'links', linksHtml);
+      appendSection(bodyMount, '', linksHtml);
     }
 
     const assetsHtml = renderAssets(page.assets);
     if (assetsHtml) {
       appendSection(bodyMount, 'assets', assetsHtml);
-    }
-
-    const credits = String(page.credits || '').trim();
-    if (credits) {
-      appendSection(bodyMount, 'credits', '<p class="page-annotation">' + textToHtml(credits) + '</p>');
     }
 
     const contactEmail = String(page.contactEmail || '').trim();
