@@ -28,8 +28,8 @@
         b.maybeAdvanceQueue(livePlayer);
         return;
       }
-      b.stopHiddenAdvancePoll();
       b.reconcilePlayerWithEngine();
+      b.startHiddenAdvancePoll(livePlayer);
       if (livePlayer.ended && b.playerMatchesActiveSong(livePlayer)) {
         b.advanceQueueAfterEnd(livePlayer);
         return;
@@ -129,8 +129,97 @@
     let recallTimer = null;
     let mediaActionsBound = false;
     let queueAdvanceLock = false;
-    let hiddenAdvanceTimer = null;
+    let queueMonitorTimer = null;
+    let handoffStartedAt = 0;
     let lastDriftReconcileAt = 0;
+
+    function stopQueueMonitorPoll() {
+      if (queueMonitorTimer === null) return;
+      window.clearInterval(queueMonitorTimer);
+      queueMonitorTimer = null;
+    }
+
+    function stopHiddenAdvancePoll() {
+      stopQueueMonitorPoll();
+    }
+
+    function trackFinished(player) {
+      if (!player) return false;
+      if (player.ended) return true;
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
+        return false;
+      }
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      const tailSlack = hidden ? 0.2 : 0.04;
+      return current >= duration - tailSlack;
+    }
+
+    function ensureQueueHandoffPlaying(player, normalized, immediatePlay) {
+      if (
+        !player ||
+        !normalized ||
+        !activeSong ||
+        activeSong.playbackId !== normalized.playbackId
+      ) {
+        return;
+      }
+      try {
+        if (player.readyState >= 1) player.currentTime = 0;
+      } catch (e) {
+        /* noop */
+      }
+      if (immediatePlay) {
+        if (player.paused) {
+          retryPlay(player, normalized, false);
+        }
+      }
+      notify();
+    }
+
+    function ensureQueueHandoffComplete(player) {
+      if (!queueAdvanceLock || !player || !activeSong) return;
+      const elapsed = handoffStartedAt ? Date.now() - handoffStartedAt : 0;
+      if (playerMatchesActiveSong(player) && !player.paused) {
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+        return;
+      }
+      if (elapsed < 400) return;
+      if (playerMatchesActiveSong(player) && player.paused) {
+        retryPlay(player, activeSong, false);
+      }
+      if (elapsed >= 6000) {
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+      }
+    }
+
+    function startQueueMonitorPoll(player) {
+      if (queueMonitorTimer !== null || !player) return;
+      queueMonitorTimer = window.setInterval(function () {
+        const livePlayer = getPlayer();
+        if (!livePlayer || !activeSong) {
+          stopQueueMonitorPoll();
+          return;
+        }
+        const hasNext = activeQueueIdx + 1 < activeQueue.length;
+        if (!hasNext && !queueAdvanceLock) {
+          stopQueueMonitorPoll();
+          return;
+        }
+        if (queueAdvanceLock) {
+          ensureQueueHandoffComplete(livePlayer);
+          return;
+        }
+        maybeAdvanceQueue(livePlayer);
+      }, 500);
+    }
+
+    function startHiddenAdvancePoll(player) {
+      startQueueMonitorPoll(player);
+    }
 
     function maybeReconcileOnDrift(player) {
       if (queueAdvanceLock || !player || !activeSong || playerMatchesActiveSong(player)) return;
@@ -232,7 +321,10 @@
         },
         nexttrack: function () {
           if (activeQueueIdx + 1 < activeQueue.length) {
-            playQueuedTrack(activeQueueIdx + 1);
+            handoffStartedAt = Date.now();
+            queueAdvanceLock = true;
+            playQueuedTrack(activeQueueIdx + 1, { immediatePlay: true, queueHandoff: true });
+            startQueueMonitorPoll(getPlayer());
           }
         },
         seekbackward: function (details) {
@@ -314,28 +406,6 @@
       });
     }
 
-    function stopHiddenAdvancePoll() {
-      if (hiddenAdvanceTimer === null) return;
-      window.clearInterval(hiddenAdvanceTimer);
-      hiddenAdvanceTimer = null;
-    }
-
-    function startHiddenAdvancePoll(player) {
-      if (hiddenAdvanceTimer !== null || !player) return;
-      hiddenAdvanceTimer = window.setInterval(function () {
-        if (!document.hidden) {
-          stopHiddenAdvancePoll();
-          return;
-        }
-        if (!activeSong || queueAdvanceLock) return;
-        if (player.ended && playerMatchesActiveSong(player)) {
-          advanceQueueAfterEnd(player);
-          return;
-        }
-        maybeAdvanceQueue(player);
-      }, 400);
-    }
-
     function resumeIfBackgroundPaused(player) {
       if (!player || !activeSong || !player.paused) return;
       if (opts.recall === false || !recallApi) return;
@@ -354,29 +424,10 @@
     function maybeAdvanceQueue(player) {
       if (queueAdvanceLock || !player || !activeSong) return false;
       if (!playerMatchesActiveSong(player)) return false;
-
-      if (player.ended) {
+      if (trackFinished(player)) {
         advanceQueueAfterEnd(player);
         return true;
       }
-
-      /* Visible tabs: wait for ended — never pre-empt the tail of a track. */
-      const hidden = typeof document !== 'undefined' && document.hidden;
-      if (!hidden) return false;
-
-      /* Hidden/lock-screen fallback: iOS may not fire ended reliably. */
-      const duration = Number(player.duration);
-      const current = Number(player.currentTime);
-      if (
-        Number.isFinite(duration) &&
-        duration > 0 &&
-        Number.isFinite(current) &&
-        current >= duration - 0.12
-      ) {
-        advanceQueueAfterEnd(player);
-        return true;
-      }
-
       return false;
     }
 
@@ -391,8 +442,11 @@
         window.clearTimeout(recallTimer);
         recallTimer = null;
         queueAdvanceLock = true;
+        handoffStartedAt = Date.now();
         playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
+        startQueueMonitorPoll(player || getPlayer());
       } else {
+        stopQueueMonitorPoll();
         notify({ playing: false });
         flushRecallSave();
       }
@@ -427,6 +481,8 @@
         },
         handlePlay: function () {
           queueAdvanceLock = false;
+          handoffStartedAt = 0;
+          startQueueMonitorPoll(getPlayer());
           notify();
         },
         handlePause: function () {
@@ -530,33 +586,42 @@
       bindMediaSessionActions();
 
       const sameSource = player.getAttribute('playback-id') === normalized.playbackId;
+      const wasPlayingBeforeSwap = !player.paused;
       if (!sameSource) {
-        player.pause();
+        if (!isQueueHandoff || !wasPlayingBeforeSwap) {
+          player.pause();
+        }
         player.setAttribute('playback-id', normalized.playbackId);
         if (!(startOpts.recall && startOpts.recall.currentTime)) {
           if (isQueueHandoff) {
-            player.addEventListener(
-              'loadedmetadata',
-              function () {
+            if (!handoffStartedAt) handoffStartedAt = Date.now();
+            function runHandoffPlay() {
+              ensureQueueHandoffPlaying(player, normalized, immediatePlay);
+            }
+            player.addEventListener('loadedmetadata', runHandoffPlay, { once: true });
+            player.addEventListener('canplay', runHandoffPlay, { once: true });
+            player.addEventListener('loadeddata', runHandoffPlay, { once: true });
+            if (player.readyState >= 1) runHandoffPlay();
+            [120, 500, 1200, 2500].forEach(function (delayMs) {
+              window.setTimeout(function () {
                 if (
                   !activeSong ||
                   activeSong.playbackId !== normalized.playbackId ||
-                  (startOpts.recall && startOpts.recall.currentTime)
+                  !player.paused
                 ) {
+                  if (
+                    activeSong &&
+                    activeSong.playbackId === normalized.playbackId &&
+                    !player.paused
+                  ) {
+                    queueAdvanceLock = false;
+                    handoffStartedAt = 0;
+                  }
                   return;
                 }
-                try {
-                  player.currentTime = 0;
-                } catch (err) {
-                  /* noop */
-                }
-                if (immediatePlay && player.paused) {
-                  retryPlay(player, normalized, false);
-                }
-                notify();
-              },
-              { once: true }
-            );
+                runHandoffPlay();
+              }, delayMs);
+            });
           } else {
             try {
               player.currentTime = 0;
@@ -591,6 +656,10 @@
       }
 
       notify();
+
+      if (activeQueueIdx + 1 < activeQueue.length || isQueueHandoff) {
+        startQueueMonitorPoll(player);
+      }
 
       if (isQueueHandoff) {
         flushRecallSave();
@@ -744,6 +813,9 @@
       activeSong = null;
       activeQueue = [];
       activeQueueIdx = 0;
+      queueAdvanceLock = false;
+      handoffStartedAt = 0;
+      stopQueueMonitorPoll();
       if (player) {
         player.pause();
         player.removeAttribute('playback-id');
