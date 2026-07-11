@@ -838,7 +838,10 @@
 
   function syncStreamTracklistPlayback() {
     if (!listRoot) return;
-    const player = getPlayer();
+    const streamPlayer = getPlayer();
+    const eng = streamPlayer && streamPlayer.engine ? streamPlayer.engine() : null;
+    if (eng && eng.reconcilePlayer) eng.reconcilePlayer();
+    const player = streamPlayer;
     listRoot.querySelectorAll('.music-track-row').forEach(function (row) {
       const id = row.dataset.playbackId;
       const active = player && player.isActivePlaybackId(id);

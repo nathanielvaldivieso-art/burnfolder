@@ -7,6 +7,93 @@
 
   const recallApi = root.BurnfolderPlaybackRecall;
   const mediaSessionApi = root.BurnfolderMediaSession;
+  const playerEventBindings =
+    typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+  let activePlaybackBinding = null;
+  let documentLifecycleBound = false;
+
+  function bindDocumentLifecycle(binding) {
+    activePlaybackBinding = binding;
+    if (documentLifecycleBound || typeof document === 'undefined') return;
+    documentLifecycleBound = true;
+
+    document.addEventListener('visibilitychange', function () {
+      const b = activePlaybackBinding;
+      if (!b) return;
+      const livePlayer = b.getPlayer();
+      if (!livePlayer) return;
+      if (document.hidden) {
+        b.persistRecall();
+        b.startHiddenAdvancePoll(livePlayer);
+        b.maybeAdvanceQueue(livePlayer);
+        return;
+      }
+      b.stopHiddenAdvancePoll();
+      b.reconcilePlayerWithEngine();
+      if (livePlayer.ended && b.playerMatchesActiveSong(livePlayer)) {
+        b.advanceQueueAfterEnd(livePlayer);
+        return;
+      }
+      b.maybeAdvanceQueue(livePlayer);
+      b.resumeIfBackgroundPaused(livePlayer);
+    });
+    window.addEventListener('pagehide', function () {
+      const b = activePlaybackBinding;
+      if (b) b.persistRecall();
+    });
+    window.addEventListener('pageshow', function (event) {
+      if (!event.persisted) return;
+      const b = activePlaybackBinding;
+      if (!b) return;
+      const livePlayer = b.getPlayer();
+      if (!livePlayer) return;
+      b.reconcilePlayerWithEngine();
+      if (livePlayer.ended && b.playerMatchesActiveSong(livePlayer)) {
+        b.advanceQueueAfterEnd(livePlayer);
+        return;
+      }
+      b.maybeAdvanceQueue(livePlayer);
+      b.resumeIfBackgroundPaused(livePlayer);
+    });
+  }
+
+  function ensurePlayerEventHooks(player, binding) {
+    if (!player || !binding) return;
+    if (playerEventBindings) playerEventBindings.set(player, binding);
+    activePlaybackBinding = binding;
+    if (player.__bfMuxEventsBound) return;
+    player.__bfMuxEventsBound = true;
+
+    function resolveBinding(target) {
+      return playerEventBindings ? playerEventBindings.get(target) : binding;
+    }
+
+    function onEnded() {
+      const b = resolveBinding(player);
+      if (b) b.handleEnded(player);
+    }
+    function onTimeupdate() {
+      const b = resolveBinding(player);
+      if (b) b.handleTimeupdate(player);
+    }
+    function onPlay() {
+      const b = resolveBinding(player);
+      if (b) b.handlePlay();
+    }
+    function onPause() {
+      const b = resolveBinding(player);
+      if (b) b.handlePause();
+    }
+
+    player.addEventListener('ended', onEnded);
+    player.addEventListener('timeupdate', onTimeupdate);
+    player.addEventListener('play', onPlay);
+    player.addEventListener('pause', onPause);
+    const nativeMedia = player.media;
+    if (nativeMedia && nativeMedia !== player && typeof nativeMedia.addEventListener === 'function') {
+      nativeMedia.addEventListener('ended', onEnded);
+    }
+  }
 
   function resolvePlayer(playerOrId) {
     if (!playerOrId) return null;
@@ -43,7 +130,15 @@
     let mediaActionsBound = false;
     let queueAdvanceLock = false;
     let hiddenAdvanceTimer = null;
-    let lifecycleBound = false;
+    let lastDriftReconcileAt = 0;
+
+    function maybeReconcileOnDrift(player) {
+      if (!player || !activeSong || playerMatchesActiveSong(player)) return;
+      const now = Date.now();
+      if (now - lastDriftReconcileAt < 800) return;
+      lastDriftReconcileAt = now;
+      reconcilePlayerWithEngine();
+    }
 
     function notify(extra) {
       const player = getPlayer();
@@ -303,7 +398,10 @@
 
     function advanceQueueAfterEnd(player) {
       if (queueAdvanceLock) return;
-      if (player && activeSong && !playerMatchesActiveSong(player)) return;
+      if (player && activeSong && !playerMatchesActiveSong(player)) {
+        reconcilePlayerWithEngine();
+        return;
+      }
       const nextIdx = activeQueueIdx + 1;
       if (nextIdx < activeQueue.length) {
         window.clearTimeout(recallTimer);
@@ -318,63 +416,43 @@
 
     function bindEnded(player) {
       if (opts.bindEnded === false || !player) return;
-      if (endedPlayer === player && endedBound) return;
       endedPlayer = player;
       endedBound = true;
       positionBound = false;
-      function onEnded() {
-        if (!playerMatchesActiveSong(player)) return;
-        advanceQueueAfterEnd(player);
-      }
-      player.addEventListener('ended', onEnded);
-      const nativeMedia = player.media;
-      if (nativeMedia && nativeMedia !== player && typeof nativeMedia.addEventListener === 'function') {
-        nativeMedia.addEventListener('ended', onEnded);
-      }
-      player.addEventListener('timeupdate', function () {
-        maybeAdvanceQueue(player);
-      });
-      player.addEventListener('play', function () {
-        queueAdvanceLock = false;
-        notify();
-      });
-      player.addEventListener('pause', notify);
-      bindPositionUpdates(player);
 
-      if (typeof document !== 'undefined' && !lifecycleBound) {
-        lifecycleBound = true;
-        document.addEventListener('visibilitychange', function () {
-          const livePlayer = getPlayer();
-          if (!livePlayer) return;
-          if (document.hidden) {
-            persistRecall();
-            startHiddenAdvancePoll(livePlayer);
-            maybeAdvanceQueue(livePlayer);
+      const binding = {
+        getPlayer: getPlayer,
+        persistRecall: persistRecall,
+        reconcilePlayerWithEngine: reconcilePlayerWithEngine,
+        maybeAdvanceQueue: maybeAdvanceQueue,
+        advanceQueueAfterEnd: advanceQueueAfterEnd,
+        resumeIfBackgroundPaused: resumeIfBackgroundPaused,
+        playerMatchesActiveSong: playerMatchesActiveSong,
+        startHiddenAdvancePoll: startHiddenAdvancePoll,
+        stopHiddenAdvancePoll: stopHiddenAdvancePoll,
+        handleEnded: function (target) {
+          if (!playerMatchesActiveSong(target)) {
+            reconcilePlayerWithEngine();
             return;
           }
-          stopHiddenAdvancePoll();
-          reconcilePlayerWithEngine();
-          if (livePlayer.ended && playerMatchesActiveSong(livePlayer)) {
-            advanceQueueAfterEnd(livePlayer);
-            return;
-          }
-          maybeAdvanceQueue(livePlayer);
-          resumeIfBackgroundPaused(livePlayer);
-        });
-        window.addEventListener('pagehide', persistRecall);
-        window.addEventListener('pageshow', function (event) {
-          if (!event.persisted) return;
-          const livePlayer = getPlayer();
-          if (!livePlayer) return;
-          reconcilePlayerWithEngine();
-          if (livePlayer.ended && playerMatchesActiveSong(livePlayer)) {
-            advanceQueueAfterEnd(livePlayer);
-            return;
-          }
-          maybeAdvanceQueue(livePlayer);
-          resumeIfBackgroundPaused(livePlayer);
-        });
-      }
+          advanceQueueAfterEnd(target);
+        },
+        handleTimeupdate: function (target) {
+          maybeReconcileOnDrift(target);
+          maybeAdvanceQueue(target);
+        },
+        handlePlay: function () {
+          queueAdvanceLock = false;
+          notify();
+        },
+        handlePause: function () {
+          notify();
+        }
+      };
+
+      ensurePlayerEventHooks(player, binding);
+      bindDocumentLifecycle(binding);
+      bindPositionUpdates(player);
     }
 
     function applyRecallPosition(player, recall) {
@@ -393,10 +471,7 @@
     function reconcilePlayerWithEngine() {
       const player = getPlayer();
       if (!player || !activeSong) return false;
-      if (playerMatchesActiveSong(player)) {
-        notify();
-        return false;
-      }
+      if (playerMatchesActiveSong(player)) return false;
 
       const playerId = String(player.getAttribute('playback-id') || '').trim();
       const queueIdxForPlayer = activeQueue.findIndex(function (song) {
@@ -658,6 +733,7 @@
         const player = getPlayer();
         if (player && player.getAttribute('playback-id') && !player.paused) return;
         restoreRecall(opts.recallOptions);
+        window.setTimeout(reconcilePlayerWithEngine, 50);
       }, 0);
     }
 
