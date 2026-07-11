@@ -74,15 +74,28 @@
       recallTimer = window.setTimeout(persistRecall, 350);
     }
 
+    function flushRecallSave() {
+      if (opts.recall === false || !recallApi) return;
+      window.clearTimeout(recallTimer);
+      recallTimer = null;
+      persistRecall();
+    }
+
+    function playerMatchesActiveSong(player) {
+      if (!player || !activeSong) return false;
+      return player.getAttribute('playback-id') === activeSong.playbackId;
+    }
+
     function persistRecall() {
       if (opts.recall === false || !recallApi || !activeSong) return;
       const player = getPlayer();
+      const sourceAligned = playerMatchesActiveSong(player);
       recallApi.save({
         song: activeSong,
         queue: activeQueue,
         queueIdx: activeQueueIdx,
-        currentTime: player ? player.currentTime : 0,
-        wasPlaying: !!(player && !player.paused)
+        currentTime: sourceAligned && player ? player.currentTime : 0,
+        wasPlaying: !!(sourceAligned && player && !player.paused)
       });
     }
 
@@ -225,7 +238,7 @@
           return;
         }
         if (!activeSong || queueAdvanceLock) return;
-        if (player.ended) {
+        if (player.ended && playerMatchesActiveSong(player)) {
           advanceQueueAfterEnd(player);
           return;
         }
@@ -250,6 +263,7 @@
 
     function maybeAdvanceQueue(player) {
       if (queueAdvanceLock || !player || !activeSong) return false;
+      if (!playerMatchesActiveSong(player)) return false;
 
       if (player.ended) {
         advanceQueueAfterEnd(player);
@@ -288,12 +302,17 @@
     }
 
     function advanceQueueAfterEnd(player) {
+      if (queueAdvanceLock) return;
+      if (player && activeSong && !playerMatchesActiveSong(player)) return;
       const nextIdx = activeQueueIdx + 1;
       if (nextIdx < activeQueue.length) {
+        window.clearTimeout(recallTimer);
+        recallTimer = null;
         queueAdvanceLock = true;
         playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
       } else {
         notify({ playing: false });
+        flushRecallSave();
       }
     }
 
@@ -304,6 +323,7 @@
       endedBound = true;
       positionBound = false;
       function onEnded() {
+        if (!playerMatchesActiveSong(player)) return;
         advanceQueueAfterEnd(player);
       }
       player.addEventListener('ended', onEnded);
@@ -333,7 +353,8 @@
             return;
           }
           stopHiddenAdvancePoll();
-          if (livePlayer.ended) {
+          reconcilePlayerWithEngine();
+          if (livePlayer.ended && playerMatchesActiveSong(livePlayer)) {
             advanceQueueAfterEnd(livePlayer);
             return;
           }
@@ -345,7 +366,8 @@
           if (!event.persisted) return;
           const livePlayer = getPlayer();
           if (!livePlayer) return;
-          if (livePlayer.ended) {
+          reconcilePlayerWithEngine();
+          if (livePlayer.ended && playerMatchesActiveSong(livePlayer)) {
             advanceQueueAfterEnd(livePlayer);
             return;
           }
@@ -368,11 +390,41 @@
       else player.addEventListener('loadedmetadata', seek, { once: true });
     }
 
+    function reconcilePlayerWithEngine() {
+      const player = getPlayer();
+      if (!player || !activeSong) return false;
+      if (playerMatchesActiveSong(player)) {
+        notify();
+        return false;
+      }
+
+      const playerId = String(player.getAttribute('playback-id') || '').trim();
+      const queueIdxForPlayer = activeQueue.findIndex(function (song) {
+        return song && song.playbackId === playerId;
+      });
+      if (queueIdxForPlayer >= 0 && queueIdxForPlayer !== activeQueueIdx) {
+        activeQueueIdx = queueIdxForPlayer;
+        activeSong = activeQueue[queueIdxForPlayer];
+        notify();
+        flushRecallSave();
+        return true;
+      }
+
+      const wasPlaying = !player.paused;
+      startPlayback(activeSong, activeQueue, activeQueueIdx, {
+        immediatePlay: wasPlaying,
+        seamlessAdvance: false
+      });
+      return true;
+    }
+
     function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
       const player = getPlayer();
       const normalized = normalizeSong(song);
       if (!player || !normalized) {
-        queueAdvanceLock = false;
+        if (!(playbackOpts && playbackOpts.seamlessAdvance)) {
+          queueAdvanceLock = false;
+        }
         return false;
       }
 
@@ -386,8 +438,10 @@
         player.setAttribute('stream-type', 'on-demand');
       }
 
-      queueAdvanceLock = false;
       const startOpts = playbackOpts || {};
+      if (!startOpts.seamlessAdvance) {
+        queueAdvanceLock = false;
+      }
       const immediatePlay =
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
@@ -442,6 +496,10 @@
       }
 
       notify();
+
+      if (startOpts.seamlessAdvance) {
+        flushRecallSave();
+      }
 
       function ensurePlaying() {
         if (
@@ -596,7 +654,10 @@
 
     if (opts.restoreRecall !== false && recallApi) {
       window.setTimeout(function () {
-        if (!activeSong) restoreRecall(opts.recallOptions);
+        if (activeSong) return;
+        const player = getPlayer();
+        if (player && player.getAttribute('playback-id') && !player.paused) return;
+        restoreRecall(opts.recallOptions);
       }, 0);
     }
 
@@ -609,6 +670,7 @@
       stop: stop,
       restoreRecall: restoreRecall,
       persistRecall: persistRecall,
+      reconcilePlayer: reconcilePlayerWithEngine,
       getActiveSong: function () {
         return activeSong;
       },

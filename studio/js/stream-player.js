@@ -4,7 +4,16 @@
   let localPlayback = null;
 
   function createLocalPlayback() {
-    if (localPlayback || !window.BurnfolderMuxPlayback) return localPlayback;
+    if (localPlayback) return localPlayback;
+    const shell = window.BurnfolderStudioPlaybackShell;
+    if (shell && typeof shell.getEngine === 'function') {
+      const shared = shell.getEngine();
+      if (shared) {
+        localPlayback = shared;
+        return shared;
+      }
+    }
+    if (!window.BurnfolderMuxPlayback) return localPlayback;
     localPlayback = window.BurnfolderMuxPlayback.create({
       getPlayer: function () {
         const shell = window.BurnfolderStudioPlaybackShell;
