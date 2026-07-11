@@ -248,6 +248,10 @@
         const e = getEngine();
         if (e) e.togglePlayPause();
       },
+      onBeforeUpdate: function () {
+        const e = getEngine();
+        if (e && e.reconcilePlayer) e.reconcilePlayer();
+      },
       onClose: function () {
         const e = getEngine();
         if (e) e.stop();

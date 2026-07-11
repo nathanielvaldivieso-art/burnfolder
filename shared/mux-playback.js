@@ -133,7 +133,7 @@
     let lastDriftReconcileAt = 0;
 
     function maybeReconcileOnDrift(player) {
-      if (!player || !activeSong || playerMatchesActiveSong(player)) return;
+      if (queueAdvanceLock || !player || !activeSong || playerMatchesActiveSong(player)) return;
       const now = Date.now();
       if (now - lastDriftReconcileAt < 800) return;
       lastDriftReconcileAt = now;
@@ -383,7 +383,7 @@
     function advanceQueueAfterEnd(player) {
       if (queueAdvanceLock) return;
       if (player && activeSong && !playerMatchesActiveSong(player)) {
-        reconcilePlayerWithEngine();
+        if (!queueAdvanceLock) reconcilePlayerWithEngine();
         return;
       }
       const nextIdx = activeQueueIdx + 1;
@@ -416,7 +416,7 @@
         stopHiddenAdvancePoll: stopHiddenAdvancePoll,
         handleEnded: function (target) {
           if (!playerMatchesActiveSong(target)) {
-            reconcilePlayerWithEngine();
+            if (!queueAdvanceLock) reconcilePlayerWithEngine();
             return;
           }
           advanceQueueAfterEnd(target);
@@ -456,12 +456,14 @@
       const player = getPlayer();
       if (!player || !activeSong) return false;
       if (playerMatchesActiveSong(player)) return false;
+      if (queueAdvanceLock) return false;
 
       const playerId = String(player.getAttribute('playback-id') || '').trim();
       const queueIdxForPlayer = activeQueue.findIndex(function (song) {
         return song && song.playbackId === playerId;
       });
-      if (queueIdxForPlayer >= 0 && queueIdxForPlayer !== activeQueueIdx) {
+
+      if (queueIdxForPlayer >= 0 && queueIdxForPlayer > activeQueueIdx) {
         activeQueueIdx = queueIdxForPlayer;
         activeSong = activeQueue[queueIdxForPlayer];
         notify();
@@ -469,10 +471,21 @@
         return true;
       }
 
+      if (queueIdxForPlayer >= 0 && queueIdxForPlayer < activeQueueIdx) {
+        const wasPlaying = !player.paused;
+        startPlayback(activeSong, activeQueue, activeQueueIdx, {
+          immediatePlay: wasPlaying,
+          queueHandoff: true
+        });
+        return true;
+      }
+
+      if (!playerId) return false;
+
       const wasPlaying = !player.paused;
       startPlayback(activeSong, activeQueue, activeQueueIdx, {
         immediatePlay: wasPlaying,
-        queueHandoff: false
+        queueHandoff: !playerMatchesActiveSong(player)
       });
       return true;
     }
@@ -540,6 +553,7 @@
                 if (immediatePlay && player.paused) {
                   retryPlay(player, normalized, false);
                 }
+                notify();
               },
               { once: true }
             );
@@ -700,15 +714,25 @@
     }
 
     function togglePlayPause(forcePlay) {
+      if (queueAdvanceLock) return;
+      reconcilePlayerWithEngine();
       const player = getPlayer();
       if (!player || !activeSong) return;
       const shouldPlay = typeof forcePlay === 'boolean' ? forcePlay : player.paused;
       if (shouldPlay) {
-        notify({ playing: true });
-        player.play().catch(function () {
-          notify({ playing: false });
-          retryPlay(player, activeSong);
-        });
+        const playPromise = player.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise
+            .then(function () {
+              notify({ playing: true });
+            })
+            .catch(function () {
+              notify({ playing: false });
+              retryPlay(player, activeSong);
+            });
+          return;
+        }
+        notify({ playing: !player.paused });
       } else {
         player.pause();
         notify({ playing: false });
