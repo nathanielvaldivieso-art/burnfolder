@@ -1,44 +1,12 @@
 (function () {
   'use strict';
 
-  let localPlayback = null;
-
-  function createLocalPlayback() {
-    if (localPlayback || !window.BurnfolderMuxPlayback) return localPlayback;
-    localPlayback = window.BurnfolderMuxPlayback.create({
-      getPlayer: function () {
-        const shell = window.BurnfolderStudioPlaybackShell;
-        if (shell && typeof shell.ensureShell === 'function') {
-          shell.ensureShell();
-          const shellNode = document.getElementById('studioGlobalPlayback');
-          if (shellNode) {
-            const player = shellNode.querySelector('#activeMuxPlayer');
-            if (player) return player;
-          }
-        }
-        return document.getElementById('activeMuxPlayer');
-      },
-      recall: true,
-      restoreRecall: false,
-      artist: 'burnfolder',
-      album: 'stream',
-      onPlayBlocked: function (player) {
-        if (player) player.play().catch(function () {});
-      },
-      onStateChange: function (detail) {
-        window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
-      }
-    });
-    return localPlayback;
-  }
-
   function engine() {
     const shell = window.BurnfolderStudioPlaybackShell;
     if (shell && typeof shell.getEngine === 'function') {
-      const shared = shell.getEngine();
-      if (shared) return shared;
+      return shell.getEngine();
     }
-    return createLocalPlayback();
+    return null;
   }
 
   function songFromItem(item, opts) {

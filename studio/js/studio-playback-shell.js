@@ -248,6 +248,10 @@
         const e = getEngine();
         if (e) e.togglePlayPause();
       },
+      onBeforeUpdate: function () {
+        const e = getEngine();
+        if (e && e.reconcilePlayer) e.reconcilePlayer();
+      },
       onClose: function () {
         const e = getEngine();
         if (e) e.stop();
@@ -266,11 +270,17 @@
     ensureShell();
     const eng = getEngine();
     if (!eng || !barApi) return;
+    if (eng.reconcilePlayer) eng.reconcilePlayer();
     const song = eng.getActiveSong();
     const player = getShellPlayer();
     if (!song || !player) return;
     barApi.setBarVisible(true);
-    barApi.update({ song: song, playing: !player.paused });
+    barApi.update({
+      song: song,
+      playing: !player.paused,
+      queue: eng.getActiveQueue ? eng.getActiveQueue() : undefined,
+      queueIdx: eng.getActiveQueueIdx ? eng.getActiveQueueIdx() : undefined
+    });
   }
 
   function boot() {

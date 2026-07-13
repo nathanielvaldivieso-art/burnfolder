@@ -125,6 +125,7 @@
     }
 
     function updateProgress() {
+      if (typeof opts.onBeforeUpdate === 'function') opts.onBeforeUpdate();
       const player = resolveMuxPlayer();
       if (!player || !progressFill || !player.duration || Number.isNaN(player.duration)) {
         updatePlaybackTime();
@@ -134,6 +135,10 @@
       progressFill.style.width = pct + '%';
       if (playheadEl) playheadEl.style.left = pct + '%';
       updatePlaybackTime();
+      const liveSong = getActiveSong();
+      if (liveSong && liveSong.playbackId && titleEl.textContent !== titleForSong(liveSong)) {
+        titleEl.textContent = titleForSong(liveSong);
+      }
     }
 
     function renderPlayButton(playing) {
@@ -150,8 +155,6 @@
     function togglePlayFromBar() {
       if (typeof opts.onTogglePlay !== 'function') return;
       opts.onTogglePlay();
-      renderPlayButton(playingFromPlayer());
-      // Keep focus off the bar on coarse pointers (no-jump + no sticky invert).
       if (playBtn && playBtn.blur) playBtn.blur();
     }
 
@@ -285,12 +288,10 @@
     }
 
     if (playBtn) {
-      const tap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
-      if (tap && tap.bind) {
-        tap.bind(playBtn, togglePlayFromBar);
-      } else {
-        playBtn.addEventListener('click', togglePlayFromBar);
-      }
+      playBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        togglePlayFromBar();
+      });
     }
 
     if (closeBtn) {

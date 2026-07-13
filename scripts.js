@@ -2497,6 +2497,10 @@ function mountNowPlayingBar() {
     bodyActiveClass: '',
     getActiveSong: getActiveSong,
     onTogglePlay: togglePlayPause,
+    onBeforeUpdate: function () {
+      const eng = getSiteMuxPlayback();
+      if (eng && eng.reconcilePlayer) eng.reconcilePlayer();
+    },
     onPlayVersion: playTrackBySong,
     onClose: function () {
       if (!getActiveSong()) return;
