@@ -839,7 +839,14 @@
           }
           return;
         }
-        renderSnapshot(result.data.snapshot);
+        try {
+          renderSnapshot(result.data.snapshot);
+        } catch (err) {
+          if (empty) {
+            empty.hidden = false;
+            empty.textContent = 'could not render analytics.';
+          }
+        }
       })
       .catch(function () {
         if (empty) {
