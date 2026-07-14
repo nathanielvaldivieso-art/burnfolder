@@ -2,6 +2,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Shippo = require('shippo');
 const shippo = Shippo(process.env.SHIPPO_API_KEY);
 const { analyticsStore, recordCommerceOrder } = require('./lib/site-analytics-store');
+const desk = require('./lib/market-desk-store');
 
 async function recordPaymentAnalytics(event, pi) {
   try {
@@ -17,6 +18,18 @@ async function recordPaymentAnalytics(event, pi) {
       at: new Date().toISOString(),
       id: pi.id || ''
     });
+
+    const email = desk.normalizeEmail(pi.receipt_email || meta.customer_email || '');
+    if (email) {
+      const blobStore = desk.store(event);
+      await desk.recordFanAction(blobStore, 'legacy', {
+        email: email,
+        actionKey: kind,
+        label: kind + (meta.product_title ? ' · ' + meta.product_title : ''),
+        at: new Date().toISOString(),
+        meta: { id: pi.id || '', cents: Number(pi.amount_received || pi.amount || 0) || 0 }
+      });
+    }
   } catch (err) {
     console.error('Commerce analytics record failed:', err.message);
   }

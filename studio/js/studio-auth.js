@@ -33,7 +33,8 @@
       u.indexOf('/studio-music-projects') > -1 ||
       u.indexOf('/studio-ai') > -1 ||
       u.indexOf('/studio-export') > -1 ||
-      u.indexOf('/studio-analytics') > -1
+      u.indexOf('/studio-analytics') > -1 ||
+      u.indexOf('/studio-market-desk') > -1
     );
   }
 

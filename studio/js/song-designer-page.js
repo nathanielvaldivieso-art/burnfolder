@@ -327,21 +327,9 @@
     if (!player || !song || !song.playbackId) return;
 
     const versions = catalogVersionsForGroup(activeGroupKey);
-    const active = player.getActiveSong();
-    const onGroup =
-      active &&
-      versions.some(function (item) {
-        return item.playbackId === active.playbackId;
-      });
 
     if (song.playbackId !== activeVersionId) {
       selectDesignerVersion(song.playbackId);
-    }
-
-    if (onGroup && active.playbackId === song.playbackId) {
-      player.togglePause();
-      syncDesignerVersionPickerPlayback();
-      return;
     }
 
     if (window.BurnfolderStudioPlaybackShell) {

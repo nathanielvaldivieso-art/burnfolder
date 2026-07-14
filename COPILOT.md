@@ -2,13 +2,14 @@
 
 ## Active plan (next ~6 months)
 
-**`STUDIO-MASTER-PLAN.md`** is the single operating plan.
+**`STUDIO-MASTER-PLAN.md` §0** is the only near-term goal: **arm the PHOTONEGATIVE red button**, then press it the day deliverables + DSP gate clear so YouTube + Spotify freshness can run without scramble.
 
-- **§0** — PHOTONEGATIVE: Platform (**P#**), Deliverables (**D#**), Launch/Push (**L#** / **R#**). Two parallel tracks; platform may run ahead of masters.
-- **§9.5** — Analytics / growth map (what to measure + solo-label tools).
-- **§17** — Frugal tiers after push review **R12**.
+- **§0** — PHOTONEGATIVE: **Arm** platform (**P#**) · **Load** deliverables (**D#**) · **Press** launch (**L#**) · **Ride** push (**R#**). Platform runs ahead of masters; Tier 3+ / multi-tenant depth waits until after press unless it arms the button.
+- **§9.5** — Analytics / growth map (day-0: site listen feed + free Spotify/Apple/YT dashboards).
+- **`DASHBOARD-MARKETING-PLAN.md`** — ongoing: dashboard as marketing consultant (pulse · ship · architecture loop). *"implement dashboard marketing plan Phase A/B/C …"*
+- **§17** — Frugal tiers after push review **R12** — not before the button is pressed.
 
-Tell Copilot *"implement platform step P#"* for §0 infrastructure. Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
+Tell Copilot *"implement platform step P#"* for §0 arm work (priority: **P7 → P8 → P9 → P11**). Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
 
 `PHOTONEGATIVE-RELEASE-PLAN.md` and `MUSIC-GROWTH-*.md` are short pointers into this file.
 
@@ -96,8 +97,8 @@ Newest first. This is the single source of truth — index.html and spa-router.j
 
 ### 5. Newsletter email automation (required)
 - Every new journal entry must trigger an email notification to all subscribers.
-- Notification email must include a direct link to the new entry page:
-  `https://burnfolder.com/M.DD.YY.html`
+- Notification email must include a direct link to the new entry page with tracking params:
+  `https://burnfolder.com/M.DD.YY.html?utm_source=newsletter&utm_medium=email&utm_campaign=entry-M.DD.YY`
 - Keep entry filenames in dated format (`M.DD.YY.html`) so workflow detection works.
 - Do not bypass this workflow when publishing new entries.
 
@@ -185,8 +186,10 @@ Three colors only for video player and progress UI. Do not introduce blue.
 Automation references:
 - Subscriber signup endpoint: `/.netlify/functions/subscribe` (writes Netlify Blobs)
 - Subscriber export (CI only): `/.netlify/functions/export-subscribers` + bearer `SUBSCRIBERS_EXPORT_SECRET`
+- Newsletter send log (CI only): `/.netlify/functions/record-newsletter-send` + same bearer — records sent/failed per blast for Studio email engagement
 - Welcome email trigger: `.github/workflows/welcome-email.yml`
 - New entry notification trigger: `.github/workflows/notify-new-entry.yml`
+- Studio dashboard **email** tab: subscriber count + click rate (email-link UTM lands ÷ emails sent)
 
 ## Shared build framework (single sources of truth)
 
@@ -407,8 +410,8 @@ Each track on the music page no longer shows the entry date inline; use the **no
 - **Canonical list:** `/.netlify/functions/subscribe` stores emails in **Netlify Blobs** (store name `burnfolder-newsletter`, key `subscriber-emails`). They are **not** committed to git.
 - **`subscribers.json` in the repo** is an empty placeholder only (`{"subscribers":[]}`). Do not put real addresses there.
 - **One-time seed (optional):** set Netlify env `SUBSCRIBER_SEED_EMAILS` to a comma-separated list; on first subscribe after deploy, the function seeds the blob if it was empty, then you can remove the env var.
-- **New-entry emails (GitHub Actions):** add repository secret `SUBSCRIBERS_EXPORT_SECRET` with the same value as Netlify env `SUBSCRIBERS_EXPORT_SECRET`. The workflow `notify-new-entry.yml` calls `GET https://burnfolder.com/.netlify/functions/export-subscribers` with `Authorization: Bearer <secret>` to read the list.
-- **Welcome emails:** unchanged — still triggered by `repository_dispatch` from subscribe; no subscriber list file on disk required.
+- **New-entry emails (GitHub Actions):** add repository secret `SUBSCRIBERS_EXPORT_SECRET` with the same value as Netlify env `SUBSCRIBERS_EXPORT_SECRET`. The workflow `notify-new-entry.yml` calls `GET https://burnfolder.com/.netlify/functions/export-subscribers` with `Authorization: Bearer <secret>` to read the list, then `POST .../record-newsletter-send` after each blast so Studio can show sent count + click rate.
+- **Welcome emails:** unchanged — still triggered by `repository_dispatch` from subscribe; no subscriber list file on disk required. Links use `utm_source=newsletter` so welcome clicks count toward email engagement.
 
 ## Local preview
 

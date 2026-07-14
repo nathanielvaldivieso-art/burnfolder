@@ -131,12 +131,16 @@ jobs:
           IFS=',' read -ra ENTRY_ARRAY <<< "$ENTRIES_CSV"
           FAILED_SENDS=0
 
+          TOTAL_SENT=0
           for entry in "${ENTRY_ARRAY[@]}"; do
             ENTRY_DATE="$entry"
-            ENTRY_URL="https://burnfolder.com/${ENTRY_DATE}.html"
+            CAMPAIGN="entry-${ENTRY_DATE}"
+            ENTRY_URL="https://burnfolder.com/${ENTRY_DATE}.html?utm_source=newsletter&utm_medium=email&utm_campaign=${CAMPAIGN}"
             EMAIL_TEXT=$'new burnfolder entry: '"${ENTRY_DATE}"$'\n\n'"${ENTRY_URL}"
             HTML_CONTENT="<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body{margin:0;padding:0;background:#ffffff;color:#000000;font-family:monospace}table{border-collapse:collapse}.shell{width:100%;padding:32px 16px}.card{max-width:560px;border:1px solid #000000;padding:22px;background:#ffffff}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin:0 0 16px 0}.headline{font-size:30px;line-height:1.1;letter-spacing:.02em;margin:0 0 16px 0}.body{font-size:16px;line-height:1.7;opacity:.9;margin:0 0 18px 0}.entry-link{display:inline-block;border:1px solid #000000;padding:10px 14px;text-decoration:none;color:#000000;font-size:14px;letter-spacing:.08em;text-transform:uppercase}.entry-link:hover{background:#000000;color:#ffffff}.footer{margin-top:22px;padding-top:14px;border-top:1px solid #000000;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.55}@media (max-width:600px){.headline{font-size:24px}}</style></head><body><table role=\"presentation\" width=\"100%\" class=\"shell\"><tr><td align=\"center\"><table role=\"presentation\" width=\"100%\" class=\"card\"><tr><td><p class=\"eyebrow\">burnfolder update</p><h1 class=\"headline\">new entry: ${ENTRY_DATE}</h1><p class=\"body\">a new page is live now.</p><p><a class=\"entry-link\" href=\"${ENTRY_URL}\">open ${ENTRY_DATE}</a></p><p class=\"footer\">burnfolder.com</p></td></tr></table></td></tr></table></body></html>"
-          
+
+            ENTRY_SENT=0
+            ENTRY_FAILED=0
             for email in "${EMAIL_ARRAY[@]}"; do
               RESPONSE_BODY=$(mktemp)
 
@@ -187,11 +191,25 @@ jobs:
                 echo "${PROVIDER} error for ${email}:"
                 cat "$RESPONSE_BODY"
                 FAILED_SENDS=$((FAILED_SENDS + 1))
+                ENTRY_FAILED=$((ENTRY_FAILED + 1))
+              else
+                ENTRY_SENT=$((ENTRY_SENT + 1))
+                TOTAL_SENT=$((TOTAL_SENT + 1))
               fi
             done
+
+            if [ "$ENTRY_SENT" -gt 0 ] || [ "$ENTRY_FAILED" -gt 0 ]; then
+              curl -sS -f -X POST \
+                -H "Authorization: Bearer ${{ secrets.SUBSCRIBERS_EXPORT_SECRET }}" \
+                -H "Content-Type: application/json" \
+                -d "{\"kind\":\"entry\",\"entry\":\"${ENTRY_DATE}\",\"campaign\":\"${CAMPAIGN}\",\"sent\":${ENTRY_SENT},\"failed\":${ENTRY_FAILED}}" \
+                "https://burnfolder.com/.netlify/functions/record-newsletter-send" \
+                || echo "Warning: could not record newsletter send stats for ${ENTRY_DATE}"
+            fi
           done
 
           if [ "$FAILED_SENDS" -gt 0 ]; then
             echo "$FAILED_SENDS notification send(s) failed."
             exit 1
           fi
+          echo "Recorded ${TOTAL_SENT} successful notification send(s)."

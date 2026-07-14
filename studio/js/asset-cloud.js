@@ -61,11 +61,9 @@
   }
 
   function defaultContributionDateKey(meta) {
+    // Only stamp a journal day when the uploader asks for it (journal page).
+    // Stream / catalog uploads must not auto-attach to "today".
     if (meta && meta.contributionDateKey) return String(meta.contributionDateKey).trim();
-    const contrib = window.BurnfolderJournalContributions;
-    if (contrib && contrib.getActiveDateKey) return contrib.getActiveDateKey();
-    const days = window.BurnfolderJournalDays;
-    if (days && days.todayKey) return days.todayKey();
     return '';
   }
 
@@ -359,6 +357,35 @@
     });
   }
 
+  /** One-time journal cleanup: strip auto-stamped contribution days from catalog files. */
+  function clearContributionDateKeys() {
+    return openDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = function () {
+          db.close();
+          const rows = (req.result || []).filter(function (row) {
+            return row && String(row.contributionDateKey || '').trim();
+          });
+          let chain = Promise.resolve(0);
+          rows.forEach(function (row) {
+            chain = chain.then(function (n) {
+              return updateAsset(row.id, { contributionDateKey: '' }).then(function () {
+                return n + 1;
+              });
+            });
+          });
+          chain.then(resolve).catch(reject);
+        };
+        req.onerror = function () {
+          db.close();
+          reject(req.error);
+        };
+      });
+    });
+  }
+
   function deleteByMuxAssetId(muxAssetId) {
     const target = String(muxAssetId || '').trim();
     if (!target) return Promise.resolve(0);
@@ -502,6 +529,7 @@
     listAssets: listAssets,
     getAsset: getAsset,
     updateAsset: updateAsset,
+    clearContributionDateKeys: clearContributionDateKeys,
     getBlobUrl: getBlobUrl,
     getCoverBlobUrl: getCoverBlobUrl,
     listStreamable: listStreamable,

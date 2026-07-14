@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://stream.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css?v=20260710l">
-  <link rel="stylesheet" href="css/studio.css?v=20260710t">
+  <link rel="stylesheet" href="css/studio.css?v=20260713q">
 </head>
 <body class="studio-page studio-dashboard-page">
   <header class="site-header studio-header">
@@ -26,13 +26,7 @@
   </header>
 
   <div class="studio-analytics-nav" id="dashboardAnalyticsNav" hidden>
-    <nav class="studio-analytics-tabs" id="dashboardAnalyticsTabs" role="tablist" aria-label="Analytics">
-      <button type="button" class="studio-analytics-tab is-active" data-pane="listen" role="tab" aria-selected="true">listen</button>
-      <button type="button" class="studio-analytics-tab" data-pane="traffic" role="tab" aria-selected="false">traffic</button>
-      <button type="button" class="studio-analytics-tab" data-pane="money" role="tab" aria-selected="false">money</button>
-    </nav>
     <label class="studio-analytics-period-wrap">
-      <span class="studio-analytics-period-label">range</span>
       <select id="dashboardAnalyticsPeriod" class="studio-analytics-period-select" aria-label="Time range">
         <option value="hour">hour</option>
         <option value="day">day</option>
@@ -44,38 +38,36 @@
     </label>
   </div>
 
-  <nav class="studio-analytics-subtabs" id="dashboardListenSubtabs" hidden aria-label="Listen source">
-    <button type="button" class="studio-analytics-subtab is-active" data-listen="site">site</button>
-    <button type="button" class="studio-analytics-subtab" data-listen="dsp">dsp</button>
-  </nav>
-
   <main class="page-wrap studio-dashboard-layout">
-    <section class="studio-dashboard-section" id="dashboardAnalyticsSection">
-      <p class="studio-dashboard-empty" id="dashboardAnalyticsEmpty">loading…</p>
-      <div id="dashboardAnalyticsFeed" hidden aria-live="polite"></div>
+    <p class="studio-dashboard-empty" id="dashboardAnalyticsEmpty">loading…</p>
+
+    <section class="studio-dashboard-section studio-dashboard-pulse-section" id="dashboardPulseSection" hidden>
+      <div class="studio-analytics-overview" id="dashboardPulse" aria-live="polite"></div>
     </section>
 
-    <section class="studio-dashboard-section" id="ownerToolsSection" hidden>
-      <a href="/studio/press-designer.html" class="studio-dashboard-action">press / links</a>
-      <a href="/studio/shop-designer.html" class="studio-dashboard-action">shop / product</a>
-      <button type="button" class="studio-dashboard-action" id="workspaceExportBtn">export</button>
+    <section class="studio-dashboard-section studio-market-desk-section" id="marketDeskSection">
+      <article class="studio-market-desk" id="marketDesk">
+        <p class="studio-market-desk-line" id="siteDigestHeadline">…</p>
+        <button type="button" class="studio-market-desk-go" id="siteDigestQueueMove" hidden>do this</button>
+        <button type="button" class="studio-market-desk-refresh" id="marketDeskRefresh" title="read again" aria-label="read again">again</button>
+      </article>
+      <div id="marketDeskActs" class="studio-market-desk-write" hidden>
+        <div id="marketDeskQueue" class="studio-market-queue"></div>
+      </div>
     </section>
 
-    <section class="studio-dashboard-section">
-      <h2 class="studio-journal-section-title">ai</h2>
-      <p class="studio-dashboard-hint">digest and analyze the live metrics snapshot — trends, comparisons, what to focus on next. never invents numbers.</p>
-      <form id="studioAiForm" class="studio-dashboard-ai">
-        <textarea id="studioAiInput" class="studio-journal-textarea studio-journal-textarea--compact" rows="2" placeholder="which tracks are gaining streams? compare this week to last…" spellcheck="false"></textarea>
-        <button type="submit" class="studio-dashboard-action">ask</button>
-      </form>
-      <p id="studioAiReply" class="studio-dashboard-note"></p>
+    <section class="studio-dashboard-section studio-dashboard-closer-section" id="dashboardCloserSection" hidden>
+      <details class="studio-dashboard-closer" id="dashboardCloser">
+        <summary class="studio-dashboard-closer-summary">look closer</summary>
+        <div class="studio-dashboard-closer-body" id="dashboardCloserFeed"></div>
+      </details>
     </section>
   </main>
 
-  <script src="js/studio-auth.js?v=20260710l"></script>
+  <script src="js/studio-auth.js?v=20260713h"></script>
   <script src="../shared/studio-playback-stack.js?v=20260710l"></script>
   <script src="js/studio-spa-router.js?v=20260710l"></script>
-  <script src="js/dashboard-page.js?v=20260710aa"></script>
-  <script src="js/studio-ai-panel.js?v=20260710l"></script>
+  <script src="js/dashboard-page.js?v=20260713q"></script>
+  <script src="js/studio-ai-panel.js?v=20260713s"></script>
 </body>
 </html>

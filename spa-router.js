@@ -298,11 +298,7 @@
             displayTitle: trackDisplayTitle(item.song, inAlbum),
             onPlay: function(toPlay) {
               var target = toPlay || item.song;
-              var active = typeof getActiveSong === 'function' ? getActiveSong() : null;
-              var sameTrack = active && active.playbackId === target.playbackId;
-              if (sameTrack && typeof togglePlayPause === 'function' && typeof activeMuxPlayer !== 'undefined' && activeMuxPlayer && !activeMuxPlayer.paused) {
-                togglePlayPause();
-              } else if (typeof playTrackBySong === 'function') {
+              if (typeof playTrackBySong === 'function') {
                 playTrackBySong(target);
               } else if (typeof startPlayback === 'function') {
                 startPlayback(idx);

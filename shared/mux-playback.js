@@ -403,18 +403,22 @@
       bindMediaSessionActions();
 
       const sameSource = player.getAttribute('playback-id') === normalized.playbackId;
+      const recallAt = startOpts.recall && startOpts.recall.currentTime;
       if (!sameSource) {
         if (!startOpts.seamlessAdvance) {
           player.pause();
         }
         player.setAttribute('playback-id', normalized.playbackId);
-        /* Always start a new source at 0 so queue handoffs don't inherit the prior playhead. */
-        if (!(startOpts.recall && startOpts.recall.currentTime)) {
-          try {
-            player.currentTime = 0;
-          } catch (e) {
-            /* noop */
-          }
+      }
+      /* Always start at 0 (new source or re-press of the current track) so
+         queue handoffs and second taps don't inherit a mid-track playhead. */
+      if (!recallAt) {
+        try {
+          player.currentTime = 0;
+        } catch (e) {
+          /* noop */
+        }
+        if (!sameSource) {
           player.addEventListener(
             'loadedmetadata',
             function () {

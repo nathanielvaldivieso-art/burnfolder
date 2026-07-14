@@ -35,12 +35,12 @@ jobs:
             if length == 0 then
               "<div class=\"entry\">- no published entries yet</div>"
             else
-              map("<div class=\"entry\">- <a href=\"https://burnfolder.com/\(.).html\">\(.)</a></div>") | join("")
+              map("<div class=\"entry\">- <a href=\"https://burnfolder.com/\(.).html?utm_source=newsletter&utm_medium=email&utm_campaign=welcome\">\(.)</a></div>") | join("")
             end
           ')
 
-          HTML_CONTENT="<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body{margin:0;padding:0;background:#ffffff;color:#000000;font-family:monospace}.shell{width:100%;padding:32px 16px}.card{max-width:560px;border:1px solid #000000;padding:22px;background:#ffffff}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin:0 0 14px 0}.headline{font-size:30px;line-height:1.1;letter-spacing:.02em;margin:0 0 14px 0}.body{font-size:16px;line-height:1.7;opacity:.9;margin:0 0 16px 0}.section-label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.5;margin:0 0 8px 0}.entries{margin:12px 0 18px 0;border-left:2px solid #000000;padding-left:12px}.entry{margin:8px 0;font-size:14px;letter-spacing:.06em;text-transform:uppercase}.entry a{color:#000000;text-decoration:none;border-bottom:1px solid #000000}.cta{display:inline-block;border:1px solid #000000;padding:10px 14px;text-decoration:none;color:#000000;font-size:14px;letter-spacing:.08em;text-transform:uppercase}.cta:hover{background:#000000;color:#ffffff}.footer{margin-top:22px;padding-top:14px;border-top:1px solid #000000;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.55}@media (max-width:600px){.headline{font-size:24px}}</style></head><body><table role=\"presentation\" width=\"100%\" class=\"shell\"><tr><td align=\"center\"><table role=\"presentation\" width=\"100%\" class=\"card\"><tr><td><p class=\"eyebrow\">burnfolder</p><h1 class=\"headline\">welcome</h1><p class=\"body\">thanks for subscribing. you will get an email whenever a new entry goes live.</p><p class=\"section-label\">recent entries</p><div class=\"entries\">${RECENT_ENTRIES_HTML}</div><p><a class=\"cta\" href=\"https://burnfolder.com\">visit burnfolder.com</a></p><p class=\"footer\">to unsubscribe, reply to this email</p></td></tr></table></td></tr></table></body></html>"
-          TEXT_CONTENT=$'welcome to burnfolder\n\nthanks for subscribing.\nnew entries are sent here when published.\n\nvisit: https://burnfolder.com'
+          HTML_CONTENT="<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body{margin:0;padding:0;background:#ffffff;color:#000000;font-family:monospace}.shell{width:100%;padding:32px 16px}.card{max-width:560px;border:1px solid #000000;padding:22px;background:#ffffff}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin:0 0 14px 0}.headline{font-size:30px;line-height:1.1;letter-spacing:.02em;margin:0 0 14px 0}.body{font-size:16px;line-height:1.7;opacity:.9;margin:0 0 16px 0}.section-label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.5;margin:0 0 8px 0}.entries{margin:12px 0 18px 0;border-left:2px solid #000000;padding-left:12px}.entry{margin:8px 0;font-size:14px;letter-spacing:.06em;text-transform:uppercase}.entry a{color:#000000;text-decoration:none;border-bottom:1px solid #000000}.cta{display:inline-block;border:1px solid #000000;padding:10px 14px;text-decoration:none;color:#000000;font-size:14px;letter-spacing:.08em;text-transform:uppercase}.cta:hover{background:#000000;color:#ffffff}.footer{margin-top:22px;padding-top:14px;border-top:1px solid #000000;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.55}@media (max-width:600px){.headline{font-size:24px}}</style></head><body><table role=\"presentation\" width=\"100%\" class=\"shell\"><tr><td align=\"center\"><table role=\"presentation\" width=\"100%\" class=\"card\"><tr><td><p class=\"eyebrow\">burnfolder</p><h1 class=\"headline\">welcome</h1><p class=\"body\">thanks for subscribing. you will get an email whenever a new entry goes live.</p><p class=\"section-label\">recent entries</p><div class=\"entries\">${RECENT_ENTRIES_HTML}</div><p><a class=\"cta\" href=\"https://burnfolder.com/?utm_source=newsletter&utm_medium=email&utm_campaign=welcome\">visit burnfolder.com</a></p><p class=\"footer\">to unsubscribe, reply to this email</p></td></tr></table></td></tr></table></body></html>"
+          TEXT_CONTENT=$'welcome to burnfolder\n\nthanks for subscribing.\nnew entries are sent here when published.\n\nvisit: https://burnfolder.com/?utm_source=newsletter&utm_medium=email&utm_campaign=welcome'
 
           RESPONSE_BODY=$(mktemp)
           if [ -n "$RESEND_API_KEY" ]; then
@@ -87,7 +87,20 @@ jobs:
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "$PROVIDER error response:"
             cat "$RESPONSE_BODY"
+            curl -sS -X POST \
+              -H "Authorization: Bearer ${{ secrets.SUBSCRIBERS_EXPORT_SECRET }}" \
+              -H "Content-Type: application/json" \
+              -d '{"kind":"welcome","campaign":"welcome","sent":0,"failed":1}' \
+              "https://burnfolder.com/.netlify/functions/record-newsletter-send" \
+              || true
             exit 1
           fi
+
+          curl -sS -f -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUBSCRIBERS_EXPORT_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"kind":"welcome","campaign":"welcome","sent":1,"failed":0}' \
+            "https://burnfolder.com/.netlify/functions/record-newsletter-send" \
+            || echo "Warning: could not record welcome email send stats"
 
           echo "Welcome email sent successfully via $PROVIDER"

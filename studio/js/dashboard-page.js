@@ -3,7 +3,6 @@
 
   var lastSnapshot = null;
   var currentPeriod = 'week';
-  var currentPane = 'listen';
   var currentListenSource = 'site';
   var PERIOD_KEY = 'bf_analytics_period';
   var LISTEN_SOURCE_KEY = 'bf_analytics_listen_source';
@@ -39,39 +38,6 @@
     }
   }
 
-  function bindOwnerMeta() {
-    const auth = window.BurnfolderStudioAuth;
-    if (!auth || auth.getAuthMode() !== 'supabase') return;
-
-    const ownerTools = document.getElementById('ownerToolsSection');
-    if (ownerTools && auth.canPublish()) {
-      ownerTools.hidden = false;
-    }
-  }
-
-  function bindExport() {
-    const btn = document.getElementById('workspaceExportBtn');
-    if (!btn || btn.dataset.exportBound === '1') return;
-    btn.dataset.exportBound = '1';
-    btn.addEventListener('click', function () {
-      const auth = window.BurnfolderStudioAuth;
-      if (!auth || !auth.canPublish()) return;
-      fetch(apiBase() + '/studio-export', { headers: auth.getAuthHeaders() })
-        .then(function (res) {
-          return res.json();
-        })
-        .then(function (data) {
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = 'burnfolder-workspace-export.json';
-          link.click();
-          URL.revokeObjectURL(url);
-        });
-    });
-  }
-
   function readStoredListenSource() {
     try {
       const stored = localStorage.getItem(LISTEN_SOURCE_KEY);
@@ -91,37 +57,49 @@
     }
   }
 
-  function bindListenSubtabs() {
-    const nav = document.getElementById('dashboardListenSubtabs');
-    if (!nav || nav.dataset.bound === '1') return;
-    nav.dataset.bound = '1';
-    nav.addEventListener('click', function (event) {
-      const btn = event.target.closest('.studio-analytics-subtab');
-      if (!btn || !nav.contains(btn)) return;
-      const source = btn.dataset.listen;
-      if (!source || source === currentListenSource) return;
-      storeListenSource(source);
-      syncListenSubtabs();
-      showListenSource();
-    });
-  }
-
-  function syncListenSubtabs() {
-    const nav = document.getElementById('dashboardListenSubtabs');
-    if (!nav) return;
-    const onListen = currentPane === 'listen';
-    nav.hidden = !onListen;
-    Array.prototype.forEach.call(nav.querySelectorAll('.studio-analytics-subtab'), function (btn) {
-      btn.classList.toggle('is-active', btn.dataset.listen === currentListenSource);
-    });
-  }
-
   function showListenSource() {
     const sitePane = document.getElementById('listenSourceSite');
     const dspPane = document.getElementById('listenSourceDsp');
     if (sitePane) sitePane.hidden = currentListenSource !== 'site';
     if (dspPane) dspPane.hidden = currentListenSource !== 'dsp';
   }
+
+  function syncListenSourceToggle() {
+    const select = document.getElementById('dashboardListenSource');
+    const wrap = select && select.closest('.studio-analytics-listen-wrap');
+    const showDsp = hasDspData(lastSnapshot);
+    if (wrap) wrap.hidden = !showDsp;
+    if (select) select.value = currentListenSource;
+  }
+
+  function bindListenSourceToggle() {
+    const select = document.getElementById('dashboardListenSource');
+    if (!select || select.dataset.bound === '1') return;
+    select.dataset.bound = '1';
+    select.addEventListener('change', function () {
+      const source = select.value === 'dsp' ? 'dsp' : 'site';
+      if (source === currentListenSource) return;
+      storeListenSource(source);
+      showListenSource();
+    });
+  }
+
+  function focusMarketQueue() {
+    const desk = document.getElementById('marketDeskSection');
+    const acts = document.getElementById('marketDeskActs');
+    if (acts && !acts.hidden && typeof acts.scrollIntoView === 'function') {
+      acts.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    if (desk && typeof desk.scrollIntoView === 'function') {
+      desk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  window.studioShowDashboardPane = function (id) {
+    if (id === 'actions') focusMarketQueue();
+  };
+  window.studioFocusMarketQueue = focusMarketQueue;
 
   function bindPeriodNav() {
     const select = document.getElementById('dashboardAnalyticsPeriod');
@@ -137,10 +115,8 @@
 
   function syncPeriodButtons() {
     const nav = document.getElementById('dashboardAnalyticsNav');
-    const tabs = document.getElementById('dashboardAnalyticsTabs');
     const select = document.getElementById('dashboardAnalyticsPeriod');
     if (nav) nav.hidden = false;
-    if (tabs) tabs.hidden = false;
     if (select) select.value = currentPeriod;
   }
 
@@ -158,8 +134,17 @@
     return h + 'h ' + (m % 60) + 'm';
   }
 
+  function fmtPct(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    return (Math.round(Number(n) * 10) / 10).toFixed(1).replace(/\.0$/, '') + '%';
+  }
+
   function fmtMoney(n) {
     return '$' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+  }
+
+  function emailStats(snapshot) {
+    return snapshot.email || snapshot.newsletter || {};
   }
 
   function el(tag, className, text) {
@@ -184,14 +169,28 @@
       if (!mapped) return;
       count += 1;
       const row = el('div', 'studio-dashboard-list-row');
-      row.appendChild(el('span', 'studio-dashboard-list-label', mapped.label));
-      row.appendChild(el('span', 'studio-dashboard-list-date', mapped.value));
+      const body = el('div', 'studio-dashboard-list-body');
+      body.appendChild(el('span', 'studio-dashboard-list-label', mapped.label));
+      if (mapped.meta) {
+        body.appendChild(el('span', 'studio-dashboard-list-meta', mapped.meta));
+      }
+      row.appendChild(body);
+      row.appendChild(el('span', 'studio-dashboard-list-value', mapped.value));
       list.appendChild(row);
     });
     if (!count) {
       list.appendChild(el('p', 'studio-dashboard-hint', emptyText || 'no data yet'));
     }
     return list;
+  }
+
+  function collapsibleSection(title, contentNode, openByDefault) {
+    const details = el('details', 'studio-analytics-disclosure');
+    if (openByDefault) details.open = true;
+    const summary = el('summary', 'studio-analytics-disclosure-summary', title);
+    details.appendChild(summary);
+    details.appendChild(contentNode);
+    return details;
   }
 
   function fmtTimecode(sec) {
@@ -329,7 +328,7 @@
     const readout = el(
       'p',
       'studio-song-scrub-readout',
-      data.max > 0 ? 'scrub — shade is relative to this song' : 'play the track to build second markers'
+      data.max > 0 ? 'scrub' : 'no heat yet'
     );
     track.appendChild(canvas);
     track.appendChild(playhead);
@@ -346,7 +345,7 @@
 
     function draw() {
       const width = Math.max(1, track.clientWidth || wrap.clientWidth || 320);
-      const height = 28;
+      const height = 8;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -359,22 +358,16 @@
 
       const series = data.display || data.heat;
       const n = Math.max(1, series.length);
-      const gap = 0;
-      const barW = Math.max(1, width / n - gap);
+      const barW = Math.max(1, width / n);
       const color = getComputedStyle(wrap).color || '#111';
       ctx.fillStyle = color;
 
+      // Thin strip: listen density is carried by opacity, not bar height.
       for (let i = 0; i < n; i++) {
         const passes = series[i] || 0;
         const t = relativeShade(passes, data.max);
-        if (passes <= 0) {
-          ctx.globalAlpha = 0.05;
-          ctx.fillRect(i * (width / n), height - 1, barW, 1);
-          continue;
-        }
-        const h = Math.max(2, Math.round(t * (height - 2)));
-        ctx.globalAlpha = 0.12 + t * 0.88;
-        ctx.fillRect(i * (width / n), height - h, barW, h);
+        ctx.globalAlpha = passes <= 0 ? 0.06 : 0.14 + t * 0.86;
+        ctx.fillRect(i * (width / n), 0, barW, height);
       }
       ctx.globalAlpha = 1;
     }
@@ -389,20 +382,20 @@
       const displayPasses = Number((data.display && data.display[index]) || passes);
       const t = relativeShade(displayPasses, data.max);
       const trend = scrubTrend(data.display || data.heat, index, data.max);
-      const rel =
-        passes <= 0
-          ? 'quiet'
-          : t >= 0.98
-            ? 'most heard'
-            : Math.round(t * 100) + '% of peak';
       readout.textContent =
         fmtTimecode(index) +
         ' · ' +
-        rel +
-        (passes > 0 ? ' · ' + (passes === 1 ? '1 listen' : passes + ' listens') : '') +
+        (passes <= 0
+          ? 'quiet'
+          : passes +
+            (passes === 1 ? ' listen' : ' listens') +
+            (t < 0.98 ? ' · ' + Math.round(t * 100) + '%' : '')) +
         (trend === 'picking up' || trend === 'slowing' ? ' · ' + trend : '');
       track.setAttribute('aria-valuenow', String(index));
-      track.setAttribute('aria-valuetext', fmtTimecode(index) + ', ' + rel);
+      track.setAttribute(
+        'aria-valuetext',
+        fmtTimecode(index) + (passes > 0 ? ', ' + passes + ' listens' : ', quiet')
+      );
     }
 
     function scrubFromEvent(event) {
@@ -477,26 +470,28 @@
       const card = el('div', 'studio-song-card');
       const head = el('div', 'studio-song-card-head');
       head.appendChild(el('span', 'studio-song-rank', '#' + (index + 1)));
-      head.appendChild(el('span', 'studio-song-title', song.title || song.groupKey || 'untitled'));
-      const meta =
-        fmtNum(song.plays) +
-        ' plays · ' +
-        fmtSeconds(song.seconds) +
-        (song.completions ? ' · ' + fmtNum(song.completions) + ' done' : '');
-      head.appendChild(el('span', 'studio-song-meta', meta));
+
+      const identity = el('div', 'studio-song-identity');
+      identity.appendChild(el('span', 'studio-song-title', song.title || song.groupKey || 'untitled'));
+      const metaParts = [fmtSeconds(song.seconds)];
+      if (song.completions) metaParts.push(fmtNum(song.completions) + ' done');
+      identity.appendChild(el('span', 'studio-song-meta', metaParts.join(' · ')));
+      head.appendChild(identity);
+
+      head.appendChild(
+        el(
+          'span',
+          'studio-song-metric',
+          fmtNum(song.plays) + (Number(song.plays) === 1 ? ' play' : ' plays')
+        )
+      );
       card.appendChild(head);
-      card.appendChild(renderSongHeat(song));
+
+      const detail = el('div', 'studio-song-detail');
+      detail.appendChild(renderSongHeat(song));
+      card.appendChild(detail);
       wrap.appendChild(card);
     });
-    return wrap;
-  }
-
-  function pane(id, title, hint) {
-    const wrap = el('div', 'studio-analytics-pane');
-    wrap.dataset.pane = id;
-    wrap.hidden = true;
-    if (title) wrap.appendChild(el('h3', 'studio-analytics-heading', title));
-    if (hint) wrap.appendChild(el('p', 'studio-dashboard-hint', hint));
     return wrap;
   }
 
@@ -547,33 +542,249 @@
 
       const head = el('div', 'studio-pathway-card-head');
       head.appendChild(el('span', 'studio-pathway-rank', '#' + (index + 1)));
-      head.appendChild(el('span', 'studio-pathway-count', fmtNum(item.count) + (item.count === 1 ? ' session' : ' sessions')));
-      card.appendChild(head);
 
-      function addStage(label, value) {
-        const stage = el('div', 'studio-pathway-stage');
-        stage.appendChild(el('span', 'studio-pathway-stage-label', label));
-        stage.appendChild(el('span', 'studio-pathway-stage-value', value));
-        card.appendChild(stage);
+      const identity = el('div', 'studio-pathway-identity');
+      const pathLabel =
+        parts.landed +
+        (parts.left && parts.left !== parts.landed ? ' → ' + parts.left : '');
+      identity.appendChild(el('span', 'studio-pathway-title', pathLabel));
+      if (parts.clicked.length) {
+        identity.appendChild(
+          el('span', 'studio-pathway-meta', parts.clicked.join(' → '))
+        );
       }
+      head.appendChild(identity);
 
-      addStage('landed', parts.landed);
-      addStage(
-        'clicked',
-        parts.clicked.length ? parts.clicked.join(' → ') : '—'
+      head.appendChild(
+        el(
+          'span',
+          'studio-pathway-metric',
+          fmtNum(item.count) + (item.count === 1 ? ' session' : ' sessions')
+        )
       );
-      addStage('left', parts.left);
-
+      card.appendChild(head);
       wrap.appendChild(card);
     });
 
     return wrap;
   }
 
+  function hasDspData(snapshot) {
+    const dsp = (snapshot && snapshot.dsp) || {};
+    const tracks = dsp.songs || dsp.tracks || [];
+    return Array.isArray(tracks) && tracks.length > 0;
+  }
+
+  function closerBlock(title) {
+    const block = el('section', 'studio-dashboard-closer-block');
+    block.appendChild(el('h3', 'studio-analytics-subhead', title));
+    return block;
+  }
+
+  function renderPulse(snapshot) {
+    const pulse = document.getElementById('dashboardPulse');
+    const section = document.getElementById('dashboardPulseSection');
+    if (!pulse || !section) return;
+
+    const site = (snapshot && snapshot.site) || {};
+    const commerce = (snapshot && snapshot.commerce) || {};
+    pulse.innerHTML = '';
+    pulse.appendChild(metricRow('listen', fmtSeconds(site.listenSeconds)));
+    pulse.appendChild(metricRow('lands', fmtNum(site.lands)));
+    pulse.appendChild(metricRow('earned', fmtMoney(moneyTotal(commerce))));
+    section.hidden = false;
+  }
+
+  function renderCloser(snapshot) {
+    const feed = document.getElementById('dashboardCloserFeed');
+    const section = document.getElementById('dashboardCloserSection');
+    if (!feed || !section) return;
+
+    feed.innerHTML = '';
+    const commerce = snapshot.commerce || {};
+    const email = emailStats(snapshot);
+    const dsp = snapshot.dsp || {};
+
+    const listen = closerBlock('listen');
+    const listenToggle = el('label', 'studio-analytics-listen-wrap');
+    listenToggle.hidden = !hasDspData(snapshot);
+    listenToggle.appendChild(el('span', 'studio-analytics-period-label', 'source'));
+    const select = document.createElement('select');
+    select.id = 'dashboardListenSource';
+    select.className = 'studio-analytics-period-select';
+    select.setAttribute('aria-label', 'Listen source');
+    select.innerHTML =
+      '<option value="site">site</option><option value="dsp">dsp</option>';
+    select.value = currentListenSource;
+    listenToggle.appendChild(select);
+    listen.appendChild(listenToggle);
+
+    const listenSite = el('div', 'studio-analytics-listen-source');
+    listenSite.id = 'listenSourceSite';
+    listenSite.appendChild(renderSongLeaderboard(snapshot.songs, 'no plays'));
+
+    const listenDsp = el('div', 'studio-analytics-listen-source');
+    listenDsp.id = 'listenSourceDsp';
+    listenDsp.appendChild(
+      listRows(
+        dsp.songs || dsp.tracks || [],
+        function (song) {
+          return {
+            label: song.title || song.name || song.groupKey || 'untitled',
+            meta: song.seconds ? fmtSeconds(song.seconds) : '',
+            value:
+              fmtNum(song.streams || song.plays) +
+              (Number(song.streams || song.plays) === 1 ? ' stream' : ' streams')
+          };
+        },
+        dsp.note || 'no dsp yet'
+      )
+    );
+    listen.appendChild(listenSite);
+    listen.appendChild(listenDsp);
+    feed.appendChild(listen);
+
+    const traffic = closerBlock('pathways');
+    traffic.appendChild(renderPathwayLeaderboard(snapshot.pathways, 'no pathways'));
+    traffic.appendChild(
+      collapsibleSection(
+        'landings',
+        listRows(
+          snapshot.paths,
+          function (row) {
+            return {
+              label: row.page || '/',
+              meta: fmtNum(row.plays) + (Number(row.plays) === 1 ? ' play' : ' plays'),
+              value: fmtNum(row.lands) + (Number(row.lands) === 1 ? ' land' : ' lands')
+            };
+          },
+          'none'
+        ),
+        false
+      )
+    );
+
+    const sourceItems = [];
+    (snapshot.utm || []).forEach(function (row) {
+      sourceItems.push({
+        label: [row.source, row.medium, row.campaign].filter(Boolean).join(' / ') || 'utm',
+        meta: 'utm',
+        value: fmtNum(row.lands) + (Number(row.lands) === 1 ? ' land' : ' lands')
+      });
+    });
+    (snapshot.referrers || []).forEach(function (row) {
+      sourceItems.push({
+        label: row.host || 'direct',
+        meta: 'referrer',
+        value: fmtNum(row.lands) + (Number(row.lands) === 1 ? ' land' : ' lands')
+      });
+    });
+    traffic.appendChild(
+      collapsibleSection(
+        'sources',
+        listRows(
+          sourceItems,
+          function (row) {
+            return row;
+          },
+          'none'
+        ),
+        false
+      )
+    );
+    traffic.appendChild(
+      collapsibleSection(
+        'outbound',
+        listRows(
+          snapshot.outbound,
+          function (row) {
+            return {
+              label: row.dest || 'other',
+              value: fmtNum(row.clicks) + (Number(row.clicks) === 1 ? ' click' : ' clicks')
+            };
+          },
+          'none'
+        ),
+        false
+      )
+    );
+    feed.appendChild(traffic);
+
+    const emailBlock = closerBlock('email');
+    const emailPulse = el('div', 'studio-analytics-overview');
+    emailPulse.appendChild(metricRow('subscribers', fmtNum(email.subscribers)));
+    emailPulse.appendChild(metricRow('click rate', fmtPct(email.clickRate)));
+    emailBlock.appendChild(emailPulse);
+    emailBlock.appendChild(
+      listRows(
+        email.campaigns,
+        function (row) {
+          const label = row.entry
+            ? row.entry
+            : row.campaign === 'welcome'
+              ? 'welcome'
+              : row.campaign || row.kind || 'blast';
+          const rate = row.clickRate != null ? fmtPct(row.clickRate) : '—';
+          return {
+            label: label,
+            meta: fmtNum(row.sent) + ' sent · ' + rate,
+            value: fmtNum(row.lands) + (Number(row.lands) === 1 ? ' land' : ' lands')
+          };
+        },
+        'no campaigns'
+      )
+    );
+    if (email.failed) {
+      emailBlock.appendChild(el('p', 'studio-dashboard-hint', fmtNum(email.failed) + ' failed'));
+    }
+    feed.appendChild(emailBlock);
+
+    const money = closerBlock('money');
+    money.appendChild(
+      el(
+        'p',
+        'studio-dashboard-hint',
+        'tips ' +
+          fmtNum(commerce.tips && commerce.tips.count) +
+          ' · ' +
+          fmtMoney(commerce.tips && commerce.tips.dollars) +
+          '  ·  digital ' +
+          fmtNum(commerce.digital && commerce.digital.count) +
+          ' · ' +
+          fmtMoney(commerce.digital && commerce.digital.dollars) +
+          '  ·  shop ' +
+          fmtNum(commerce.shop && commerce.shop.count) +
+          ' · ' +
+          fmtMoney(commerce.shop && commerce.shop.dollars)
+      )
+    );
+    if (hasRows(commerce.recent)) {
+      money.appendChild(
+        listRows(commerce.recent, function (row) {
+          return {
+            label: (row.kind || 'order') + (row.productTitle ? ' · ' + row.productTitle : ''),
+            value: fmtMoney((row.cents || 0) / 100)
+          };
+        })
+      );
+    } else {
+      money.appendChild(el('p', 'studio-dashboard-hint', 'no orders'));
+    }
+    feed.appendChild(money);
+
+    section.hidden = false;
+    if (!hasDspData(snapshot) && currentListenSource === 'dsp') {
+      storeListenSource('site');
+    }
+    bindListenSourceToggle();
+    syncListenSourceToggle();
+    showListenSource();
+  }
+
   function renderSnapshot(snapshot) {
     const empty = document.getElementById('dashboardAnalyticsEmpty');
-    const feed = document.getElementById('dashboardAnalyticsFeed');
-    if (!feed) return;
+    const pulseSection = document.getElementById('dashboardPulseSection');
+    const closerSection = document.getElementById('dashboardCloserSection');
 
     lastSnapshot = snapshot || null;
     window.__burnfolderAnalyticsSnapshot = lastSnapshot;
@@ -583,256 +794,31 @@
         empty.hidden = false;
         empty.textContent = 'could not load analytics.';
       }
-      feed.hidden = true;
-      feed.innerHTML = '';
+      if (pulseSection) pulseSection.hidden = true;
+      if (closerSection) closerSection.hidden = true;
       return;
     }
 
     if (empty) empty.hidden = true;
-    feed.hidden = false;
-    feed.innerHTML = '';
-
-    const site = snapshot.site || {};
-    const commerce = snapshot.commerce || {};
-    const cf = snapshot.cloudflare || {};
-
-    const tabs = document.getElementById('dashboardAnalyticsTabs');
-    const panes = el('div', 'studio-analytics-panes');
-
-    function showPane(id) {
-      currentPane = id || 'listen';
-      if (tabs) {
-        Array.prototype.forEach.call(tabs.querySelectorAll('.studio-analytics-tab'), function (btn) {
-          const on = btn.dataset.pane === currentPane;
-          btn.classList.toggle('is-active', on);
-          btn.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-      }
-      Array.prototype.forEach.call(panes.querySelectorAll('.studio-analytics-pane'), function (node) {
-        node.hidden = node.dataset.pane !== currentPane;
-      });
-      fillOverview();
-      syncListenSubtabs();
-      if (currentPane === 'listen') showListenSource();
-    }
-
-    if (tabs && tabs.dataset.bound !== '1') {
-      tabs.dataset.bound = '1';
-      tabs.addEventListener('click', function (event) {
-        const btn = event.target.closest('.studio-analytics-tab');
-        if (!btn || !tabs.contains(btn)) return;
-        showPane(btn.dataset.pane);
-      });
-    }
-    if (tabs) tabs.hidden = false;
     syncPeriodButtons();
-    bindListenSubtabs();
+    renderPulse(snapshot);
+    renderCloser(snapshot);
 
-    const overview = el('div', 'studio-analytics-overview');
-    overview.id = 'dashboardAnalyticsOverview';
-    feed.appendChild(overview);
-
-    function outboundClicks() {
-      return (snapshot.outbound || []).reduce(function (sum, row) {
-        return sum + (Number(row.clicks) || 0);
-      }, 0);
+    if (typeof window.studioOnAnalyticsReady === 'function') {
+      window.studioOnAnalyticsReady(snapshot);
     }
-
-    function pathwayCount() {
-      return Array.isArray(snapshot.pathways) ? snapshot.pathways.length : 0;
-    }
-
-    function fillOverview() {
-      overview.innerHTML = '';
-      if (currentPane === 'traffic') {
-        overview.appendChild(metricRow('lands', fmtNum(site.lands)));
-        overview.appendChild(metricRow('pathways', fmtNum(pathwayCount())));
-        overview.appendChild(metricRow('outbound', fmtNum(outboundClicks())));
-        if (cf.configured && !cf.error) {
-          overview.appendChild(metricRow('cf visits', fmtNum(cf.visits)));
-        }
-        return;
-      }
-      if (currentPane === 'money') {
-        overview.appendChild(metricRow('earned', fmtMoney(moneyTotal(commerce))));
-        overview.appendChild(
-          metricRow('tips', fmtMoney(commerce.tips && commerce.tips.dollars))
-        );
-        overview.appendChild(
-          metricRow('digital', fmtMoney(commerce.digital && commerce.digital.dollars))
-        );
-        overview.appendChild(
-          metricRow('shop', fmtMoney(commerce.shop && commerce.shop.dollars))
-        );
-        return;
-      }
-      overview.appendChild(metricRow('plays', fmtNum(site.songPlays)));
-      overview.appendChild(metricRow('listen', fmtSeconds(site.listenSeconds)));
-    }
-
-    const listenPane = pane('listen', null, null);
-    const listenSite = el('div', 'studio-analytics-listen-source');
-    listenSite.id = 'listenSourceSite';
-    listenSite.appendChild(el('p', 'studio-analytics-subhead', 'songs'));
-    listenSite.appendChild(renderSongLeaderboard(snapshot.songs, 'no site plays in this range'));
-
-    const listenDsp = el('div', 'studio-analytics-listen-source');
-    listenDsp.id = 'listenSourceDsp';
-    const dsp = snapshot.dsp || {};
-    listenDsp.appendChild(
-      el(
-        'p',
-        'studio-dashboard-hint',
-        dsp.note || 'spotify / apple / other dsp streams — connect after release.'
-      )
-    );
-    listenDsp.appendChild(el('p', 'studio-analytics-subhead', 'streams'));
-    listenDsp.appendChild(
-      listRows(
-        dsp.songs || dsp.tracks || [],
-        function (song) {
-          return {
-            label: song.title || song.name || song.groupKey || 'untitled',
-            value:
-              fmtNum(song.streams || song.plays) +
-              ' streams' +
-              (song.seconds ? ' · ' + fmtSeconds(song.seconds) : '')
-          };
-        },
-        'no dsp data yet'
-      )
-    );
-
-    listenPane.appendChild(listenSite);
-    listenPane.appendChild(listenDsp);
-    panes.appendChild(listenPane);
-
-    const trafficPane = pane(
-      'traffic',
-      null,
-      'how they moved through the site in this range — pathways first, then landings and exits.'
-    );
-
-    if (cf.configured && !cf.error) {
-      const cfGrid = el('div', 'studio-analytics-grid');
-      cfGrid.appendChild(metricRow('cf pageviews', fmtNum(cf.pageviews)));
-      cfGrid.appendChild(metricRow('cf visits', fmtNum(cf.visits)));
-      trafficPane.appendChild(cfGrid);
-    }
-
-    trafficPane.appendChild(el('p', 'studio-analytics-subhead', 'pathways'));
-    trafficPane.appendChild(
-      renderPathwayLeaderboard(
-        snapshot.pathways,
-        'no pathways yet — browse a couple pages on the public site, then leave or hit a streaming link'
-      )
-    );
-
-    trafficPane.appendChild(el('p', 'studio-analytics-subhead', 'landing pages'));
-    trafficPane.appendChild(
-      listRows(
-        snapshot.paths,
-        function (row) {
-          return {
-            label: row.page || '/',
-            value: fmtNum(row.lands) + ' land · ' + fmtNum(row.plays) + ' play'
-          };
-        },
-        'no landings in this range'
-      )
-    );
-
-    trafficPane.appendChild(el('p', 'studio-analytics-subhead', 'sources'));
-    const sourceItems = [];
-    (snapshot.utm || []).forEach(function (row) {
-      sourceItems.push({
-        label: [row.source, row.medium, row.campaign].filter(Boolean).join(' / ') || 'utm',
-        value: fmtNum(row.lands) + ' · utm'
-      });
-    });
-    (snapshot.referrers || []).forEach(function (row) {
-      sourceItems.push({
-        label: row.host || 'direct',
-        value: fmtNum(row.lands) + ' · referrer'
-      });
-    });
-    trafficPane.appendChild(
-      listRows(
-        sourceItems,
-        function (row) {
-          return row;
-        },
-        'no utm or referrers in this range'
-      )
-    );
-
-    trafficPane.appendChild(el('p', 'studio-analytics-subhead', 'outbound'));
-    trafficPane.appendChild(
-      listRows(
-        snapshot.outbound,
-        function (row) {
-          return { label: row.dest || 'other', value: fmtNum(row.clicks) + ' clicks' };
-        },
-        'no outbound clicks in this range'
-      )
-    );
-    panes.appendChild(trafficPane);
-
-    const moneyPane = pane('money', null, 'money in this range.');
-    const moneyGrid = el('div', 'studio-analytics-grid');
-    moneyGrid.appendChild(
-      metricRow(
-        'tips',
-        fmtNum(commerce.tips && commerce.tips.count) + ' · ' + fmtMoney(commerce.tips && commerce.tips.dollars)
-      )
-    );
-    moneyGrid.appendChild(
-      metricRow(
-        'digital',
-        fmtNum(commerce.digital && commerce.digital.count) +
-          ' · ' +
-          fmtMoney(commerce.digital && commerce.digital.dollars)
-      )
-    );
-    moneyGrid.appendChild(
-      metricRow(
-        'shop',
-        fmtNum(commerce.shop && commerce.shop.count) + ' · ' + fmtMoney(commerce.shop && commerce.shop.dollars)
-      )
-    );
-    if (snapshot.newsletter && snapshot.newsletter.subscribers != null) {
-      moneyGrid.appendChild(metricRow('newsletter', fmtNum(snapshot.newsletter.subscribers)));
-    }
-    moneyPane.appendChild(moneyGrid);
-
-    if (hasRows(commerce.recent)) {
-      moneyPane.appendChild(el('p', 'studio-analytics-subhead', 'recent'));
-      moneyPane.appendChild(
-        listRows(commerce.recent, function (row) {
-          return {
-            label: (row.kind || 'order') + (row.productTitle ? ' · ' + row.productTitle : ''),
-            value: fmtMoney((row.cents || 0) / 100)
-          };
-        })
-      );
-    }
-    panes.appendChild(moneyPane);
-
-    feed.appendChild(panes);
-
-    showPane(currentPane);
-    showListenSource();
   }
 
   function loadAnalytics(period) {
-    const auth = window.BurnfolderStudioAuth;
     const empty = document.getElementById('dashboardAnalyticsEmpty');
+    if (period) storePeriod(period);
+    syncPeriodButtons();
+
+    const auth = window.BurnfolderStudioAuth;
     if (!auth || !auth.getAuthHeaders) {
       if (empty) empty.textContent = 'sign in to load analytics.';
       return Promise.resolve();
     }
-    if (period) storePeriod(period);
-    syncPeriodButtons();
     if (empty) {
       empty.hidden = false;
       empty.textContent = 'loading…';
@@ -871,12 +857,8 @@
     }
     currentPeriod = readStoredPeriod();
     currentListenSource = readStoredListenSource();
-    bindOwnerMeta();
-    bindExport();
     bindPeriodNav();
-    bindListenSubtabs();
     syncPeriodButtons();
-    syncListenSubtabs();
     loadAnalytics(currentPeriod).then(function () {
       if (window.studioInitStudioAiPanel) window.studioInitStudioAiPanel();
     });

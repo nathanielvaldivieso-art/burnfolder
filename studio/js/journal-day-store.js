@@ -212,12 +212,30 @@
     });
   }
 
+  /** Wipe contribution lists on every day (journal text / plan / reminders stay). */
+  function clearAllContributions() {
+    return ensureHydrated().then(function () {
+      const store = readStore();
+      let changed = false;
+      Object.keys(store.days || {}).forEach(function (key) {
+        const day = store.days[key];
+        if (!day || !Array.isArray(day.contributions) || !day.contributions.length) return;
+        day.contributions = [];
+        day.updatedAt = new Date().toISOString();
+        changed = true;
+      });
+      if (changed) writeStore(store);
+      return changed;
+    });
+  }
+
   window.BurnfolderJournalDays = {
     getDay: getDay,
     saveDay: saveDay,
     listDays: listDays,
     upsertContribution: upsertContribution,
     removeContribution: removeContribution,
+    clearAllContributions: clearAllContributions,
     todayKey: todayKey,
     shiftDateKey: shiftDateKey,
     parseDateKey: parseDateKey,

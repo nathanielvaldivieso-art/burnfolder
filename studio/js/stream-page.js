@@ -433,14 +433,6 @@
       return;
     }
     const id = playable.playbackId;
-    if (player.isActivePlaybackId(id)) {
-      if (player.isPlayingPlaybackId(id)) {
-        player.togglePause();
-      } else {
-        player.playItem(playable);
-      }
-      return;
-    }
     recordPlay(id);
     try {
       if (player.playItem(playable) === false) {
@@ -1675,12 +1667,7 @@
     if (!uploadRoot || !window.BurnfolderCloudUI) return;
     window.BurnfolderCloudUI.mountUploadZone(uploadRoot, {
       onStatus: setStatus,
-      getContributionDateKey: function () {
-        const contrib = window.BurnfolderJournalContributions;
-        if (contrib && contrib.getActiveDateKey) return contrib.getActiveDateKey();
-        const days = window.BurnfolderJournalDays;
-        return days && days.todayKey ? days.todayKey() : '';
-      },
+      // Stream uploads are catalog files — do not stamp journal contribution dates.
       onFileSuccess: prependUploadedAsset,
       onUploaded: function () {
         refreshLibrary({ silent: true });

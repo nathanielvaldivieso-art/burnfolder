@@ -5,6 +5,7 @@
   if (!store) return;
 
   let activeDateKey = null;
+  const REBUILD_FLAG = 'bf_journal_contrib_rebuild_v1';
 
   function todayKey() {
     return store.todayKey();
@@ -25,11 +26,19 @@
     return store.keyFromDate(date);
   }
 
+  function explicitDateKey(asset) {
+    if (!asset) return '';
+    return String(asset.contributionDateKey || '').trim();
+  }
+
   function fromAsset(asset) {
     if (!asset) return null;
     const playbackId = asset.muxPlaybackId || asset.playbackId;
     if (!playbackId) return null;
-    const dateKey = asset.contributionDateKey || dateKeyFromIso(asset.createdAt);
+    // Only count uploads that were intentionally stamped for a journal day.
+    // Never treat the whole Mux / stream catalog as daily contributions.
+    const dateKey = explicitDateKey(asset);
+    if (!dateKey) return null;
     return {
       id: asset.id || playbackId,
       playbackId: String(playbackId),
@@ -54,32 +63,18 @@
     });
   }
 
-  function syncLocalLibrary() {
+  function rebuildFromExplicitAssets() {
+    if (!store.clearAllContributions) return Promise.resolve(0);
     const cloud = window.BurnfolderAssetCloud;
-    if (!cloud || !cloud.listAssets) return Promise.resolve(0);
-    return cloud.listAssets().then(function (rows) {
-      return Promise.all(
-        (rows || []).map(function (row) {
-          return registerAsset(row);
-        })
-      ).then(function () {
-        return rows.length;
-      });
-    });
-  }
-
-  function syncMuxLibrary() {
-    const mux = window.BurnfolderStudioMux;
-    if (!mux || !mux.listMuxLibrary) return Promise.resolve(0);
-    return mux.listMuxLibrary().then(function (items) {
-      return Promise.all(
-        (items || []).map(function (item) {
-          return registerAsset(item);
-        })
-      ).then(function () {
-        return items.length;
-      });
-    }).catch(function () {
+    // Full catalog was previously dumped onto journal days. Wipe those lists
+    // and strip auto-stamped date keys so only future journal uploads attach.
+    const clearKeys =
+      cloud && cloud.clearContributionDateKeys
+        ? cloud.clearContributionDateKeys()
+        : Promise.resolve(0);
+    return store.clearAllContributions().then(function () {
+      return clearKeys;
+    }).then(function () {
       return 0;
     });
   }
@@ -95,8 +90,24 @@
       return Promise.resolve(0);
     }
     syncAll.lastAt = now;
-    return syncLocalLibrary().then(function () {
-      return syncMuxLibrary();
+
+    // One-time cleanup: older builds dumped the entire catalog onto journal days.
+    let needsRebuild = !!options.force;
+    try {
+      if (!window.localStorage.getItem(REBUILD_FLAG)) needsRebuild = true;
+    } catch (e) {
+      needsRebuild = true;
+    }
+
+    if (!needsRebuild) return Promise.resolve(0);
+
+    return rebuildFromExplicitAssets().then(function (count) {
+      try {
+        window.localStorage.setItem(REBUILD_FLAG, '1');
+      } catch (e2) {
+        /* noop */
+      }
+      return count;
     });
   }
 
@@ -123,7 +134,7 @@
     window.__journalContributionsBound = true;
     window.addEventListener('burnfolder-assets-changed', function (event) {
       const detail = event && event.detail;
-      if (detail && detail.type === 'add' && detail.asset) {
+      if (detail && detail.type === 'add' && detail.asset && explicitDateKey(detail.asset)) {
         registerAsset(detail.asset);
       }
     });
@@ -135,6 +146,7 @@
     dateKeyFromIso: dateKeyFromIso,
     registerAsset: registerAsset,
     syncAll: syncAll,
+    rebuildFromExplicitAssets: rebuildFromExplicitAssets,
     listForDay: listForDay,
     daysWithContributions: daysWithContributions
   };

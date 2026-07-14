@@ -855,21 +855,8 @@ function playSongHubQueue(sorted, song, hubRoot, page, renderApi) {
   window.currentSongs = sorted.slice();
 
   const idx = sorted.findIndex((item) => item.playbackId === song.playbackId);
-  const active = getActiveSong();
-  const onHub = active && sorted.some((item) => item.playbackId === active.playbackId);
-
-  if (onHub && active.playbackId === song.playbackId) {
-    if (activeMuxPlayer && !activeMuxPlayer.paused) {
-      togglePlayPause();
-    } else if (activeMuxPlayer) {
-      activeMuxPlayer.play().catch(() => {});
-      updateUI();
-    }
-    syncTracklistPlayback();
-    return;
-  }
-
   startPlayback(song, sorted, idx >= 0 ? idx : 0);
+  syncTracklistPlayback();
 }
 
 window.syncTracklistPlayback = syncTracklistPlayback;
@@ -1161,14 +1148,6 @@ function playAlbumHubQueue(sorted, song) {
   if (!sorted || !sorted.length || !song || !song.playbackId) return;
 
   const idx = sorted.findIndex((item) => item.playbackId === song.playbackId);
-  const active = getActiveSong();
-  const onAlbum = active && sorted.some((item) => item.playbackId === active.playbackId);
-
-  if (onAlbum && active.playbackId === song.playbackId) {
-    togglePlayPause();
-    return;
-  }
-
   startPlayback(song, sorted, idx >= 0 ? idx : 0);
 }
 
@@ -2395,14 +2374,7 @@ if (audioList && !didRenderInitially) {
       song,
       displayTitle: getTracklistDisplayTitle(song),
       onPlay: (toPlay) => {
-        const target = toPlay || song;
-        const activeSong = getActiveSong();
-        const sameTrack = activeSong && activeSong.playbackId === target.playbackId;
-        if (sameTrack && activeMuxPlayer && !activeMuxPlayer.paused) {
-          togglePlayPause();
-        } else {
-          playTrackBySong(target);
-        }
+        playTrackBySong(toPlay || song);
       },
     }))
   );

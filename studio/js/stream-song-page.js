@@ -140,16 +140,6 @@
     const idx = audioItems.findIndex(function (row) {
       return row.playbackId === song.playbackId;
     });
-    const active = player.getActiveSong();
-    const onHub = active && sorted.some(function (item) {
-      return item.playbackId === active.playbackId;
-    });
-    if (onHub && active.playbackId === song.playbackId) {
-      player.togglePause();
-      syncVersionsPlayback();
-      syncSongHubPlayButton(sorted);
-      return;
-    }
     if (videoHero) shared.clearStreamVideo(videoHero);
     player.playQueue(audioItems, idx >= 0 ? idx : 0);
     syncVersionsPlayback();

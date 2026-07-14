@@ -62,6 +62,19 @@ exports.handler = async (event) => {
       await writeEmails(store, emails);
     }
 
+    try {
+      const desk = require('./lib/market-desk-store');
+      const blobStore = desk.store(event);
+      await desk.recordFanAction(blobStore, 'legacy', {
+        email: email,
+        actionKey: 'subscribe',
+        label: 'subscribe',
+        at: new Date().toISOString()
+      });
+    } catch (fanErr) {
+      console.error('Fan action record failed:', fanErr.message);
+    }
+
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
     const owner = 'nathanielvaldivieso-art';
     const repo = 'burnfolder';

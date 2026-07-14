@@ -1,38 +1,67 @@
 # Burnfolder — Master Plan (next ~6 months)
 
-**Status:** Single operating plan (July 9, 2026). Gallery release + Studio platform are one roadmap.  
-**How to use:** Work **§0** (PHOTONEGATIVE) top to bottom on two parallel tracks. Use **§1+** for architecture, analytics (§9.5), and frugal tiers (§17) when you need depth or post-push platform work.  
+**Status:** Single operating plan (July 13, 2026). Gallery release + Studio platform are one roadmap.  
+**How to use:** Work **§0** (PHOTONEGATIVE) as the only near-term goal. Use **§1+** for architecture, analytics (§9.5), and frugal tiers (§17) only when they arm the red button or after **R12**.  
 **Copilot:** *"implement platform step P#"* for §0 code; *"Implement Tier N per STUDIO-MASTER-PLAN.md section 17"* for tier builds.  
 **Alias:** `PHOTONEGATIVE-RELEASE-PLAN.md` redirects here.
 
-**Last updated:** July 9, 2026
+**Last updated:** July 13, 2026
 
-**Sources:** `COPILOT.md`, studio backlog, LabelGrid/distro brainstorm, AI/social/analytics decisions, multi-tenant pivot, PHOTONEGATIVE release feed, growth data map (§9.5).
+**Sources:** `COPILOT.md`, studio backlog, LabelGrid/distro brainstorm, AI/social/analytics decisions, multi-tenant pivot, PHOTONEGATIVE release feed, growth data map (§9.5), `DASHBOARD-MARKETING-PLAN.md`.
 
 ---
 
 ## 0. Next six months — PHOTONEGATIVE
 
-Prove that **art made with integrity can reach people commercially**. PHOTONEGATIVE is the proof object; burnfolder (gallery + studio) is the proof system.
+### Goal — the red button
 
-**Off-site thesis** (social only — never on journal entries):
+When deliverables hit, press one go-live and **hit the ground running** on YouTube + Spotify’s algorithmic freshness window. No scramble. No “platform almost ready.” The button is armed **before** masters freeze.
+
+PHOTONEGATIVE is the proof object; burnfolder (gallery + studio) is the machine that makes the button work.
+
+| Phase | Meaning |
+|-------|---------|
+| **Arm** | Track A done enough that drop-in + launch is hours, not weeks |
+| **Load** | Track B freeze + LabelGrid submit + DSP gate clear |
+| **Press** | Track C — site finals, journal, YT fragments, Spotify/Apple links live the same day the stores unlock |
+| **Ride** | First ~2–4 weeks: posts, pitches, measure (**R1–R12**) while DSP freshness is strongest |
+
+**Off-site thesis** (social / YT only — never on journal entries):
 
 > music made slowly, released on purpose — on a site that doesn't treat you like inventory.
 
 **Canonical link:** `burnfolder.com/album.html?album=photonegative`
 
+### Why freshness is the constraint
+
+Spotify (and to a lesser extent YouTube) reward **release-week activity**: saves, streams, playlist adds, watch time in the first days after a title goes live. That window does not wait for studio SaaS polish. Platform work that does not arm the button is deferred past launch.
+
+**Day-0 surfaces that must already work:**
+
+| Surface | Day-0 job |
+|---------|-----------|
+| Album hub + song pages | Drop-in finals; play release cut; outbound Spotify/Apple |
+| Press / EPK | Links + assets ready when gate clears |
+| Shop PWYW | Digital album buyable the same day |
+| Listening intelligence (P16–P19) | See what landings/plays convert during the push |
+| YouTube (@burnfolder) | Fragments post the same day as DSP live — hub is the CTA |
+| Spotify for Artists + Apple Music for Artists | Claim as soon as live; watch alg vs editorial |
+
+Manual YT upload + free artist dashboards are enough for day 0. Studio YouTube OAuth / LabelGrid analytics ingest stay **Tier 3** — do not block the button.
+
 ### Tracks (parallel)
 
 ```
-A — Platform (laptop)              B — Deliverables (studio / art)
-build shells, shop, listening      masters, cover, photos, copy,
-intelligence, song pages           fragments, lead single, LabelGrid
+A — Arm the button (laptop)        B — Load the button (studio / art)
+site shells, song pages, press,    masters, cover, photos, copy,
+shop, listening intel, drop-in     fragments, lead single, LabelGrid
+hooks ready for P12–P15            submit → wait DSP gate
               \                     /
                v                   v
-            C — Drop-in + Launch → Push → measure (R12)
+         C — PRESS → YT + Spotify freshness → Push (R#) → R12
 ```
 
-**Rule:** Platform may run ahead. Do **not** freeze the music page, submit LabelGrid, or post launch fragments until B says the picture is taken.
+**Rule:** Platform may run ahead. Do **not** freeze the music page, submit LabelGrid, or post launch fragments until B says the picture is taken. Do **not** start multi-tenant / Tier 3+ builds that delay A.
 
 | Surface | What it is | Where |
 |---------|------------|-------|
@@ -41,17 +70,34 @@ intelligence, song pages           fragments, lead single, LabelGrid
 
 After freeze: `useLatestVersions: false` on `musicFeaturedRelease`.
 
-### Status (July 9, 2026)
+### Red-button readiness (definition of armed)
+
+Button is **armed** when all of these are true *before* D9 freeze:
+
+- [x] Hub / press / home / music / shop PWYW / Cloudflare
+- [x] **P16–P19** listening + UTM + outbound DSP clicks + commerce on dashboard
+- [ ] **P7–P8** song page shells + hub → song links (four tracks)
+- [ ] **P9** empty slots ready for thoughts / visuals / press photos / 30s preview
+- [ ] **P11** press download paths survive hi-res swaps
+- [ ] Drop-in checklist known: **P12–P15** can land in one session
+- [ ] Launch runbook known: **L1–L8** + first YT fragment batch same calendar day as DSP unlock
+- [ ] Spotify for Artists / Apple Music for Artists claim steps written (post-gate)
+
+Button is **pressed** when gate clears and **L1–L8** execute without waiting on unfinished laptop work.
+
+### Status (July 13, 2026)
 
 | Track | Reality |
 |-------|---------|
-| **A — Platform** | Hub / press / home / music / shop PWYW / Cloudflare live. Gaps: **P16–P19** listening intelligence, song-page shells, visuals, thoughts. |
-| **B — Deliverables** | Not frozen. Candidate Mux IDs on hub; cover 1024²; no press photos / track visuals / launch clips. |
-| **C — Launch** | Blocked on B freeze + DSP gate. |
+| **A — Arm** | Hub / press / home / music / shop / listen intel live. Gaps for armed: **P7–P9**, **P11**, drop-in + launch runbook muscle memory. |
+| **B — Load** | Not frozen. Candidate Mux IDs on hub; cover 1024²; no press photos / track visuals / launch clips; LabelGrid not submitted. |
+| **C — Press** | Blocked on B freeze + DSP gate. Must not be blocked on A when that day comes. |
 
-**Laptop next:** P16 → P7–P8. **Studio next:** D1–D5 → masters → lead single → hi-res cover.
+**Laptop next (arm only):** P7 → P8 → P9 → P11 → write one-page press / claim checklist.  
+**Studio next (load):** D1–D5 → masters → D8 lead single → D14 hi-res → D17–D21 fragments → D22–D24 LabelGrid.  
+**Defer until after press / R12:** Tier 3+ Studio SaaS, YT OAuth in-app, multi-tenant depth, practice librarian — unless a item directly arms the button.
 
-### A — Platform
+### A — Arm the button (platform)
 
 #### Done
 
@@ -62,15 +108,18 @@ After freeze: `useLatestVersions: false` on `musicFeaturedRelease`.
 - [x] **P5** Shop digital PWYW + Studio `shop-designer.html` backdoor
 - [x] **P6** Cloudflare Web Analytics beacon
 
-#### Open — build anytime
+#### Open — arm next (blocks the red button)
 
 - [ ] **P7** Song page shells (all 4 tracks)
 - [ ] **P8** Album hub tracklist → song page links
 - [ ] **P9** Empty slots: thoughts, visuals, press photos, 30s preview
-- [ ] **P10** Optional homepage tagline: *music made slowly, released on purpose.*
 - [ ] **P11** Press download paths that survive hi-res swaps
 
-#### Listening intelligence (essential — ahead of masters)
+#### Optional before press (does not block)
+
+- [ ] **P10** Optional homepage tagline: *music made slowly, released on purpose.*
+
+#### Listening intelligence (armed — ahead of masters)
 
 Canonical detail: **§9.5**. Cloudflare is page traffic only.
 
@@ -79,16 +128,16 @@ Canonical detail: **§9.5**. Cloudflare is page traffic only.
 - [x] **P18** UTM/referrer + outbound Spotify/Apple clicks
 - [x] **P19** Shop PWYW + tip totals beside listen metrics
 
-DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block P16–P19 on DSP.
+DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block the button on DSP ingest or YT OAuth.
 
-#### Drop-in (only after B freeze)
+#### Drop-in (only after B freeze — press day)
 
 - [ ] **P12** Final hub playbackIds
 - [ ] **P13** `useLatestVersions: false`
 - [ ] **P14** Final cover, visuals, thoughts, lyrics, credits
 - [ ] **P15** Spotify + Apple URLs on hub + press
 
-### B — Deliverables
+### B — Load the button (deliverables)
 
 #### Freeze
 
@@ -110,14 +159,19 @@ DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block P16–P1
 
 **⛔ GATE** — Wait for Spotify + Apple live (usually 3–14 days). Finish A + remaining B during the wait. No public launch until gate clears.
 
-### C — Launch + push
+### C — Press the button + ride freshness
 
-- [ ] **L1–L2** Drop-in P12–P15 + verify production
+Same calendar day the DSP gate clears (or as close as humanly possible):
+
+- [ ] **L1–L2** Drop-in P12–P15 + verify production (hub, song pages, press, shop)
 - [ ] **L3** Release journal entry (document the picture — not hype)
-- [ ] **L4–L8** Five off-site fragments → album hub / 5.17.26
-- [ ] **R1–R3** Pitch spreadsheet + lead single batch 1 + press batch 1
+- [ ] **L4–L8** Five off-site fragments — **YouTube first**, then other doors → album hub / 5.17.26
+- [ ] **L9** Claim Spotify for Artists + Apple Music for Artists; paste live URLs (P15)
+- [ ] **R1–R3** Pitch spreadsheet + lead single batch 1 + press batch 1 *(inside freshness window)*
 - [ ] **R4–R11** Track posts, more pitches, finished-adjacent journals
-- [ ] **R12** Metrics snapshot → extend push **or** continue §17 Tier 3. Threshold: one playlist/press win OR meaningful saves/sales.
+- [ ] **R12** Metrics snapshot (site listen feed + Spotify/Apple free dashboards + YT Studio) → extend push **or** unlock §17 Tier 3. Threshold: one playlist/press win OR meaningful saves/sales.
+
+**Press-day order:** production drop-in → verify → journal → YT fragments with hub CTA → claim artist dashboards → pitch batch 1. Do not invent blockers outside this list on press day.
 
 ### Release cut table
 
@@ -136,9 +190,9 @@ DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block P16–P1
 
 **Press:** copy done · streaming after gate · cover download live · photos/preview pending.
 
-**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions · promo to unstable cuts · playlist spam · waiting on LabelGrid API / R2 / Tier 4 before shipping · blocking laptop work on unfinished masters.
+**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions · promo to unstable cuts · playlist spam · waiting on LabelGrid API / R2 / Tier 3–4 / YT OAuth before the button is armed · blocking laptop work on unfinished masters · starting multi-tenant depth while P7–P9 are open · missing the DSP freshness window because the site or YT posts were “almost ready.”
 
-**Deferred past R12:** Tier 4 SaaS · marketing planner · multi-tenant galleries · IG analytics · physical merch unless ready · living album on `music.html` · full DSP/Cloudflare-in-Studio (after P16–P19).
+**Deferred past press / R12:** Tier 3+ SaaS · in-studio YouTube OAuth · marketing planner · multi-tenant galleries · IG analytics · physical merch unless ready · living album on `music.html` · full DSP ingest into Studio (site P16–P19 already covers day-0 measurement).
 
 **Key URLs:** album hub · `music.html` · `press.html` · `5.17.26.html` · `shop.html` · home.
 
@@ -148,7 +202,9 @@ DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block P16–P1
 
 ## 1. North star (Studio / platform)
 
-**Burnfolder Studio** is a **multi-tenant artist OS** — a private control plane where artists run their entire practice on the go, then choose what goes public. For the next six months, §0 is how that OS proves itself on burnfolder.com.
+**Near-term north star = §0 red button.** Burnfolder Studio’s longer arc is a **multi-tenant artist OS**, but for PHOTONEGATIVE the only job is: arm → load → press → ride freshness. Architecture below is context for after **R12**, not a reason to delay P7–P11.
+
+**Burnfolder Studio** is a **multi-tenant artist OS** — a private control plane where artists run their entire practice on the go, then choose what goes public. §0 is how that OS proves itself on burnfolder.com *by shipping one real release under algorithmic pressure*.
 
 | Layer | Role |
 |-------|------|
@@ -551,6 +607,8 @@ Metrics exist to change **what you release, pitch, post, and double down on** �
 
 **Dashboard** (`/studio/dashboard.html`) is the only analytics surface — not a separate tab.
 
+**Marketing consultant plan (ongoing):** `DASHBOARD-MARKETING-PLAN.md` — pulse · work · look closer; ship contract; site data → site architecture; sticky bets + scoreback. Copilot: *"implement dashboard marketing plan Phase A/B/C …"*.
+
 | Section | Role |
 |---------|------|
 | **Streaming** | Site plays/linger, share links, DSP, YouTube/IG — per-track / per-release |
@@ -618,16 +676,15 @@ Prefer **free first-party dashboards + Studio** over paid A&R suites until playl
 
 #### Build order
 
-**Near-term (PHOTONEGATIVE Platform — ahead of masters):**
+**Near-term (PHOTONEGATIVE — arm the button ahead of masters):**
 
-1. **P16** — First-party public play events (Mux start/progress/end → song, page, seconds, completion; privacy-light)
-2. **P17** — `#dashboardAnalyticsFeed`: per-song plays + linger + share-link counts
-3. **P18** — UTM/referrer on land; outbound Spotify/Apple click events
-4. **P19** — Shop PWYW + tip totals beside listen metrics
+1. **P7–P8** — Song page shells + hub links (still open — blocks armed)
+2. **P9 / P11** — Drop-in slots + durable press asset paths
+3. ~~**P16–P19**~~ — Done; use during Ride, do not rebuild
 
-**After DSP live:** claim Spotify for Artists + Apple Music for Artists; use free dashboards in tandem with site feed.
+**Press day / freshness:** site drop-in + YT fragments + claim Spotify/Apple for Artists (manual dashboards). No Studio OAuth required.
 
-**Tier 3:** LabelGrid `getAnalytics` + share aggregates + site play aggregates → `dspMetrics`; optional Cloudflare GraphQL into Studio; YouTube OAuth; AI `metricsSnapshot`.
+**After R12:** LabelGrid `getAnalytics` + share aggregates + site play aggregates → `dspMetrics`; optional Cloudflare GraphQL into Studio; YouTube OAuth; AI `metricsSnapshot`.
 
 ```
 sync-analytics.js → dspMetrics + share-link aggregates + site play aggregates

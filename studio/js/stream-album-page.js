@@ -132,18 +132,6 @@
       });
       if (byId >= 0) idx = byId;
     }
-    const active = player.getActiveSong();
-    const onAlbum =
-      active &&
-      tracks.some(function (item) {
-        return item.playbackId === active.playbackId;
-      });
-    if (onAlbum && tracks[idx] && active.playbackId === tracks[idx].playbackId) {
-      player.togglePause();
-      syncTracklistPlayback();
-      syncAlbumPlayButton();
-      return;
-    }
     const meta = shared.loadStackMeta(group.id);
     const target = tracks[idx] || tracks[0];
     player.playQueue(tracks, idx, {

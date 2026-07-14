@@ -9,6 +9,11 @@ const {
   PERIODS
 } = require('./lib/site-analytics-store');
 const { shareStore, listShares } = require('./lib/share-links-store');
+const {
+  newsletterStore,
+  readBlasts,
+  summarizeEmail
+} = require('./lib/newsletter-stats-store');
 
 function corsHeaders() {
   return studioCorsHeaders('GET, OPTIONS');
@@ -32,6 +37,31 @@ async function newsletterCount(event) {
     return Array.isArray(list) ? list.length : 0;
   } catch {
     return null;
+  }
+}
+
+async function newsletterEmailSummary(event, window, utmRows, subscribers) {
+  try {
+    const store = newsletterStore(event);
+    const blasts = await readBlasts(store);
+    return summarizeEmail({
+      blasts: blasts,
+      utm: utmRows || [],
+      subscribers: subscribers,
+      sinceIso: window && window.since,
+      untilIso: window && window.until
+    });
+  } catch (error) {
+    return {
+      subscribers: subscribers,
+      sent: 0,
+      failed: 0,
+      lands: 0,
+      clickRate: null,
+      blasts: [],
+      campaigns: [],
+      error: error.message || 'email stats unavailable'
+    };
   }
 }
 
@@ -266,7 +296,8 @@ function buildSnapshot(parts) {
       recent: parts.commerceRecent || [],
       updatedAt: null
     },
-    newsletter: { subscribers: parts.newsletterCount },
+    newsletter: parts.email || { subscribers: parts.newsletterCount },
+    email: parts.email || { subscribers: parts.newsletterCount },
     cloudflare: parts.cloudflare || { configured: false },
     dsp: {
       status: 'pending',
@@ -304,6 +335,17 @@ exports.handler = async function (event) {
       cloudflareSummary(period)
     ]);
 
+    const utmPreview = Object.keys((periodData.bucket && periodData.bucket.utm) || {})
+      .map(function (k) {
+        return periodData.bucket.utm[k];
+      });
+    const email = await newsletterEmailSummary(
+      event,
+      periodData.window,
+      utmPreview,
+      newsletterCountValue
+    );
+
     const snapshot = buildSnapshot({
       window: periodData.window,
       bucket: periodData.bucket,
@@ -311,6 +353,7 @@ exports.handler = async function (event) {
       commerceRecent: periodData.commerceRecent,
       shares: shares,
       newsletterCount: newsletterCountValue,
+      email: email,
       cloudflare: cloudflare
     });
 

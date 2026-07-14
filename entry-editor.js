@@ -1334,25 +1334,6 @@ ${tracks.join(',\n')}
               song: song,
               displayTitle: displayTitle,
               onPlay: function () {
-                const player = document.getElementById('activeMuxPlayer');
-                const activeSong =
-                  typeof getActiveSong === 'function' ? getActiveSong() : null;
-                const inSameQueue =
-                  activeSong &&
-                  queueSongs.some(function (s) {
-                    return s.playbackId === activeSong.playbackId;
-                  });
-
-                if (
-                  inSameQueue &&
-                  typeof togglePlayPause === 'function' &&
-                  player &&
-                  !player.paused
-                ) {
-                  togglePlayPause();
-                  return;
-                }
-
                 if (inPlaylist && typeof window.playTrackQueue === 'function') {
                   window.playTrackQueue(queueSongs, pairIndex);
                   return;
