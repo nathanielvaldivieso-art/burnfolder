@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://stream.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css?v=20260710l">
-  <link rel="stylesheet" href="css/studio.css?v=20260713q">
+  <link rel="stylesheet" href="css/studio.css?v=20260714b">
 </head>
 <body class="studio-page studio-dashboard-page">
   <header class="site-header studio-header">
@@ -64,10 +64,73 @@
     </section>
   </main>
 
-  <script src="js/studio-auth.js?v=20260713h"></script>
+  <script src="../shared/site-version.js?v=20260714b"></script>
+  <script src="js/studio-version.js?v=20260714b"></script>
+  <script src="js/studio-auth.js?v=20260714b"></script>
   <script src="../shared/studio-playback-stack.js?v=20260710l"></script>
-  <script src="js/studio-spa-router.js?v=20260710l"></script>
-  <script src="js/dashboard-page.js?v=20260713q"></script>
-  <script src="js/studio-ai-panel.js?v=20260713s"></script>
+  <script src="js/studio-spa-router.js?v=20260714b"></script>
+  <script src="js/dashboard-page.js?v=20260714b"></script>
+  <script src="js/studio-ai-panel.js?v=20260714b"></script>
+  <script src="../shared/register-sw.js"></script>
+  <script>
+    /* Network-first HTML watchdog: if remodeled dash stays on loading…,
+       clear PWA caches once and hard-reload so stale dashboard JS cannot stick. */
+    (function () {
+      var KEY = 'bf-dash-cache-bust';
+      function stuck() {
+        var empty = document.getElementById('dashboardAnalyticsEmpty');
+        var pulse = document.getElementById('dashboardPulseSection');
+        if (!empty || !pulse) return false;
+        if (empty.hidden) return false;
+        var text = String(empty.textContent || '').replace(/\s+/g, ' ').trim();
+        return text.indexOf('loading') === 0 && pulse.hidden;
+      }
+      function bust() {
+        try {
+          if (sessionStorage.getItem(KEY) === '1') return;
+          sessionStorage.setItem(KEY, '1');
+        } catch (e) {}
+        var finish = function () {
+          location.replace(location.pathname + '?_bust=' + Date.now());
+        };
+        var tasks = [];
+        if (window.caches && caches.keys) {
+          tasks.push(
+            caches.keys().then(function (keys) {
+              return Promise.all(
+                keys
+                  .filter(function (k) {
+                    return /burnfolder/i.test(k);
+                  })
+                  .map(function (k) {
+                    return caches.delete(k);
+                  })
+              );
+            })
+          );
+        }
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          tasks.push(
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(
+                regs.map(function (r) {
+                  return r.unregister();
+                })
+              );
+            })
+          );
+        }
+        Promise.all(tasks).then(finish, finish);
+      }
+      setTimeout(function () {
+        if (stuck()) bust();
+        else {
+          try {
+            sessionStorage.removeItem(KEY);
+          } catch (e) {}
+        }
+      }, 8000);
+    })();
+  </script>
 </body>
 </html>

@@ -76,13 +76,28 @@
   let loading = false;
   let pendingNavigation = null;
   const loadedScripts = new Set();
+  const loadedScriptSrc = new Map();
   const htmlCache = new Map();
+  let htmlCacheVersion = '';
 
   function cacheHtmlKey(fetchPath) {
     return fetchPath;
   }
 
+  function currentStudioVersion() {
+    return window.BurnfolderStudioVersion || '20260626d';
+  }
+
+  function invalidateHtmlCacheIfStale() {
+    const version = currentStudioVersion();
+    if (htmlCacheVersion && htmlCacheVersion !== version) {
+      htmlCache.clear();
+    }
+    htmlCacheVersion = version;
+  }
+
   function fetchPageHtml(fetchPath) {
+    invalidateHtmlCacheIfStale();
     const key = cacheHtmlKey(fetchPath);
     const cached = htmlCache.get(key);
     if (cached) return Promise.resolve(cached);
@@ -97,6 +112,7 @@
   }
 
   function prefetchSpaPages() {
+    invalidateHtmlCacheIfStale();
     Object.keys(SPA_PAGES).forEach(function (file) {
       const path = studioPagePath(file);
       if (htmlCache.has(cacheHtmlKey(path))) return;
@@ -154,8 +170,18 @@
   }
 
   function versionQuery() {
-    const v = window.BurnfolderStudioVersion || '20260626d';
-    return '?v=' + v;
+    return '?v=' + currentStudioVersion();
+  }
+
+  function ensureStudioStylesheet() {
+    const nextQuery = versionQuery();
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(function (link) {
+      const href = link.getAttribute('href') || '';
+      if (href.indexOf('studio.css') === -1) return;
+      const base = href.split('?')[0];
+      const next = base + nextQuery;
+      if (href !== next) link.setAttribute('href', next);
+    });
   }
 
   function markNav(pageKey) {
@@ -258,19 +284,26 @@
     return contentRoot;
   }
 
+  function resolvedScriptSrc(src) {
+    return src.indexOf('?') > -1 ? src : src + versionQuery();
+  }
+
   function scriptSrcNeedsLoad(src) {
     const clean = src.split('?')[0];
-    return !loadedScripts.has(clean);
+    const full = resolvedScriptSrc(src);
+    return loadedScriptSrc.get(clean) !== full;
   }
 
   function loadScript(src) {
     const clean = src.split('?')[0];
-    if (loadedScripts.has(clean)) return Promise.resolve();
+    const full = resolvedScriptSrc(src);
+    if (loadedScriptSrc.get(clean) === full) return Promise.resolve();
     return new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = src.indexOf('?') > -1 ? src : src + versionQuery();
+      script.src = full;
       script.onload = function () {
         loadedScripts.add(clean);
+        loadedScriptSrc.set(clean, full);
         resolve();
       };
       script.onerror = reject;
@@ -279,6 +312,7 @@
   }
 
   function loadPageScripts(pageKey) {
+    ensureStudioStylesheet();
     const list = PAGE_SCRIPTS[pageKey] || [];
     let chain = Promise.resolve();
     list.forEach(function (src) {
