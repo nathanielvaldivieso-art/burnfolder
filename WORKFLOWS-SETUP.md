@@ -30,11 +30,15 @@ Since your GitHub token doesn't have `workflow` scope, you need to add the workf
 4. Copy content from `.github/workflows/welcome-email.yml` (see below)
 5. Commit directly to main
 6. Repeat for `notify-new-entry.yml`
+7. Repeat for `welcome-sms.yml` (text chain)
 
 ---
 
 ## The workflow files are in your local repo at:
 - `.github/workflows/welcome-email.yml`
+- `.github/workflows/welcome-sms.yml`
 - `.github/workflows/notify-new-entry.yml`
 
 You can view them and copy/paste into GitHub's web editor.
+
+SMS secrets and Twilio webhook steps: `SMS-SETUP.md`.
