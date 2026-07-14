@@ -1,4 +1,5 @@
 const { connectLambda, getStore } = require('@netlify/blobs');
+const { PHONES_KEY } = require('./lib/sms-subscribers');
 
 const STORE_NAME = 'burnfolder-newsletter';
 const LIST_KEY = 'subscriber-emails';
@@ -23,11 +24,13 @@ exports.handler = async (event) => {
     connectLambda(event);
     const store = getStore(STORE_NAME);
     const list = await store.get(LIST_KEY, { type: 'json' });
+    const phonesList = await store.get(PHONES_KEY, { type: 'json' });
     const subscribers = Array.isArray(list) ? list : [];
+    const phones = Array.isArray(phonesList) ? phonesList : [];
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ subscribers }),
+      body: JSON.stringify({ subscribers, phones }),
     };
   } catch (error) {
     console.error('export-subscribers:', error);

@@ -926,7 +926,8 @@ body.index-home .newsletter-popup form {
   margin: 0 auto;
 }
 
-body.index-home .newsletter-popup input[type="email"] {
+body.index-home .newsletter-popup input[type="email"],
+body.index-home .newsletter-popup input[type="tel"] {
   border-bottom-width: 1px;
 }
 
@@ -952,7 +953,8 @@ body.index-home .newsletter-popup #statusMessage {
   gap: 0;
 }
 
-.newsletter-signup input[type="email"] {
+.newsletter-signup input[type="email"],
+.newsletter-signup input[type="tel"] {
   flex: 1;
   padding: 8px 10px;
   border: none;

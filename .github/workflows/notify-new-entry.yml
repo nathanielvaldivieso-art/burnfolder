@@ -111,11 +111,14 @@ jobs:
             "https://burnfolder.com/.netlify/functions/export-subscribers" \
             -o subscribers-export.json
           EMAILS=$(jq -r '.subscribers[]?' subscribers-export.json 2>/dev/null | tr '\n' ',' | sed 's/,$//' || true)
+          PHONES=$(jq -r '.phones[]?' subscribers-export.json 2>/dev/null | tr '\n' ',' | sed 's/,$//' || true)
           echo "emails=$EMAILS" >> "$GITHUB_OUTPUT"
-          echo "Subscribers fetched for notify job."
+          echo "phones=$PHONES" >> "$GITHUB_OUTPUT"
+          echo "Subscribers fetched for notify job (email + sms)."
 
       - name: Send notification emails
         if: steps.check.outputs.has_new == 'true' && steps.subscribers.outputs.emails != ''
+        continue-on-error: true
         run: |
           set -euo pipefail
           SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}"
@@ -123,8 +126,8 @@ jobs:
           ENTRIES_CSV="${{ steps.check.outputs.new_entries }}"
 
           if [ -z "$SENDGRID_API_KEY" ] && [ -z "$RESEND_API_KEY" ]; then
-            echo "Missing email provider key. Add RESEND_API_KEY or SENDGRID_API_KEY."
-            exit 1
+            echo "Missing email provider key. Add RESEND_API_KEY or SENDGRID_API_KEY. Skipping email blast."
+            exit 0
           fi
 
           IFS=',' read -ra EMAIL_ARRAY <<< "${{ steps.subscribers.outputs.emails }}"
@@ -193,5 +196,53 @@ jobs:
 
           if [ "$FAILED_SENDS" -gt 0 ]; then
             echo "$FAILED_SENDS notification send(s) failed."
+            exit 1
+          fi
+
+      - name: Send notification texts
+        if: steps.check.outputs.has_new == 'true' && steps.subscribers.outputs.phones != ''
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+        run: |
+          set -euo pipefail
+          ENTRIES_CSV="${{ steps.check.outputs.new_entries }}"
+
+          if [ -z "${TWILIO_ACCOUNT_SID:-}" ] || [ -z "${TWILIO_AUTH_TOKEN:-}" ] || [ -z "${TWILIO_FROM_NUMBER:-}" ]; then
+            echo "Missing Twilio secrets. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER."
+            exit 1
+          fi
+
+          IFS=',' read -ra PHONE_ARRAY <<< "${{ steps.subscribers.outputs.phones }}"
+          IFS=',' read -ra ENTRY_ARRAY <<< "$ENTRIES_CSV"
+          FAILED_SENDS=0
+
+          for entry in "${ENTRY_ARRAY[@]}"; do
+            ENTRY_DATE="$entry"
+            ENTRY_URL="https://burnfolder.com/${ENTRY_DATE}.html"
+            SMS_BODY="new burnfolder entry: ${ENTRY_DATE}"$'\n'"${ENTRY_URL}"
+
+            for phone in "${PHONE_ARRAY[@]}"; do
+              [ -z "$phone" ] && continue
+              RESPONSE_BODY=$(mktemp)
+              HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST \
+                "https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json" \
+                -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}" \
+                --data-urlencode "To=${phone}" \
+                --data-urlencode "From=${TWILIO_FROM_NUMBER}" \
+                --data-urlencode "Body=${SMS_BODY}")
+
+              echo "Twilio status for ${phone} (${ENTRY_DATE}): ${HTTP_CODE}"
+              if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+                echo "Twilio error for ${phone}:"
+                cat "$RESPONSE_BODY"
+                FAILED_SENDS=$((FAILED_SENDS + 1))
+              fi
+            done
+          done
+
+          if [ "$FAILED_SENDS" -gt 0 ]; then
+            echo "$FAILED_SENDS SMS send(s) failed."
             exit 1
           fi

@@ -409,18 +409,18 @@
 
   // Single delegated handler — survives SPA swaps without duplicate listeners
   document.addEventListener('submit', async function onBurnfolderSubscribe(e) {
-    const form = e.target.closest('#subscribeForm');
-    if (!form) return;
+    const smsForm = e.target.closest('#subscribeSmsForm');
+    const emailForm = e.target.closest('#subscribeForm');
+    if (!smsForm && !emailForm) return;
     e.preventDefault();
-    const emailInput = document.getElementById('emailInput');
-    const statusMsg = document.getElementById('statusMessage');
-    if (!emailInput || !statusMsg) return;
 
-    const email = emailInput.value;
+    const statusMsg = document.getElementById('statusMessage');
+    if (!statusMsg) return;
+
     const host = typeof location !== 'undefined' ? location.hostname : '';
     const isLocal = host === 'localhost' || host === '127.0.0.1';
 
-    statusMsg.textContent = 'subscribing...';
+    statusMsg.textContent = 'joining...';
     statusMsg.style.color = '#666';
 
     if (isLocal) {
@@ -431,14 +431,39 @@
     }
 
     try {
+      if (smsForm) {
+        const phoneInput = document.getElementById('phoneInput');
+        if (!phoneInput) return;
+        const phone = phoneInput.value;
+        const response = await fetch('/.netlify/functions/subscribe-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          statusMsg.textContent = data.message || 'joined';
+          statusMsg.style.color = '#000';
+          phoneInput.value = '';
+        } else {
+          statusMsg.textContent = data.message || 'error — try again';
+          statusMsg.style.color = '#000';
+        }
+        return;
+      }
+
+      const emailInput = document.getElementById('emailInput');
+      if (!emailInput) return;
+      statusMsg.textContent = 'subscribing...';
+      const email = emailInput.value;
       const response = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email }),
       });
       const data = await response.json();
       if (response.ok) {
-        statusMsg.textContent = data.message || '✓ subscribed';
+        statusMsg.textContent = data.message || 'subscribed';
         statusMsg.style.color = '#000';
         emailInput.value = '';
       } else {

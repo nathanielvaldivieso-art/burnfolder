@@ -1,0 +1,47 @@
+name: Send Welcome SMS
+
+on:
+  repository_dispatch:
+    types: [send_welcome_sms]
+
+jobs:
+  send-welcome-sms:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send welcome text via Twilio
+        env:
+          PHONE: ${{ github.event.client_payload.phone }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PHONE:-}" ]; then
+            echo "Missing phone in repository_dispatch payload"
+            exit 1
+          fi
+
+          if [ -z "${TWILIO_ACCOUNT_SID:-}" ] || [ -z "${TWILIO_AUTH_TOKEN:-}" ] || [ -z "${TWILIO_FROM_NUMBER:-}" ]; then
+            echo "Missing Twilio secrets. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER."
+            exit 1
+          fi
+
+          BODY='burnfolder — you are on the text list. new entries land here. reply STOP to leave. burnfolder.com'
+
+          RESPONSE_BODY=$(mktemp)
+          HTTP_CODE=$(curl -sS -o "$RESPONSE_BODY" -w "%{http_code}" -X POST \
+            "https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json" \
+            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}" \
+            --data-urlencode "To=${PHONE}" \
+            --data-urlencode "From=${TWILIO_FROM_NUMBER}" \
+            --data-urlencode "Body=${BODY}")
+
+          echo "Twilio HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Twilio error response:"
+            cat "$RESPONSE_BODY"
+            exit 1
+          fi
+
+          echo "Welcome SMS sent successfully"

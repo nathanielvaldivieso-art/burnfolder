@@ -94,9 +94,11 @@ window.journalEntries = ["M.DD.YY", "4.30.26", "2.25.26", ...];
 ```
 Newest first. This is the single source of truth — index.html and spa-router.js both read from it.
 
-### 5. Newsletter email automation (required)
-- Every new journal entry must trigger an email notification to all subscribers.
-- Notification email must include a direct link to the new entry page:
+### 5. Newsletter / text notifications (required)
+- Every new journal entry must notify subscribers.
+- **Primary channel:** SMS text list (Twilio) — see `SMS-SETUP.md`.
+- **Fallback channel:** email (Resend / SendGrid) when that provider is healthy.
+- Notification must include a direct link to the new entry page:
   `https://burnfolder.com/M.DD.YY.html`
 - Keep entry filenames in dated format (`M.DD.YY.html`) so workflow detection works.
 - Do not bypass this workflow when publishing new entries.
@@ -183,10 +185,13 @@ Three colors only for video player and progress UI. Do not introduce blue.
   copies identical.
 
 Automation references:
-- Subscriber signup endpoint: `/.netlify/functions/subscribe` (writes Netlify Blobs)
-- Subscriber export (CI only): `/.netlify/functions/export-subscribers` + bearer `SUBSCRIBERS_EXPORT_SECRET`
+- SMS signup endpoint: `/.netlify/functions/subscribe-sms` (writes Netlify Blobs `subscriber-phones`)
+- SMS inbound (JOIN/STOP): `/.netlify/functions/sms-inbound` (Twilio webhook)
+- Email signup endpoint: `/.netlify/functions/subscribe` (writes Netlify Blobs `subscriber-emails`)
+- Subscriber export (CI only): `/.netlify/functions/export-subscribers` + bearer `SUBSCRIBERS_EXPORT_SECRET` (emails + phones)
+- Welcome SMS trigger: `.github/workflows/welcome-sms.yml`
 - Welcome email trigger: `.github/workflows/welcome-email.yml`
-- New entry notification trigger: `.github/workflows/notify-new-entry.yml`
+- New entry notification trigger: `.github/workflows/notify-new-entry.yml` (email + SMS)
 
 ## Shared build framework (single sources of truth)
 
@@ -404,15 +409,16 @@ Each track on the music page no longer shows the entry date inline; use the **no
 
 - **Production host:** `burnfolder.com` → Netlify (`burnfolder.netlify.app`). **Not** GitHub Pages. The repo’s Pages workflow (`pages-build-deployment`) can succeed while production stays stale if Netlify autodeploy is disconnected.
 - **Backup deploy:** `.github/workflows/netlify-deploy.yml` POSTs a Netlify Build Hook on every `main` push. One-time: Netlify → Build hooks → add hook for `main` → copy URL → GitHub secret `NETLIFY_BUILD_HOOK`. Also reconnect the Netlify site to this GitHub repo so git pushes trigger builds without the hook.
-- **Canonical list:** `/.netlify/functions/subscribe` stores emails in **Netlify Blobs** (store name `burnfolder-newsletter`, key `subscriber-emails`). They are **not** committed to git.
-- **`subscribers.json` in the repo** is an empty placeholder only (`{"subscribers":[]}`). Do not put real addresses there.
-- **One-time seed (optional):** set Netlify env `SUBSCRIBER_SEED_EMAILS` to a comma-separated list; on first subscribe after deploy, the function seeds the blob if it was empty, then you can remove the env var.
-- **New-entry emails (GitHub Actions):** add repository secret `SUBSCRIBERS_EXPORT_SECRET` with the same value as Netlify env `SUBSCRIBERS_EXPORT_SECRET`. The workflow `notify-new-entry.yml` calls `GET https://burnfolder.com/.netlify/functions/export-subscribers` with `Authorization: Bearer <secret>` to read the list.
-- **Welcome emails:** unchanged — still triggered by `repository_dispatch` from subscribe; no subscriber list file on disk required.
+- **Text list (primary):** `/.netlify/functions/subscribe-sms` stores phones in **Netlify Blobs** (same store `burnfolder-newsletter`, key `subscriber-phones`). Keyword opt-in/out via `/.netlify/functions/sms-inbound` (Twilio webhook). Full setup: `SMS-SETUP.md`.
+- **Email list:** `/.netlify/functions/subscribe` stores emails (key `subscriber-emails`). They are **not** committed to git.
+- **`subscribers.json` in the repo** is an empty placeholder only (`{"subscribers":[]}`). Do not put real addresses or phones there.
+- **One-time seed (optional):** `SUBSCRIBER_SEED_EMAILS` / `SUBSCRIBER_SEED_PHONES` (comma-separated) on Netlify; seed runs on first subscribe if that blob is empty, then remove the env var.
+- **New-entry blasts (GitHub Actions):** secret `SUBSCRIBERS_EXPORT_SECRET` must match Netlify. `notify-new-entry.yml` exports both lists, emails when Resend/SendGrid works, texts via Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`).
+- **Welcome SMS / email:** `repository_dispatch` from `subscribe-sms` / `subscribe` → `welcome-sms.yml` / `welcome-email.yml`.
 
 ## Local preview
 
-- Newsletter subscribe shows a short message on `localhost` / `127.0.0.1` instead of calling Netlify. Use `netlify dev` to test the function locally.
+- Newsletter / text subscribe shows a short message on `localhost` / `127.0.0.1` instead of calling Netlify. Use `netlify dev` to test the functions locally.
 
 ## Admin / add-song
 
