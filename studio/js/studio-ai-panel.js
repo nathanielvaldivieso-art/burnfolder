@@ -420,7 +420,15 @@
       refresh.dataset.bound = '1';
       refresh.addEventListener('click', function () {
         autoAsked = true;
-        askDigest(true);
+        const reload =
+          typeof window.studioReloadAnalytics === 'function'
+            ? window.studioReloadAnalytics()
+            : Promise.resolve();
+        Promise.resolve(reload)
+          .catch(function () {})
+          .then(function () {
+            return askDigest(true);
+          });
       });
     }
 

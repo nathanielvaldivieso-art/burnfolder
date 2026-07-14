@@ -825,7 +825,20 @@
     }
 
     const url = apiBase() + '/studio-analytics?period=' + encodeURIComponent(currentPeriod);
-    return fetch(url, { headers: auth.getAuthHeaders() })
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeoutMs = 15000;
+    const timer = controller
+      ? setTimeout(function () {
+          try {
+            controller.abort();
+          } catch (e) {}
+        }, timeoutMs)
+      : null;
+
+    return fetch(url, {
+      headers: auth.getAuthHeaders(),
+      signal: controller ? controller.signal : undefined
+    })
       .then(function (res) {
         return res.json().then(function (data) {
           return { ok: res.ok, data: data };
@@ -848,11 +861,17 @@
           }
         }
       })
-      .catch(function () {
+      .catch(function (err) {
         if (empty) {
           empty.hidden = false;
-          empty.textContent = 'could not reach analytics.';
+          empty.textContent =
+            err && err.name === 'AbortError'
+              ? 'analytics timed out.'
+              : 'could not reach analytics.';
         }
+      })
+      .then(function () {
+        if (timer) clearTimeout(timer);
       });
   }
 
@@ -873,6 +892,10 @@
 
   window.studioGetAnalyticsSnapshot = function () {
     return lastSnapshot || window.__burnfolderAnalyticsSnapshot || null;
+  };
+
+  window.studioReloadAnalytics = function (period) {
+    return loadAnalytics(period || currentPeriod);
   };
 
   window.studioInitDashboardPage = function () {
