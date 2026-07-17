@@ -6643,6 +6643,20 @@ a.icon-btn {
   align-items: stretch;
 }
 
+.studio-word-pull-workspace--public {
+  align-items: center;
+  justify-content: center;
+}
+
+body.wordpull-public .studio-word-pull-stage {
+  width: min(92vw, 640px);
+  margin: 0 auto;
+}
+
+body.wordpull-public .page-wrap {
+  max-width: none;
+}
+
 .studio-word-pull-stage {
   width: min(92vw, 560px);
   margin: 0 auto;
@@ -6877,13 +6891,13 @@ body.studio-word-pull-page .page-wrap {
 }
 
 @media (min-width: 901px) {
-  .studio-word-pull-workspace {
+  .studio-word-pull-workspace:not(.studio-word-pull-workspace--public) {
     flex-direction: row;
     align-items: stretch;
     gap: 36px;
   }
 
-  .studio-word-pull-stage {
+  .studio-word-pull-workspace:not(.studio-word-pull-workspace--public) .studio-word-pull-stage {
     width: min(52vw, 560px);
     margin: 0;
   }
@@ -6897,6 +6911,10 @@ body.studio-word-pull-page .page-wrap {
 
   .studio-word-pull-days {
     max-height: min(70vh, 560px);
+  }
+
+  body.wordpull-public .studio-word-pull-stage {
+    width: min(78vw, 640px);
   }
 }
 

@@ -349,11 +349,12 @@
 
   function boot() {
     markNav();
-    logBound = false;
     if (inputEl) delete inputEl.dataset.wordPullBound;
     bindLog();
     startConveyors();
-    whenReady().then(loadLog);
+    if (document.getElementById('wordPullDays') || document.getElementById('wordPullInput')) {
+      whenReady().then(loadLog);
+    }
   }
 
   window.studioInitWordPullPage = function () {
