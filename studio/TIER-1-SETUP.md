@@ -70,3 +70,5 @@ If API keys were pasted in chat or screenshots, rotate in Supabase and Anthropic
 **In:** Supabase login, owner workspace, per-project music invites, workspace-scoped blobs/Mux, on-demand AI, JSON export, owner-only publish live.
 
 **Out (Tier 2+):** Whole-workspace collaborators, LabelGrid, R2 vault, social posting, analytics dashboard, subdomains, proactive AI.
+
+When Tier 1 verify is done, continue with `studio/TIER-2-SETUP.md` (R2 + LabelGrid).

@@ -150,6 +150,26 @@ exports.handler = async function (event) {
           };
         }
       }
+      if (logicalKey === 'trackRegistry') {
+        const existing = await readRecord(store, storageKey);
+        const prevTracks =
+          existing && existing.value && Array.isArray(existing.value.tracks)
+            ? existing.value.tracks
+            : [];
+        const locked = {};
+        prevTracks.forEach(function (row) {
+          if (row && row.id && row.isrc && row.isrcLocked) locked[row.id] = row.isrc;
+        });
+        if (value && Array.isArray(value.tracks)) {
+          value = {
+            tracks: value.tracks.map(function (row) {
+              if (!row || !row.id) return row;
+              if (!locked[row.id]) return row;
+              return Object.assign({}, row, { isrc: locked[row.id], isrcLocked: true });
+            })
+          };
+        }
+      }
       await store.setJSON(storageKey, { value: value, updatedAt: updatedAt });
       return {
         statusCode: 200,

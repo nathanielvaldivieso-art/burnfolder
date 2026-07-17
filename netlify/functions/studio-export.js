@@ -16,7 +16,11 @@ const EXPORT_KEYS = [
   'songPages',
   'albumPages',
   'releaseDates',
-  'trackPipeline'
+  'trackPipeline',
+  'trackRegistry',
+  'releaseCatalog',
+  'distroPreferences',
+  'projectFiles'
 ];
 
 function corsHeaders() {

@@ -11,6 +11,8 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@aws-sdk/client-s3@^3.1087.0",
+        "npm:@aws-sdk/s3-request-presigner@^3.1087.0",
         "npm:@netlify/blobs@^8.2.0",
         "npm:@octokit/rest@^20.0.2",
         "npm:shippo@^2.18.0",

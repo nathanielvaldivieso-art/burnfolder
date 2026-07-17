@@ -5,7 +5,8 @@ const { supabaseConfigured, verifyUserJwt, restGet, restPost } = require('./supa
 
 const LOGICAL_KEY_PATTERN = /^[a-z][a-zA-Z0-9_-]{0,48}$/;
 const PROJECT_ID_PATTERN = /^g_[a-z0-9_]+$/i;
-const MUSIC_PROJECT_KEYS = ['groups'];
+/** Collaborators may read/write these while preparing a release (submit stays owner-only). */
+const MUSIC_PROJECT_KEYS = ['groups', 'trackRegistry', 'releaseCatalog', 'projectFiles'];
 const OWNER_ONLY_KEYS = [
   'drafts',
   'stack',
@@ -15,7 +16,8 @@ const OWNER_ONLY_KEYS = [
   'albumPages',
   'releaseDates',
   'trackPipeline',
-  'pendingStack'
+  'pendingStack',
+  'distroPreferences'
 ];
 
 function scopedBlobKey(workspaceId, logicalKey) {

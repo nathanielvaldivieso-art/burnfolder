@@ -34,7 +34,9 @@
       u.indexOf('/studio-ai') > -1 ||
       u.indexOf('/studio-export') > -1 ||
       u.indexOf('/studio-analytics') > -1 ||
-      u.indexOf('/studio-market-desk') > -1
+      u.indexOf('/studio-market-desk') > -1 ||
+      u.indexOf('/studio-vault') > -1 ||
+      u.indexOf('/studio-distro') > -1
     );
   }
 
@@ -176,7 +178,8 @@
     if (!session || session.accessMode !== 'music-project') return;
     document.body.classList.add('studio-music-only');
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-      if (link.dataset.nav !== 'stream') link.hidden = true;
+      const nav = link.dataset.nav;
+      if (nav !== 'stream' && nav !== 'releases') link.hidden = true;
     });
     const path = location.pathname || '';
     if (
@@ -184,6 +187,7 @@
       path.indexOf('stream.html') < 0 &&
       path.indexOf('stream-album') < 0 &&
       path.indexOf('stream-song') < 0 &&
+      path.indexOf('releases.html') < 0 &&
       path.indexOf('invite.html') < 0
     ) {
       window.location.replace('/studio/stream.html');

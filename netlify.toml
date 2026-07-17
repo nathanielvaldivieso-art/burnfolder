@@ -9,6 +9,16 @@
   status = 301
 
 [[redirects]]
+  from = "/studio/ideas"
+  to = "/studio/ideas.html"
+  status = 200
+
+[[redirects]]
+  from = "/studio/word-pull"
+  to = "/studio/word-pull.html"
+  status = 200
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200

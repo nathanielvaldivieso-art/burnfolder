@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="../shared/studio-pwa-viewport.js?v=20260709l"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="theme-color" content="#000000">
+  <title>releases — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css?v=20260710l">
+  <link rel="stylesheet" href="css/studio.css?v=20260714b">
+</head>
+<body class="studio-page studio-releases-page">
+  <header class="site-header studio-header">
+    <a href="/studio/dashboard.html" class="site-brand">burnfolder studio</a>
+    <nav class="site-nav studio-header-nav studio-main-nav" aria-label="Studio">
+      <a href="/studio/dashboard.html" class="studio-main-nav-link" data-nav="dashboard">dashboard</a>
+      <a href="/studio/index.html" class="studio-main-nav-link" data-nav="entry">entry</a>
+      <a href="/studio/stream.html" class="studio-main-nav-link" data-nav="stream">music</a>
+      <a href="/studio/video.html" class="studio-main-nav-link" data-nav="video">video</a>
+      <a href="/studio/journal.html" class="studio-main-nav-link" data-nav="journal">journal</a>
+      <a href="/studio/ideas.html" class="studio-main-nav-link" data-nav="ideas">ideas</a>
+      <a href="/studio/releases.html" class="studio-main-nav-link page-nav" data-nav="releases">releases</a>
+    </nav>
+  </header>
+
+  <main class="page-wrap studio-releases-layout">
+    <p class="page-id">releases</p>
+    <p class="studio-lede" id="releasesLede">Prepare masters + checklist here, then submit in LabelGrid (Solo / dashboard).</p>
+
+    <section class="studio-releases-section" aria-labelledby="distroPrefsTitle">
+      <h2 class="studio-releases-section-title" id="distroPrefsTitle">LabelGrid connection</h2>
+      <p class="studio-releases-hint" id="distroStatus">checking…</p>
+
+      <div class="studio-releases-manual" id="distroManualPanel" hidden>
+        <p class="studio-releases-manual-lead">
+          Solo plan has no API — studio holds the vault + checklist; DSP submit happens in LabelGrid.
+        </p>
+        <ol class="studio-releases-manual-steps">
+          <li>Upload masters + 3000×3000 cover below until checklist is green</li>
+          <li>Mark ready (saves this draft to your catalog)</li>
+          <li>Open LabelGrid → create release → upload the same files → distribute</li>
+          <li>Come back and mark submitted when LabelGrid accepts it</li>
+        </ol>
+        <div class="studio-releases-actions">
+          <a class="icon-btn" id="distroOpenDashboard" href="https://app.labelgrid.com/" target="_blank" rel="noopener">open LabelGrid</a>
+        </div>
+      </div>
+
+      <div class="studio-releases-prefs" id="distroPrefsForm" hidden>
+        <label class="studio-releases-field">
+          <span>label id</span>
+          <input type="number" id="prefLabelId" inputmode="numeric" autocomplete="off">
+        </label>
+        <label class="studio-releases-field">
+          <span>artist id</span>
+          <input type="number" id="prefArtistId" inputmode="numeric" autocomplete="off">
+        </label>
+        <label class="studio-releases-field">
+          <span>writer id</span>
+          <input type="number" id="prefWriterId" inputmode="numeric" autocomplete="off">
+        </label>
+        <label class="studio-releases-field">
+          <span>primary genre id</span>
+          <input type="number" id="prefGenreId" inputmode="numeric" autocomplete="off">
+        </label>
+        <label class="studio-releases-field studio-releases-field-wide">
+          <span>© / ℗ name</span>
+          <input type="text" id="prefRightsName" autocomplete="organization" placeholder="Burnfolder">
+        </label>
+        <div class="studio-releases-actions">
+          <button type="button" class="icon-btn" id="distroSavePrefs">save prefs</button>
+          <button type="button" class="icon-btn" id="distroLoadRefs">load labels / artists / genres</button>
+          <button type="button" class="icon-btn" id="distroPing">ping API</button>
+        </div>
+        <pre class="studio-releases-refs" id="distroRefs" hidden></pre>
+      </div>
+    </section>
+
+    <section class="studio-releases-section" aria-labelledby="buildReleaseTitle">
+      <h2 class="studio-releases-section-title" id="buildReleaseTitle">build release</h2>
+      <label class="studio-releases-field studio-releases-field-wide">
+        <span>from music project</span>
+        <select id="releaseGroupSelect"></select>
+      </label>
+      <label class="studio-releases-field studio-releases-field-wide">
+        <span>title</span>
+        <input type="text" id="releaseTitle" autocomplete="off">
+      </label>
+      <label class="studio-releases-field">
+        <span>type</span>
+        <select id="releaseContentType">
+          <option value="">auto</option>
+          <option value="Single">Single</option>
+          <option value="EP">EP</option>
+          <option value="Album">Album</option>
+        </select>
+      </label>
+      <label class="studio-releases-field">
+        <span>release date</span>
+        <input type="date" id="releaseDate">
+      </label>
+      <label class="studio-releases-field">
+        <span>explicit</span>
+        <select id="releaseExplicit">
+          <option value="off">off</option>
+          <option value="on">on</option>
+          <option value="edited">edited</option>
+        </select>
+      </label>
+      <label class="studio-releases-field studio-releases-field-wide">
+        <span>© / ℗ name (this release)</span>
+        <input type="text" id="releaseRightsName" autocomplete="organization">
+      </label>
+
+      <div class="studio-releases-tracks" id="releaseTracks"></div>
+
+      <label class="studio-releases-field studio-releases-field-wide">
+        <span>cover art (3000×3000)</span>
+        <input type="file" id="releaseArtworkFile" accept="image/jpeg,image/png">
+      </label>
+      <label class="studio-releases-checkrow">
+        <input type="checkbox" id="releaseArtworkSizeOk">
+        <span>I confirm cover is exactly 3000×3000</span>
+      </label>
+      <p class="studio-releases-hint" id="artworkHint"></p>
+    </section>
+
+    <section class="studio-releases-section" aria-labelledby="checklistTitle">
+      <h2 class="studio-releases-section-title" id="checklistTitle">checklist</h2>
+      <div id="releaseChecklist"></div>
+      <div class="studio-releases-actions" id="releaseApiActions" hidden>
+        <button type="button" class="icon-btn" id="releaseCreateBtn">create on LabelGrid</button>
+        <button type="button" class="icon-btn" id="releaseSubmitBtn" disabled>submit to DSPs</button>
+      </div>
+      <div class="studio-releases-actions" id="releaseManualActions">
+        <button type="button" class="icon-btn" id="releaseMarkReadyBtn">mark ready for LabelGrid</button>
+        <a class="icon-btn" href="https://app.labelgrid.com/" target="_blank" rel="noopener">open LabelGrid</a>
+      </div>
+      <p class="studio-releases-hint" id="releaseOwnerHint">Owner marks ready / submitted; collaborators can prepare vault + checklist.</p>
+    </section>
+
+    <section class="studio-releases-section" aria-labelledby="catalogTitle">
+      <h2 class="studio-releases-section-title" id="catalogTitle">catalog</h2>
+      <ul id="releaseCatalogList" class="studio-releases-catalog"></ul>
+    </section>
+
+    <p class="studio-status" id="releasesStatus" aria-live="polite"></p>
+  </main>
+
+  <script src="js/studio-version.js?v=20260714b"></script>
+  <script src="js/studio-auth.js?v=20260714b"></script>
+  <script src="js/cloud-state.js?v=20260710l"></script>
+  <script src="js/stream-shared.js?v=20260710l"></script>
+  <script src="js/vault-upload.js?v=20260714b"></script>
+  <script src="js/release-checklist.js?v=20260714b"></script>
+  <script src="js/releases-page.js?v=20260714b"></script>
+</body>
+</html>

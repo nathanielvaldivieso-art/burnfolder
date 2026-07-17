@@ -8,7 +8,10 @@
     'dashboard.html': 'dashboard',
     'stream.html': 'stream',
     'video.html': 'video',
-    'journal.html': 'journal'
+    'journal.html': 'journal',
+    'ideas.html': 'ideas',
+    'word-pull.html': 'word-pull',
+    'releases.html': 'releases'
   };
 
   const PLAYBACK_CORE = [
@@ -69,7 +72,23 @@
       'js/studio-bridge.js',
       'js/studio-editor-loader.js',
       'js/editor-gate.js'
-    ])
+    ]),
+    releases: [
+      'js/cloud-state.js',
+      'js/stream-shared.js',
+      'js/vault-upload.js',
+      'js/release-checklist.js',
+      'js/releases-page.js'
+    ],
+    ideas: [
+      'js/ideas-page.js'
+    ],
+    'word-pull': [
+      'js/studio-dates.js',
+      'js/cloud-state.js',
+      'js/word-pull-bank.js',
+      'js/word-pull-page.js'
+    ]
   };
 
   let contentRoot = null;
@@ -295,6 +314,10 @@
       window.studioInitStreamPage();
     } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
       window.studioInitJournalPage();
+    } else if (pageKey === 'ideas' && typeof window.studioInitIdeasPage === 'function') {
+      window.studioInitIdeasPage();
+    } else if (pageKey === 'word-pull' && typeof window.studioInitWordPullPage === 'function') {
+      window.studioInitWordPullPage();
     } else if (pageKey === 'dashboard' && typeof window.studioInitDashboardPage === 'function') {
       window.studioInitDashboardPage();
     } else if (pageKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
@@ -375,6 +398,12 @@
 
       if (typeof window.studioFlushJournalSave === 'function') {
         await window.studioFlushJournalSave();
+      }
+      if (typeof window.studioFlushIdeasSave === 'function') {
+        await window.studioFlushIdeasSave();
+      }
+      if (typeof window.studioFlushWordPullLog === 'function') {
+        await window.studioFlushWordPullLog();
       }
 
       const root = ensureContentRoot();

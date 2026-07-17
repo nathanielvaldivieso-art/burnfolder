@@ -58,6 +58,12 @@ Image blocks and `IMAGES/` cover art are rejected until Phase B.
 
 Publishing an existing date is blocked (409). Republish support can be added later.
 
+## Releases (Tier 2 — LabelGrid)
+
+**releases** (`releases.html`) builds a LabelGrid draft from a music project, uploads
+masters/artwork to the R2 vault, runs the pre-release checklist, and submits
+(owner only). Setup: [TIER-2-SETUP.md](./TIER-2-SETUP.md).
+
 ## Legacy URL
 
 `studio/editor.html` redirects to `index.html` (same `?id=` draft links still work).

@@ -1,7 +1,7 @@
 # Burnfolder Studio — Dashboard Marketing Plan
 
 **Status:** Living product plan (started July 13, 2026)  
-**North star:** Turn Studio dashboard into a **state-of-the-art marketing consultant** for a solo artist / indie brand — data in, one digestible action out, ship into owned tools, measure whether it worked.  
+**North star:** Turn Studio dashboard into a **state-of-the-art marketing consultant** for a solo artist / indie brand — data in, strategy out based on goal, ship into owned tools, measure whether it worked.  
 **Relates to:** `STUDIO-MASTER-PLAN.md` §9.5 (listening / growth data), PHOTONEGATIVE day-0 analytics (P16–P19)  
 **Owner surface:** `/studio/dashboard.html`
 
@@ -9,12 +9,12 @@
 
 ## 0. Thesis
 
-Most “artist dashboards” are vanity scoreboards. Burnfolder’s desk should behave like a **boutique marketing firm on retainer**:
+Burnfolder’s desk should behave like a **boutique marketing firm on retainer**:
 
 1. **Read** the board (pulse)  
 2. **Diagnose** the funnel / site under load  
 3. **Bet** on one move  
-4. **Ship** into a real Studio tool (not a sticky note)  
+4. **Ship** into a real world or studio tool
 5. **Score** the bet next period  
 
 AI never replaces taste. It never pens fan-facing copy. It translates numbers into **where to go and what to change**.
@@ -46,9 +46,7 @@ pathways + pulse prove it worked (or didn’t)
 | 3 | **Silence > filler** | Empty or “not enough signal” beats fake ambition |
 | 4 | **Anti-generation** | Artist pens every outbound word; AI only briefs |
 | 5 | **Ship or it isn’t a move** | Every action names a Studio surface + done condition |
-| 6 | **Thank rarely** | Selective relationship, never auto-thank every tipper |
 | 7 | **Architecture over reach** | Prefer feature / path / spotlight / offer / fix over “post more” |
-| 8 | **Owned surface first** | Optimize burnfolder.com before rented DSP/social mythology |
 | 9 | **Close the loop** | Sticky bets + scoreback; advice that evaporates is worthless |
 | 10 | **No cards / no dashboard chrome clutter** | Keep Burnfolder spareness; power in hierarchy, not widgets |
 
