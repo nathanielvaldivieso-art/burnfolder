@@ -13,12 +13,25 @@
     if (!contentContainer) {
       contentContainer = document.createElement('div');
       contentContainer.id = 'spa-content';
-      // Move all body content except bottom bar into container
+      // Move all body content except bottom bar + persistent chrome into container
       const bottomBar = document.getElementById('bottomBar');
+      const preserved = [];
       while (document.body.firstChild && document.body.firstChild !== bottomBar) {
-        contentContainer.appendChild(document.body.firstChild);
+        const child = document.body.firstChild;
+        if (
+          child.id === 'bfSkinToggle' ||
+          (child.getAttribute && child.getAttribute('data-bf-skin-chrome') === '1')
+        ) {
+          preserved.push(child);
+          document.body.removeChild(child);
+          continue;
+        }
+        contentContainer.appendChild(child);
       }
       document.body.insertBefore(contentContainer, bottomBar);
+      preserved.forEach(function (node) {
+        document.body.appendChild(node);
+      });
     }
 
     // Intercept all internal link clicks
@@ -102,8 +115,10 @@
   }
 
   function handleLinkClick(e) {
+    if (e.defaultPrevented) return;
     const link = e.target.closest('a');
     if (!link) return;
+    if (link.getAttribute('data-skin-set')) return;
 
     const href = link.getAttribute('href');
     if (!href) return;
