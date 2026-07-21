@@ -255,7 +255,18 @@
       },
       onPlayVersion: function (song) {
         const e = getEngine();
-        if (e && song) e.playTrackQueue([song], 0, { immediatePlay: true });
+        if (!e || !song) return;
+        // Keep the current queue/next-track context when swapping versions
+        // instead of collapsing it to a single-track queue.
+        const queue = e.getActiveQueue();
+        const idx = e.getActiveQueueIdx();
+        if (queue.length && idx >= 0 && idx < queue.length) {
+          const nextQueue = queue.slice();
+          nextQueue[idx] = song;
+          e.playTrackQueue(nextQueue, idx, { immediatePlay: true });
+          return;
+        }
+        e.playTrackQueue([song], 0, { immediatePlay: true });
       }
     });
 

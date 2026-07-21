@@ -120,6 +120,16 @@
     }
   }
 
+  function clearMetadata() {
+    if (!supported()) return;
+    try {
+      root.navigator.mediaSession.metadata = null;
+      root.navigator.mediaSession.playbackState = 'none';
+    } catch (e) {
+      /* noop */
+    }
+  }
+
   function setPositionState(player) {
     if (!supported() || !player) return;
     if (typeof root.navigator.mediaSession.setPositionState !== 'function') return;
@@ -168,6 +178,7 @@
     supported: supported,
     setMetadata: setMetadata,
     setPlaybackState: setPlaybackState,
+    clearMetadata: clearMetadata,
     setPositionState: setPositionState,
     bindActions: bindActions,
     defaultArtworkForPlaybackId: defaultArtworkForPlaybackId,

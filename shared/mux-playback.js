@@ -241,6 +241,9 @@
             : Math.max(0, target);
           notify();
           mediaSessionApi.setPositionState(player);
+        },
+        stop: function () {
+          stop();
         }
       });
     }
@@ -687,6 +690,7 @@
         player.removeAttribute('playback-id');
       }
       if (recallApi && opts.recall !== false) recallApi.clear();
+      if (mediaSessionApi && mediaSessionApi.clearMetadata) mediaSessionApi.clearMetadata();
       notify();
       return true;
     }

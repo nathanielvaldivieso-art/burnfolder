@@ -222,17 +222,36 @@
       }
     }
 
-    function endDrag() {
-      if (!isDragging) return;
-      isDragging = false;
-      if (progressBarArea) progressBarArea.classList.remove('dragging');
-      hideHoverTime();
-      cachedRect = null;
-      lastSeekAt = 0;
+    function commitPendingSeek() {
+      // The dragged-to ratio is already reflected in the fill width (set
+      // synchronously in updateFromEvent); the actual seek can still be
+      // sitting in a throttled rAF frame. Apply it directly so lifting a
+      // finger mid-throttle-window can't leave playback behind the visual
+      // scrubber position.
       if (pendingFrame) {
         cancelAnimationFrame(pendingFrame);
         pendingFrame = null;
       }
+      if (!canSeek() || !progressFill) return;
+      const player = resolveMuxPlayer();
+      if (!player) return;
+      const pct = parseFloat(progressFill.style.width);
+      if (!Number.isFinite(pct)) return;
+      try {
+        player.currentTime = (Math.max(0, Math.min(100, pct)) / 100) * player.duration;
+      } catch (err) {
+        /* ignore errors while committing the final seek */
+      }
+    }
+
+    function endDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+      commitPendingSeek();
+      if (progressBarArea) progressBarArea.classList.remove('dragging');
+      hideHoverTime();
+      cachedRect = null;
+      lastSeekAt = 0;
     }
 
     function titleForSong(song) {
@@ -300,10 +319,16 @@
     }
 
     if (closeBtn) {
-      closeBtn.addEventListener('click', function () {
+      const closeHandler = function () {
         if (typeof opts.onClose === 'function') opts.onClose();
         else update({ song: null, playing: false });
-      });
+      };
+      const closeTap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
+      if (closeTap && closeTap.bind) {
+        closeTap.bind(closeBtn, closeHandler);
+      } else {
+        closeBtn.addEventListener('click', closeHandler);
+      }
     }
 
     if (progressBarArea) {
