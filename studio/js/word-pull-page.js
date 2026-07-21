@@ -30,7 +30,7 @@
 
   function markNav() {
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-      const active = link.getAttribute('data-nav') === 'ideas';
+      const active = link.getAttribute('data-nav') === 'word-pull';
       link.classList.toggle('is-active', active);
       link.classList.toggle('page-nav', active);
     });
