@@ -4,6 +4,31 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "7.21.26": {
+    "date": "7.21.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "bass boosted.",
+        "textSize": "md"
+      },
+      {
+        "type": "audio",
+        "title": "FIRE ESCAPE 7.21.26",
+        "playbackId": "FrR100puQSU01EAUJuJIk1rz78H01KRAtY3rDD02m7UGKdM"
+      },
+      {
+        "type": "text",
+        "text": "had to pull this one back a little",
+        "textSize": "md"
+      },
+      {
+        "type": "audio",
+        "title": "SOMETIMES 7.20.26",
+        "playbackId": "ZYxHkuw1ZboyCh7XVFBFwZe6qJKzPGY00YaSPGbZQmvw"
+      }
+    ]
+  },
   "7.15.26": {
     "date": "7.15.26",
     "blocks": [
@@ -204,7 +229,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
