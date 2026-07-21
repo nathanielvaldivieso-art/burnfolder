@@ -1,0 +1,31 @@
+---
+description: Photonegative image-map buttons — pixel hit masks, traces, and assignable links.
+globs: skins/**/*,IMAGES/skins/**/*,index.html
+alwaysApply: false
+---
+
+# Photonegative skin buttons
+
+## Simple logic (do not approximate)
+
+1. **`{n} hit box.jpg`** → white paint pixels = **hit mask** (`photonegative-hit-{n}.png`)
+2. **`{n}.jpg`** → white pen pixels **inside that hit** = **trace** (`photonegative-trace-{n}.png`)
+   - Sketch files are cumulative; always clip pen to the hit region.
+3. **Hover / click** = sample hit-mask **alpha under the pointer** (canvas). Opaque → that button is hot and its full trace shows. No SVG polygons.
+4. **Alignment** = photo + hit + trace are stacked `<img>` layers with the **same** `object-fit` / `object-position` (cover desktop, fill ≤600px).
+5. **Links** = edit `href` / `label` in `skins/hotspots.js` only.
+
+## Files
+
+| Role | Path |
+|------|------|
+| Master photo | `IMAGES/TORNADO.jpeg` |
+| Source sketches | `IMAGES/_source/{n}.jpg` + `IMAGES/_source/{n} hit box.jpg` (gitignored; not deployed) |
+| Extracted | `IMAGES/skins/photonegative-trace-*.png`, `photonegative-hit-*.png` |
+| Config | `skins/hotspots.js` |
+| Runtime | `skins/skins.js` (canvas hit-test) |
+| Styles | `skins/photonegative.css` |
+
+## Debug
+
+`?skin=photonegative&hitboxes=1` tints hit masks.

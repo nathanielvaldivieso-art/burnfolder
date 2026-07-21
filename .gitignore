@@ -22,3 +22,6 @@ node_modules/
 # IDE files
 .vscode/
 .idea/
+
+# Photonegative source sketches (runtime uses IMAGES/skins/*.png only)
+IMAGES/_source/

@@ -17,6 +17,8 @@
   var MAX_PATH_STEPS = 8;
   var SEEK_BACK_SEC = 1.5;
   var MAX_HEAT_SECONDS = 20 * 60;
+  // Stop retrying forever when ingest is down (keeps Safari / browser MCP "busy").
+  var MAX_FLUSH_FAILURES = 2;
 
   var queue = [];
   var heatBuffer = {}; // groupKey -> { meta, duration, counts: {sec: n}, listenSeconds }
@@ -26,24 +28,35 @@
   var started = false;
   var lastTrackedPage = '';
   var flushInFlight = false;
+  var flushFailStreak = 0;
+  var ingestDisabled = false;
+
+  function isLocalHost(host) {
+    return host === 'localhost' || host === '127.0.0.1';
+  }
+
+  // python `npm run dev` (:8765) has no Netlify functions. Pointing at :8888 while
+  // nothing listens there leaves pending beacons/fetches that never settle.
+  function isStaticLocalServer() {
+    var host = (root.location && root.location.hostname) || '';
+    if (!isLocalHost(host)) return false;
+    var port = (root.location && root.location.port) || '';
+    return !!port && port !== '8888';
+  }
 
   function apiBase() {
-    var host = root.location && root.location.hostname;
-    var isLocalDevServer =
-      (host === 'localhost' || host === '127.0.0.1') &&
-      root.location.port &&
-      root.location.port !== '8888';
-    if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
     return '/.netlify/functions';
   }
 
   function shouldTrack() {
     var host = (root.location && root.location.hostname) || '';
     var path = (root.location && root.location.pathname) || '';
-    if (!/(^|\.)burnfolder\.com$/i.test(host) && host !== 'localhost' && host !== '127.0.0.1') {
+    if (!/(^|\.)burnfolder\.com$/i.test(host) && !isLocalHost(host)) {
       return false;
     }
+    if (isStaticLocalServer()) return false;
     if (path.indexOf('/studio/') === 0) return false;
+    if (ingestDisabled) return false;
     return true;
   }
 
@@ -87,10 +100,11 @@
     if (file === 'song.html') {
       return params.get('song') ? 'song:' + params.get('song') : 'song';
     }
+    if (file === 'audio.html') return 'audio';
     if (file === 'music.html') return 'music';
     if (file === 'shop.html') return 'shop';
     if (file === 'press.html') return 'press';
-    if (file === 'content.html') return 'video';
+    if (file === 'content.html') return 'visual';
     if (file === 'cart.html') return 'cart';
     if (file === 'checkout.html') return 'checkout';
     if (file === 'success.html') return 'success';
@@ -283,13 +297,23 @@
   }
 
   function scheduleFlush() {
-    if (flushTimer) return;
+    if (flushTimer || ingestDisabled || !shouldTrack()) return;
     flushTimer = root.setTimeout(flush, FLUSH_MS);
+  }
+
+  function disableIngest() {
+    ingestDisabled = true;
+    if (flushTimer) {
+      root.clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    queue = [];
+    heatBuffer = {};
   }
 
   function flush() {
     flushTimer = null;
-    if (flushInFlight || !shouldTrack()) return;
+    if (flushInFlight || ingestDisabled || !shouldTrack()) return;
     var heatEvents = heatEventsFromBuffer();
     var batch = heatEvents.concat(queue);
     if (!batch.length) return;
@@ -319,6 +343,7 @@
 
     function fail() {
       flushInFlight = false;
+      flushFailStreak += 1;
       mergeShippedBack();
       queue = batch
         .filter(function (ev) {
@@ -326,24 +351,20 @@
         })
         .concat(queue)
         .slice(0, MAX_QUEUE);
+      if (flushFailStreak >= MAX_FLUSH_FAILURES) {
+        disableIngest();
+        return;
+      }
       scheduleFlush();
     }
 
     function ok() {
       flushInFlight = false;
+      flushFailStreak = 0;
     }
 
-    try {
-      if (root.navigator && typeof root.navigator.sendBeacon === 'function') {
-        var blob = new Blob([body], { type: 'application/json' });
-        if (root.navigator.sendBeacon(url, blob)) {
-          ok();
-          return;
-        }
-      }
-    } catch (e) {
-      /* fall through */
-    }
+    // Prefer fetch so dead ingest can trip the circuit breaker. sendBeacon often
+    // returns true after only queueing, which masked :8888 connection failures.
     fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

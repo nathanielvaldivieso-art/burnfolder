@@ -1,27 +1,310 @@
 /* ══════════════════════════════════════════════════════
-   Skin: photonegative — the photo is the interface
-   Active only when: html[data-skin="photonegative"] + body.index-home
-   Default list layout is unchanged when data-skin is absent/default.
+   Skin: photonegative — scroll-down home gate
+   On index: full-viewport photo lands first; scroll down
+   reveals the music constellation below it.
+
+   Layer stack (all share object-fit / object-position):
+     1. photo
+     2. per-button hit masks (invisible; sampled via canvas)
+     3. per-button traces (shown when that button is hot)
    ══════════════════════════════════════════════════════ */
+
+/* ── Music constellation (below gate) ── */
+.home-music {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100svh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  overflow: hidden;
+  --home-music-ink: rgba(0, 0, 0, 0.9);
+  --home-music-ink-muted: rgba(0, 0, 0, 0.4);
+  --home-music-bottom-gutter: 48px;
+  --home-music-bottom-safe: calc(var(--home-music-bottom-gutter) + env(safe-area-inset-bottom, 0px));
+  --home-music-font-size: 1em;
+  --home-music-letter-spacing: 0.08em;
+  --home-music-font-weight: 400;
+  --home-music-line-height: 1.2;
+  -webkit-font-smoothing: antialiased;
+}
+
+.home-music__song,
+.home-music__links-toggle,
+.home-music__links-item {
+  font: inherit;
+  text-transform: lowercase;
+}
+
+body.index-home.playback-active .home-music,
+body.page-audio.playback-active .home-music {
+  --home-music-bottom-safe: calc(
+    var(--now-playing-bar-height) + var(--home-music-bottom-gutter) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+.home-music__constellation {
+  position: absolute;
+  inset: 0 0 var(--home-music-bottom-safe) 0;
+  pointer-events: none;
+  transition: inset 0.22s ease;
+}
+
+.home-music__song {
+  position: absolute;
+  pointer-events: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--home-music-ink);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.home-music__song:hover,
+.home-music__song:focus-visible {
+  opacity: 0.5;
+  outline: none;
+}
+
+.home-music__song.is-active {
+  opacity: 0.65;
+}
+
+.home-music__song.is-playing {
+  opacity: 0.45;
+}
+
+/* Track order: sometimes → fire escape → photonegative → it doesnt matter
+   Cascade top → bottom, alternating left / right — hugging a centered blob */
+.home-music__song--sometimes {
+  top: 20%;
+  left: 37%;
+  right: auto;
+  transform: none;
+}
+
+.home-music__song--fire-escape {
+  top: 33%;
+  left: 59%;
+  right: auto;
+  transform: none;
+}
+
+.home-music__song--photonegative {
+  top: 49%;
+  left: 33%;
+  right: auto;
+  transform: none;
+}
+
+.home-music__song--it-doesnt-matter {
+  top: 65%;
+  left: 57%;
+  right: auto;
+  transform: none;
+}
+
+.home-music__links {
+  position: absolute;
+  right: calc(60px + env(safe-area-inset-right, 0px));
+  left: auto;
+  bottom: var(--home-music-bottom-safe);
+  transform: none;
+  z-index: 6;
+  font-family: var(--font-site);
+  transition: bottom 0.22s ease;
+}
+
+.home-music__links-toggle {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--home-music-ink);
+  cursor: pointer;
+}
+
+.home-music__links-toggle:hover,
+.home-music__links-toggle:focus-visible {
+  opacity: 0.5;
+  outline: none;
+}
+
+.home-music__links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.home-music__links-list[hidden] {
+  display: none !important;
+}
+
+.home-music__links-item {
+  color: var(--home-music-ink-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-music__links-item:hover,
+.home-music__links-item:focus-visible {
+  color: var(--home-music-ink);
+  outline: none;
+}
+
+.home-music__links-item.is-pending {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: default;
+}
+
+body.page-audio {
+  overscroll-behavior-y: none;
+}
+
+body.index-home #cartFloat,
+body.page-audio #cartFloat {
+  position: fixed;
+  top: calc(28px + env(safe-area-inset-top, 0px));
+  right: calc(60px + env(safe-area-inset-right, 0px));
+  z-index: 110;
+}
+
+@media (max-width: 600px) {
+  .home-music {
+    --home-music-bottom-gutter: 24px;
+  }
+
+  .home-music__song--sometimes {
+    top: 20%;
+    left: 35%;
+    right: auto;
+    transform: none;
+  }
+
+  .home-music__song--fire-escape {
+    top: 33%;
+    left: 61%;
+    right: auto;
+    transform: none;
+  }
+
+  .home-music__song--photonegative {
+    top: 49%;
+    left: 31%;
+    right: auto;
+    transform: none;
+  }
+
+  .home-music__song--it-doesnt-matter {
+    top: 65%;
+    left: 55%;
+    right: auto;
+    transform: none;
+  }
+
+  .home-music__links {
+    right: var(--page-gutter-mobile, 20px);
+    left: auto;
+  }
+
+  body.index-home #cartFloat,
+  body.page-audio #cartFloat {
+    right: var(--page-gutter-mobile, 20px);
+    top: calc(18px + env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-music__song,
+  .home-music__constellation,
+  .home-music__links {
+    transition: none;
+  }
+}
 
 .skin-map--photonegative {
   display: none;
 }
 
-html[data-skin="photonegative"] body.index-home .skin-map--photonegative {
+/* Landing gate: fixed full-viewport cover — never an in-flow scroller */
+body.index-home .skin-map--photonegative {
   display: block;
   position: fixed;
   inset: 0;
-  z-index: 80;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   background: #05060a;
   overflow: hidden;
+  z-index: 2;
+  transform: none;
 }
 
-html[data-skin="photonegative"] body.index-home .site-header,
-html[data-skin="photonegative"] body.index-home .page-wrap,
-html[data-skin="photonegative"] body.index-home .page-watermark,
-html[data-skin="photonegative"] body.index-home .newsletter-popup {
-  display: none !important;
+html.bf-gate-boot,
+body.index-home.is-home-gate {
+  background: #05060a !important;
+}
+
+body.index-home.is-home-gate {
+  /* Safari does not emit reliable wheel events when overflow is hidden.
+     Keep a short scroll room below the fixed gate and navigate on scroll. */
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+  height: 100%;
+  min-height: 100%;
+}
+
+body.index-home.is-home-gate .skin-map__hint {
+  opacity: 0.45;
+  z-index: 5;
+  pointer-events: auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+body.index-home.is-home-gate .skin-map__scroll-room {
+  display: block;
+  height: 140vh;
+  width: 100%;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.skin-map__scroll-room {
+  display: none;
+}
+
+/* Boot: hide chrome below the gate until JS pins scroll to the image */
+html.bf-gate-boot body.index-home .home-music,
+html.bf-gate-boot body.index-home .page-watermark,
+html.bf-gate-boot body.index-home #cartFloat {
+  visibility: hidden;
+}
+
+/* While the gate fills the viewport, tuck site chrome so the photo is alone */
+body.index-home.is-home-gate .page-watermark,
+body.index-home.is-home-gate #cartFloat,
+body.index-home.is-home-gate #spa-content .page-watermark {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .skin-map__stage {
@@ -33,9 +316,16 @@ html[data-skin="photonegative"] body.index-home .newsletter-popup {
   position: relative;
   width: 100%;
   height: 100%;
+  cursor: default;
 }
 
-.skin-map__img {
+.skin-map__frame.is-over-hit {
+  cursor: pointer;
+}
+
+.skin-map__img,
+.skin-map__hit-img,
+.skin-map__trace {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -43,56 +333,100 @@ html[data-skin="photonegative"] body.index-home .newsletter-popup {
   object-fit: cover;
   object-position: center;
   user-select: none;
-  pointer-events: none;
   -webkit-user-drag: none;
+  pointer-events: none;
 }
 
 /* Mobile: stretch edge-to-edge — never crop the frame */
 @media (max-width: 600px) {
-  .skin-map__img {
+  .skin-map__img,
+  .skin-map__hit-img,
+  .skin-map__trace {
     object-fit: fill;
     object-position: center;
   }
 }
 
-.skin-map__svg {
+.skin-map__hotspots {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
   z-index: 2;
 }
 
-.skin-map__hit {
-  /* SVG ignores pointer events on fill:transparent / fill:none in several browsers */
-  fill: #fff;
-  fill-opacity: 0.01;
-  stroke: none;
-  cursor: pointer;
-  outline: none;
-  pointer-events: fill;
+.skin-map__spot {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+/* Hit masks are invisible — pointer sampling is done in JS against canvas pixels */
+.skin-map__hit-img {
+  opacity: 0;
 }
 
 /* Hand-traced white outline — instant, no fade */
 .skin-map__trace {
   opacity: 0;
-  pointer-events: none;
 }
 
-.skin-map__spot--music:hover .skin-map__trace,
-.skin-map__spot--music:focus-visible .skin-map__trace,
-.skin-map__spot--music.is-hot .skin-map__trace {
+.skin-map__spot.is-hot .skin-map__trace,
+.skin-map__spot:focus-visible .skin-map__trace {
   opacity: 1;
 }
 
-html[data-hitboxes="1"] .skin-map__hit {
-  fill: #ff4632;
-  fill-opacity: 0.16;
-  stroke: rgba(255, 110, 80, 0.85);
-  stroke-width: 1.25;
-  stroke-dasharray: 4 3;
-  vector-effect: non-scaling-stroke;
+.skin-map__spot.is-unassigned {
+  cursor: default;
+}
+
+.skin-map__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-site);
+  font-size: 0.68em;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: auto;
+  user-select: none;
+  cursor: pointer;
+  animation: skin-map-hint-pulse 2.4s ease-in-out infinite;
+}
+
+body.index-home:not(.is-home-gate) .skin-map__hint {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes skin-map-hint-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.75;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skin-map__hint {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+/* Debug: show hit paints */
+html[data-hitboxes="1"] .skin-map__hit-img {
+  opacity: 0.35;
+  mix-blend-mode: screen;
+  filter: brightness(0) saturate(100%) invert(27%) sepia(98%) saturate(2476%) hue-rotate(346deg) brightness(1.05);
 }
 
 /* Persistent chrome — lives outside spa-content */
@@ -101,7 +435,7 @@ html[data-hitboxes="1"] .skin-map__hit {
   top: calc(16px + env(safe-area-inset-top, 0px));
   right: calc(16px + env(safe-area-inset-right, 0px));
   z-index: 120;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.68em;
   letter-spacing: 0.1em;
   text-transform: lowercase;
@@ -122,20 +456,21 @@ html[data-hitboxes="1"] .skin-map__hit {
   outline: none;
 }
 
-html[data-skin="photonegative"] body.index-home #bfSkinToggle {
+body.index-home.is-home-gate #bfSkinToggle {
   color: rgba(255, 255, 255, 0.55);
   background: transparent;
   border-color: rgba(255, 255, 255, 0.25);
   box-shadow: none;
 }
 
-html[data-skin="photonegative"] body.index-home #bfSkinToggle:hover,
-html[data-skin="photonegative"] body.index-home #bfSkinToggle:focus-visible {
+body.index-home.is-home-gate #bfSkinToggle:hover,
+body.index-home.is-home-gate #bfSkinToggle:focus-visible {
   background: rgba(255, 255, 255, 0.92);
   color: #000;
   border-color: #000;
 }
 
-body:not(.index-home) #bfSkinToggle {
+body:not(.index-home) #bfSkinToggle,
+body.index-home #bfSkinToggle {
   display: none;
 }

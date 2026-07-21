@@ -1,3 +1,13 @@
+/* Hibur Mono — @font-face (not @import) so CSS parse + document load
+   are not blocked waiting on fonts.googleapis.com. */
+@font-face {
+  font-family: "Hibur Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/hiburmono/v1/R70fjyoFkv6fKPKNWxXXuCo.ttf") format("truetype");
+}
+
 /* ══════════════════════════════════════════════════════
    SITE DESIGN TOKENS — single source of truth for player UI
    Black  : #000
@@ -8,6 +18,12 @@
   --c-black: #000;
   --c-white: #fff;
   --c-gray:  #c8c8c8;
+  --font-site: "Hibur Mono", ui-monospace, monospace;
+  /* Sitewide type — matches the constellation menu */
+  --type-size: 0.95em;
+  --type-weight: 400;
+  --type-tracking: 0.08em;
+  --type-leading: 1.2;
   /* Page gutter — single source of truth for horizontal framing (mobile + desktop) */
   --page-gutter: 60px;
   --page-gutter-mobile: 24px;
@@ -40,6 +56,31 @@ body {
   overflow-x: clip;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  text-transform: lowercase;
+  font-family: var(--font-site);
+  font-weight: var(--type-weight);
+  letter-spacing: var(--type-tracking);
+  line-height: var(--type-leading);
+}
+
+/* Apply type scale once on html so body (and em children) inherit without compounding */
+html {
+  font-size: var(--type-size);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.page-wrap :where(p, h1, h2, h3, h4, h5, h6, a, li, span, label, button, input, textarea, select, .page-id, .page-annotation) {
+  font-family: var(--font-site);
+  font-weight: var(--type-weight);
+  letter-spacing: var(--type-tracking);
+  line-height: var(--type-leading);
 }
 
 /* ── minimal checkout redesign ── */
@@ -50,7 +91,7 @@ body {
   opacity: 1;
 }
 .minimal-checkout .checkout-btn {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 1em;
   background: #fff;
   color: #000;
@@ -61,7 +102,7 @@ body {
   cursor: pointer;
   opacity: 0.7;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   transition: opacity 0.2s, background 0.2s, color 0.2s;
 }
 .minimal-checkout .checkout-btn:hover {
@@ -75,7 +116,11 @@ body {
   border-radius: 0;
   margin-bottom: 8px;
 }
-/* ── shared site header ── */
+/* ── shared site header (legacy — hidden; replaced by #siteMenu) ── */
+header.site-header:not(.studio-header) {
+  display: none !important;
+}
+
 .site-header {
   position: relative;
   width: 100%;
@@ -93,11 +138,11 @@ body {
 .site-cart-btn {
   color: #000;
   text-decoration: none;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 1em;
   font-weight: 600;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   transition: color 0.2s;
 }
 
@@ -153,6 +198,234 @@ body {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* ── site constellation menu (shared nav) ── */
+
+.site-menu {
+  position: fixed;
+  top: calc(28px + env(safe-area-inset-top, 0px));
+  left: 60px;
+  z-index: 110;
+  font: inherit;
+  text-transform: lowercase;
+  --site-menu-ink: rgba(0, 0, 0, 0.9);
+  --site-menu-ink-muted: rgba(0, 0, 0, 0.4);
+  --site-menu-bottom-safe: calc(48px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Section name lives in the menu toggle — hide redundant page-id labels */
+body:has(.site-menu__current) .page-wrap > .page-id:first-child {
+  display: none;
+}
+
+.site-menu.is-open {
+  inset: 0;
+  top: 0;
+  left: 0;
+  z-index: 120;
+  background: #fff;
+  padding-top: calc(28px + env(safe-area-inset-top, 0px));
+  padding-left: 60px;
+  padding-right: calc(60px + env(safe-area-inset-right, 0px));
+  padding-bottom: var(--site-menu-bottom-safe);
+  box-sizing: border-box;
+}
+
+.site-menu__toggle {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--site-menu-ink);
+  cursor: pointer;
+}
+
+.site-menu__brand {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-menu__brand:hover,
+.site-menu__brand:focus-visible {
+  opacity: 0.5;
+  outline: none;
+}
+
+.site-menu__toggle:hover,
+.site-menu__toggle:focus-visible {
+  opacity: 0.5;
+  outline: none;
+}
+
+.site-menu__sep,
+.site-menu__current {
+  transition: opacity 0.15s ease;
+}
+
+.site-menu.is-open .site-menu__sep,
+.site-menu.is-open .site-menu__current {
+  opacity: 0;
+  visibility: hidden;
+  width: 0;
+  overflow: hidden;
+}
+
+.site-menu__sep {
+  opacity: 0.4;
+  font-weight: 400;
+}
+
+.site-menu__current {
+  border-bottom: 1px solid var(--site-menu-ink);
+}
+
+.site-menu__panel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.site-menu__panel[hidden] {
+  display: none !important;
+}
+
+.site-menu__item {
+  position: absolute;
+  pointer-events: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--site-menu-ink-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.site-menu__item:hover,
+.site-menu__item:focus-visible {
+  color: var(--site-menu-ink);
+  opacity: 0.5;
+  outline: none;
+}
+
+.site-menu__item.is-current {
+  color: var(--site-menu-ink);
+  border-bottom: 1px solid var(--site-menu-ink);
+}
+
+.site-menu__item.is-unassigned {
+  color: var(--site-menu-ink-muted);
+  cursor: default;
+  pointer-events: auto;
+}
+
+.site-menu__item.is-unassigned:hover,
+.site-menu__item.is-unassigned:focus-visible {
+  color: var(--site-menu-ink-muted);
+  opacity: 1;
+}
+
+.site-menu__item--audio {
+  top: 38%;
+  left: 14%;
+}
+
+.site-menu__item--visual {
+  top: 20%;
+  left: 50%;
+}
+
+.site-menu__item--archive {
+  top: 52%;
+  left: 48%;
+}
+
+.site-menu__item--shop {
+  top: 40%;
+  left: 78%;
+}
+
+.site-menu__item--about {
+  bottom: calc(var(--site-menu-bottom-safe) + 8%);
+  left: 8%;
+}
+
+.site-menu__item--contact {
+  bottom: calc(var(--site-menu-bottom-safe) + 8%);
+  right: 8%;
+}
+
+body.is-site-menu-open .home-music__constellation,
+body.is-site-menu-open .home-music__links {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body:has(#siteMenu) .page-wrap {
+  padding-top: 56px;
+}
+
+body:has(#siteMenu) #cartFloat {
+  position: fixed;
+  top: calc(28px + env(safe-area-inset-top, 0px));
+  right: calc(60px + env(safe-area-inset-right, 0px));
+  z-index: 110;
+}
+
+@media (max-width: 600px) {
+  .site-menu {
+    left: var(--page-gutter-mobile, 20px);
+    top: calc(18px + env(safe-area-inset-top, 0px));
+  }
+
+  .site-menu.is-open {
+    padding-left: var(--page-gutter-mobile, 20px);
+    padding-right: calc(var(--page-gutter-mobile, 20px) + env(safe-area-inset-right, 0px));
+    padding-top: calc(18px + env(safe-area-inset-top, 0px));
+  }
+
+  .site-menu__item--audio {
+    top: 34%;
+    left: 10%;
+  }
+
+  .site-menu__item--visual {
+    top: 18%;
+    left: 58%;
+  }
+
+  .site-menu__item--archive {
+    top: 50%;
+    left: 54%;
+  }
+
+  .site-menu__item--shop {
+    top: 36%;
+    left: 72%;
+  }
+
+  .site-menu__item--about {
+    bottom: calc(var(--site-menu-bottom-safe) + 6%);
+    left: 6%;
+  }
+
+  .site-menu__item--contact {
+    bottom: calc(var(--site-menu-bottom-safe) + 6%);
+    right: 6%;
+  }
+
+  body:has(#siteMenu) #cartFloat {
+    right: var(--page-gutter-mobile, 20px);
+    top: calc(18px + env(safe-area-inset-top, 0px));
+  }
+}
 /* ── checkout form ── */
 .checkout-form {
   margin-top: 32px;
@@ -164,7 +437,7 @@ body {
   padding: 0;
 }
 .checkout-label {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 1em;
   color: #000;
   opacity: 0.7;
@@ -173,7 +446,7 @@ body {
   gap: 4px;
 }
 .checkout-input {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 1em;
   background: #fff;
   color: #000;
@@ -194,7 +467,7 @@ body {
   background: #f8f8f8;
   border: 1px solid #000;
   border-radius: 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 1em;
   font-weight: 700;
   color: #000;
@@ -216,7 +489,7 @@ body {
   opacity: 1;
 }
 .checkout-item {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 1em;
   margin-bottom: 8px;
   opacity: 0.8;
@@ -243,7 +516,6 @@ body {
 body {
   background: #fff;
   color: #000;
-  font-family: monospace;
   margin: 0;
   padding: 0;
   -webkit-touch-callout: none;
@@ -272,14 +544,13 @@ p, h1, .song-title, .page-annotation {
 /* ── navigation ── */
 
 .page-nav {
-  font-size: 0.8em;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font: inherit;
+  font-weight: var(--type-weight);
+  text-transform: lowercase;
   color: #000;
   text-decoration: none;
   opacity: 1;
   display: inline;
-  font-weight: 600;
   margin: 0 28px 0 0;
   box-sizing: border-box;
   transition: color 0.2s;
@@ -294,9 +565,8 @@ p, h1, .song-title, .page-annotation {
 
 .page-id {
   margin-top: 48px;
-  font-size: 0.85em;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font: inherit;
+  text-transform: lowercase;
   opacity: 1;
 }
 
@@ -463,10 +733,10 @@ p, h1, .song-title, .page-annotation {
 .entry-editor-section-title,
 .entry-editor-output-heading,
 .entry-editor-status {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.75em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .entry-editor-field input,
@@ -478,7 +748,7 @@ p, h1, .song-title, .page-annotation {
   border-radius: 0;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.88em;
   line-height: 1.6;
   padding: 9px 10px;
@@ -506,7 +776,7 @@ p, h1, .song-title, .page-annotation {
 .entry-block-toolbar .icon-btn {
   flex: 1 1 calc(50% - 5px);
   justify-content: center;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.08em;
 }
 
@@ -546,10 +816,10 @@ p, h1, .song-title, .page-annotation {
   padding: 0;
   color: #000;
   cursor: grab;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.72em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 
@@ -559,10 +829,10 @@ p, h1, .song-title, .page-annotation {
 
 .entry-block-title {
   flex: 1;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.75em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .entry-block-actions {
@@ -607,7 +877,7 @@ p, h1, .song-title, .page-annotation {
   border-radius: 0;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.88em;
   padding: 9px 10px;
 }
@@ -621,7 +891,7 @@ p, h1, .song-title, .page-annotation {
   margin: 0;
   border: 1px dashed #000;
   padding: 14px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.78em;
   line-height: 1.7;
   opacity: 0.55;
@@ -639,10 +909,10 @@ p, h1, .song-title, .page-annotation {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.75em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .entry-album-track-heading .icon-btn {
@@ -686,7 +956,7 @@ p, h1, .song-title, .page-annotation {
   margin: 0 0 18px 0;
   font-size: 0.85em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .entry-playlist {
@@ -706,7 +976,7 @@ p, h1, .song-title, .page-annotation {
   margin: 0 0 14px 0;
   font-size: 0.85em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .entry-playlist--has-cover.entry-playlist--has-title .entry-playlist-cover {
@@ -812,11 +1082,8 @@ p, h1, .song-title, .page-annotation {
   max-width: 100%;
   display: inline-block;
   padding: 6px 0;
-  font-size: 0.88em;
-  font-family: monospace;
-  font-weight: normal;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: inherit;
+  text-transform: lowercase;
   color: #000;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -847,6 +1114,8 @@ p, h1, .song-title, .page-annotation {
 
 body.index-home .page-wrap {
   padding-top: 0;
+  /* Clear of the fixed newsletter dock below the photo gate */
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
 }
 
 .home-intro {
@@ -942,7 +1211,7 @@ body.index-home .newsletter-popup #statusMessage {
 .newsletter-signup p {
   font-size: 0.8em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 1;
   margin: 0 0 12px 0;
 }
@@ -958,7 +1227,7 @@ body.index-home .newsletter-popup #statusMessage {
   border: none;
   border-bottom: 1px solid #000;
   background: transparent;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.85em;
   color: #000;
   letter-spacing: 0.05em;
@@ -970,11 +1239,11 @@ body.index-home .newsletter-popup #statusMessage {
   border: 1px solid #000;
   border-left: none;
   background: #f8f8f8;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.8em;
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   cursor: pointer;
   color: #000;
   opacity: 1;
@@ -988,7 +1257,7 @@ body.index-home .newsletter-popup #statusMessage {
 }
 
 #statusMessage {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.75em;
   letter-spacing: 0.06em;
   opacity: 1;
@@ -1172,7 +1441,7 @@ body.page-music .music-release-type {
   margin: 0;
   font-size: 0.72em;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
 }
 
@@ -1187,10 +1456,10 @@ body.page-music .music-release-title {
 
 body.page-music .music-release-artist {
   margin: 6px 0 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.9em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 
@@ -1207,10 +1476,10 @@ body.page-music .music-release-journal {
   display: inline-block;
   margin-top: 28px;
   margin-right: 18px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.85em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: #000;
   text-decoration: none;
   opacity: 0.45;
@@ -1248,9 +1517,11 @@ body.page-music .music-portfolio-empty {
   bottom: 8px;
   right: 16px;
   font-size: 9px;
-  font-family: monospace;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  font-family: var(--font-site);
+  font-weight: var(--type-weight);
+  letter-spacing: var(--type-tracking);
+  line-height: var(--type-leading);
+  text-transform: lowercase;
   opacity: 0.2;
   pointer-events: none;
 }
@@ -1314,11 +1585,11 @@ mux-player#activeMuxPlayer {
 }
 
 .song-title {
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.9em;
   font-weight: normal;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   flex: 1;
   opacity: 1;
   -webkit-user-select: text;
@@ -1377,7 +1648,7 @@ mux-player#activeMuxPlayer {
 .version-picker-heading {
   font-size: 0.68em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.6;
 }
 
@@ -1392,7 +1663,7 @@ mux-player#activeMuxPlayer {
 .version-picker-item {
   width: 100%;
   justify-content: flex-start;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .version-picker-item.active {
@@ -1414,7 +1685,7 @@ mux-player#activeMuxPlayer {
   margin: 20px 0 0 0;
   font-size: 1.25em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
 }
 
@@ -1438,7 +1709,7 @@ mux-player#activeMuxPlayer {
   margin: 8px 0 0 0;
   font-size: 0.82em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
 }
 
@@ -1462,7 +1733,7 @@ mux-player#activeMuxPlayer {
   margin: 0;
   font-size: 0.78em;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.65;
 }
 
@@ -1470,7 +1741,7 @@ mux-player#activeMuxPlayer {
   margin-left: auto;
   font-size: 0.72em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 
@@ -1479,7 +1750,7 @@ mux-player#activeMuxPlayer {
   border-radius: 0;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.84em;
   padding: 5px 8px;
 }
@@ -1507,14 +1778,14 @@ mux-player#activeMuxPlayer {
   margin: 0;
   font-size: 0.88em;
   letter-spacing: 0.07em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .song-hub-version-meta {
   margin: 4px 0 0 0;
   font-size: 0.72em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 
@@ -1546,10 +1817,10 @@ mux-player#activeMuxPlayer {
 
 .song-hub-lyrics-empty {
   margin: 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.82em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -1580,10 +1851,10 @@ mux-player#activeMuxPlayer {
   border: 1px solid #000;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.78em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   padding: 7px 10px;
   cursor: pointer;
   max-width: min(220px, 72vw);
@@ -1634,7 +1905,7 @@ mux-player#activeMuxPlayer {
   margin: 0 0 8px 0;
   font-size: 0.72em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
   opacity: 0.6;
 }
@@ -1647,7 +1918,7 @@ mux-player#activeMuxPlayer {
 
 .song-hub-placeholder {
   opacity: 0.6;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.06em;
   font-size: 0.8em;
 }
@@ -1667,7 +1938,7 @@ mux-player#activeMuxPlayer {
   margin: 0;
   font-size: 0.78em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
 }
 
@@ -1753,7 +2024,7 @@ mux-player#activeMuxPlayer {
   margin-top: 8px;
   font-size: 0.82em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: #000;
 }
 
@@ -1775,8 +2046,8 @@ mux-player#activeMuxPlayer {
   min-width: var(--now-playing-btn-size);
   min-height: var(--now-playing-btn-size);
   font-size: 13px;
-  border: 1px solid #000;
-  background: #f8f8f8;
+  border: none;
+  background: transparent;
   padding: 0;
   color: #000;
   opacity: 1;
@@ -1797,9 +2068,9 @@ mux-player#activeMuxPlayer {
 
 @media (hover: hover) and (pointer: fine) {
   .bottom-play-pause-btn:hover {
-    background: #000;
-    border-color: #000;
-    color: #fff;
+    background: transparent;
+    color: #000;
+    opacity: 0.45;
   }
 }
 
@@ -1815,15 +2086,15 @@ mux-player#activeMuxPlayer {
 @media (hover: none) {
   .bottom-play-pause-btn:hover,
   .bottom-play-pause-btn:focus:not(:focus-visible) {
-    background: #f8f8f8;
-    border-color: #000;
+    background: transparent;
     color: #000;
+    opacity: 1;
   }
 
   .bottom-play-pause-btn:active {
-    background: #000;
-    border-color: #000;
-    color: #fff;
+    background: transparent;
+    color: #000;
+    opacity: 0.45;
   }
 }
 
@@ -1836,8 +2107,9 @@ mux-player#activeMuxPlayer {
 
 .now-playing-tip-btn {
   font-size: 0.68em;
+  font-weight: 400;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   padding: 0;
   margin-left: 0;
   width: var(--now-playing-btn-size);
@@ -1848,6 +2120,16 @@ mux-player#activeMuxPlayer {
   justify-content: center;
   line-height: 1;
   touch-action: manipulation;
+  border: none;
+  background: transparent;
+}
+
+.now-playing-tip-btn:hover,
+.now-playing-tip-btn:focus {
+  background: transparent;
+  border: none;
+  color: #000;
+  opacity: 0.45;
 }
 
 .tip-options {
@@ -1892,7 +2174,7 @@ mux-player#activeMuxPlayer {
 .tip-custom-label {
   font-size: 0.68em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.65;
 }
 
@@ -1906,7 +2188,7 @@ mux-player#activeMuxPlayer {
   width: 76px;
   border: 1px solid #000;
   border-radius: 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.82em;
   padding: 4px 6px;
   background: #fff;
@@ -1923,7 +2205,7 @@ mux-player#activeMuxPlayer {
   padding: 4px 8px;
   font-size: 0.74em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .checkout-popup-overlay {
@@ -1968,7 +2250,7 @@ mux-player#activeMuxPlayer {
   margin: 0;
   font-size: 0.8em;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.7;
 }
 
@@ -1984,7 +2266,7 @@ mux-player#activeMuxPlayer {
   margin: 0 0 6px 0;
   font-size: 0.95em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .checkout-popup-line {
@@ -2019,7 +2301,7 @@ mux-player#activeMuxPlayer {
   border-top: 1px solid #000;
   font-size: 0.9em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .checkout-popup-status {
@@ -2046,14 +2328,14 @@ mux-player#activeMuxPlayer {
 .checkout-wallet-divider {
   font-size: 0.68em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
 }
 
 .checkout-wallet-hint {
   font-size: 0.72em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.65;
   margin-top: 2px;
 }
@@ -2061,7 +2343,7 @@ mux-player#activeMuxPlayer {
 .checkout-hosted-wallet-btn {
   width: 100%;
   justify-content: center;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 #purchaseForm.checkout-form {
@@ -2088,7 +2370,7 @@ mux-player#activeMuxPlayer {
   justify-content: center;
   padding: 8px 12px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 body.checkout-open {
@@ -2154,7 +2436,7 @@ body.checkout-open {
   border: 1px solid #000;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 9px;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -2180,7 +2462,7 @@ body.checkout-open {
   opacity: 0;
   letter-spacing: 0.05em;
   cursor: pointer;
-  font-family: monospace;
+  font-family: var(--font-site);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2225,7 +2507,7 @@ body.checkout-open {
 a {
   color: #000;
   text-decoration: none;
-  font-family: monospace;
+  font-family: var(--font-site);
 }
 
 h1 { display: none; }
@@ -2528,15 +2810,15 @@ mux-player.page-inline-video:-webkit-full-screen {
   --media-button-icon-width: 18px;
 }
 
-/* ── entry date link (on music & video collection pages) ── */
+/* ── entry date link (on music & visual collection pages) ── */
 
 .song-date-link {
   padding: 5px 0 0 16px;
   margin: 0;
   font-size: 0.65em;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-family: monospace;
+  text-transform: lowercase;
+  font-family: var(--font-site);
   opacity: 0.55;
 }
 
@@ -2587,10 +2869,10 @@ body.page-listen {
 
 .listen-eyebrow {
   margin: 0 0 12px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.72em;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -2598,17 +2880,17 @@ body.page-listen {
   margin: 0;
   font-size: 1.35em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
   line-height: 1.25;
 }
 
 .listen-subtitle {
   margin: 10px 0 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.82em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 
@@ -2672,10 +2954,10 @@ body.page-listen {
   border-bottom: 1px solid #000;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.85em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   text-align: left;
   padding: 12px 8px;
   cursor: pointer;
@@ -2690,10 +2972,10 @@ body.page-listen {
   max-width: 420px;
   margin: 80px auto;
   padding: 0 24px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.9em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   text-align: center;
   opacity: 0.6;
 }
@@ -2708,10 +2990,10 @@ body.page-listen {
   border: none;
   background: none;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.78em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   padding: 0;
   cursor: pointer;
   opacity: 0.55;
@@ -2743,7 +3025,7 @@ body.page-listen {
   min-width: 0;
   border: 1px solid #000;
   background: #fff;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.82em;
   padding: 7px 8px;
 }
@@ -2782,12 +3064,12 @@ body.page-listen {
   margin: 0;
   font-size: 0.78em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .hub-share-item-stats {
   margin: 4px 0 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.72em;
   opacity: 0.5;
 }
@@ -2828,7 +3110,7 @@ body.page-listen {
   font-size: 0.85em;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .album-hub-track-song-link {
@@ -2841,8 +3123,8 @@ body.page-listen {
   margin: 0 0 0.35rem;
   font-size: 0.7em;
   opacity: 0.55;
-  font-family: monospace;
-  text-transform: uppercase;
+  font-family: var(--font-site);
+  text-transform: lowercase;
   letter-spacing: 0.06em;
 }
 
@@ -2864,7 +3146,7 @@ body.page-listen {
 .album-hub-link {
   font-size: 0.85em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: inherit;
   text-decoration: none;
   border-bottom: 1px solid rgba(0, 0, 0, 0.25);
@@ -2894,7 +3176,7 @@ body.page-press .press-heading {
   font-size: 0.8em;
   font-weight: normal;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -2922,7 +3204,7 @@ body.page-press .press-placeholder {
   color: inherit;
   font-size: 0.78em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -2960,7 +3242,7 @@ body.page-press .press-links {
 body.page-press .press-link {
   font-size: 0.85em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: inherit;
   text-decoration: none;
   border-bottom: none;

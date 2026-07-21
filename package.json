@@ -12,6 +12,8 @@
   },
   "main": "cart.js",
   "scripts": {
+    "dev": "npx --yes netlify-cli@17.38.1 dev --port 8888",
+    "dev:static": "python3 -m http.server 8765 --bind 127.0.0.1",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

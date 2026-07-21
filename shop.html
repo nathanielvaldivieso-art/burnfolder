@@ -8,21 +8,14 @@
   <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
+  <script src="shared/site-menu.js?v=20260720w" defer></script>
 </head>
 <body>
-  <header class="site-header">
-    <a href="index.html" class="site-brand">burnfolder.com</a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="music.html" class="page-nav">music</a>
-      <a href="content.html" class="page-nav">video</a>
-      <a href="shop.html" class="page-nav">shop</a>
-    </nav>
-    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
-  </header>
+  <div id="siteMenu"></div>
+<a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
 
-  <div class="page-wrap">
-    <p class="page-id">shop</p>
-    <div id="shopProductsRoot" class="shop-products" aria-live="polite"></div>
+<div class="page-wrap">
+<div id="shopProductsRoot" class="shop-products" aria-live="polite"></div>
     <div id="audioList" style="display:none"></div>
   </div>
   <div class="page-watermark">shop</div>
@@ -49,12 +42,12 @@
   <script src="shop-products.js"></script>
   <script src="shared/shop-products-render.js"></script>
   <script src="stripe-publishable.js"></script>
-  <script src="spa-router.js"></script>
+<script src="spa-router.js?v=20260720play1"></script>
   <script src="shared/studio-tap.js?v=20260709l"></script>
   <script src="shared/playback-context.js?v=20260709l"></script>
   <script src="shared/version-picker.js?v=20260709l"></script>
-  <script src="shared/now-playing-bar.js?v=20260709l"></script>
-  <script src="scripts.js?v=20260709l"></script>
+  <script src="shared/now-playing-bar.js?v=20260720play1"></script>
+<script src="scripts.js?v=20260720play2"></script>
   <script src="shared/site-version.js"></script>
   <script src="shared/register-sw.js"></script>
 <script src="shared/analytics-config.js"></script>

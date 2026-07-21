@@ -13,15 +13,63 @@ if (fileName.match(/^\d+\.\d+\.\d+$/) && window.songsByPage) {
   window.currentSongs = window.songsByPage[fileName] || [];
 }
 
+const SITE_PLAYBACK_BAR_HTML =
+  '<div class="bottom-progress-bar" id="bottomBar" role="region" aria-label="Now playing">' +
+  '<div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>' +
+  '<div class="bottom-bar-content">' +
+  '<mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>' +
+  '<span class="song-title" id="songTitle">Track Title</span>' +
+  '<div class="bottom-bar-controls">' +
+  '<button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>' +
+  '</div>' +
+  '<div class="progress-bar-area" id="progressBarArea">' +
+  '<div class="progress" id="progress"></div>' +
+  '<div class="progress-playhead" id="progressPlayhead"></div>' +
+  '</div>' +
+  '<div class="loading-spinner" id="loadingSpinner"></div>' +
+  '</div></div>';
+
+function isIndexGatePage() {
+  return !!(document.body && document.body.classList.contains('index-home'));
+}
+
+/** Inject the now-playing chrome when a page omitted it (press, checkout, etc.). */
+function ensureSitePlaybackChrome() {
+  if (isIndexGatePage()) return document.getElementById('bottomBar');
+  let bar = document.getElementById('bottomBar');
+  if (!bar && document.body) {
+    document.body.insertAdjacentHTML('beforeend', SITE_PLAYBACK_BAR_HTML);
+    bar = document.getElementById('bottomBar');
+  }
+  return bar;
+}
+
+ensureSitePlaybackChrome();
+
 const audioList = document.getElementById('audioList');
 const progressEl = document.getElementById('progress');
-const bottomBar = document.getElementById('bottomBar');
-const progressBarArea = document.getElementById('progressBarArea');
-const bottomPlayBtn = document.getElementById('bottomPlayPause');
-const songTitleEl = document.getElementById('songTitle');
-const closeBtn = document.getElementById('closeBtn');
-const loadingSpinner = document.getElementById('loadingSpinner');
-const activeMuxPlayer = document.getElementById('activeMuxPlayer');
+let bottomBar = document.getElementById('bottomBar');
+let progressBarArea = document.getElementById('progressBarArea');
+let bottomPlayBtn = document.getElementById('bottomPlayPause');
+let songTitleEl = document.getElementById('songTitle');
+let closeBtn = document.getElementById('closeBtn');
+let loadingSpinner = document.getElementById('loadingSpinner');
+let activeMuxPlayer = document.getElementById('activeMuxPlayer');
+
+function refreshPlaybackChromeRefs() {
+  ensureSitePlaybackChrome();
+  bottomBar = document.getElementById('bottomBar');
+  progressBarArea = document.getElementById('progressBarArea');
+  bottomPlayBtn = document.getElementById('bottomPlayPause');
+  songTitleEl = document.getElementById('songTitle');
+  closeBtn = document.getElementById('closeBtn');
+  loadingSpinner = document.getElementById('loadingSpinner');
+  activeMuxPlayer = document.getElementById('activeMuxPlayer');
+  if (window.globalMuxPlayer !== activeMuxPlayer) {
+    window.globalMuxPlayer = activeMuxPlayer;
+  }
+  return bottomBar;
+}
 
 // Never move focus to the fixed bottom bar: browsers scroll to focused fixed
 // elements even with preventScroll, which reads as the page jumping. Space-to-
@@ -804,6 +852,13 @@ function syncTracklistPlayback() {
     row.classList.toggle('is-playing', playing);
   });
 
+  document.querySelectorAll('.home-music__song[data-playback-id]').forEach((el) => {
+    const isActive = !!(activeSong && el.dataset.playbackId === activeSong.playbackId);
+    const playing = isActive && activeMuxPlayer && !activeMuxPlayer.paused;
+    el.classList.toggle('is-active', isActive);
+    el.classList.toggle('is-playing', playing);
+  });
+
   const playBtn = document.getElementById('musicPortfolioPlay');
   if (playBtn) {
     const portfolio = document.getElementById('musicPortfolio');
@@ -974,7 +1029,26 @@ function renderMusicPage() {
 }
 
 window.renderMusicPage = renderMusicPage;
+window.getFeaturedMusicRelease = getFeaturedMusicRelease;
 window.resolveAlbumPageHref = resolveAlbumPageHref;
+
+function renderArchivePage() {
+  const root = document.getElementById('entries');
+  if (!root) return;
+
+  const entries = window.journalEntries || [];
+  root.innerHTML = '';
+  entries.forEach(function (date) {
+    const li = document.createElement('li');
+    const link = document.createElement('a');
+    link.href = date + '.html';
+    link.textContent = date;
+    li.appendChild(link);
+    root.appendChild(li);
+  });
+}
+
+window.renderArchivePage = renderArchivePage;
 
 /** Journal entry page for this recording (`M.DD.YY.html`), if applicable. */
 function getEntryPageHref(song) {
@@ -2162,6 +2236,7 @@ let activeQueue = [];
 let activeQueueIdx = null;
 
 function getActiveSong() {
+  refreshPlaybackChromeRefs();
   const currentPlaybackId = activeMuxPlayer ? activeMuxPlayer.getAttribute('playback-id') : '';
 
   if (
@@ -2183,32 +2258,69 @@ function getActiveSong() {
     if (fromAll) return fromAll;
   }
 
+  if (currentPlaybackId) {
+    return (
+      activeSongOverride || {
+        playbackId: currentPlaybackId,
+        title:
+          (activeMuxPlayer && activeMuxPlayer.getAttribute('metadata-video-title')) ||
+          'Track',
+      }
+    );
+  }
+
   return activeSongOverride;
 }
 
+function playerHasPlaybackSession() {
+  refreshPlaybackChromeRefs();
+  if (!activeMuxPlayer) return false;
+  return !!activeMuxPlayer.getAttribute('playback-id');
+}
+
+function playerIsAudiblyPlaying() {
+  refreshPlaybackChromeRefs();
+  return !!(activeMuxPlayer && !activeMuxPlayer.paused && playerHasPlaybackSession());
+}
+
+function setNowPlayingBarVisible(show) {
+  refreshPlaybackChromeRefs();
+  if (!bottomBar) return;
+  // Never hide the bar while audio is actually playing.
+  if (!show && playerIsAudiblyPlaying()) show = true;
+  bottomBar.style.display = show ? 'flex' : 'none';
+}
+
 function persistPlaybackState() {
+  refreshPlaybackChromeRefs();
   if (!activeMuxPlayer) return;
   const playbackId = activeMuxPlayer.getAttribute('playback-id');
   const activeSong = getActiveSong();
   if (!playbackId || !activeSong || activeSong.playbackId !== playbackId) return;
+  let t = Number(activeMuxPlayer.currentTime) || 0;
+  if (!Number.isFinite(t) || t < 0) t = 0;
   sessionStorage.setItem(
     'playbackState',
     JSON.stringify({
       playbackId: activeSong.playbackId,
       title: activeSong.title,
-      currentTime: activeMuxPlayer.currentTime || 0,
+      currentTime: t,
       isPlaying: !activeMuxPlayer.paused,
     })
   );
 }
 
 function preservePlaybackAcrossNavigation() {
+  refreshPlaybackChromeRefs();
   if (!activeMuxPlayer) return;
   const playbackId = activeMuxPlayer.getAttribute('playback-id');
-  if (!playbackId) return;
+  if (!playbackId) {
+    if (playerIsAudiblyPlaying()) setNowPlayingBarVisible(true);
+    return;
+  }
 
   let song = getActiveSong();
-  if (!song) {
+  if (!song || song.playbackId !== playbackId) {
     song = Array.isArray(window.allSongs)
       ? window.allSongs.find((item) => item.playbackId === playbackId)
       : null;
@@ -2223,7 +2335,13 @@ function preservePlaybackAcrossNavigation() {
     } else if (activeSongOverride && activeSongOverride.playbackId === playbackId) {
       song = activeSongOverride;
     } else {
-      song = { playbackId: playbackId, title: activeSongOverride?.title || 'Track' };
+      song = {
+        playbackId: playbackId,
+        title:
+          (activeMuxPlayer && activeMuxPlayer.getAttribute('metadata-video-title')) ||
+          (activeSongOverride && activeSongOverride.title) ||
+          'Track',
+      };
       activeSongOverride = song;
       activeIdx = null;
       activeQueue = [song];
@@ -2231,18 +2349,42 @@ function preservePlaybackAcrossNavigation() {
     }
   }
 
-  if (song && bottomBar) {
-    bottomBar.style.display = 'flex';
-    updateUI();
-  } else {
-    syncPlaybackChromeState();
-    syncTracklistPlayback();
-  }
+  setNowPlayingBarVisible(true);
+  updateUI();
 }
 
 window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 
 mountNowPlayingBar();
+
+function bindPlaybackBarWatchdog() {
+  refreshPlaybackChromeRefs();
+  if (!activeMuxPlayer || activeMuxPlayer.dataset.bfBarWatchdog === '1') return;
+  activeMuxPlayer.dataset.bfBarWatchdog = '1';
+  const sync = function () {
+    if (typeof window.preservePlaybackAcrossNavigation === 'function') {
+      if (playerHasPlaybackSession()) {
+        setNowPlayingBarVisible(true);
+        syncPlaybackChromeState();
+      }
+    } else {
+      syncPlaybackChromeState();
+    }
+  };
+  activeMuxPlayer.addEventListener('play', sync);
+  activeMuxPlayer.addEventListener('playing', sync);
+  activeMuxPlayer.addEventListener('timeupdate', function () {
+    if (playerIsAudiblyPlaying()) setNowPlayingBarVisible(true);
+  });
+}
+bindPlaybackBarWatchdog();
+window.addEventListener('burnfolder-spa-navigated', function () {
+  refreshPlaybackChromeRefs();
+  bindPlaybackBarWatchdog();
+  if (typeof window.preservePlaybackAcrossNavigation === 'function') {
+    window.preservePlaybackAcrossNavigation();
+  }
+});
 
 function bootHubPages() {
   renderSongHubPage();
@@ -2258,9 +2400,12 @@ if (!window.globalMuxPlayer) {
   window.globalMuxPlayer = activeMuxPlayer;
 }
 
-// Restore playback state from previous page
+// Restore playback state from previous page (never on the index gate —
+// restoring a Mux stream here leaves Safari's loading spinner spinning forever).
 const savedState = sessionStorage.getItem('playbackState');
-if (savedState && audioList) {
+const isIndexGate = isIndexGatePage();
+if (savedState && !isIndexGate) {
+  refreshPlaybackChromeRefs();
   try {
     const state = JSON.parse(savedState);
     // Only restore if the song is valid for the current page
@@ -2279,7 +2424,7 @@ if (savedState && audioList) {
         : '';
       if (currentPlaybackId === state.playbackId) {
         // Same track, just update UI - don't reload
-        bottomBar.style.display = 'flex';
+        setNowPlayingBarVisible(true);
         updateUI();
         initializeVolumeControl();
       } else if (activeMuxPlayer) {
@@ -2297,6 +2442,7 @@ if (savedState && audioList) {
                 console.log('Auto-play prevented');
               });
             }
+            setNowPlayingBarVisible(true);
             updateUI();
             initializeVolumeControl();
           }, { once: true });
@@ -2318,26 +2464,41 @@ if (savedState && audioList) {
               console.log('Auto-play prevented');
             });
           }
+          setNowPlayingBarVisible(true);
           updateUI();
           initializeVolumeControl();
         }, { once: true });
       }, 50);
-    } else {
-      const currentPlaybackId = activeMuxPlayer ? activeMuxPlayer.getAttribute('playback-id') : '';
-      if (currentPlaybackId && currentPlaybackId === state.playbackId) {
-        activeSongOverride = fallbackSong || {
-          playbackId: state.playbackId,
-          title: state.title,
-        };
-        activeIdx = fallbackSong
-          ? window.currentSongs.findIndex((item) => item.playbackId === state.playbackId)
-          : null;
-        if (activeIdx === -1) activeIdx = null;
-        activeQueue = activeSongOverride ? [activeSongOverride] : [];
-        activeQueueIdx = 0;
-        bottomBar.style.display = 'flex';
+    } else if (state.playbackId && activeMuxPlayer) {
+      activeSongOverride = {
+        playbackId: state.playbackId,
+        title: state.title || 'Track',
+      };
+      activeIdx = null;
+      activeQueue = [activeSongOverride];
+      activeQueueIdx = 0;
+      const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id') || '';
+      if (currentPlaybackId === state.playbackId) {
+        setNowPlayingBarVisible(true);
         updateUI();
         initializeVolumeControl();
+      } else {
+        setTimeout(() => {
+          if (!activeMuxPlayer) return;
+          activeMuxPlayer.setAttribute('playback-id', state.playbackId);
+          activeMuxPlayer.setAttribute('metadata-video-title', state.title || 'Track');
+          activeMuxPlayer.addEventListener('loadedmetadata', () => {
+            activeMuxPlayer.currentTime = state.currentTime || 0;
+            if (state.isPlaying) {
+              activeMuxPlayer.play().catch(() => {
+                console.log('Auto-play prevented');
+              });
+            }
+            setNowPlayingBarVisible(true);
+            updateUI();
+            initializeVolumeControl();
+          }, { once: true });
+        }, 50);
       }
     }
   } catch (e) {
@@ -2367,6 +2528,10 @@ if (document.body.classList.contains('page-music')) {
   renderMusicPage();
 }
 
+if (document.body.classList.contains('page-archive')) {
+  renderArchivePage();
+}
+
 if (audioList && !didRenderInitially) {
   fillTracklistContainer(
     audioList,
@@ -2381,15 +2546,17 @@ if (audioList && !didRenderInitially) {
 }
 
 function updateUI() {
+  refreshPlaybackChromeRefs();
   const activeSong = getActiveSong();
+  const sessionActive = !!(activeSong && activeSong.playbackId) || playerHasPlaybackSession();
   const bar = nowPlayingBar || mountNowPlayingBar();
   if (bar) {
     bar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
     bar.update({
       song: activeSong || null,
-      playing: !!(activeSong && activeMuxPlayer && !activeMuxPlayer.paused)
+      playing: !!(sessionActive && activeMuxPlayer && !activeMuxPlayer.paused)
     });
-  } else if (activeSong) {
+  } else if (activeSong && bottomPlayBtn && songTitleEl) {
     // Fallback only if the shared bar module failed to load.
     bottomPlayBtn.innerHTML = !activeMuxPlayer.paused
       ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>'
@@ -2399,25 +2566,26 @@ function updateUI() {
         ? window.BurnfolderPlaybackContext.displayTitleForPlayback(activeSong, window.currentSongs)
         : activeSong.title;
   }
-  if (activeSong) {
-    bottomBar.style.display = 'flex';
-  } else {
-    bottomBar.style.display = 'none';
-    if (!bar) songTitleEl.textContent = '';
-  }
+  // Show whenever a session exists; never hide while audio is playing.
+  setNowPlayingBarVisible(sessionActive);
+  if (!sessionActive && songTitleEl && !bar) songTitleEl.textContent = '';
   syncPlaybackChromeState();
   syncTracklistPlayback();
 }
 
 function syncPlaybackChromeState() {
+  refreshPlaybackChromeRefs();
   const activeSong = getActiveSong();
   const barOn = bottomBar && bottomBar.style.display === 'flex';
-  const active = !!activeSong && barOn;
-  const playing =
-    active &&
-    !activeMuxPlayer.paused;
+  const sessionActive = !!(activeSong && activeSong.playbackId) || playerHasPlaybackSession();
+  const active = sessionActive && (barOn || playerIsAudiblyPlaying());
+  const playing = !!(active && activeMuxPlayer && !activeMuxPlayer.paused);
   document.body.classList.toggle('playback-active', !!active);
   document.body.classList.toggle('playback-playing', !!playing);
+  // If audio is playing but the bar somehow closed, force it back open.
+  if (playing && bottomBar && bottomBar.style.display !== 'flex') {
+    bottomBar.style.display = 'flex';
+  }
 }
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
@@ -2458,8 +2626,13 @@ function getSiteMuxPlayback() {
 }
 
 function mountNowPlayingBar() {
-  if (nowPlayingBar || !window.BurnfolderNowPlayingBar) return nowPlayingBar;
-  if (!songTitleEl || !songTitleEl.parentElement) return null;
+  refreshPlaybackChromeRefs();
+  if (!window.BurnfolderNowPlayingBar) return nowPlayingBar;
+  if (!bottomBar || !songTitleEl || !songTitleEl.parentElement) return nowPlayingBar;
+  if (nowPlayingBar) {
+    nowPlayingBar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
+    return nowPlayingBar;
+  }
   nowPlayingBar = window.BurnfolderNowPlayingBar.mount({
     barEl: bottomBar,
     titleEl: songTitleEl,
@@ -2471,12 +2644,13 @@ function mountNowPlayingBar() {
     onTogglePlay: togglePlayPause,
     onPlayVersion: playTrackBySong,
     onClose: function () {
-      if (!getActiveSong()) return;
-      activeMuxPlayer.pause();
+      refreshPlaybackChromeRefs();
+      if (activeMuxPlayer) activeMuxPlayer.pause();
       activeIdx = null;
       activeSongOverride = null;
       activeQueue = [];
       activeQueueIdx = null;
+      if (activeMuxPlayer) activeMuxPlayer.removeAttribute('playback-id');
       sessionStorage.removeItem('playbackState');
       updateUI();
     }
@@ -2538,12 +2712,13 @@ function playTrackQueue(queueSongs, queueStartIdx) {
 
 window.playTrackQueue = playTrackQueue;
 
-function playQueuedTrack(queueIdx) {
+function playQueuedTrack(queueIdx, playbackOpts) {
   const song = activeQueue && activeQueue[queueIdx];
   if (!song) return;
   const engine = getSiteMuxPlayback();
+  const opts = Object.assign({ immediatePlay: true, seamlessAdvance: true }, playbackOpts || {});
   if (engine) {
-    engine.startPlayback(song, activeQueue, queueIdx, { immediatePlay: true });
+    engine.startPlayback(song, activeQueue, queueIdx, opts);
     return;
   }
   startPlayback(song, activeQueue, queueIdx);

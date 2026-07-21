@@ -44,6 +44,8 @@
     let queueAdvanceLock = false;
     let hiddenAdvanceTimer = null;
     let lifecycleBound = false;
+    let startGeneration = 0;
+    let zeroGuardTimer = null;
 
     function notify(extra) {
       const player = getPlayer();
@@ -77,13 +79,97 @@
     function persistRecall() {
       if (opts.recall === false || !recallApi || !activeSong) return;
       const player = getPlayer();
+      if (!player) return;
+      const liveId = player.getAttribute('playback-id') || '';
+      // Never persist a playhead that still belongs to the previous asset.
+      if (liveId && liveId !== activeSong.playbackId) return;
+      let t = Number(player.currentTime) || 0;
+      if (!Number.isFinite(t) || t < 0) t = 0;
       recallApi.save({
         song: activeSong,
         queue: activeQueue,
         queueIdx: activeQueueIdx,
-        currentTime: player ? player.currentTime : 0,
-        wasPlaying: !!(player && !player.paused)
+        currentTime: t,
+        wasPlaying: !player.paused
       });
+    }
+
+    function stopZeroGuard() {
+      if (zeroGuardTimer !== null) {
+        window.clearInterval(zeroGuardTimer);
+        zeroGuardTimer = null;
+      }
+    }
+
+    function seekToZero(player) {
+      if (!player) return;
+      try {
+        if (typeof player.currentTime === 'number' && player.currentTime > 0.05) {
+          player.currentTime = 0;
+        } else {
+          player.currentTime = 0;
+        }
+      } catch (e) {
+        /* noop */
+      }
+    }
+
+    /**
+     * Queue handoffs must never inherit the previous track's playhead.
+     * Mux can keep currentTime across playback-id changes if we don't re-assert
+     * after the new asset is ready — that produced mid-track starts (e.g. 0:15).
+     */
+    function forceStartAtZero(player, playbackId, generation) {
+      if (!player || !playbackId) return;
+      stopZeroGuard();
+      seekToZero(player);
+
+      function stillCurrent() {
+        return (
+          generation === startGeneration &&
+          activeSong &&
+          activeSong.playbackId === playbackId &&
+          (player.getAttribute('playback-id') || '') === playbackId
+        );
+      }
+
+      function reassert() {
+        if (!stillCurrent()) return;
+        seekToZero(player);
+      }
+
+      player.addEventListener('loadedmetadata', reassert, { once: true });
+      player.addEventListener('loadeddata', reassert, { once: true });
+      player.addEventListener('canplay', reassert, { once: true });
+      player.addEventListener(
+        'playing',
+        function onPlaying() {
+          if (!stillCurrent()) return;
+          // If the new asset somehow began mid-track, yank it back once.
+          if ((Number(player.currentTime) || 0) > 0.35) {
+            seekToZero(player);
+            if (player.paused) retryPlay(player, activeSong, false);
+          }
+        },
+        { once: true }
+      );
+
+      let ticks = 0;
+      zeroGuardTimer = window.setInterval(function () {
+        ticks += 1;
+        if (!stillCurrent() || ticks > 25) {
+          stopZeroGuard();
+          return;
+        }
+        const t = Number(player.currentTime) || 0;
+        // Inherited playheads from the previous asset often land mid-track (e.g. 0:15).
+        // Yank any non-zero start back during the first ~2.5s of a fresh handoff.
+        if (t > 0.35) {
+          seekToZero(player);
+        } else {
+          stopZeroGuard();
+        }
+      }, 100);
     }
 
     function syncMediaSession(detail) {
@@ -355,11 +441,17 @@
       }
     }
 
-    function applyRecallPosition(player, recall) {
-      if (!player || !recall || !recall.currentTime) return;
+    function applyRecallPosition(player, recall, playbackId) {
+      if (!player || !recall) return;
+      const recallId = recall.song && recall.song.playbackId;
+      if (recallId && playbackId && recallId !== playbackId) return;
+      const t = Number(recall.currentTime);
+      if (!Number.isFinite(t) || t <= 0) return;
       const seek = function () {
         try {
-          player.currentTime = recall.currentTime;
+          // Only apply if we're still on the recalled asset.
+          if (playbackId && (player.getAttribute('playback-id') || '') !== playbackId) return;
+          player.currentTime = t;
         } catch (e) {
           /* noop */
         }
@@ -392,6 +484,19 @@
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
 
+      const prevId = player.getAttribute('playback-id') || '';
+      const sameSource = prevId === normalized.playbackId;
+      const recall = startOpts.recall || null;
+      const recallForThisSong =
+        recall &&
+        Number(recall.currentTime) > 0 &&
+        (!recall.song || !recall.song.playbackId || recall.song.playbackId === normalized.playbackId);
+      const recallAt = recallForThisSong ? Number(recall.currentTime) : 0;
+
+      startGeneration += 1;
+      const generation = startGeneration;
+      stopZeroGuard();
+
       activeSong = normalized;
       activeQueue =
         Array.isArray(queueSongs) && queueSongs.length
@@ -402,41 +507,30 @@
       bindEnded(player);
       bindMediaSessionActions();
 
-      const sameSource = player.getAttribute('playback-id') === normalized.playbackId;
-      const recallAt = startOpts.recall && startOpts.recall.currentTime;
+      // Always pause before swapping assets so the previous playhead cannot leak.
+      // (seamlessAdvance used to skip this and left the next track starting mid-way.)
       if (!sameSource) {
-        if (!startOpts.seamlessAdvance) {
-          player.pause();
-        }
-        player.setAttribute('playback-id', normalized.playbackId);
-      }
-      /* Always start at 0 (new source or re-press of the current track) so
-         queue handoffs and second taps don't inherit a mid-track playhead. */
-      if (!recallAt) {
         try {
-          player.currentTime = 0;
+          player.pause();
         } catch (e) {
           /* noop */
         }
-        if (!sameSource) {
-          player.addEventListener(
-            'loadedmetadata',
-            function () {
-              if (
-                !activeSong ||
-                activeSong.playbackId !== normalized.playbackId ||
-                (startOpts.recall && startOpts.recall.currentTime)
-              ) {
-                return;
-              }
-              try {
-                player.currentTime = 0;
-              } catch (err) {
-                /* noop */
-              }
-            },
-            { once: true }
-          );
+        seekToZero(player);
+        player.setAttribute('playback-id', normalized.playbackId);
+      }
+
+      /* Fresh track / re-press / queue handoff: start at 0 unless recalling THIS song. */
+      if (!recallAt) {
+        forceStartAtZero(player, normalized.playbackId, generation);
+        if (recallApi && opts.recall !== false) {
+          // Drop any stale mid-track recall so a later restore can't resurrect it.
+          recallApi.save({
+            song: normalized,
+            queue: activeQueue,
+            queueIdx: activeQueueIdx,
+            currentTime: 0,
+            wasPlaying: !!immediatePlay
+          });
         }
       }
       player.setAttribute('metadata-video-title', normalized.title);
@@ -451,6 +545,7 @@
         if (
           !activeSong ||
           activeSong.playbackId !== normalized.playbackId ||
+          generation !== startGeneration ||
           !player.paused
         ) {
           return;
@@ -464,10 +559,20 @@
       }
 
       function onMediaReady() {
-        if (startOpts.recall && startOpts.recall.currentTime) {
-          applyRecallPosition(player, startOpts.recall);
+        if (generation !== startGeneration) return;
+        if (
+          !activeSong ||
+          activeSong.playbackId !== normalized.playbackId ||
+          (player.getAttribute('playback-id') || '') !== normalized.playbackId
+        ) {
+          return;
         }
-        if (startOpts.recall && startOpts.recall.wasPlaying === false) {
+        if (recallAt) {
+          applyRecallPosition(player, recall, normalized.playbackId);
+        } else {
+          seekToZero(player);
+        }
+        if (recall && recall.wasPlaying === false) {
           player.pause();
           notify({ playing: false });
           return;
@@ -479,11 +584,12 @@
       player.addEventListener('loadedmetadata', onMediaReady, { once: true });
 
       window.setTimeout(function () {
+        if (generation !== startGeneration) return;
         if (
           player.paused &&
           activeSong &&
           activeSong.playbackId === normalized.playbackId &&
-          !(startOpts.recall && startOpts.recall.wasPlaying === false)
+          !(recall && recall.wasPlaying === false)
         ) {
           ensurePlaying();
         }
@@ -495,11 +601,12 @@
 
       if (typeof document !== 'undefined' && document.hidden) {
         window.setTimeout(function () {
+          if (generation !== startGeneration) return;
           if (
             player.paused &&
             activeSong &&
             activeSong.playbackId === normalized.playbackId &&
-            !(startOpts.recall && startOpts.recall.wasPlaying === false)
+            !(recall && recall.wasPlaying === false)
           ) {
             ensurePlaying();
           }
@@ -600,6 +707,13 @@
 
     if (opts.restoreRecall !== false && recallApi) {
       window.setTimeout(function () {
+        if (
+          root.document &&
+          root.document.body &&
+          root.document.body.classList.contains('index-home')
+        ) {
+          return;
+        }
         if (!activeSong) restoreRecall(opts.recallOptions);
       }, 0);
     }

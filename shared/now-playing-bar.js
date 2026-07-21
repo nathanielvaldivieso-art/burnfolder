@@ -118,6 +118,12 @@
     }
 
     function setBarVisible(show) {
+      if (!show) {
+        const player = resolveMuxPlayer();
+        if (player && !player.paused && player.getAttribute && player.getAttribute('playback-id')) {
+          show = true;
+        }
+      }
       bar.style.display = show ? 'flex' : 'none';
       const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
       if (bodyClass) document.body.classList.toggle(bodyClass, !!show);

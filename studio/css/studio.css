@@ -19,7 +19,7 @@
 
 .studio-nav-label {
   font-size: 10px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
 }
 
@@ -110,7 +110,7 @@
 
 .studio-file-row-kind {
   font-size: 10px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
   min-width: 48px;
 }
@@ -123,7 +123,7 @@
 
 .studio-file-row-tag {
   font-size: 9px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 
@@ -225,7 +225,7 @@
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   overflow: hidden;
   background: #fff;
 }
@@ -309,7 +309,7 @@
 .studio-source-label {
   margin: 16px 0 6px;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.04em;
   opacity: 0.55;
 }
@@ -492,7 +492,7 @@ body.studio-has-player .page-watermark {
 
 .studio-tool-label {
   font-size: 10px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
   margin-right: 4px;
 }
@@ -671,7 +671,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   content: 'combine';
   display: block;
   font-size: 9px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.08em;
   opacity: 0.45;
   margin-top: 4px;
@@ -728,7 +728,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 
 .studio-stack-cover-placeholder {
   font-size: 10px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.1em;
   opacity: 0.45;
 }
@@ -781,7 +781,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   font-family: inherit;
   font-size: 0.85em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   border: none;
   border-bottom: 1px solid #000;
   padding: 6px 0;
@@ -821,7 +821,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .studio-inspector-empty,
 .studio-inspector-hint {
   margin: 0;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.72em;
   line-height: 1.6;
   opacity: 0.55;
@@ -829,10 +829,10 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 
 .studio-inspector-label {
   margin: 0 0 10px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.75em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .studio-playlist-inspector .entry-editor-field label {
@@ -940,7 +940,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   margin: 0 0 8px;
   font-size: 0.82em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .studio-preview-bubble-body .entry-playlist--minimal .entry-audio-list {
@@ -979,7 +979,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .studio-sidebar-title {
   margin: 0 0 16px;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.06em;
   opacity: 0.55;
 }
@@ -998,7 +998,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   display: block;
   margin-bottom: 6px;
   font-size: 10px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.06em;
   opacity: 0.55;
 }
@@ -1073,7 +1073,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .studio-advanced-details summary {
   cursor: pointer;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.06em;
   padding: 8px 0;
 }
@@ -1169,7 +1169,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .studio-cloud-drop-label {
   margin: 0 0 8px 0;
   font-size: 12px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.04em;
 }
 
@@ -1408,7 +1408,7 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .entry-editor-section-title {
   margin: 32px 0 12px;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.08em;
 }
 
@@ -1477,7 +1477,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 
 .studio-stream-upload-details summary {
   cursor: pointer;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.06em;
   font-size: 11px;
   opacity: 0.55;
@@ -1709,10 +1709,10 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 .studio-video-card-title {
   display: block;
   padding: 8px 8px 10px;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.72rem;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   line-height: 1.35;
   word-break: break-word;
 }
@@ -1821,7 +1821,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   margin: 0 0 12px;
   font-size: 10px;
   font-weight: normal;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.08em;
   opacity: 0.45;
 }
@@ -1938,7 +1938,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 .stream-stack-cover-placeholder {
   font-size: 9px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: #888;
 }
 
@@ -2193,7 +2193,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   content: 'cover';
   font-size: 9px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: #999;
 }
 
@@ -2229,7 +2229,7 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 .studio-stream-album-meta {
   font-size: 10px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: #888;
 }
 
@@ -2514,7 +2514,7 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
   font-family: inherit;
   font-size: 10px;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   cursor: pointer;
   padding: 8px 6px;
   min-height: 44px;
@@ -2794,7 +2794,7 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
   margin: 0;
   font-size: 11px;
   font-weight: normal;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.08em;
 }
 
@@ -3027,7 +3027,7 @@ body.studio-dnd-active .studio-stream-track-item.is-dragging .music-track-row {
   margin: 2px 0 0;
   font-size: 10px;
   opacity: 0.5;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.04em;
 }
 
@@ -3326,7 +3326,7 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
   margin: 0;
   font-size: 10px;
   opacity: 0.55;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.04em;
 }
 
@@ -3423,7 +3423,7 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
   margin: 0 0 6px 2px;
   font-size: 0.78em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
   opacity: 0.72;
 }
@@ -3649,10 +3649,10 @@ body.studio-booting::before {
   align-items: center;
   justify-content: center;
   background: #fff;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 13px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   visibility: visible;
 }
 
@@ -3690,7 +3690,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   margin-bottom: 6px;
   font-size: 0.72em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .studio-auth-input {
@@ -3766,7 +3766,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   flex-shrink: 0;
   font-size: 9px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -3942,7 +3942,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   margin: 0 0 12px;
   font-size: 10px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -4063,7 +4063,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   margin-bottom: 4px;
   font-size: 9px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.35;
   text-align: center;
 }
@@ -4176,7 +4176,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
 .studio-journal-contribution-kind {
   font-size: 9px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.4;
   min-width: 2.8em;
 }
@@ -4259,7 +4259,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
 .studio-journal-date-label {
   font-size: 10px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.45;
 }
 
@@ -4286,7 +4286,7 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   margin: 0 0 10px;
   font-size: 10px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: 400;
   opacity: 0.45;
 }
@@ -4448,7 +4448,7 @@ body.studio-spa-loading::after {
   background: #fff;
   border: 1px solid #000;
   font-size: 11px;
-  font-family: monospace;
+  font-family: var(--font-site);
 }
 
 .studio-status--error,
@@ -4564,7 +4564,7 @@ body.studio-has-player #studioEditorStatus.studio-global-status {
 }
 
 .studio-redirect-fallback {
-  font-family: monospace;
+  font-family: var(--font-site);
   padding: 48px 24px;
   max-width: 520px;
   margin: 0 auto;
@@ -4663,7 +4663,7 @@ body.studio-dnd-active[data-dnd-kind='album'] .studio-stream-library-shelf {
   padding: 10px 16px;
   background: #000;
   color: #fff;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 11px;
   letter-spacing: 0.04em;
   line-height: 1.45;
@@ -4687,7 +4687,7 @@ body.studio-dnd-active[data-dnd-kind='album'] .studio-stream-library-shelf {
   padding: 6px 10px;
   background: #000;
   color: #fff;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 12px;
   white-space: nowrap;
   max-width: 220px;
@@ -5004,7 +5004,7 @@ body.studio-song-designer-page .page-wrap {
 .studio-song-designer-label {
   font-size: 0.72em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.6;
 }
 
@@ -5013,7 +5013,7 @@ body.studio-song-designer-page .page-wrap {
   border: 1px solid #000;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.9em;
   padding: 8px 10px;
   max-width: 100%;
@@ -5051,7 +5051,7 @@ body.studio-song-designer-page .page-wrap {
   margin: 0 0 6px 0;
   font-size: 0.82em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
 }
 
@@ -5078,7 +5078,7 @@ body.studio-song-designer-page .page-wrap {
   border: 1px solid #000;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.88em;
   line-height: 1.55;
   padding: 10px;
@@ -5147,7 +5147,7 @@ body.studio-song-designer-page .page-wrap {
 .studio-song-designer-media-kind {
   font-size: 0.72em;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.6;
 }
 
@@ -5155,7 +5155,7 @@ body.studio-song-designer-page .page-wrap {
   width: 100%;
   border: 1px solid #000;
   background: #fff;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.86em;
   padding: 7px 8px;
   margin-bottom: 8px;
@@ -5176,7 +5176,7 @@ body.studio-song-designer-page .page-wrap {
   margin: 0 0 10px 0;
   font-size: 0.82em;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   font-weight: normal;
   opacity: 0.72;
 }
@@ -5249,10 +5249,10 @@ body.studio-song-designer-page .page-wrap {
   border: 1px solid #000;
   background: #fff;
   color: #000;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.78em;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   padding: 7px 10px;
   cursor: pointer;
   max-width: min(220px, 72vw);
@@ -5316,10 +5316,10 @@ body.studio-song-designer-page .page-wrap {
 .studio-stream-album-share-btn {
   border: none;
   background: none;
-  font-family: monospace;
+  font-family: var(--font-site);
   font-size: 0.72em;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.5;
   cursor: pointer;
   padding: 0;
@@ -5423,7 +5423,7 @@ body.studio-song-designer-page .page-wrap {
   margin: 0 0 8px;
   font-size: 9px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.4;
 }
 
@@ -5444,7 +5444,7 @@ body.studio-song-designer-page .page-wrap {
 
 .studio-stream-album-hub-collab .studio-dashboard-note {
   font-size: 10px;
-  font-family: monospace;
+  font-family: var(--font-site);
   opacity: 0.55;
   word-break: break-all;
   margin: 0 0 6px;
@@ -5464,7 +5464,7 @@ body.studio-song-designer-page .page-wrap {
   margin: 0;
   font-size: 0.72em;
   opacity: 0.55;
-  font-family: monospace;
+  font-family: var(--font-site);
 }
 
 .album-hub-compiled-block + .album-hub-compiled-block {
@@ -5478,7 +5478,7 @@ body.studio-song-designer-page .page-wrap {
   font-size: 0.85em;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .album-hub-track-song-link {
@@ -5491,8 +5491,8 @@ body.studio-song-designer-page .page-wrap {
   margin: 0 0 0.35rem;
   font-size: 0.7em;
   opacity: 0.55;
-  font-family: monospace;
-  text-transform: uppercase;
+  font-family: var(--font-site);
+  text-transform: lowercase;
   letter-spacing: 0.06em;
 }
 
@@ -5747,7 +5747,7 @@ body.studio-song-designer-page .page-wrap {
   font: inherit;
   font-size: 11px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   border: none;
   background: none;
   padding: 0;
@@ -6849,7 +6849,7 @@ body.wordpull-public .page-wrap {
   margin: 0;
   font-size: 11px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.55;
 }
 

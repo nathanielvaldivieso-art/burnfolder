@@ -264,17 +264,11 @@
 <link rel="dns-prefetch" href="https://www.mux.com">
 <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
 <link rel="stylesheet" href="style.css">
+<script src="shared/site-menu.js?v=${version}" defer></script>
 </head>
 <body>
-<header class="site-header">
-  <a href="index.html" class="site-brand">burnfolder.com</a>
-  <nav class="site-nav" aria-label="Primary">
-    <a href="music.html" class="page-nav">music</a>
-    <a href="content.html" class="page-nav">video</a>
-    <a href="shop.html" class="page-nav">shop</a>
-  </nav>
-  <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
-</header>
+<div id="siteMenu"></div>
+<a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
 
 <div class="page-wrap">
   <!-- body rendered from entries.js by entry-renderer.js -->

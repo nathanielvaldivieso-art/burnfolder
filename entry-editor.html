@@ -8,19 +8,13 @@
   <script>location.replace('/studio/');</script>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
+  <script src="shared/site-menu.js?v=20260720w" defer></script>
 </head>
 <body class="entry-editor-page">
-  <header class="site-header">
-    <a href="index.html" class="site-brand">burnfolder.com</a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="music.html" class="page-nav">music</a>
-      <a href="content.html" class="page-nav">video</a>
-      <a href="shop.html" class="page-nav">shop</a>
-    </nav>
-    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
-  </header>
+  <div id="siteMenu"></div>
+<a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
 
-  <main class="entry-editor-shell">
+<main class="entry-editor-shell">
     <section class="entry-editor-panel" aria-label="Entry editor controls">
       <p class="page-id">entry editor</p>
       <p class="page-annotation">local draft tool. build the page here, then copy the entries.js object. html and song data are generated from the same blocks.</p>

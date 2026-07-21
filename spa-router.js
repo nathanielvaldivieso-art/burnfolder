@@ -20,6 +20,10 @@
         const child = document.body.firstChild;
         if (
           child.id === 'bfSkinToggle' ||
+          child.id === 'siteMenu' ||
+          child.id === 'cartFloat' ||
+          child.id === 'skinMapPhotonegative' ||
+          (child.classList && child.classList.contains('skin-map__scroll-room')) ||
           (child.getAttribute && child.getAttribute('data-bf-skin-chrome') === '1')
         ) {
           preserved.push(child);
@@ -30,7 +34,7 @@
       }
       document.body.insertBefore(contentContainer, bottomBar);
       preserved.forEach(function (node) {
-        document.body.appendChild(node);
+        document.body.insertBefore(node, contentContainer);
       });
     }
 
@@ -45,6 +49,10 @@
 
     // Render songs for the initial page load
     updateAudioListForPage();
+    if (typeof window.mountSiteMenu === 'function') {
+      window.mountSiteMenu();
+    }
+    reinitializePageScripts();
   }
 
   function prefetchNavPages() {
@@ -102,6 +110,73 @@
     }
   }
 
+  // Index home uses the photonegative skin + gate boot — soft swap leaves the
+  // old stage visible (URL changes but archive/shop/etc. never mount).
+  function leavingIndexHome(href, baseHref) {
+    if (!document.body || !document.body.classList.contains('index-home')) return false;
+    if (!href) return false;
+    try {
+      const resolved = new URL(href, baseHref || window.location.href);
+      if (resolved.origin !== window.location.origin) return false;
+      return !isIndexPathname(resolved.pathname);
+    } catch (_) {
+      return !isIndexPathname(String(href).split('?')[0].split('#')[0]);
+    }
+  }
+
+  function isIndexPathname(pathname) {
+    const name = hubPageName(pathname);
+    return !name || name === 'index' || name === 'index.html';
+  }
+
+  function resolvePath(url, baseHref) {
+    try {
+      return new URL(url, baseHref || window.location.href).pathname;
+    } catch (_) {
+      return String(url || '').split('?')[0].split('#')[0];
+    }
+  }
+
+  // Index skin CSS + gate boot only ship on index.html — never SPA-swap the landing.
+  function enteringIndexHome(href, baseHref) {
+    if (!href) return false;
+    try {
+      const resolved = new URL(href, baseHref || window.location.href);
+      if (resolved.origin !== window.location.origin) return false;
+      return isIndexPathname(resolved.pathname);
+    } catch (_) {
+      return isIndexPathname(resolvePath(href, baseHref));
+    }
+  }
+
+  function isAudioPathname(pathname) {
+    const name = hubPageName(pathname);
+    return name === 'audio' || name === 'audio.html';
+  }
+
+  // Hard-load audio when photonegative.css isn't present (index scroll keeps it in-DOM).
+  function enteringAudioPage(href, baseHref) {
+    if (document.body && document.body.classList.contains('index-home')) return false;
+    if (document.querySelector('link[href*="photonegative.css"]')) return false;
+    if (!href) return false;
+    try {
+      const resolved = new URL(href, baseHref || window.location.href);
+      if (resolved.origin !== window.location.origin) return false;
+      return isAudioPathname(resolved.pathname);
+    } catch (_) {
+      return isAudioPathname(resolvePath(href, baseHref));
+    }
+  }
+
+  function shouldHardNavigate(href, baseHref) {
+    return (
+      isHubNavigation(href, baseHref) ||
+      leavingIndexHome(href, baseHref) ||
+      enteringIndexHome(href, baseHref) ||
+      enteringAudioPage(href, baseHref)
+    );
+  }
+
   function hardNavigate(url) {
     window.location.assign(url);
   }
@@ -129,7 +204,7 @@
     }
 
     // Full document load so hub boot scripts actually run.
-    if (isHubNavigation(href, link.href || window.location.href)) {
+    if (shouldHardNavigate(href, link.href || window.location.href)) {
       return;
     }
 
@@ -143,7 +218,7 @@
   function handlePopState(e) {
     const dest =
       window.location.pathname + window.location.search + window.location.hash;
-    if (isHubNavigation(dest)) {
+    if (shouldHardNavigate(dest)) {
       hardNavigate(dest);
       return;
     }
@@ -151,7 +226,7 @@
   }
 
   async function navigateTo(url) {
-    if (isHubNavigation(url)) {
+    if (shouldHardNavigate(url)) {
       hardNavigate(url);
       return;
     }
@@ -164,7 +239,17 @@
   }
 
   async function loadPage(url) {
-    if (isHubNavigation(url)) {
+    const path = resolvePath(url);
+    if (isIndexPathname(path)) {
+      hardNavigate(url);
+      return;
+    }
+    if (isAudioPathname(path) && !document.querySelector('link[href*="photonegative.css"]')) {
+      hardNavigate(url);
+      return;
+    }
+
+    if (shouldHardNavigate(url)) {
       hardNavigate(url);
       return;
     }
@@ -181,13 +266,19 @@
       const doc = parser.parseFromString(html, 'text/html');
       
       // Extract the body content (excluding scripts and bottom bar)
-      const newContent = document.createElement('div');
       const bodyChildren = Array.from(doc.body.children);
       
+      contentContainer.innerHTML = '';
       bodyChildren.forEach(child => {
         // Skip the bottom bar and script tags
-        if (child.id !== 'bottomBar' && child.tagName !== 'SCRIPT') {
-          newContent.appendChild(child.cloneNode(true));
+        if (
+          child.id !== 'bottomBar' &&
+          child.id !== 'siteMenu' &&
+          child.id !== 'cartFloat' &&
+          child.id !== 'skinMapPhotonegative' &&
+          child.tagName !== 'SCRIPT'
+        ) {
+          contentContainer.appendChild(child.cloneNode(true));
         }
       });
 
@@ -195,11 +286,18 @@
       document.title = doc.title;
 
       // Keep body flags in sync so route-specific CSS (e.g. index newsletter dock) applies after SPA navigation
+      // Preserve playback chrome classes — audio + bar must survive soft nav.
+      const keepPlaybackClasses = ['playback-active', 'playback-playing', 'stream-playback-active', 'now-playing-active'];
+      const preserved = keepPlaybackClasses.filter(function (cls) {
+        return document.body.classList.contains(cls);
+      });
       document.body.className = doc.body.className;
+      preserved.forEach(function (cls) {
+        document.body.classList.add(cls);
+      });
 
       // Replace content
-      contentContainer.innerHTML = '';
-      contentContainer.appendChild(newContent);
+      // (contentContainer already cleared and filled above)
 
       // Hub shells cannot render without their page-specific scripts — hard-load instead.
       if (document.getElementById('albumHubPage') && !albumHubCanRender()) {
@@ -212,12 +310,41 @@
       }
 
       // Re-initialize any page-specific scripts
+      if (typeof window.mountSiteMenu === 'function') {
+        window.mountSiteMenu();
+      }
       reinitializePageScripts();
+
+      if (document.body.classList.contains('page-audio')) {
+        const gate = document.getElementById('skinMapPhotonegative');
+        if (gate) gate.hidden = true;
+        if (window.BurnfolderHomeMusic) {
+          if (typeof window.BurnfolderHomeMusic.mountLinks === 'function') {
+            window.BurnfolderHomeMusic.mountLinks();
+          }
+          if (typeof window.BurnfolderHomeMusic.bindPlayback === 'function') {
+            window.BurnfolderHomeMusic.bindPlayback();
+          }
+        }
+      }
 
       if (typeof window.preservePlaybackAcrossNavigation === 'function') {
         window.preservePlaybackAcrossNavigation();
       } else if (typeof window.syncPlaybackChromeState === 'function') {
         window.syncPlaybackChromeState();
+      }
+
+      // Final guard: if mux is still playing, the bar must be visible.
+      const liveBar = document.getElementById('bottomBar');
+      const livePlayer = document.getElementById('activeMuxPlayer');
+      if (
+        liveBar &&
+        livePlayer &&
+        livePlayer.getAttribute('playback-id') &&
+        !livePlayer.paused
+      ) {
+        liveBar.style.display = 'flex';
+        document.body.classList.add('playback-active', 'playback-playing');
       }
 
       // Scroll to top
@@ -243,18 +370,13 @@
       window.renderDataEntryPage();
     }
 
-    // Re-run entry list population for index page
-    const entriesContainer = document.getElementById('entries');
-    if (entriesContainer && entriesContainer.children.length === 0) {
-      const entries = window.journalEntries || [];
-      entries.forEach(entry => {
-        const li = document.createElement("li");
-        const link = document.createElement("a");
-        link.href = `${entry}.html`;
-        link.textContent = entry;
-        li.appendChild(link);
-        entriesContainer.appendChild(li);
-      });
+    // Re-run entry list population for archive page
+    if (typeof window.renderArchivePage === 'function') {
+      window.renderArchivePage();
+    }
+
+    if (typeof window.mountSiteMenu === 'function') {
+      window.mountSiteMenu();
     }
 
     // Newsletter uses a single document-level submit handler (see bindNewsletterOnce below)
@@ -284,7 +406,19 @@
     const pathParts = window.location.pathname.split('/');
     const pageKey = pathParts[pathParts.length - 1].replace('.html', '') || 'index';
 
-    const noAudioListPages = new Set(['index', 'shop', 'cart', 'checkout', 'cancel', 'success']);
+    const noAudioListPages = new Set([
+      'index',
+      'archive',
+      'shop',
+      'cart',
+      'checkout',
+      'cancel',
+      'success',
+      'about',
+      'contact',
+      'press',
+      'content'
+    ]);
     if (noAudioListPages.has(pageKey)) {
       window.currentSongs = [];
     } else if (window.songsByPage && window.songsByPage[pageKey]) {
@@ -461,5 +595,10 @@
       statusMsg.style.color = '#000';
     }
   });
+
+  window.BurnfolderSpaRouter = {
+    navigateTo: navigateTo,
+    loadPage: loadPage
+  };
 
 })();

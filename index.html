@@ -4,15 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>burnfolder.com</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
-  <link rel="preconnect" href="https://image.mux.com" crossorigin>
+  <!-- Gate only: no Mux CDN. Streaming belongs on audio.html — Mux keeps Safari's
+       tab spinner alive forever once a playback-id is restored.
+       Prefetch/preconnect only (skins.js) warms audio.html without executing Mux. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.mux.com">
-  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="skins/photonegative.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="prefetch" href="audio.html" as="document">
+  <link rel="stylesheet" href="style.css?v=20260720hang2">
+  <link rel="stylesheet" href="skins/photonegative.css?v=20260720ac">
   <script>
     // Apply saved skin before paint so the default layout doesn't flash.
+    // Also boot the scroll-down gate so we start on the image.
     (function () {
       try {
         var q = new URLSearchParams(location.search);
@@ -21,42 +24,16 @@
         if (q.get('hitboxes') === '1' || localStorage.getItem('bf-hitboxes') === '1') {
           document.documentElement.setAttribute('data-hitboxes', '1');
         }
+        document.documentElement.classList.add('bf-gate-boot');
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
       } catch (e) {}
     })();
   </script>
+  <script src="shared/site-menu.js?v=20260720w" defer></script>
 </head>
-<body class="index-home">
-  <header class="site-header">
-    <a href="index.html" class="site-brand">burnfolder.com</a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="music.html" class="page-nav">music</a>
-      <a href="content.html" class="page-nav">video</a>
-      <a href="shop.html" class="page-nav">shop</a>
-    </nav>
-    <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
-  </header>
-
-  <div class="page-wrap">
-    <div class="home-intro">
-      <p class="home-intro-lead">burnfolder — journal and archive.</p>
-      <p class="home-intro-release">current release: <a href="album.html?album=photonegative">photonegative</a></p>
-    </div>
-
-    <!-- Entries -->
-    <ul id="entries"></ul>
-
-    <!-- Newsletter signup -->
-    <div class="newsletter-signup newsletter-popup">
-      <p>get notified of new entries</p>
-      <form id="subscribeForm">
-        <input type="email" id="emailInput" name="email" placeholder="your@email.com" required>
-        <button type="submit">subscribe</button>
-      </form>
-      <p id="statusMessage"></p>
-    </div>
-  </div>
-
-  <!-- Photonegative image-map skin (hidden unless html[data-skin="photonegative"]) -->
+<body class="index-home is-home-gate">
+  <div id="siteMenu"></div>
+  <!-- Landing gate: full-viewport image; scroll down for the music stage -->
   <section class="skin-map skin-map--photonegative" id="skinMapPhotonegative" aria-label="Photonegative">
     <div class="skin-map__stage">
       <div class="skin-map__frame">
@@ -69,104 +46,27 @@
           decoding="async"
           fetchpriority="high"
         >
-        <svg class="skin-map__svg" viewBox="0 0 1024 576" preserveAspectRatio="xMidYMid slice" role="group" aria-label="Site links">
-          <!-- Invisible regions only — the photo is the interface -->
-
-          <a class="skin-map__spot" href="index.html" data-skin-set="default" aria-label="Default view">
-            <polygon class="skin-map__hit" points="955,0 1024,0 1024,255 1015,248 1005,140 995,70 980,25 955,0"></polygon>
-          </a>
-
-          <a class="skin-map__spot" href="index.html" data-skin-hotspot="latest-entry" aria-label="Latest journal entry">
-            <polygon class="skin-map__hit" points="210,422 350,415 520,412 640,418 685,438 670,485 500,495 320,492 220,475 200,445"></polygon>
-          </a>
-
-          <a class="skin-map__spot" href="album.html?album=photonegative" aria-label="Album: photonegative">
-            <polygon class="skin-map__hit" points="175,370 250,352 340,342 440,336 540,336 620,340 680,350 702,368 705,390 680,408 600,415 480,418 360,418 260,412 200,400 175,385"></polygon>
-          </a>
-
-          <a class="skin-map__spot" href="shop.html" aria-label="Shop">
-            <polygon class="skin-map__hit" points="505,50 513,48 517,248 512,262 505,258 502,120"></polygon>
-          </a>
-
-
-          <a class="skin-map__spot" href="content.html" aria-label="Video">
-            <polygon class="skin-map__hit" points="745,308 790,292 845,295 880,315 890,345 870,365 825,370 780,360 748,340 740,322"></polygon>
-          </a>
-
-          <a class="skin-map__spot" href="index.html" data-skin-set="default" aria-label="Journal list">
-            <polygon class="skin-map__hit" points="882,448 930,438 990,432 1012,442 1018,470 1018,515 1005,540 960,548 900,542 875,520 870,485 874,460"></polygon>
-          </a>
-
-          <a class="skin-map__spot skin-map__spot--music" href="music.html" aria-label="Music">
-            <polygon class="skin-map__hit skin-map__hit--music" points="0,230 130,228 185,235 215,245 235,265 238,295 225,320 195,340 130,350 60,352 0,348"></polygon>
-            <image
-              class="skin-map__trace"
-              href="IMAGES/skins/photonegative-trace-music.png"
-              x="0"
-              y="0"
-              width="1024"
-              height="576"
-              preserveAspectRatio="xMidYMid slice"
-              pointer-events="none"
-            ></image>
-          </a>
-        </svg>
+        <!-- Hit masks + traces mounted from skins/hotspots.js (pixel-sampled) -->
+        <div class="skin-map__hotspots" id="skinHotspots" aria-label="Site links"></div>
+        <a class="skin-map__hint" href="audio.html">scroll down</a>
       </div>
     </div>
   </section>
+  <!-- Gives Safari something to scroll so wheel/scroll events fire (overflow:hidden kills them). -->
+  <div class="skin-map__scroll-room" aria-hidden="true"></div>
 
-  <!-- Hidden audio list div for playback restoration -->
+  <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
   <div id="audioList" style="display: none;"></div>
-  <div class="page-watermark">burnfolder.com</div>
+  <div class="page-watermark" hidden>burnfolder.com</div>
 
-  <!-- Bottom progress bar -->
-  <div class="bottom-progress-bar" id="bottomBar">
-    <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
-    <div class="bottom-bar-content">
-      <mux-player id="activeMuxPlayer" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>
-      <span class="song-title" id="songTitle">Track Title</span>
-      <div class="bottom-bar-controls">
-        <button class="bottom-play-pause-btn" id="bottomPlayPause" aria-label="Play/Pause">▶</button>
-      </div>
-      <div class="progress-bar-area" id="progressBarArea">
-        <div class="progress" id="progress"></div>
-        <div class="progress-playhead" id="progressPlayhead"></div>
-      </div>
-      <div class="loading-spinner" id="loadingSpinner"></div>
-    </div>
-  </div>
+  <!-- No mux-player / bottom bar on the gate — hard-nav to audio.html for playback. -->
 
   <script src="entries.js"></script>
-<script src="entry-renderer.js"></script>
-<script src="songs.js"></script>
-  <script src="shared/song-versions.js"></script>
-  <script src="stripe-publishable.js"></script>
-  <script src="shared/media-session.js?v=20260709l"></script>
-  <script src="shared/playback-recall.js?v=20260709l"></script>
-  <script src="spa-router.js?v=20260709o"></script>
-  <script src="skins/skins.js"></script>
-  <script src="shared/playback-prefetch.js?v=20260709l"></script>
-  <script src="shared/studio-tap.js?v=20260709l"></script>
-  <script src="shared/mux-playback.js?v=20260709l"></script>
-  <script src="shared/playback-context.js?v=20260709l"></script>
-  <script src="shared/version-picker.js?v=20260709l"></script>
-  <script src="shared/now-playing-bar.js?v=20260709l"></script>
-  <script src="scripts.js?v=20260709l"></script>
+  <script src="songs.js"></script>
+  <script src="spa-router.js?v=20260720play1"></script>
+  <script src="skins/hotspots.js"></script>
+  <script src="skins/skins.js?v=20260720af"></script>
   <script src="shared/site-version.js"></script>
   <script src="shared/register-sw.js"></script>
-<script src="shared/analytics-config.js"></script>
-<script src="shared/analytics-beacon.js"></script>
-  <script>
-  const entries = window.journalEntries || [];
-  const container = document.getElementById("entries");
-  entries.forEach(entry => {
-    const li = document.createElement("li");
-    const link = document.createElement("a");
-    link.href = `${entry}.html`;
-    link.textContent = entry;
-    li.appendChild(link);
-    container.appendChild(li);
-  });
-  </script>
 </body>
 </html>
