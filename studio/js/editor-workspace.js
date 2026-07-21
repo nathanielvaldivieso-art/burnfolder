@@ -424,27 +424,32 @@
   }
 
   function mountToolbar() {
+    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
     const addTextBtn = document.getElementById('studioAddTextBtn');
     if (addTextBtn && addTextBtn.dataset.bound !== '1') {
       addTextBtn.dataset.bound = '1';
-      addTextBtn.addEventListener('click', function () {
+      const onAddText = function () {
         whenEditorReady(function (api) {
           api.addText('', { textSize: getActiveTextSize() });
           setStatus('added text');
         });
-      });
+      };
+      if (tap && tap.bind) tap.bind(addTextBtn, onAddText);
+      else addTextBtn.addEventListener('click', onAddText);
     }
 
     document.querySelectorAll('[data-text-size]').forEach(function (btn) {
       if (btn.dataset.bound === '1') return;
       btn.dataset.bound = '1';
-      btn.addEventListener('click', function () {
+      const onSetSize = function () {
         const size = btn.getAttribute('data-text-size');
         setActiveTextSize(size);
         whenEditorReady(function (api) {
           api.setTextSize(size);
         });
-      });
+      };
+      if (tap && tap.bind) tap.bind(btn, onSetSize);
+      else btn.addEventListener('click', onSetSize);
     });
   }
 

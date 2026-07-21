@@ -288,10 +288,6 @@
       const entryDrop = entryPreviewDropAt(clientX, clientY, hit);
       if (entryDrop) return entryDrop;
 
-      if (hit.closest('.studio-dnd-landing-zone')) {
-        return { type: 'landing' };
-      }
-
       const trash = hit.closest('.studio-stream-track-delete');
       if (trash && trash.closest('.studio-stream-track-item') === active.el) {
         return { type: 'delete', targetEl: trash };
@@ -320,6 +316,10 @@
           groupId: hitGroup.dataset.groupId || '',
           targetEl: hitGroup
         };
+      }
+
+      if (hit.closest('.studio-dnd-landing-zone')) {
+        return { type: 'landing' };
       }
 
       if (libraryDrop && !hit.closest('.studio-stream-album-group')) {

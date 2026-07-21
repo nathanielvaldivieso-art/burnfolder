@@ -209,9 +209,12 @@
   }
 
   if (hubPlayBtn) {
-    hubPlayBtn.addEventListener('click', function () {
+    const albumTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    const onAlbumPlay = function () {
       playAlbumFrom(0);
-    });
+    };
+    if (albumTap && albumTap.bind) albumTap.bind(hubPlayBtn, onAlbumPlay);
+    else hubPlayBtn.addEventListener('click', onAlbumPlay);
   }
 
   if (copyBtn) {

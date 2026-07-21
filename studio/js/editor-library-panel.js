@@ -85,18 +85,18 @@
         if (result.type === 'merge' && result.targetId) {
           const target =
             findItem(result.targetId) || resolveStackTrack({ playbackId: result.targetId });
-          if (target) shared.dropOntoSong(dragged, target);
+          if (target) shared.dropOntoSong(dragged, target, songGroupOpts(dragged));
         } else if (result.type === 'addToGroup') {
-          shared.addToGroup(dragged, result.groupId || '');
+          shared.addToGroup(dragged, result.groupId || '', songGroupOpts(dragged));
         } else if (result.type === 'landing') {
-          shared.addToGroup(dragged);
+          shared.addToGroup(dragged, '', songGroupOpts(dragged));
         } else if (result.type === 'reorder' && result.targetId) {
           let targetIndex = stackIndexForId(result.targetId, payload.groupId);
           if (targetIndex < 0) return;
           if (!result.before) targetIndex += 1;
           shared.reorderStack(payload.id, targetIndex, payload.groupId);
         } else if (result.type === 'eject') {
-          shared.removeFromStack(payload.id);
+          shared.removeFromStack(payload.id, songGroupOpts(dragged));
         }
 
         if (result.groupId) setAlbumExpanded(result.groupId, true);
@@ -181,6 +181,30 @@
       return versionsApi.getTrackGroupKey(labelForItem(item));
     }
 
+    function groupKeyForTrack(track) {
+      return groupKeyForItem(resolveStackTrack(track));
+    }
+
+    function groupedSongKeys() {
+      const keys = new Set();
+      shared.loadGroups().forEach(function (group) {
+        (group.tracks || []).forEach(function (track) {
+          const key = groupKeyForTrack(track);
+          if (key) keys.add(key);
+        });
+      });
+      return keys;
+    }
+
+    function songGroupOpts(item) {
+      const key = groupKeyForItem(item);
+      if (!key) return null;
+      return {
+        songGroupKey: key,
+        trackGroupKey: groupKeyForTrack
+      };
+    }
+
     function groupedPlaybackIds() {
       return shared.allGroupedPlaybackIds ? shared.allGroupedPlaybackIds() : new Set();
     }
@@ -214,23 +238,12 @@
       }
     }
 
+    // shared/cover-art.js is always loaded ahead of this file (see
+    // EDITOR_SCRIPTS in studio-editor-loader.js), so this is a thin,
+    // crash-safe wrapper rather than a parallel DOM implementation.
     function applyCoverPreview(coverBtn, meta) {
       const coverArt = window.BurnfolderCoverArt;
-      if (coverArt && coverArt.applyCoverPreview) {
-        coverArt.applyCoverPreview(coverBtn, meta);
-        return;
-      }
-      if (!coverBtn) return;
-      coverBtn.innerHTML = '';
-      if (meta && meta.coverArt) {
-        coverBtn.classList.remove('is-empty');
-        const img = document.createElement('img');
-        img.src = meta.coverArt;
-        img.alt = meta.coverAlt || meta.title || 'cover art';
-        coverBtn.appendChild(img);
-      } else {
-        coverBtn.classList.add('is-empty');
-      }
+      if (coverArt && coverArt.applyCoverPreview) coverArt.applyCoverPreview(coverBtn, meta);
     }
 
     function setAlbumCoverFromFile(groupId, file, coverBtn, coverWrap, onChanged) {
@@ -291,7 +304,7 @@
       const resolved = resolveStackTrack(track);
       const li = document.createElement('li');
       li.className = 'music-tracklist-item studio-stream-track-item studio-stream-album-track';
-      li.dataset.playbackId = track.playbackId || '';
+      li.dataset.playbackId = resolved.playbackId || track.playbackId || '';
 
       const handle = document.createElement('span');
       handle.className = 'studio-stream-album-track-handle';
@@ -405,8 +418,8 @@
 
     function buildAlbumGroup(group) {
       const tracks = group.tracks || [];
-      if (!tracks.length) return null;
       const meta = group.meta || shared.loadStackMeta(group.id);
+      if (!tracks.length && !(shared.hasAlbumMeta && shared.hasAlbumMeta(meta))) return null;
       const groupId = group.id;
 
       const wrap = document.createElement('section');
@@ -444,7 +457,9 @@
 
       const metaEl = document.createElement('span');
       metaEl.className = 'studio-stream-album-meta';
-      metaEl.textContent = albumMetaText(tracks);
+      metaEl.textContent = tracks.length
+        ? albumMetaText(tracks)
+        : 'drop songs here';
       info.appendChild(nameInput);
       info.appendChild(metaEl);
 
@@ -456,6 +471,7 @@
       playBtn.className = 'studio-stream-album-play';
       playBtn.setAttribute('aria-label', 'Play');
       playBtn.textContent = '▶';
+      if (!tracks.length) playBtn.hidden = true;
       function activateAlbumPlay(event) {
         if (event) event.stopPropagation();
         playAlbum(group, 0);
@@ -634,13 +650,14 @@
         }
       });
 
-      const groupedIds = groupedPlaybackIds();
+      const groupedKeys = groupedSongKeys();
       const audioItems = list.filter(function (item) {
         return !shared.isVideoItem(item);
       });
-      const visibleAudio = groupedIds.size
+      const visibleAudio = groupedKeys.size
         ? audioItems.filter(function (item) {
-            return item.playbackId && !groupedIds.has(item.playbackId);
+            const key = groupKeyForItem(item);
+            return item.playbackId && (!key || !groupedKeys.has(key));
           })
         : audioItems;
       const videoItems = list.filter(shared.isVideoItem);

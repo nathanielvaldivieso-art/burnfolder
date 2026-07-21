@@ -30,7 +30,7 @@
 
   function markNav() {
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-      const active = link.getAttribute('data-nav') === 'ideas';
+      const active = link.getAttribute('data-nav') === 'word-pull';
       link.classList.toggle('is-active', active);
       link.classList.toggle('page-nav', active);
     });
@@ -195,6 +195,18 @@
       event.preventDefault();
       logSentence();
     });
+
+    // "enter to log" isn't discoverable on a mobile keyboard that doesn't
+    // show a return key affordance for this input — give it an explicit button.
+    const logBtn = document.getElementById('wordPullLogBtn');
+    if (logBtn) {
+      const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+      const onLogTap = function () {
+        logSentence();
+      };
+      if (tap && tap.bind) tap.bind(logBtn, onLogTap);
+      else logBtn.addEventListener('click', onLogTap);
+    }
   }
 
   function loadLog() {

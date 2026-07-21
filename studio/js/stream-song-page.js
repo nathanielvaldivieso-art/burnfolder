@@ -154,7 +154,7 @@
     const hubPlayBtn = document.getElementById('songHubPlay');
     if (!hubPlayBtn || hubPlayBtn.dataset.bound) return;
     hubPlayBtn.dataset.bound = '1';
-    hubPlayBtn.addEventListener('click', function () {
+    const onHubPlay = function () {
       const startSong = sorted[0];
       if (!startSong) return;
       const active = player.getActiveSong();
@@ -168,7 +168,10 @@
         return;
       }
       playSongHubQueue(sorted, startSong);
-    });
+    };
+    const tap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    if (tap && tap.bind) tap.bind(hubPlayBtn, onHubPlay);
+    else hubPlayBtn.addEventListener('click', onHubPlay);
   }
 
   function mountShareHub(catalogSong) {

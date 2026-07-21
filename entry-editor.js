@@ -742,6 +742,29 @@
         fields.appendChild(titleInput);
         fields.appendChild(idInput);
 
+        const rowActions = document.createElement('div');
+        rowActions.className = 'studio-playlist-track-row-actions';
+
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.type = 'button';
+        moveUpBtn.className = 'icon-btn studio-playlist-track-move';
+        moveUpBtn.textContent = '\u25b2';
+        moveUpBtn.setAttribute('aria-label', 'Move track up');
+        moveUpBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          moveBlockTrack(block.id, track.id, -1);
+        });
+
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.type = 'button';
+        moveDownBtn.className = 'icon-btn studio-playlist-track-move';
+        moveDownBtn.textContent = '\u25bc';
+        moveDownBtn.setAttribute('aria-label', 'Move track down');
+        moveDownBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          moveBlockTrack(block.id, track.id, 1);
+        });
+
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'icon-btn studio-playlist-track-remove';
@@ -751,10 +774,14 @@
           removeBlockTrack(block.id, track.id);
         });
 
+        rowActions.appendChild(moveUpBtn);
+        rowActions.appendChild(moveDownBtn);
+        rowActions.appendChild(removeBtn);
+
         row.appendChild(handle);
         row.appendChild(thumb);
         row.appendChild(fields);
-        row.appendChild(removeBtn);
+        row.appendChild(rowActions);
 
         row.addEventListener('dragstart', function (event) {
           studioPlaylistTrackDragId = track.id;
@@ -1561,7 +1588,38 @@ ${tracks.join(',\n')}
           item.draggable = true;
           item.classList.add('studio-playlist-track-item');
 
-          if (!item.querySelector('.studio-playlist-track-delete')) {
+          if (!item.querySelector('.studio-playlist-track-item-actions')) {
+            const itemActions = document.createElement('div');
+            itemActions.className = 'studio-playlist-track-item-actions';
+
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.type = 'button';
+            moveUpBtn.className = 'icon-btn studio-playlist-track-move';
+            moveUpBtn.textContent = '\u25b2';
+            moveUpBtn.setAttribute('aria-label', 'Move track up');
+            moveUpBtn.addEventListener('mousedown', function (event) {
+              event.stopPropagation();
+            });
+            moveUpBtn.addEventListener('click', function (event) {
+              event.stopPropagation();
+              event.preventDefault();
+              moveBlockTrack(block.id, track.id, -1);
+            });
+
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.type = 'button';
+            moveDownBtn.className = 'icon-btn studio-playlist-track-move';
+            moveDownBtn.textContent = '\u25bc';
+            moveDownBtn.setAttribute('aria-label', 'Move track down');
+            moveDownBtn.addEventListener('mousedown', function (event) {
+              event.stopPropagation();
+            });
+            moveDownBtn.addEventListener('click', function (event) {
+              event.stopPropagation();
+              event.preventDefault();
+              moveBlockTrack(block.id, track.id, 1);
+            });
+
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'icon-btn studio-playlist-track-delete';
@@ -1575,7 +1633,11 @@ ${tracks.join(',\n')}
               event.preventDefault();
               removeBlockTrack(block.id, track.id);
             });
-            item.appendChild(deleteBtn);
+
+            itemActions.appendChild(moveUpBtn);
+            itemActions.appendChild(moveDownBtn);
+            itemActions.appendChild(deleteBtn);
+            item.appendChild(itemActions);
           }
 
           item.addEventListener('dragstart', function (event) {
@@ -1996,6 +2058,31 @@ ${tracks.join(',\n')}
       drag.setAttribute('aria-label', 'Move ' + block.type + ' block');
       drag.title = 'Drag to reorder on the page';
 
+      // Drag-to-reorder is HTML5 DnD, which iOS/Android Safari & Chrome do
+      // not fire on touch. Give coarse pointers a tap-based fallback (CSS
+      // in studio.css hides these on fine-pointer/hover-capable devices).
+      const upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.className = 'studio-bubble-move icon-btn';
+      upBtn.textContent = '\u25b2';
+      upBtn.setAttribute('aria-label', 'Move ' + block.type + ' block up');
+      upBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        moveBlockById(block.id, -1);
+      });
+
+      const downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.className = 'studio-bubble-move icon-btn';
+      downBtn.textContent = '\u25bc';
+      downBtn.setAttribute('aria-label', 'Move ' + block.type + ' block down');
+      downBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        moveBlockById(block.id, 1);
+      });
+
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'studio-bubble-delete icon-btn';
@@ -2005,18 +2092,42 @@ ${tracks.join(',\n')}
       del.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
+        if (blockHasContent(block) && !window.confirm('Delete this ' + block.type + ' block? This cannot be undone.')) {
+          return;
+        }
         removeBlock(block.id);
       });
+
+      const dragCol = document.createElement('div');
+      dragCol.className = 'studio-bubble-drag-col';
+      dragCol.appendChild(drag);
+      dragCol.appendChild(upBtn);
+      dragCol.appendChild(downBtn);
 
       const body = document.createElement('div');
       body.className = 'studio-preview-bubble-body';
       const node = buildContent();
       if (node) body.appendChild(node);
 
-      shell.appendChild(drag);
+      shell.appendChild(dragCol);
       shell.appendChild(body);
       shell.appendChild(del);
       wrap.appendChild(shell);
+    }
+
+    function blockHasContent(block) {
+      if (!block) return false;
+      if (block.type === 'text') return textBlockHasRenderableContent(block.text);
+      if (block.type === 'spacing') return false;
+      if (block.type === 'image') return !!(block.src && block.src.trim());
+      if (block.type === 'video') return !!(block.playbackId && block.playbackId.trim());
+      if (block.type === 'audio') return !!(block.playbackId && block.playbackId.trim());
+      if (block.type === 'album' || block.type === 'playlist') {
+        return Array.isArray(block.tracks) && block.tracks.some(function (t) {
+          return t.playbackId;
+        });
+      }
+      return true;
     }
 
     function renderPreview(entry) {
@@ -2308,7 +2419,7 @@ ${tracks.join(',\n')}
       function handlePreviewTap(event, shell) {
         if (
           event.target.closest(
-            '.studio-bubble-drag, .studio-bubble-delete, .studio-playlist-track-delete, .music-track-row, .music-tracklist, button, a, input, textarea, select'
+            '.studio-bubble-drag, .studio-bubble-move, .studio-bubble-delete, .studio-playlist-track-delete, .music-track-row, .music-tracklist, button, a, input, textarea, select'
           )
         ) {
           return;
@@ -2326,22 +2437,14 @@ ${tracks.join(',\n')}
         window.BurnfolderStudioTap.on(wrap, '.studio-preview-bubble', handlePreviewTap);
       }
 
+      // Deselect on outside-bubble clicks only — selecting inside a bubble is
+      // already handled by the BurnfolderStudioTap.on() binding above. A
+      // second selectStudioPlaylist() call here double-fired the re-render
+      // and scrollIntoView on every tap.
       wrap.addEventListener('click', function (event) {
         if (!event.target.closest('.studio-preview-bubble')) {
           selectStudioPlaylist(null);
-          return;
         }
-
-        const shell = event.target.closest('.studio-preview-bubble[data-block-type="playlist"]');
-        if (!shell) return;
-        if (
-          event.target.closest(
-            '.studio-bubble-drag, .studio-bubble-delete, .studio-playlist-track-delete, .music-track-row, .music-tracklist, button, a'
-          )
-        ) {
-          return;
-        }
-        selectStudioPlaylist(shell.dataset.blockId);
       });
 
       wrap.querySelectorAll('.studio-preview-bubble[data-block-type="playlist"]').forEach(function (shell) {
