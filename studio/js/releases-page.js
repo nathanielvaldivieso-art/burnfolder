@@ -556,39 +556,67 @@
       });
   }
 
-  function createRelease() {
-    const draft = currentDraft();
-    const check = window.BurnfolderReleaseChecklist.evaluate(draft, {
-      rightsName: getVal('prefRightsName')
-    });
-    if (!check.ok) {
-      setStatus('checklist still has gaps', 'error');
-      return;
+  // Guards against duplicate LabelGrid create/submit requests from a fast
+  // double-tap on mobile, which previously could create/submit twice.
+  let releaseActionInFlight = false;
+
+  function withReleaseActionLock(btn, fn) {
+    if (releaseActionInFlight) return;
+    releaseActionInFlight = true;
+    if (btn) btn.disabled = true;
+    const release = function () {
+      releaseActionInFlight = false;
+      if (btn) btn.disabled = false;
+      detectOwner();
+    };
+    try {
+      const result = fn();
+      if (result && typeof result.then === 'function') {
+        result.then(release, release);
+      } else {
+        release();
+      }
+    } catch (e) {
+      release();
+      throw e;
     }
-    setStatus('creating on LabelGrid (uploads masters from vault)…', 'working');
-    distroPost({ action: 'create', release: draft })
-      .then(function (data) {
-        activeProviderReleaseId = data.release && data.release.providerReleaseId;
-        catalog = {
-          releases: [data.release].concat(
-            (catalog.releases || []).filter(function (r) {
-              return r.id !== data.release.id;
-            })
-          )
-        };
-        const cs = cloud();
-        if (cs && cs.put) cs.put('releaseCatalog', catalog);
-        return loadPrefsAndCatalog().then(function () {
-          document.getElementById('releaseSubmitBtn').disabled = !isOwner || !activeProviderReleaseId;
-          setStatus(
-            'created LabelGrid release #' + activeProviderReleaseId + ' — review then submit',
-            'success'
-          );
-        });
-      })
-      .catch(function (err) {
-        setStatus(err.message || 'create failed', 'error');
+  }
+
+  function createRelease() {
+    withReleaseActionLock(document.getElementById('releaseCreateBtn'), function () {
+      const draft = currentDraft();
+      const check = window.BurnfolderReleaseChecklist.evaluate(draft, {
+        rightsName: getVal('prefRightsName')
       });
+      if (!check.ok) {
+        setStatus('checklist still has gaps', 'error');
+        return;
+      }
+      setStatus('creating on LabelGrid (uploads masters from vault)…', 'working');
+      return distroPost({ action: 'create', release: draft })
+        .then(function (data) {
+          activeProviderReleaseId = data.release && data.release.providerReleaseId;
+          catalog = {
+            releases: [data.release].concat(
+              (catalog.releases || []).filter(function (r) {
+                return r.id !== data.release.id;
+              })
+            )
+          };
+          const cs = cloud();
+          if (cs && cs.put) cs.put('releaseCatalog', catalog);
+          return loadPrefsAndCatalog().then(function () {
+            document.getElementById('releaseSubmitBtn').disabled = !isOwner || !activeProviderReleaseId;
+            setStatus(
+              'created LabelGrid release #' + activeProviderReleaseId + ' — review then submit',
+              'success'
+            );
+          });
+        })
+        .catch(function (err) {
+          setStatus(err.message || 'create failed', 'error');
+        });
+    });
   }
 
   function submitRelease() {
@@ -603,17 +631,19 @@
     if (!window.confirm('Submit release #' + activeProviderReleaseId + ' to LabelGrid / DSPs?')) {
       return;
     }
-    setStatus('submitting…', 'working');
-    distroPost({ action: 'submit', providerReleaseId: activeProviderReleaseId })
-      .then(function () {
-        return loadPrefsAndCatalog();
-      })
-      .then(function () {
-        setStatus('submitted — DSP review is usually 3–14 days', 'success');
-      })
-      .catch(function (err) {
-        setStatus(err.message || 'submit failed', 'error');
-      });
+    withReleaseActionLock(document.getElementById('releaseSubmitBtn'), function () {
+      setStatus('submitting…', 'working');
+      return distroPost({ action: 'submit', providerReleaseId: activeProviderReleaseId })
+        .then(function () {
+          return loadPrefsAndCatalog();
+        })
+        .then(function () {
+          setStatus('submitted — DSP review is usually 3–14 days', 'success');
+        })
+        .catch(function (err) {
+          setStatus(err.message || 'submit failed', 'error');
+        });
+    });
   }
 
   function refreshReleaseStatus(providerReleaseId) {
