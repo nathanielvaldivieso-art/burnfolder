@@ -216,13 +216,16 @@
     }
 
     if (playBtn) {
-      playBtn.addEventListener('click', function () {
+      const playTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+      const onPlay = function () {
         if (!player || !stackTracks.length) return;
         const items = stackTracks.map(function (t) {
           return shared.findInLibrary(getLibrary(), t.playbackId) || t;
         });
         player.playQueue(items, 0, { coverArt: stackMeta.coverArt || '' });
-      });
+      };
+      if (playTap && playTap.bind) playTap.bind(playBtn, onPlay);
+      else playBtn.addEventListener('click', onPlay);
     }
 
     if (entryBtn) entryBtn.addEventListener('click', function () {

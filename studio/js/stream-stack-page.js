@@ -76,12 +76,15 @@
   }
 
   if (playBtn) {
-    playBtn.addEventListener('click', function () {
+    const playTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+    const onPlay = function () {
       const items = stackTracks.map(function (t) {
         return shared.findInLibrary(libraryCache, t.playbackId) || t;
       });
       if (player) player.playQueue(items, 0);
-    });
+    };
+    if (playTap && playTap.bind) playTap.bind(playBtn, onPlay);
+    else playBtn.addEventListener('click', onPlay);
   }
 
   if (entryBtn) entryBtn.addEventListener('click', function () {

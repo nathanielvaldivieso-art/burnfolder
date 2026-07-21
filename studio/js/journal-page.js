@@ -179,13 +179,16 @@
       playBtn.type = 'button';
       playBtn.className = 'studio-journal-contribution-play';
       playBtn.textContent = item.kind === 'video' ? 'open' : 'play';
-      playBtn.addEventListener('click', function () {
+      const onContributionPlay = function () {
         if (item.kind === 'video') {
           window.location.href = '/studio/video.html';
           return;
         }
         playContribution(item);
-      });
+      };
+      const contribTap = window.BurnfolderTouchTap || window.BurnfolderStudioTap;
+      if (contribTap && contribTap.bind) contribTap.bind(playBtn, onContributionPlay);
+      else playBtn.addEventListener('click', onContributionPlay);
       actions.appendChild(playBtn);
 
       const streamLink = document.createElement('a');
