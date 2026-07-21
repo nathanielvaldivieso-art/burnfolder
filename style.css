@@ -1591,10 +1591,24 @@ mux-player#activeMuxPlayer {
   letter-spacing: 0.1em;
   text-transform: lowercase;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   opacity: 1;
   -webkit-user-select: text;
   -moz-user-select: text;
   user-select: text;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .song-title {
+    /* A tap here opens the version-picker menu — text selection just gets
+       in the way on touch, where there's no separate hover state to hint
+       it's interactive. */
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 .song-title-wrap {
@@ -2388,6 +2402,12 @@ body.checkout-open {
   z-index: 1;
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .progress-bar-area {
+    height: 28px;
+  }
+}
+
 .progress-bar-area::before {
   content: '';
   position: absolute;
@@ -2518,7 +2538,7 @@ h1 { display: none; }
 @media (max-width: 600px), ((hover: none) and (pointer: coarse) and (max-width: 932px)) {
   :root {
     --page-gutter: var(--page-gutter-mobile);
-    --now-playing-btn-size: 40px;
+    --now-playing-btn-size: 44px;
   }
 
   .entry-editor-shell {
@@ -2606,7 +2626,7 @@ h1 { display: none; }
   }
 
   .close-btn {
-    opacity: 0.25;
+    opacity: 0.55;
     pointer-events: auto;
   }
 
@@ -2762,7 +2782,7 @@ h1 { display: none; }
     left: 12px;
     right: 12px;
     top: auto;
-    bottom: calc(48px + 12px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--now-playing-bar-height, 56px) + 12px + env(safe-area-inset-bottom, 0px));
     width: auto;
     max-width: none;
     max-height: min(46vh, 280px);

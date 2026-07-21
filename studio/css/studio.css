@@ -637,6 +637,13 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
   border-radius: 0;
 }
 
+.studio-bubble-drag-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
 .studio-preview-bubble.is-dragging {
   opacity: 0.45;
 }
@@ -752,6 +759,12 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .studio-stack-cover-drop.has-cover:hover .studio-stack-cover-pick,
 .studio-stack-cover-drop.has-cover:focus-within .studio-stack-cover-pick {
   opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-stack-cover-drop.has-cover .studio-stack-cover-pick {
+    opacity: 1;
+  }
 }
 
 .studio-stack-cover-img {
@@ -897,6 +910,31 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 .studio-preview-bubble:hover .studio-bubble-delete,
 .studio-preview-bubble:focus-within .studio-bubble-delete {
   opacity: 1;
+}
+
+/* Coarse-pointer fallback for reordering blocks: HTML5 drag (.studio-bubble-drag)
+   never fires on touch, so give touch users tap-based up/down instead. Hidden
+   on hover-capable/fine-pointer devices where drag already works. */
+.studio-bubble-move {
+  display: none;
+  position: static;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  min-width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-bubble-move {
+    display: inline-flex;
+  }
+  .studio-bubble-drag,
+  .studio-bubble-delete {
+    opacity: 0.85;
+  }
 }
 
 .studio-preview-bubble-body {
@@ -3114,7 +3152,7 @@ body.stream-playback-active.studio-ideas-page .page-wrap,
 body.stream-playback-active.studio-word-pull-page .page-wrap,
 body.stream-playback-active.studio-editor-page .studio-entry-layout,
 body.stream-playback-active .studio-home {
-  padding-bottom: 72px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
 /* stream playback bar — same bottom-progress-bar as burnfolder.com */
@@ -3146,7 +3184,7 @@ body.stream-playback-active .studio-home {
 }
 
 body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
-  bottom: 64px;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
 }
 
 .studio-stream-page .studio-main-nav-link.page-nav.is-active {
@@ -3525,11 +3563,34 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
   padding: 4px 6px;
 }
 
-.studio-playlist-track-remove {
+.studio-playlist-track-row-actions {
   grid-column: 1 / -1;
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 2px;
+}
+
+.studio-playlist-track-remove {
   font-size: 10px;
+}
+
+.studio-playlist-track-move {
+  display: none;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 8px;
+  min-width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-playlist-track-move {
+    display: inline-flex;
+  }
 }
 
 .studio-inspector-drop-label {
@@ -3547,8 +3608,22 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
   grid-template-columns: 24px minmax(0, 1fr) auto;
 }
 
-.studio-preview-bubble .studio-playlist-track-delete {
+.studio-preview-bubble .studio-playlist-track-item-actions {
   align-self: center;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.studio-preview-bubble .studio-playlist-track-item-actions .studio-playlist-track-move {
+  font-size: 11px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px 6px;
+}
+
+.studio-preview-bubble .studio-playlist-track-delete {
   flex-shrink: 0;
   min-width: 28px;
   padding: 2px 6px;
@@ -3562,6 +3637,15 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
 .studio-preview-bubble .studio-playlist-track-delete:hover,
 .studio-preview-bubble .studio-playlist-track-delete:focus-visible {
   opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-preview-bubble .studio-playlist-track-item-actions .studio-playlist-track-move {
+    display: inline-flex;
+  }
+  .studio-preview-bubble .studio-playlist-track-delete {
+    opacity: 0.85;
+  }
 }
 
 .studio-preview-bubble .music-tracklist-item.studio-playlist-track-item.is-dragging {
@@ -3672,7 +3756,8 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px))
+    max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px));
   background: #fff;
 }
 
@@ -4219,6 +4304,17 @@ body.studio-locked > :not(.studio-auth-gate):not(#studioGlobalPlayback) {
   text-decoration: underline;
   text-underline-offset: 2px;
   outline: none;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-journal-contribution-play,
+  .studio-journal-contribution-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 4px 0;
+    opacity: 0.7;
+  }
 }
 
 @media (max-width: 600px) {
@@ -5546,9 +5642,25 @@ body.studio-song-designer-page .page-wrap {
   #newDraftDate,
   #studioNewDraftDate,
   #entryDate,
+  .studio-auth-input,
+  .studio-journal-textarea,
+  .studio-stack-title-input,
+  .studio-playlist-track-title-input,
+  .studio-playlist-track-id-input,
+  .studio-releases-field input,
+  .studio-releases-field select,
+  .studio-releases-track-title,
+  .studio-releases-track-isrc,
+  .studio-word-pull-input {
+    font-size: 16px;
+  }
+
+  .studio-hub-date-field input,
+  #newDraftDate,
+  #studioNewDraftDate,
+  #entryDate,
   .studio-auth-input {
     min-height: 44px;
-    font-size: 16px;
   }
 
   .studio-draft-list .studio-draft-link {
@@ -5887,6 +5999,16 @@ body.studio-song-designer-page .page-wrap {
   cursor: wait;
 }
 
+@media (hover: none), (pointer: coarse) {
+  .studio-market-desk-go {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    font-size: 13px;
+    opacity: 0.75;
+  }
+}
+
 .studio-market-desk-write {
   margin: 14px 0 0;
 }
@@ -5920,6 +6042,15 @@ body.studio-song-designer-page .page-wrap {
   .studio-market-desk:hover .studio-market-desk-refresh,
   .studio-market-desk:focus-within .studio-market-desk-refresh {
     opacity: 0.28;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-market-desk-refresh {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px 6px;
+    opacity: 0.4;
   }
 }
 
@@ -6054,6 +6185,13 @@ body.stream-playback-active.studio-dashboard-page {
 @media (max-width: 600px) {
   .studio-analytics-nav {
     padding: 0 var(--page-gutter-mobile, 24px) 6px;
+  }
+
+  .studio-analytics-period-select {
+    font-size: 16px;
+    min-height: 32px;
+    padding: 4px 18px 4px 2px;
+    opacity: 0.9;
   }
 }
 
@@ -6353,6 +6491,13 @@ body.stream-playback-active.studio-dashboard-page {
   outline: none;
 }
 
+@media (hover: none), (pointer: coarse) {
+  .studio-song-scrub-track {
+    margin: -14px 0;
+    padding: 14px 0;
+  }
+}
+
 .studio-song-scrub-track:focus-visible {
   box-shadow: inset 0 0 0 1px currentColor;
 }
@@ -6541,6 +6686,18 @@ a.icon-btn {
   align-items: center;
   gap: 8px;
   font-size: 12px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .studio-releases-checkrow {
+    min-height: 44px;
+    padding: 4px 0;
+  }
+  .studio-releases-checkrow input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
 }
 
 .studio-release-checklist {
@@ -6806,9 +6963,16 @@ body.wordpull-public .page-wrap {
   text-transform: lowercase;
 }
 
+.studio-word-pull-compose-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .studio-word-pull-compose {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .studio-word-pull-input {
@@ -6820,6 +6984,10 @@ body.wordpull-public .page-wrap {
   border: 1px solid #000;
   border-radius: 0;
   padding: 10px 12px;
+}
+
+.studio-word-pull-log-btn {
+  flex-shrink: 0;
 }
 
 .studio-word-pull-hint {
