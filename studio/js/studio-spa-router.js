@@ -9,7 +9,6 @@
     'stream.html': 'stream',
     'video.html': 'video',
     'journal.html': 'journal',
-    'ideas.html': 'ideas',
     'word-pull.html': 'word-pull',
     'releases.html': 'releases'
   };
@@ -40,7 +39,6 @@
     'js/studio-mux-lib.js',
     'js/journal-day-store.js',
     'js/journal-contributions.js',
-    '../shared/studio-tap.js',
     'js/cloud-state.js',
     'js/stream-shared.js',
     'js/upload-queue.js',
@@ -67,7 +65,6 @@
     dashboard: PLAYBACK_CORE.concat(['js/dashboard-page.js', 'js/studio-ai-panel.js']),
     entry: PLAYBACK_CORE.concat([
       'js/drafts.js',
-      '../shared/studio-tap.js',
       'js/studio-hub.js',
       'js/studio-bridge.js',
       'js/studio-editor-loader.js',
@@ -79,9 +76,6 @@
       'js/vault-upload.js',
       'js/release-checklist.js',
       'js/releases-page.js'
-    ],
-    ideas: [
-      'js/ideas-page.js'
     ],
     'word-pull': [
       'js/studio-dates.js',
@@ -277,19 +271,31 @@
     return contentRoot;
   }
 
+  // Both cold-load <script src> tags and the PAGE_SCRIPTS table (which lists
+  // paths relative to whatever studio page is currently active) need to
+  // dedupe against the same key, or SPA navigation re-injects scripts the
+  // cold-loaded page already ran. Resolve everything to an absolute URL
+  // (minus the cache-busting query) before comparing/storing.
+  function scriptKey(src) {
+    try {
+      return new URL(src.split('?')[0], window.location.href).href;
+    } catch (e) {
+      return src.split('?')[0];
+    }
+  }
+
   function scriptSrcNeedsLoad(src) {
-    const clean = src.split('?')[0];
-    return !loadedScripts.has(clean);
+    return !loadedScripts.has(scriptKey(src));
   }
 
   function loadScript(src) {
-    const clean = src.split('?')[0];
-    if (loadedScripts.has(clean)) return Promise.resolve();
+    const key = scriptKey(src);
+    if (loadedScripts.has(key)) return Promise.resolve();
     return new Promise(function (resolve, reject) {
       const script = document.createElement('script');
       script.src = src.indexOf('?') > -1 ? src : src + versionQuery();
       script.onload = function () {
-        loadedScripts.add(clean);
+        loadedScripts.add(key);
         resolve();
       };
       script.onerror = reject;
@@ -309,19 +315,19 @@
     return chain;
   }
 
+  const PAGE_INIT_FNS = {
+    stream: 'studioInitStreamPage',
+    video: 'studioInitStreamPage',
+    journal: 'studioInitJournalPage',
+    'word-pull': 'studioInitWordPullPage',
+    dashboard: 'studioInitDashboardPage',
+    entry: 'studioInitEntryHub'
+  };
+
   function runPageInit(pageKey) {
-    if ((pageKey === 'stream' || pageKey === 'video') && typeof window.studioInitStreamPage === 'function') {
-      window.studioInitStreamPage();
-    } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
-      window.studioInitJournalPage();
-    } else if (pageKey === 'ideas' && typeof window.studioInitIdeasPage === 'function') {
-      window.studioInitIdeasPage();
-    } else if (pageKey === 'word-pull' && typeof window.studioInitWordPullPage === 'function') {
-      window.studioInitWordPullPage();
-    } else if (pageKey === 'dashboard' && typeof window.studioInitDashboardPage === 'function') {
-      window.studioInitDashboardPage();
-    } else if (pageKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
-      window.studioInitEntryHub();
+    const fnName = PAGE_INIT_FNS[pageKey];
+    if (fnName && typeof window[fnName] === 'function') {
+      window[fnName]();
     }
     if (pageKey === 'entry' && typeof window.studioInitEditorWorkspace === 'function') {
       window.studioInitEditorWorkspace();
@@ -398,9 +404,6 @@
 
       if (typeof window.studioFlushJournalSave === 'function') {
         await window.studioFlushJournalSave();
-      }
-      if (typeof window.studioFlushIdeasSave === 'function') {
-        await window.studioFlushIdeasSave();
       }
       if (typeof window.studioFlushWordPullLog === 'function') {
         await window.studioFlushWordPullLog();
@@ -505,7 +508,7 @@
     }
 
     document.querySelectorAll('script[src]').forEach(function (node) {
-      if (node.src) loadedScripts.add(node.src.split('?')[0]);
+      if (node.src) loadedScripts.add(scriptKey(node.src));
     });
 
     if (shellReady()) window.BurnfolderStudioPlaybackShell.ensureShell();
