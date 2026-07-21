@@ -81,6 +81,15 @@
     };
   }
 
+  function hasAlbumMeta(meta) {
+    const m = normalizeMeta(meta);
+    return !!(m.title || m.coverArt || m.coverAssetId);
+  }
+
+  function keepGroupShell(group) {
+    return group && group.tracks && (group.tracks.length > 0 || hasAlbumMeta(group.meta));
+  }
+
   function genGroupId() {
     return (
       'g_' +
@@ -158,9 +167,7 @@
 
   function saveGroups(groups, opts) {
     const options = opts || {};
-    const safe = (groups || []).map(normalizeGroup).filter(function (g) {
-      return g && g.tracks && g.tracks.length;
-    });
+    const safe = (groups || []).map(normalizeGroup).filter(keepGroupShell);
     window.localStorage.setItem(GROUPS_KEY, JSON.stringify(safe));
     cloudPut(CLOUD_GROUPS_KEY, safe);
     if (!options.skipLegacy) syncLegacyFromGroups(safe);
@@ -187,20 +194,23 @@
     }) || null;
   }
 
-  function removeTrackFromAllGroups(playbackId, groups) {
+  function removeTrackFromAllGroups(playbackId, groups, opts) {
+    const options = opts || {};
+    const keyFn = typeof options.trackGroupKey === 'function' ? options.trackGroupKey : null;
+    const songKey = options.songGroupKey ? String(options.songGroupKey) : '';
+
     return (groups || loadGroups())
       .map(function (g) {
         return {
           id: g.id,
           meta: g.meta,
           tracks: g.tracks.filter(function (t) {
+            if (keyFn && songKey) return keyFn(t) !== songKey;
             return t.playbackId !== playbackId;
           })
         };
       })
-      .filter(function (g) {
-        return g.tracks.length > 0;
-      });
+      .filter(keepGroupShell);
   }
 
   function isInAnyGroup(playbackId) {
@@ -502,21 +512,27 @@
     };
   }
 
-  function addToGroup(item, groupId) {
+  function addToGroup(item, groupId, opts) {
+    const options = opts || {};
     if (!item || !item.playbackId || isVideoItem(item)) {
       return { ok: false };
     }
     let groups = loadGroups();
     const track = stackItemFromLibrary(item);
-    groups = removeTrackFromAllGroups(track.playbackId, groups);
+    const keyFn = typeof options.trackGroupKey === 'function' ? options.trackGroupKey : null;
+    const songKey = options.songGroupKey ? String(options.songGroupKey) : '';
+    groups = removeTrackFromAllGroups(track.playbackId, groups, options);
 
     let group = groupId ? groups.find(function (g) { return g.id === groupId; }) : null;
     if (!group) {
       group = { id: genGroupId(), tracks: [], meta: emptyMeta() };
       groups.push(group);
     }
-    if (group.tracks.some(function (t) { return t.playbackId === track.playbackId; })) {
-      return { ok: false };
+    const alreadyInGroup = keyFn && songKey
+      ? group.tracks.some(function (t) { return keyFn(t) === songKey; })
+      : group.tracks.some(function (t) { return t.playbackId === track.playbackId; });
+    if (alreadyInGroup) {
+      return { ok: false, reason: 'duplicate' };
     }
     group.tracks.push(track);
     saveGroups(groups);
@@ -528,7 +544,8 @@
   }
 
   /** Drag a song onto another: create or extend a group. */
-  function dropOntoSong(draggedItem, targetItem) {
+  function dropOntoSong(draggedItem, targetItem, opts) {
+    const options = opts || {};
     if (!draggedItem || !targetItem || !draggedItem.playbackId || !targetItem.playbackId) {
       return { ok: false };
     }
@@ -541,7 +558,9 @@
 
     const dragged = stackItemFromLibrary(draggedItem);
     const target = stackItemFromLibrary(targetItem);
-    let groups = removeTrackFromAllGroups(dragged.playbackId, loadGroups());
+    const keyFn = typeof options.trackGroupKey === 'function' ? options.trackGroupKey : null;
+    const songKey = options.songGroupKey ? String(options.songGroupKey) : '';
+    let groups = removeTrackFromAllGroups(dragged.playbackId, loadGroups(), options);
     const targetGroup = groups.find(function (g) {
       return g.tracks.some(function (t) {
         return t.playbackId === target.playbackId;
@@ -549,6 +568,9 @@
     });
 
     if (targetGroup) {
+      if (keyFn && songKey && targetGroup.tracks.some(function (t) { return keyFn(t) === songKey; })) {
+        return { ok: false, reason: 'duplicate' };
+      }
       const targetIdx = targetGroup.tracks.findIndex(function (t) {
         return t.playbackId === target.playbackId;
       });
@@ -558,7 +580,7 @@
         targetGroup.tracks.push(dragged);
       }
     } else {
-      groups = removeTrackFromAllGroups(target.playbackId, groups);
+      groups = removeTrackFromAllGroups(target.playbackId, groups, options);
       groups.push({
         id: genGroupId(),
         tracks: [target, dragged],
@@ -570,8 +592,8 @@
     return { ok: true, groups: groups };
   }
 
-  function removeFromStack(playbackId) {
-    const groups = removeTrackFromAllGroups(playbackId, loadGroups());
+  function removeFromStack(playbackId, opts) {
+    const groups = removeTrackFromAllGroups(playbackId, loadGroups(), opts || {});
     saveGroups(groups);
     return groups;
   }
@@ -760,6 +782,7 @@
     saveStack: saveStack,
     loadGroups: loadGroups,
     saveGroups: saveGroups,
+    hasAlbumMeta: hasAlbumMeta,
     findGroupById: findGroupById,
     findGroupForTrack: findGroupForTrack,
     isInAnyGroup: isInAnyGroup,
