@@ -548,7 +548,6 @@ Key/value on **Netlify Blobs** (store `studio-state`), bearer-gated. Keys are **
 | `journalDays` | `journal-day-store.js` | Private journal / plan / checklist per day |
 | `songPages` | `song-page-store.js` | Song designer pages (pre-push) |
 | `albumPages` | `album-page-store.js` | Album designer pages (pre-push) |
-| `notes` | `journal-store.js` | Legacy notes store (superseded by `journalDays`) |
 | `releaseDates` | `today-page.js` | Release calendar on **today** |
 | `trackPipeline` | `track-pipeline.js` | Per-track status: demo / mix / master / ready |
 

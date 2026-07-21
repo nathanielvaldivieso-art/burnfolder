@@ -213,10 +213,6 @@
       .filter(keepGroupShell);
   }
 
-  function isInAnyGroup(playbackId) {
-    return !!findGroupForTrack(playbackId);
-  }
-
   function allGroupedPlaybackIds() {
     const ids = new Set();
     loadGroups().forEach(function (g) {
@@ -225,10 +221,6 @@
       });
     });
     return ids;
-  }
-
-  function groupedPlaybackIds() {
-    return allGroupedPlaybackIds();
   }
 
   const VIDEO_NAME_RE = /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?.*)?$/i;
@@ -467,20 +459,6 @@
     return first ? first.tracks.slice() : [];
   }
 
-  function saveStack(tracks) {
-    const groups = loadGroups();
-    if (!groups.length) {
-      if (!tracks || !tracks.length) {
-        saveGroups([]);
-        return;
-      }
-      saveGroups([{ id: genGroupId(), tracks: tracks, meta: emptyMeta() }]);
-      return;
-    }
-    groups[0].tracks = Array.isArray(tracks) ? tracks : [];
-    saveGroups(groups);
-  }
-
   /** Album-style metadata for a group (defaults to first group). */
   function loadStackMeta(groupId) {
     const group = groupId ? findGroupById(groupId) : loadGroups()[0];
@@ -537,10 +515,6 @@
     group.tracks.push(track);
     saveGroups(groups);
     return { ok: true, groupId: group.id };
-  }
-
-  function addToStack(item) {
-    return addToGroup(item);
   }
 
   /** Drag a song onto another: create or extend a group. */
@@ -623,13 +597,6 @@
     return groups;
   }
 
-  function clearStack() {
-    saveGroups([]);
-    window.localStorage.removeItem(STACK_META_KEY);
-    cloudPut(CLOUD_STACK_META_KEY, emptyMeta());
-    return [];
-  }
-
   function thumbnailUrl(playbackId) {
     if (!playbackId) return '';
     return 'https://image.mux.com/' + playbackId + '/thumbnail.webp?time=1';
@@ -667,23 +634,6 @@
     return sv.mergeSongCatalog(sv.getSiteCatalog(window), libraryCache || [], muxFileLabel);
   }
 
-  function entryPageHref(song) {
-    if (!song) return '';
-    let page = song.page != null ? String(song.page).trim() : '';
-    if (!page || !/^\d+\.\d+\.\d+$/.test(page)) {
-      const hit = (window.allSongs || []).find(function (row) {
-        return row && row.playbackId === song.playbackId;
-      });
-      if (hit && hit.page) page = String(hit.page).trim();
-    }
-    if (!/^\d+\.\d+\.\d+$/.test(page)) return '';
-    return '../' + page + '.html';
-  }
-
-  function stackPageUrl() {
-    return 'stream-stack.html';
-  }
-
   function editorHrefSingle(item) {
     const draftId = window.localStorage.getItem(LAST_DRAFT_KEY);
     const base = draftId ? 'index.html?id=' + encodeURIComponent(draftId) : 'index.html';
@@ -692,32 +642,6 @@
       url.searchParams.set('insertAsset', item.muxAssetId || item.playbackId);
     }
     return url.pathname + url.search;
-  }
-
-  function editorHrefForStack() {
-    const draftId = window.localStorage.getItem(LAST_DRAFT_KEY);
-    const base = draftId ? 'index.html?id=' + encodeURIComponent(draftId) : 'index.html';
-    const url = new URL(base, window.location.href);
-    url.searchParams.set('createStack', '1');
-    return url.pathname + url.search;
-  }
-
-  function pushStackToEntry(tracks, meta) {
-    const stack = tracks || loadStack();
-    if (!stack.length) return false;
-    const m = meta || loadStackMeta();
-    const payload = {
-      title: m.title || '',
-      coverArt: m.coverArt || '',
-      coverAlt: m.coverAlt || '',
-      tracks: stack.map(function (t) {
-        return { title: t.title, playbackId: t.playbackId };
-      })
-    };
-    window.localStorage.setItem(PENDING_STACK_KEY, JSON.stringify(payload));
-    cloudPut(CLOUD_PENDING_STACK_KEY, payload);
-    window.location.href = editorHrefForStack();
-    return true;
   }
 
   function readPendingStack() {
@@ -779,32 +703,24 @@
     getStreamVideoElement: getStreamVideoElement,
     clearStreamVideo: clearStreamVideo,
     loadStack: loadStack,
-    saveStack: saveStack,
     loadGroups: loadGroups,
     saveGroups: saveGroups,
     hasAlbumMeta: hasAlbumMeta,
     findGroupById: findGroupById,
     findGroupForTrack: findGroupForTrack,
-    isInAnyGroup: isInAnyGroup,
     allGroupedPlaybackIds: allGroupedPlaybackIds,
-    groupedPlaybackIds: groupedPlaybackIds,
     loadStackMeta: loadStackMeta,
     saveStackMeta: saveStackMeta,
     addToGroup: addToGroup,
-    addToStack: addToStack,
     dropOntoSong: dropOntoSong,
     removeFromStack: removeFromStack,
     reorderStack: reorderStack,
-    clearStack: clearStack,
     thumbnailUrl: thumbnailUrl,
     songPageUrl: songPageUrl,
     albumPageUrl: albumPageUrl,
     albumDesignerUrl: albumDesignerUrl,
     buildStreamSongCatalog: buildStreamSongCatalog,
-    entryPageHref: entryPageHref,
-    stackPageUrl: stackPageUrl,
     editorHrefSingle: editorHrefSingle,
-    pushStackToEntry: pushStackToEntry,
     readPendingStack: readPendingStack,
     clearPendingStack: clearPendingStack,
     findInLibrary: findInLibrary,
