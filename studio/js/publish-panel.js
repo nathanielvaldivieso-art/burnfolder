@@ -40,6 +40,8 @@
   }
 
   function getFunctionsBase() {
+    const cs = window.BurnfolderCloudState;
+    if (cs && cs.getFunctionsBase) return cs.getFunctionsBase();
     const cfg = window.BurnfolderStudioConfig || {};
     if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
     const host = location.hostname;

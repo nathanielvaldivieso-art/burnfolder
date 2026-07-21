@@ -226,6 +226,8 @@
   }
 
   function getFunctionsBase() {
+    const cs = root.BurnfolderCloudState;
+    if (cs && cs.getFunctionsBase) return cs.getFunctionsBase();
     const cfg = root.BurnfolderStudioConfig || {};
     if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
     const host = root.location && root.location.hostname;

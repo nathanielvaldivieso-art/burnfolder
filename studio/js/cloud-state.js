@@ -228,6 +228,9 @@
     },
     isAvailable: function () {
       return location.protocol === 'http:' || location.protocol === 'https:';
-    }
+    },
+    // Shared Netlify Functions base — the page/album/song/press/shop stores
+    // and publish-panel.js all resolved this same URL independently.
+    getFunctionsBase: getApiBase
   };
 })();
