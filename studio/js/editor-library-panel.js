@@ -238,23 +238,12 @@
       }
     }
 
+    // shared/cover-art.js is always loaded ahead of this file (see
+    // EDITOR_SCRIPTS in studio-editor-loader.js), so this is a thin,
+    // crash-safe wrapper rather than a parallel DOM implementation.
     function applyCoverPreview(coverBtn, meta) {
       const coverArt = window.BurnfolderCoverArt;
-      if (coverArt && coverArt.applyCoverPreview) {
-        coverArt.applyCoverPreview(coverBtn, meta);
-        return;
-      }
-      if (!coverBtn) return;
-      coverBtn.innerHTML = '';
-      if (meta && meta.coverArt) {
-        coverBtn.classList.remove('is-empty');
-        const img = document.createElement('img');
-        img.src = meta.coverArt;
-        img.alt = meta.coverAlt || meta.title || 'cover art';
-        coverBtn.appendChild(img);
-      } else {
-        coverBtn.classList.add('is-empty');
-      }
+      if (coverArt && coverArt.applyCoverPreview) coverArt.applyCoverPreview(coverBtn, meta);
     }
 
     function setAlbumCoverFromFile(groupId, file, coverBtn, coverWrap, onChanged) {
