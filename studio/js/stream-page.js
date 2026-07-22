@@ -980,6 +980,27 @@
     return versionsApi ? versionsApi.stripTrailingDate(fullTitle) || fullTitle : fullTitle;
   }
 
+  /* Cascade top → bottom, alternating left / right — same feel as audio constellation */
+  var VIDEO_CONSTELLATION_LEFTS = [14, 52, 28, 58, 18, 48, 34, 62];
+
+  function layoutVideoConstellation(grid) {
+    if (!grid) return;
+    var cards = grid.querySelectorAll('.studio-video-card');
+    var stepY = 86;
+    var maxBottom = 0;
+    cards.forEach(function (li, i) {
+      var row = Math.floor(i / 2);
+      var side = i % 2;
+      var top = 6 + row * stepY + (side ? 30 : 0);
+      var left = VIDEO_CONSTELLATION_LEFTS[i % VIDEO_CONSTELLATION_LEFTS.length];
+      li.style.top = top + 'px';
+      li.style.left = 'min(' + left + '%, calc(100% - var(--studio-video-card-w) - 8px))';
+      li.style.right = 'auto';
+      maxBottom = Math.max(maxBottom, top + 118);
+    });
+    grid.style.minHeight = Math.max(160, maxBottom + 12) + 'px';
+  }
+
   function buildVideoCardItem(item) {
     const isExpanded = expandedVideoId === item.playbackId;
     const label = videoCardLabel(item);
@@ -1474,10 +1495,11 @@
         section.appendChild(heading);
 
         const grid = document.createElement('ul');
-        grid.className = 'studio-video-grid';
+        grid.className = 'studio-video-constellation studio-video-grid';
         group.items.forEach(function (item) {
           grid.appendChild(buildVideoCardItem(item));
         });
+        layoutVideoConstellation(grid);
         section.appendChild(grid);
         listRoot.appendChild(section);
       });
@@ -1492,10 +1514,11 @@
           section.appendChild(heading);
         }
         const grid = document.createElement('ul');
-        grid.className = 'studio-video-grid';
+        grid.className = 'studio-video-constellation studio-video-grid';
         other.forEach(function (item) {
           grid.appendChild(buildVideoCardItem(item));
         });
+        layoutVideoConstellation(grid);
         section.appendChild(grid);
         listRoot.appendChild(section);
       }

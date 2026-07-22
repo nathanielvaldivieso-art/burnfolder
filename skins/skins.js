@@ -200,6 +200,17 @@
   function goToAudioPage() {
     if (scrollToAudioLock || !isIndexHome()) return;
     scrollToAudioLock = true;
+    // One-way soft enter keeps you in the moment; Mux mounts only after gate is gone.
+    // Fallback: hard nav (?softAudio=0 / ?hardAudio=1 / soft-enter failure).
+    var soft = window.BurnfolderSoftEnterAudio;
+    if (soft && typeof soft.enter === 'function' && soft.isEnabled()) {
+      soft.enter().then(function (ok) {
+        // Stay locked on success (we're on audio). Unlock only if soft enter
+        // aborted without navigating so the gesture can retry.
+        if (!ok) scrollToAudioLock = false;
+      });
+      return;
+    }
     window.location.assign('audio.html');
   }
 
@@ -561,6 +572,18 @@
 
       var href = spot.getAttribute('href');
       if (!href || href === '#') return;
+      try {
+        var resolved = new URL(href, window.location.href);
+        var name = (resolved.pathname.split('/').pop() || '').toLowerCase();
+        if (
+          (name === 'audio' || name === 'audio.html') &&
+          window.BurnfolderSoftEnterAudio &&
+          window.BurnfolderSoftEnterAudio.isEnabled()
+        ) {
+          window.BurnfolderSoftEnterAudio.enter();
+          return;
+        }
+      } catch (_) {}
       window.location.assign(href);
     });
   }

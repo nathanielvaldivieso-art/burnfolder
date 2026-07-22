@@ -174,9 +174,13 @@
   // Small "cloud" indicator in the studio header so you can trust your data is
   // saved before closing the app on the go.
   function ensureNavTools() {
+    let tools = document.getElementById('studioMenuTools');
+    if (tools) return tools;
+    tools = document.querySelector('.studio-site-menu .studio-nav-tools');
+    if (tools) return tools;
     const nav = document.querySelector('.studio-main-nav');
     if (!nav) return null;
-    let tools = nav.querySelector('.studio-nav-tools');
+    tools = nav.querySelector('.studio-nav-tools');
     if (!tools) {
       tools = document.createElement('span');
       tools.className = 'studio-nav-tools';
@@ -185,9 +189,12 @@
     return tools;
   }
 
+  var syncListenerBound = false;
+
   function mountIndicator() {
     const tools = ensureNavTools();
-    if (!tools || tools.querySelector('.studio-sync')) return;
+    if (!tools) return;
+    if (tools.querySelector('.studio-sync')) return;
 
     const el = document.createElement('span');
     el.className = 'studio-sync is-idle';
@@ -202,14 +209,30 @@
       const known = STATUS_LABELS[status] ? status : 'idle';
       el.classList.remove('is-idle', 'is-syncing', 'is-synced', 'is-offline');
       el.classList.add('is-' + known);
-      el.querySelector('.studio-sync-label').textContent = STATUS_LABELS[known];
+      const label = el.querySelector('.studio-sync-label');
+      if (label) label.textContent = STATUS_LABELS[known];
       el.setAttribute('title', 'personal cloud: ' + STATUS_LABELS[known]);
     }
 
-    window.addEventListener('burnfolder-cloud-state', function (event) {
-      render(event.detail && event.detail.status);
-    });
+    if (!syncListenerBound) {
+      syncListenerBound = true;
+      window.addEventListener('burnfolder-cloud-state', function (event) {
+        const node = document.querySelector('.studio-sync');
+        if (!node) return;
+        const status = event.detail && event.detail.status;
+        const known = STATUS_LABELS[status] ? status : 'idle';
+        node.classList.remove('is-idle', 'is-syncing', 'is-synced', 'is-offline');
+        node.classList.add('is-' + known);
+        const label = node.querySelector('.studio-sync-label');
+        if (label) label.textContent = STATUS_LABELS[known];
+        node.setAttribute('title', 'personal cloud: ' + STATUS_LABELS[known]);
+      });
+    }
     render(currentStatus);
+  }
+
+  function remountChrome() {
+    mountIndicator();
   }
 
   if (document.readyState === 'loading') {
@@ -223,6 +246,7 @@
     put: put,
     pushNow: pushNow,
     flush: flush,
+    remountChrome: remountChrome,
     getStatus: function () {
       return currentStatus;
     },

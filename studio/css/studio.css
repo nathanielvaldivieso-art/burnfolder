@@ -1427,6 +1427,11 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
     max-width: 640px;
     padding-bottom: calc(200px + env(safe-area-inset-bottom, 0));
   }
+
+  /* Video constellation needs room to breathe like the site menu / audio field */
+  .studio-stream-page--video .studio-stream-layout {
+    max-width: min(920px, 100%);
+  }
 }
 
 .studio-stream-page .studio-stream-layout {
@@ -1595,24 +1600,33 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   opacity: 1;
 }
 
-/* video page — thumbnail grid */
+/* video page — constellation of small thumbnail boxes */
 
 .studio-video-grid-wrap {
-  max-width: 960px;
+  max-width: none;
 }
 
+.studio-video-constellation,
 .studio-video-grid {
+  --studio-video-card-w: 108px;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px 14px;
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 160px;
 }
 
 .studio-video-card {
+  position: absolute;
+  width: var(--studio-video-card-w);
   min-width: 0;
-  position: relative;
+  z-index: 1;
+}
+
+.studio-video-card.is-expanded {
+  z-index: 3;
 }
 
 .studio-video-card-btn {
@@ -1627,11 +1641,12 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.12s ease, background 0.12s ease, opacity 0.2s ease;
 }
 
 .studio-video-card-btn:hover {
   background: #fafafa;
+  opacity: 0.85;
 }
 
 .studio-video-card-btn:focus-visible {
@@ -1656,10 +1671,10 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 
 .studio-video-card-duration {
   position: absolute;
-  right: 6px;
-  bottom: 6px;
-  padding: 2px 5px;
-  font-size: 0.68rem;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 4px;
+  font-size: 0.58rem;
   letter-spacing: 0.04em;
   line-height: 1.2;
   background: rgba(0, 0, 0, 0.72);
@@ -1669,16 +1684,16 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 
 .studio-video-card-delete {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 4px;
+  right: 4px;
   z-index: 2;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: 2px;
   background: rgba(0, 0, 0, 0.52);
   color: #fff;
   opacity: 0;
@@ -1708,12 +1723,12 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 
 .studio-video-card-title {
   display: block;
-  padding: 8px 8px 10px;
+  padding: 5px 5px 6px;
   font-family: var(--font-site);
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   letter-spacing: 0.05em;
   text-transform: lowercase;
-  line-height: 1.35;
+  line-height: 1.3;
   word-break: break-word;
 }
 
@@ -1723,6 +1738,13 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
 
 .studio-video-card.is-expanded .studio-video-card-title {
   font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .studio-video-constellation,
+  .studio-video-grid {
+    --studio-video-card-w: 96px;
+  }
 }
 
 .studio-stream-tracklist {
@@ -5169,11 +5191,11 @@ body.studio-song-designer-page .page-wrap {
 }
 
 .studio-video-group {
-  margin-bottom: 28px;
+  margin-bottom: 36px;
 }
 
 .studio-video-group-title {
-  margin: 0 0 10px 0;
+  margin: 0 0 14px 0;
   font-size: 0.82em;
   letter-spacing: 0.12em;
   text-transform: lowercase;
@@ -6931,3 +6953,186 @@ body.studio-word-pull-page .page-wrap {
 }
 
 
+
+/* ── studio constellation menu (shared pattern with public #siteMenu) ── */
+
+body.studio-menu-on header.studio-header {
+  display: none !important;
+}
+
+body.studio-menu-dual header.studio-header {
+  display: grid !important;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+body.studio-menu-on {
+  --studio-menu-top-pad: 56px;
+}
+
+body.studio-menu-on .page-wrap,
+body.studio-menu-on .studio-analytics-nav,
+body.studio-menu-on .studio-entry-chrome,
+body.studio-menu-on .studio-dashboard-layout {
+  padding-top: 0;
+}
+
+body.studio-menu-on #studio-spa-content {
+  padding-top: var(--studio-menu-top-pad);
+}
+
+body.studio-menu-on:not(:has(#studio-spa-content)) {
+  padding-top: var(--studio-menu-top-pad);
+}
+
+.studio-site-menu {
+  --site-menu-bottom-safe: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+.studio-site-menu .studio-site-menu-tools,
+.studio-site-menu #studioMenuTools {
+  position: fixed;
+  top: calc(28px + env(safe-area-inset-top, 0px));
+  right: calc(60px + env(safe-area-inset-right, 0px));
+  z-index: 111;
+  margin-left: 0;
+}
+
+.studio-site-menu.is-open .studio-site-menu-tools,
+.studio-site-menu.is-open #studioMenuTools {
+  z-index: 121;
+}
+
+.studio-entry-chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 0 60px 12px;
+  box-sizing: border-box;
+}
+
+.studio-entry-chrome .studio-editor-nav {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+}
+
+/* Studio constellation item positions (7 destinations) */
+.studio-site-menu .site-menu__item--dashboard {
+  top: 22%;
+  left: 12%;
+}
+
+.studio-site-menu .site-menu__item--entry {
+  top: 18%;
+  left: 48%;
+}
+
+.studio-site-menu .site-menu__item--stream {
+  top: 36%;
+  left: 72%;
+}
+
+.studio-site-menu .site-menu__item--video {
+  top: 48%;
+  left: 28%;
+}
+
+.studio-site-menu .site-menu__item--journal {
+  top: 58%;
+  left: 58%;
+}
+
+.studio-site-menu .site-menu__item--ideas {
+  bottom: calc(var(--site-menu-bottom-safe) + 10%);
+  left: 10%;
+}
+
+.studio-site-menu .site-menu__item--releases {
+  bottom: calc(var(--site-menu-bottom-safe) + 10%);
+  right: 10%;
+}
+
+.studio-site-menu .site-menu__item.studio-main-nav-link {
+  border-bottom-color: transparent;
+  font-weight: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+
+.studio-site-menu .site-menu__item.studio-main-nav-link.is-current,
+.studio-site-menu .site-menu__item.studio-main-nav-link.is-active {
+  border-bottom: 1px solid var(--site-menu-ink, rgba(0, 0, 0, 0.9));
+  font-weight: inherit;
+}
+
+body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([data-nav="stream"]):not([data-nav="releases"]) {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  .studio-site-menu .studio-site-menu-tools,
+  .studio-site-menu #studioMenuTools {
+    top: calc(18px + env(safe-area-inset-top, 0px));
+    right: var(--page-gutter-mobile, 20px);
+  }
+
+  .studio-entry-chrome {
+    padding-left: var(--page-gutter-mobile, 20px);
+    padding-right: var(--page-gutter-mobile, 20px);
+  }
+
+  .studio-site-menu .site-menu__item--dashboard {
+    top: 20%;
+    left: 8%;
+  }
+
+  .studio-site-menu .site-menu__item--entry {
+    top: 16%;
+    left: 52%;
+  }
+
+  .studio-site-menu .site-menu__item--stream {
+    top: 34%;
+    left: 68%;
+  }
+
+  .studio-site-menu .site-menu__item--video {
+    top: 46%;
+    left: 22%;
+  }
+
+  .studio-site-menu .site-menu__item--journal {
+    top: 56%;
+    left: 54%;
+  }
+
+  .studio-site-menu .site-menu__item--ideas {
+    bottom: calc(var(--site-menu-bottom-safe) + 8%);
+    left: 6%;
+  }
+
+  .studio-site-menu .site-menu__item--releases {
+    bottom: calc(var(--site-menu-bottom-safe) + 8%);
+    right: 6%;
+  }
+
+  body.studio-menu-on {
+    --studio-menu-top-pad: 48px;
+  }
+}
+
+@media (max-width: 600px) {
+  .studio-site-menu .site-menu__toggle,
+  .studio-site-menu .studio-lock-btn {
+    touch-action: manipulation;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .studio-site-menu .site-menu__item {
+    touch-action: manipulation;
+    padding: 10px 6px;
+  }
+}

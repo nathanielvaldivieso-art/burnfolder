@@ -203,6 +203,26 @@
       return;
     }
 
+    // Gate → audio: one-way soft enter (Mux only after leaving index-home).
+    try {
+      const resolvedAudio = new URL(href, link.href || window.location.href);
+      if (
+        document.body &&
+        document.body.classList.contains('index-home') &&
+        resolvedAudio.origin === window.location.origin &&
+        isAudioPathname(resolvedAudio.pathname) &&
+        window.BurnfolderSoftEnterAudio &&
+        typeof window.BurnfolderSoftEnterAudio.enter === 'function' &&
+        window.BurnfolderSoftEnterAudio.isEnabled()
+      ) {
+        e.preventDefault();
+        window.BurnfolderSoftEnterAudio.enter();
+        return;
+      }
+    } catch (_) {
+      /* fall through */
+    }
+
     // Full document load so hub boot scripts actually run.
     if (shouldHardNavigate(href, link.href || window.location.href)) {
       return;

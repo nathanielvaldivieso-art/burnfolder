@@ -143,9 +143,13 @@
   }
 
   function ensureNavTools() {
+    let tools = document.getElementById('studioMenuTools');
+    if (tools) return tools;
+    tools = document.querySelector('.studio-site-menu .studio-nav-tools');
+    if (tools) return tools;
     const nav = document.querySelector('.studio-main-nav');
     if (!nav) return null;
-    let tools = nav.querySelector('.studio-nav-tools');
+    tools = nav.querySelector('.studio-nav-tools');
     if (!tools) {
       tools = document.createElement('span');
       tools.className = 'studio-nav-tools';
@@ -166,6 +170,12 @@
     tools.appendChild(btn);
   }
 
+  function remountChrome() {
+    if (!ready) return;
+    mountLockButton();
+    applyAccessGating();
+  }
+
   function hideBooting() {
     document.body.classList.remove('studio-booting');
   }
@@ -177,9 +187,10 @@
   function applyAccessGating() {
     if (!session || session.accessMode !== 'music-project') return;
     document.body.classList.add('studio-music-only');
-    document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-      const nav = link.dataset.nav;
+    document.querySelectorAll('.studio-main-nav-link[data-nav]').forEach(function (link) {
+      const nav = link.dataset.nav || link.getAttribute('data-nav');
       if (nav !== 'stream' && nav !== 'releases') link.hidden = true;
+      else link.hidden = false;
     });
     const path = location.pathname || '';
     if (
@@ -606,6 +617,7 @@
     },
     getAuthHeaders: getAuthHeaders,
     logout: logout,
+    remountChrome: remountChrome,
     getSession: function () {
       return session;
     },

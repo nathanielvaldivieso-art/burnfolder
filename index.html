@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>burnfolder.com</title>
-  <!-- Gate only: no Mux CDN. Streaming belongs on audio.html — Mux keeps Safari's
-       tab spinner alive forever once a playback-id is restored.
-       Prefetch/preconnect only (skins.js) warms audio.html without executing Mux. -->
+  <!-- Gate only: no Mux CDN. Soft-enter (skins/soft-enter-audio.js) paints audio
+       constellation without a reload, then mounts Mux only after leaving index-home.
+       Prefetch/preconnect warm assets without executing Mux on the gate. -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.mux.com">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="prefetch" href="audio.html" as="document">
   <link rel="stylesheet" href="style.css?v=20260720hang2">
-  <link rel="stylesheet" href="skins/photonegative.css?v=20260720ac">
+  <link rel="stylesheet" href="skins/photonegative.css?v=20260722soft">
   <script>
     // Apply saved skin before paint so the default layout doesn't flash.
     // Also boot the scroll-down gate so we start on the image.
@@ -59,13 +59,14 @@
   <div id="audioList" style="display: none;"></div>
   <div class="page-watermark" hidden>burnfolder.com</div>
 
-  <!-- No mux-player / bottom bar on the gate — hard-nav to audio.html for playback. -->
+  <!-- No mux-player / bottom bar on the gate — soft-enter mounts them after leave. -->
 
   <script src="entries.js"></script>
   <script src="songs.js"></script>
-  <script src="spa-router.js?v=20260720play1"></script>
+  <script src="spa-router.js?v=20260722soft"></script>
   <script src="skins/hotspots.js"></script>
-  <script src="skins/skins.js?v=20260720af"></script>
+  <script src="skins/soft-enter-audio.js?v=20260722soft"></script>
+  <script src="skins/skins.js?v=20260722soft"></script>
   <script src="shared/site-version.js"></script>
   <script src="shared/register-sw.js"></script>
 </body>

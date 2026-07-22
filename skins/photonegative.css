@@ -175,6 +175,32 @@ body.page-audio {
   overscroll-behavior-y: none;
 }
 
+/* Soft-enter: constellation is visible while Mux/scripts boot — don't eat taps early. */
+body.bf-audio-booting .home-music__song,
+body.bf-audio-booting .home-music__links {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+body.bf-soft-audio.page-audio .home-music {
+  animation: bf-soft-audio-in 280ms ease-out;
+}
+
+@keyframes bf-soft-audio-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.bf-soft-audio.page-audio .home-music {
+    animation: none;
+  }
+}
+
 body.index-home #cartFloat,
 body.page-audio #cartFloat {
   position: fixed;

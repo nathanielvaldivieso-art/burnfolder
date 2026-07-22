@@ -178,12 +178,16 @@
   }
 
   function markNav(pageKey) {
-    document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
+    document.querySelectorAll('.studio-main-nav-link[data-nav]').forEach(function (link) {
       const nav = link.getAttribute('data-nav');
       const active = nav === pageKey;
       link.classList.toggle('is-active', active);
       link.classList.toggle('page-nav', active);
+      link.classList.toggle('is-current', active);
     });
+    if (window.BurnfolderStudioSiteMenu && typeof window.BurnfolderStudioSiteMenu.sync === 'function') {
+      window.BurnfolderStudioSiteMenu.sync();
+    }
   }
 
   function restoreSessionBodyClasses() {
@@ -242,14 +246,33 @@
   }
 
   function clonePageContent(doc) {
+    const menuOn =
+      document.body.classList.contains('studio-menu-on') &&
+      !document.body.classList.contains('studio-menu-legacy');
     return Array.from(doc.body.children).filter(function (child) {
       if (child.id === 'studioGlobalPlayback') return false;
       if (child.id === 'bottomBar') return false;
+      if (child.id === 'studioSiteMenu') return false;
       if (child.tagName === 'SCRIPT') return false;
+      if (menuOn && child.classList && child.classList.contains('studio-header')) return false;
       return true;
     }).map(function (child) {
       const clone = child.cloneNode(true);
       stripEmbeddedPlayback(clone);
+      if (menuOn && clone.querySelector) {
+        clone.querySelectorAll('header.studio-header').forEach(function (header) {
+          const editorNav = header.querySelector('#studioEditorNav');
+          if (editorNav) {
+            const host = document.createElement('div');
+            host.id = 'studioEntryChrome';
+            host.className = 'studio-entry-chrome';
+            host.appendChild(editorNav.cloneNode(true));
+            header.replaceWith(host);
+          } else {
+            header.remove();
+          }
+        });
+      }
       return clone;
     });
   }
@@ -265,15 +288,21 @@
     contentRoot.id = 'studio-spa-content';
 
     const persist = document.getElementById('studioGlobalPlayback');
+    const menu = document.getElementById('studioSiteMenu');
     const nodes = Array.from(document.body.children);
     nodes.forEach(function (node) {
       if (node === persist) return;
+      if (node === menu) return;
+      if (node.id === 'studioSiteMenu') return;
       if (node.tagName === 'SCRIPT') return;
       if (node.id === 'studioAuthGate') return;
       contentRoot.appendChild(node);
     });
 
     document.body.insertBefore(contentRoot, persist || null);
+    if (menu) {
+      document.body.insertBefore(menu, contentRoot);
+    }
     return contentRoot;
   }
 
@@ -343,6 +372,10 @@
     }
 
     runPageInit('entry');
+
+    window.dispatchEvent(
+      new CustomEvent('burnfolder-studio-navigated', { detail: { pageKey: 'entry' } })
+    );
 
     const draftId = new URL(target.href, window.location.href).searchParams.get('id');
     if (draftId && typeof window.studioEditorOpenDraft === 'function') {
@@ -433,6 +466,10 @@
 
       runPageInit(target.pageKey);
       restoreSessionBodyClasses();
+
+      window.dispatchEvent(
+        new CustomEvent('burnfolder-studio-navigated', { detail: { pageKey: target.pageKey } })
+      );
 
       if (shellReady() && window.BurnfolderStudioPlaybackShell.syncAfterNavigation) {
         window.BurnfolderStudioPlaybackShell.syncAfterNavigation();
