@@ -43,6 +43,8 @@
     let mediaActionsBound = false;
     let queueAdvanceLock = false;
     let hiddenAdvanceTimer = null;
+    let queueMonitorTimer = null;
+    let handoffStartedAt = 0;
     let lifecycleBound = false;
     let startGeneration = 0;
     let zeroGuardTimer = null;
@@ -210,7 +212,13 @@
         },
         nexttrack: function () {
           if (activeQueueIdx + 1 < activeQueue.length) {
-            playQueuedTrack(activeQueueIdx + 1);
+            handoffStartedAt = Date.now();
+            queueAdvanceLock = true;
+            playQueuedTrack(activeQueueIdx + 1, {
+              immediatePlay: true,
+              queueHandoff: true
+            });
+            startQueueMonitorPoll(getPlayer());
           }
         },
         seekbackward: function (details) {
@@ -297,10 +305,94 @@
       return 1.5;
     }
 
+    function trackFinished(player) {
+      if (!player) return false;
+      if (player.ended) return true;
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
+        return false;
+      }
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      const tailSlack = hidden ? 0.2 : 0.08;
+      return current >= duration - tailSlack;
+    }
+
+    function stopQueueMonitorPoll() {
+      if (queueMonitorTimer === null) return;
+      window.clearInterval(queueMonitorTimer);
+      queueMonitorTimer = null;
+    }
+
     function stopHiddenAdvancePoll() {
       if (hiddenAdvanceTimer === null) return;
       window.clearInterval(hiddenAdvanceTimer);
       hiddenAdvanceTimer = null;
+    }
+
+    function ensureQueueHandoffPlaying(player, normalized, immediatePlay) {
+      if (
+        !player ||
+        !normalized ||
+        !activeSong ||
+        activeSong.playbackId !== normalized.playbackId
+      ) {
+        return;
+      }
+      try {
+        if (player.readyState >= 1) player.currentTime = 0;
+      } catch (e) {
+        /* noop */
+      }
+      if (immediatePlay && player.paused) {
+        retryPlay(player, normalized, false);
+      }
+      notify();
+    }
+
+    function ensureQueueHandoffComplete(player) {
+      if (!queueAdvanceLock || !player || !activeSong) return;
+      const elapsed = handoffStartedAt ? Date.now() - handoffStartedAt : 0;
+      const liveId = player.getAttribute('playback-id') || '';
+      const matches = liveId === activeSong.playbackId;
+      if (matches && !player.paused) {
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+        return;
+      }
+      if (elapsed < 400) return;
+      if (matches && player.paused) {
+        retryPlay(player, activeSong, false);
+      }
+      if (elapsed >= 6000) {
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+      }
+    }
+
+    /**
+     * Keep polling while more tracks remain. iOS lock-screen / backgrounded PWA
+     * throttles timeupdate and may never fire ended — this is the steel path.
+     */
+    function startQueueMonitorPoll(player) {
+      if (queueMonitorTimer !== null || !player) return;
+      queueMonitorTimer = window.setInterval(function () {
+        const livePlayer = getPlayer();
+        if (!livePlayer || !activeSong) {
+          stopQueueMonitorPoll();
+          return;
+        }
+        const hasNext = activeQueueIdx + 1 < activeQueue.length;
+        if (!hasNext && !queueAdvanceLock) {
+          stopQueueMonitorPoll();
+          return;
+        }
+        if (queueAdvanceLock) {
+          ensureQueueHandoffComplete(livePlayer);
+          return;
+        }
+        maybeAdvanceQueue(livePlayer);
+      }, 500);
     }
 
     function startHiddenAdvancePoll(player) {
@@ -310,13 +402,19 @@
           stopHiddenAdvancePoll();
           return;
         }
-        if (!activeSong || queueAdvanceLock) return;
-        if (player.ended) {
-          advanceQueueAfterEnd(player);
+        const livePlayer = getPlayer() || player;
+        if (!activeSong || !livePlayer) return;
+        if (queueAdvanceLock) {
+          ensureQueueHandoffComplete(livePlayer);
           return;
         }
-        maybeAdvanceQueue(player);
+        if (livePlayer.ended) {
+          advanceQueueAfterEnd(livePlayer);
+          return;
+        }
+        maybeAdvanceQueue(livePlayer);
       }, 400);
+      startQueueMonitorPoll(player);
     }
 
     function resumeIfBackgroundPaused(player) {
@@ -337,19 +435,7 @@
     function maybeAdvanceQueue(player) {
       if (queueAdvanceLock || !player || !activeSong) return false;
 
-      if (player.ended) {
-        advanceQueueAfterEnd(player);
-        return true;
-      }
-
-      const duration = Number(player.duration);
-      const current = Number(player.currentTime);
-      const atEnd =
-        Number.isFinite(duration) &&
-        duration > 0 &&
-        Number.isFinite(current) &&
-        current >= duration - 0.08;
-      if (atEnd) {
+      if (trackFinished(player)) {
         advanceQueueAfterEnd(player);
         return true;
       }
@@ -360,6 +446,8 @@
       /* Visible tabs wait for ended / atEnd — early handoff chops the last ~0.5s. */
       if (!hidden) return false;
 
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
       if (!Number.isFinite(duration) || duration <= 0) return false;
       if (!Number.isFinite(current) || current < 0) return false;
       const remaining = duration - current;
@@ -369,16 +457,25 @@
       if (nextIdx >= activeQueue.length) return false;
 
       queueAdvanceLock = true;
-      playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
+      handoffStartedAt = Date.now();
+      playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true, seamlessAdvance: true });
+      startQueueMonitorPoll(player || getPlayer());
       return true;
     }
 
     function advanceQueueAfterEnd(player) {
+      if (queueAdvanceLock) return;
       const nextIdx = activeQueueIdx + 1;
       if (nextIdx < activeQueue.length) {
+        window.clearTimeout(recallTimer);
+        recallTimer = null;
         queueAdvanceLock = true;
-        playQueuedTrack(nextIdx, { immediatePlay: true, seamlessAdvance: true });
+        handoffStartedAt = Date.now();
+        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true, seamlessAdvance: true });
+        startQueueMonitorPoll(player || getPlayer());
       } else {
+        stopQueueMonitorPoll();
+        stopHiddenAdvancePoll();
         notify({ playing: false });
       }
     }
@@ -402,6 +499,8 @@
       });
       player.addEventListener('play', function () {
         queueAdvanceLock = false;
+        handoffStartedAt = 0;
+        startQueueMonitorPoll(getPlayer());
         notify();
       });
       player.addEventListener('pause', notify);
@@ -419,6 +518,7 @@
             return;
           }
           stopHiddenAdvancePoll();
+          startQueueMonitorPoll(livePlayer);
           if (livePlayer.ended) {
             advanceQueueAfterEnd(livePlayer);
             return;
@@ -431,6 +531,7 @@
           if (!event.persisted) return;
           const livePlayer = getPlayer();
           if (!livePlayer) return;
+          startQueueMonitorPoll(livePlayer);
           if (livePlayer.ended) {
             advanceQueueAfterEnd(livePlayer);
             return;
@@ -463,8 +564,11 @@
     function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
       const player = getPlayer();
       const normalized = normalizeSong(song);
+      const startOpts = playbackOpts || {};
+      const isQueueHandoff =
+        startOpts.queueHandoff === true || startOpts.seamlessAdvance === true;
       if (!player || !normalized) {
-        queueAdvanceLock = false;
+        if (!isQueueHandoff) queueAdvanceLock = false;
         return false;
       }
 
@@ -478,8 +582,12 @@
         player.setAttribute('stream-type', 'on-demand');
       }
 
-      queueAdvanceLock = false;
-      const startOpts = playbackOpts || {};
+      // Keep the advance lock through handoff so iOS can't double-fire advance
+      // while the next asset is still loading.
+      if (!isQueueHandoff) {
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+      }
       const immediatePlay =
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
@@ -492,6 +600,7 @@
         Number(recall.currentTime) > 0 &&
         (!recall.song || !recall.song.playbackId || recall.song.playbackId === normalized.playbackId);
       const recallAt = recallForThisSong ? Number(recall.currentTime) : 0;
+      const wasPlayingBeforeSwap = !player.paused;
 
       startGeneration += 1;
       const generation = startGeneration;
@@ -507,21 +616,58 @@
       bindEnded(player);
       bindMediaSessionActions();
 
-      // Always pause before swapping assets so the previous playhead cannot leak.
-      // (seamlessAdvance used to skip this and left the next track starting mid-way.)
+      // Critical for lock-screen / background: do NOT pause during a live queue
+      // handoff. pause() drops iOS's background audio session and the next
+      // play() is blocked until the user reopens the app.
       if (!sameSource) {
-        try {
-          player.pause();
-        } catch (e) {
-          /* noop */
+        if (!isQueueHandoff || !wasPlayingBeforeSwap) {
+          try {
+            player.pause();
+          } catch (e) {
+            /* noop */
+          }
+          seekToZero(player);
         }
-        seekToZero(player);
         player.setAttribute('playback-id', normalized.playbackId);
       }
 
       /* Fresh track / re-press / queue handoff: start at 0 unless recalling THIS song. */
       if (!recallAt) {
-        forceStartAtZero(player, normalized.playbackId, generation);
+        if (isQueueHandoff) {
+          if (!handoffStartedAt) handoffStartedAt = Date.now();
+          function runHandoffPlay() {
+            if (generation !== startGeneration) return;
+            ensureQueueHandoffPlaying(player, normalized, immediatePlay);
+          }
+          forceStartAtZero(player, normalized.playbackId, generation);
+          player.addEventListener('loadedmetadata', runHandoffPlay, { once: true });
+          player.addEventListener('canplay', runHandoffPlay, { once: true });
+          player.addEventListener('loadeddata', runHandoffPlay, { once: true });
+          if (player.readyState >= 1) runHandoffPlay();
+          [120, 500, 1200, 2500].forEach(function (delayMs) {
+            window.setTimeout(function () {
+              if (generation !== startGeneration) return;
+              if (
+                !activeSong ||
+                activeSong.playbackId !== normalized.playbackId ||
+                !player.paused
+              ) {
+                if (
+                  activeSong &&
+                  activeSong.playbackId === normalized.playbackId &&
+                  !player.paused
+                ) {
+                  queueAdvanceLock = false;
+                  handoffStartedAt = 0;
+                }
+                return;
+              }
+              runHandoffPlay();
+            }, delayMs);
+          });
+        } else {
+          forceStartAtZero(player, normalized.playbackId, generation);
+        }
         if (recallApi && opts.recall !== false) {
           // Drop any stale mid-track recall so a later restore can't resurrect it.
           recallApi.save({
@@ -541,6 +687,13 @@
 
       notify();
 
+      if (activeQueueIdx + 1 < activeQueue.length || isQueueHandoff) {
+        startQueueMonitorPoll(player);
+      }
+      if (typeof document !== 'undefined' && document.hidden) {
+        startHiddenAdvancePoll(player);
+      }
+
       function ensurePlaying() {
         if (
           !activeSong ||
@@ -554,7 +707,8 @@
       }
 
       // iOS requires play() during the tap handler — don't wait for canplay first.
-      if (immediatePlay) {
+      // Queue handoffs keep the existing audio session; play is driven by handoff retries.
+      if (immediatePlay && !isQueueHandoff) {
         retryPlay(player, normalized, false);
       }
 
@@ -569,12 +723,16 @@
         }
         if (recallAt) {
           applyRecallPosition(player, recall, normalized.playbackId);
-        } else {
+        } else if (!isQueueHandoff) {
           seekToZero(player);
         }
         if (recall && recall.wasPlaying === false) {
           player.pause();
           notify({ playing: false });
+          return;
+        }
+        if (isQueueHandoff) {
+          ensureQueueHandoffPlaying(player, normalized, immediatePlay);
           return;
         }
         if (player.paused) ensurePlaying();
@@ -682,6 +840,11 @@
       activeSong = null;
       activeQueue = [];
       activeQueueIdx = 0;
+      queueAdvanceLock = false;
+      handoffStartedAt = 0;
+      stopZeroGuard();
+      stopQueueMonitorPoll();
+      stopHiddenAdvancePoll();
       if (player) {
         player.pause();
         player.removeAttribute('playback-id');

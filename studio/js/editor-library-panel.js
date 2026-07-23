@@ -256,29 +256,58 @@
       const meta = group.meta || {};
       const opts = typeof start === 'object' && start ? start : { startIndex: start || 0 };
       const startPlaybackId = opts.startPlaybackId || '';
-      let startIndex = typeof opts.startIndex === 'number' ? opts.startIndex : 0;
+      let startIndexInGroup = typeof opts.startIndex === 'number' ? opts.startIndex : 0;
 
-      const songs = tracks.map(function (track) {
-        const resolved = resolveStackTrack(track);
-        return {
-          title: labelForItem(resolved) || track.title || 'untitled',
-          playbackId: resolved.playbackId || track.playbackId,
-          coverArt: meta.coverArt || ''
-        };
-      });
+      function songsForGroup(g) {
+        const gMeta = (g && g.meta) || {};
+        return (g.tracks || []).map(function (track) {
+          const resolved = resolveStackTrack(track);
+          return {
+            title: labelForItem(resolved) || track.title || 'untitled',
+            playbackId: resolved.playbackId || track.playbackId,
+            coverArt: gMeta.coverArt || ''
+          };
+        });
+      }
 
+      const groupSongs = songsForGroup(group);
       if (startPlaybackId) {
-        const byId = songs.findIndex(function (song) {
+        const byId = groupSongs.findIndex(function (song) {
           return song.playbackId === startPlaybackId;
         });
-        if (byId >= 0) startIndex = byId;
+        if (byId >= 0) startIndexInGroup = byId;
+      }
+
+      // Current album + following albums so lock-screen advance can cross groups.
+      const allGroups = shared.loadGroups() || [];
+      const startId = group.id || '';
+      let startGroupIdx = allGroups.findIndex(function (g) {
+        return g && g.id === startId;
+      });
+      let songs = groupSongs.slice();
+      if (startGroupIdx >= 0) {
+        songs = [];
+        for (let i = startGroupIdx; i < allGroups.length; i++) {
+          songs = songs.concat(songsForGroup(allGroups[i]));
+        }
+      }
+
+      const started = groupSongs[startIndexInGroup] || groupSongs[0];
+      let startIndex = 0;
+      if (started && started.playbackId) {
+        const inQueue = songs.findIndex(function (song) {
+          return song.playbackId === started.playbackId;
+        });
+        startIndex = inQueue >= 0 ? inQueue : 0;
+      } else {
+        startIndex = Math.min(startIndexInGroup, Math.max(0, songs.length - 1));
       }
 
       const player = window.BurnfolderStreamPlayer;
       if (player && player.playQueue) {
         player.playQueue(songs, startIndex, {
           coverArt: meta.coverArt || '',
-          startPlaybackId: startPlaybackId || (songs[startIndex] && songs[startIndex].playbackId) || ''
+          startPlaybackId: startPlaybackId || (started && started.playbackId) || ''
         });
         return;
       }
