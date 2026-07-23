@@ -3163,6 +3163,20 @@ body.page-listen {
   cursor: default;
 }
 
+body.page-about .about-face-sheet {
+  list-style: disc;
+  margin: 0;
+  padding: 0 0 0 1.15em;
+  max-width: 360px;
+  font-size: 0.88em;
+  line-height: 1.9;
+  letter-spacing: 0.01em;
+}
+
+body.page-about .about-face-sheet li + li {
+  margin-top: 0.35em;
+}
+
 body.page-press .press-section {
   margin-top: 36px;
 }
