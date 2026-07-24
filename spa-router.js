@@ -84,8 +84,8 @@
     return base.toLowerCase();
   }
 
-  // Album/song hubs ship their own script boot (album-pages.js, render APIs).
-  // Soft-swapping their HTML into another page leaves the empty shell until refresh.
+  // Album/song hubs soft-nav when their render APIs are already available.
+  // Hard-load only as a fallback inside loadPage if the hub shell cannot render.
   function isHubNavigation(href, baseHref) {
     if (!href) return false;
     try {
@@ -170,7 +170,6 @@
 
   function shouldHardNavigate(href, baseHref) {
     return (
-      isHubNavigation(href, baseHref) ||
       leavingIndexHome(href, baseHref) ||
       enteringIndexHome(href, baseHref) ||
       enteringAudioPage(href, baseHref)

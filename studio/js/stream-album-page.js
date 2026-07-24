@@ -9,15 +9,14 @@
   const songStore = window.BurnfolderSongPageStore;
   const albumRender = window.BurnfolderAlbumPageRender;
 
-  const params = new URLSearchParams(window.location.search);
-  const albumId = (params.get('album') || '').trim();
+  let albumId = '';
 
-  const main = document.getElementById('albumMain');
-  const statusEl = document.getElementById('albumStatus');
-  const designBtn = document.getElementById('albumDesignBtn');
-  const siteBtn = document.getElementById('albumSiteBtn');
-  const copyBtn = document.getElementById('albumCopyBtn');
-  const hubPlayBtn = document.getElementById('albumHubPlay');
+  let main = null;
+  let statusEl = null;
+  let designBtn = null;
+  let siteBtn = null;
+  let copyBtn = null;
+  let hubPlayBtn = null;
 
   let libraryCache = [];
   let songCatalog = [];
@@ -25,6 +24,21 @@
   let currentAlbumPage = null;
   let shareHubApi = null;
   let compiledRows = [];
+  let listenersBound = false;
+
+  function readParams() {
+    const params = new URLSearchParams(window.location.search);
+    albumId = (params.get('album') || '').trim();
+  }
+
+  function bindDomRefs() {
+    main = document.getElementById('albumMain');
+    statusEl = document.getElementById('albumStatus');
+    designBtn = document.getElementById('albumDesignBtn');
+    siteBtn = document.getElementById('albumSiteBtn');
+    copyBtn = document.getElementById('albumCopyBtn');
+    hubPlayBtn = document.getElementById('albumHubPlay');
+  }
 
   function setStatus(msg, kind) {
     if (window.BurnfolderStudioStatus) {
@@ -208,99 +222,124 @@
     });
   }
 
-  if (hubPlayBtn) {
-    hubPlayBtn.addEventListener('click', function () {
-      playAlbumFrom(0);
+  function bindAlbumPageListeners() {
+    if (hubPlayBtn && hubPlayBtn.dataset.bfBound !== '1') {
+      hubPlayBtn.dataset.bfBound = '1';
+      hubPlayBtn.addEventListener('click', function () {
+        playAlbumFrom(0);
+      });
+    }
+
+    if (copyBtn && copyBtn.dataset.bfBound !== '1') {
+      copyBtn.dataset.bfBound = '1';
+      copyBtn.addEventListener('click', function () {
+        if (!group || !group.id) return;
+        const api = window.BurnfolderShareLinks;
+        const text = group.id;
+        const copy = api && api.copyText ? api.copyText(text) : null;
+        if (copy && copy.then) {
+          copy.then(function () {
+            setStatus('copied album id');
+          });
+        }
+      });
+    }
+
+    if (!listenersBound) {
+      listenersBound = true;
+      window.addEventListener('burnfolder-stream-playback', function () {
+        syncTracklistPlayback();
+        syncAlbumPlayButton();
+      });
+
+      window.addEventListener('burnfolder-stack-meta-changed', function () {
+        if (group) renderAlbum();
+      });
+
+      window.addEventListener('burnfolder-song-pages-synced', function () {
+        if (group) renderAlbum();
+      });
+
+      window.addEventListener('burnfolder-album-pages-synced', function () {
+        if (group) renderAlbum();
+      });
+    }
+  }
+
+  function bootStreamAlbumPage() {
+    readParams();
+    bindDomRefs();
+    bindAlbumPageListeners();
+
+    document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
+      const active = link.getAttribute('data-nav') === 'stream';
+      link.classList.toggle('is-active', active);
+      link.classList.toggle('page-nav', active);
     });
-  }
 
-  if (copyBtn) {
-    copyBtn.addEventListener('click', function () {
-      if (!group || !group.id) return;
-      const api = window.BurnfolderShareLinks;
-      const text = group.id;
-      const copy = api && api.copyText ? api.copyText(text) : null;
-      if (copy && copy.then) {
-        copy.then(function () {
-          setStatus('copied album id');
-        });
+    if (window.BurnfolderStudioPlaybackShell) {
+      window.BurnfolderStudioPlaybackShell.ensureShell();
+      window.BurnfolderStudioPlaybackShell.mountBar();
+      if (window.BurnfolderStudioPlaybackShell.syncAfterNavigation) {
+        window.BurnfolderStudioPlaybackShell.syncAfterNavigation();
       }
-    });
+    }
+
+    if (!albumId) {
+      setStatus('missing album id');
+      return;
+    }
+
+    group = shared.findGroupById(albumId);
+    if (!group) {
+      setStatus('album not found');
+      return;
+    }
+
+    const loadPage =
+      albumStore && albumStore.resolvePage
+        ? albumStore.resolvePage(albumId, true)
+        : Promise.resolve(null);
+
+    if (!muxLib || !muxLib.listMuxLibrary) {
+      setStatus('playback unavailable');
+      return;
+    }
+
+    muxLib
+      .listMuxLibrary()
+      .then(function (assets) {
+        songCatalog = buildCatalog(assets);
+        return loadPage;
+      })
+      .then(function (page) {
+        currentAlbumPage = page;
+        return renderAlbum();
+      })
+      .then(function () {
+        const provider = {
+          getCatalog: function () {
+            return songCatalog;
+          },
+          getLibrary: function () {
+            return libraryCache;
+          },
+          labelForItem: itemLabel
+        };
+        window.BurnfolderPlaybackCatalogProvider = provider;
+        if (window.BurnfolderPlaybackContext && window.BurnfolderPlaybackContext.setCatalogProvider) {
+          window.BurnfolderPlaybackContext.setCatalogProvider(provider);
+        }
+        if (window.BurnfolderStreamNowPlaying && window.BurnfolderStreamNowPlaying.setCatalogProvider) {
+          window.BurnfolderStreamNowPlaying.setCatalogProvider(provider);
+        }
+      })
+      .catch(function (err) {
+        setStatus(err.message || 'could not load');
+      });
   }
 
-  window.addEventListener('burnfolder-stream-playback', function () {
-    syncTracklistPlayback();
-    syncAlbumPlayButton();
-  });
-
-  window.addEventListener('burnfolder-stack-meta-changed', function () {
-    if (group) renderAlbum();
-  });
-
-  window.addEventListener('burnfolder-song-pages-synced', function () {
-    if (group) renderAlbum();
-  });
-
-  window.addEventListener('burnfolder-album-pages-synced', function () {
-    if (group) renderAlbum();
-  });
-
-  document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-    const active = link.getAttribute('data-nav') === 'stream';
-    link.classList.toggle('is-active', active);
-    link.classList.toggle('page-nav', active);
-  });
-
-  if (window.BurnfolderStudioPlaybackShell) {
-    window.BurnfolderStudioPlaybackShell.ensureShell();
-    window.BurnfolderStudioPlaybackShell.mountBar();
-  }
-
-  if (!albumId) {
-    setStatus('missing album id');
-    return;
-  }
-
-  group = shared.findGroupById(albumId);
-  if (!group) {
-    setStatus('album not found');
-    return;
-  }
-
-  const loadPage =
-    albumStore && albumStore.resolvePage
-      ? albumStore.resolvePage(albumId, true)
-      : Promise.resolve(null);
-
-  muxLib
-    .listMuxLibrary()
-    .then(function (assets) {
-      songCatalog = buildCatalog(assets);
-      return loadPage;
-    })
-    .then(function (page) {
-      currentAlbumPage = page;
-      return renderAlbum();
-    })
-    .then(function () {
-      const provider = {
-        getCatalog: function () {
-          return songCatalog;
-        },
-        getLibrary: function () {
-          return libraryCache;
-        },
-        labelForItem: itemLabel
-      };
-      window.BurnfolderPlaybackCatalogProvider = provider;
-      if (window.BurnfolderPlaybackContext && window.BurnfolderPlaybackContext.setCatalogProvider) {
-        window.BurnfolderPlaybackContext.setCatalogProvider(provider);
-      }
-      if (window.BurnfolderStreamNowPlaying && window.BurnfolderStreamNowPlaying.setCatalogProvider) {
-        window.BurnfolderStreamNowPlaying.setCatalogProvider(provider);
-      }
-    })
-    .catch(function (err) {
-      setStatus(err.message || 'could not load');
-    });
+  window.studioInitStreamAlbumPage = bootStreamAlbumPage;
+  bindDomRefs();
+  if (main) bootStreamAlbumPage();
 })();

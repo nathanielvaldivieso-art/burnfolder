@@ -11,7 +11,10 @@
     'journal.html': 'journal',
     'ideas.html': 'ideas',
     'word-pull.html': 'word-pull',
-    'releases.html': 'releases'
+    'releases.html': 'releases',
+    // Song/album hubs must soft-nav so the live mux-player is never torn down.
+    'stream-song.html': 'stream-song',
+    'stream-album.html': 'stream-album'
   };
 
   const PLAYBACK_CORE = [
@@ -73,22 +76,59 @@
       'js/studio-editor-loader.js',
       'js/editor-gate.js'
     ]),
-    releases: [
+    // Always keep PLAYBACK_CORE so soft-nav into these pages never drops the shell.
+    releases: PLAYBACK_CORE.concat([
       'js/cloud-state.js',
       'js/stream-shared.js',
       'js/vault-upload.js',
       'js/release-checklist.js',
       'js/releases-page.js'
-    ],
-    ideas: [
-      'js/ideas-page.js'
-    ],
-    'word-pull': [
+    ]),
+    ideas: PLAYBACK_CORE.concat(['js/ideas-page.js']),
+    'word-pull': PLAYBACK_CORE.concat([
       'js/studio-dates.js',
       'js/cloud-state.js',
       'js/word-pull-bank.js',
       'js/word-pull-page.js'
-    ]
+    ]),
+    'stream-song': PLAYBACK_CORE.concat([
+      '../entries.js',
+      '../songs.js',
+      '../shared/song-versions.js',
+      'js/asset-cloud.js',
+      '../shared/cover-art.js',
+      '../shared/mux-display-name.js',
+      'js/mux-naming.js',
+      'js/mux-client.js',
+      'js/studio-mux-lib.js',
+      'js/cloud-state.js',
+      '../shared/song-page-render.js',
+      'js/song-page-store.js',
+      'js/stream-shared.js',
+      'js/share-links.js',
+      '../shared/share-hub-ui.js',
+      'js/stream-song-page.js'
+    ]),
+    'stream-album': PLAYBACK_CORE.concat([
+      '../entries.js',
+      '../songs.js',
+      '../shared/song-versions.js',
+      'js/asset-cloud.js',
+      '../shared/cover-art.js',
+      '../shared/mux-display-name.js',
+      'js/mux-naming.js',
+      'js/mux-client.js',
+      'js/studio-mux-lib.js',
+      'js/cloud-state.js',
+      '../shared/song-page-render.js',
+      '../shared/album-page-render.js',
+      'js/song-page-store.js',
+      'js/album-page-store.js',
+      'js/stream-shared.js',
+      'js/share-links.js',
+      '../shared/share-hub-ui.js',
+      'js/stream-album-page.js'
+    ])
   };
 
   let contentRoot = null;
@@ -306,19 +346,32 @@
     return contentRoot;
   }
 
+  /**
+   * Canonical key for script dedupe. Static HTML tags expose absolute `script.src`,
+   * while PAGE_SCRIPTS use relative paths — comparing either form raw caused the SPA
+   * loader to re-inject mux/shell/player modules on the first soft nav, which rebuilt
+   * the engine and restarted (or killed) the playing song.
+   */
+  function scriptKey(src) {
+    try {
+      return new URL(src, window.location.href).pathname;
+    } catch (e) {
+      return String(src || '').split('?')[0];
+    }
+  }
+
   function scriptSrcNeedsLoad(src) {
-    const clean = src.split('?')[0];
-    return !loadedScripts.has(clean);
+    return !loadedScripts.has(scriptKey(src));
   }
 
   function loadScript(src) {
-    const clean = src.split('?')[0];
-    if (loadedScripts.has(clean)) return Promise.resolve();
+    const key = scriptKey(src);
+    if (loadedScripts.has(key)) return Promise.resolve();
     return new Promise(function (resolve, reject) {
       const script = document.createElement('script');
       script.src = src.indexOf('?') > -1 ? src : src + versionQuery();
       script.onload = function () {
-        loadedScripts.add(clean);
+        loadedScripts.add(key);
         resolve();
       };
       script.onerror = reject;
@@ -341,6 +394,10 @@
   function runPageInit(pageKey) {
     if ((pageKey === 'stream' || pageKey === 'video') && typeof window.studioInitStreamPage === 'function') {
       window.studioInitStreamPage();
+    } else if (pageKey === 'stream-song' && typeof window.studioInitStreamSongPage === 'function') {
+      window.studioInitStreamSongPage();
+    } else if (pageKey === 'stream-album' && typeof window.studioInitStreamAlbumPage === 'function') {
+      window.studioInitStreamAlbumPage();
     } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
       window.studioInitJournalPage();
     } else if (pageKey === 'ideas' && typeof window.studioInitIdeasPage === 'function') {
@@ -355,7 +412,7 @@
     if (pageKey === 'entry' && typeof window.studioInitEditorWorkspace === 'function') {
       window.studioInitEditorWorkspace();
     }
-    markNav(pageKey);
+    markNav(pageKey === 'stream-song' || pageKey === 'stream-album' ? 'stream' : pageKey);
   }
 
   function entryShellLive() {
@@ -542,7 +599,7 @@
     }
 
     document.querySelectorAll('script[src]').forEach(function (node) {
-      if (node.src) loadedScripts.add(node.src.split('?')[0]);
+      if (node.src) loadedScripts.add(scriptKey(node.src));
     });
 
     if (shellReady()) window.BurnfolderStudioPlaybackShell.ensureShell();

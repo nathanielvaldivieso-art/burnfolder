@@ -1,13 +1,58 @@
-# Burnfolder — Master Plan (next ~6 months)
+# Burnfolder — Master Plan
 
-**Status:** Single operating plan (July 13, 2026). Gallery release + Studio platform are one roadmap.  
-**How to use:** Work **§0** (PHOTONEGATIVE) as the only near-term goal. Use **§1+** for architecture, analytics (§9.5), and frugal tiers (§17) only when they arm the red button or after **R12**.  
-**Copilot:** *"implement platform step P#"* for §0 code; *"Implement Tier N per STUDIO-MASTER-PLAN.md section 17"* for tier builds.  
-**Alias:** `PHOTONEGATIVE-RELEASE-PLAN.md` redirects here.
+**This is the only operating plan.** Gallery release, Studio platform, analytics, dashboard marketing desk, and frugal tiers live here. All other `*-PLAN.md` / `MUSIC-GROWTH-*.md` files are stubs that point here.
 
-**Last updated:** July 13, 2026
+| | |
+|--|--|
+| **Near-term** | **§0** PHOTONEGATIVE — arm → load → press → ride |
+| **Architecture** | **§1–16** Studio / gallery / multi-tenant vision |
+| **Analytics + desk** | **§9.5** listening intelligence + marketing consultant |
+| **Build money path** | **§17** Frugal tiers (after R12 unless it arms the button) |
+| **Copilot cues** | *"implement platform step P#"* · *"implement dashboard marketing Phase A/B/C"* · *"Implement Tier N per STUDIO-MASTER-PLAN.md section 17"* |
 
-**Sources:** `COPILOT.md`, studio backlog, LabelGrid/distro brainstorm, AI/social/analytics decisions, multi-tenant pivot, PHOTONEGATIVE release feed, growth data map (§9.5), `DASHBOARD-MARKETING-PLAN.md`.
+**Last updated:** July 23, 2026
+
+---
+
+## Status log
+
+Newest first. Paste updates here (or tell Copilot *"log status: …"* and it appends).
+
+### Snapshot (July 23, 2026)
+
+| Track | Where we are |
+|-------|----------------|
+| **A — Arm (laptop)** | Unchanged from last plan pass — hub/press/shop/listen intel live; P7–P9 / P11 / P20 still open. **New day-0 ask:** phone hotline must be live for press (conceived, not built). |
+| **B — Load (studio / art)** | **Mixes mostly done.** Choosing mastering engineer (or skip). Masters / freeze not declared. **SOMETIMES** video not shot. Launch clips + BTS: some raw exists, sparse, unedited — volume/breakup undecided. LabelGrid not submitted. |
+| **C — Press / Ride** | Blocked on B freeze + DSP gate + hotline. |
+| **Merch / clothes** | **Tabled until post-release.** Digital PWYW shop still day-0. Physical deferred on purpose (revisit week 1–2 of Ride if demand shows). |
+| **Studio tiers (§17)** | Not the focus until after press / R12 (unless hotline or arm work needs it). |
+| **Dashboard desk (§9.5)** | Not mentioned this update — leave as prior (Phase A partly shipped). |
+| **Active focus** | Finish mix → master decision → freeze path; shoot SOMETIMES if it's the visual anchor; edit lean fragment set; **birth the phone hotline** before gate day. |
+
+### Log
+
+| Date | Note |
+|------|------|
+| 2026-07-23 | Operator has **2 hours** (non-music). Recommendation: birth hotline (**H1** decide + start **H2** MVP) — highest unique release blocker with zero progress. Alt: **P7–P8** song shells if hotline decisions aren’t ready. |
+| 2026-07-23 | Operator update: mixes mostly done; mastering engineer TBD (may skip). SOMETIMES video unshot. Clips/BTS sparse + unedited; unsure how much / how to break up. Clothes/merch tabled post-release (possible money/engagement left on table — accepted for now). Phone hotline wanted for release but not started. |
+| 2026-07-23 | Plans consolidated again into this single master. |
+| 2026-07-13 | Prior single-plan merge (PHOTONEGATIVE §0 + Studio + growth map). Dashboard marketing still lived in a separate file until today. |
+
+---
+
+## Contents
+
+| § | Topic |
+|---|--------|
+| **Status log** | Where we are (update often) |
+| **0** | PHOTONEGATIVE — red button (Arm / Load / Press / Ride) |
+| **1–4** | North star, gallery philosophy, studio vs gallery, hosting |
+| **5–8** | Multi-tenancy, data, song lifecycle, what exists today |
+| **9** | Module catalog (incl. **§9.5** analytics + marketing desk) |
+| **10–16** | Design, nav, conventions, phases, out of scope, decisions, risks |
+| **17** | Frugal tier plan (operator + Copilot checklists) |
+| **18–19** | Copilot global rules · next step |
 
 ---
 
@@ -23,8 +68,8 @@ PHOTONEGATIVE is the proof object; burnfolder (gallery + studio) is the machine 
 |-------|---------|
 | **Arm** | Track A done enough that drop-in + launch is hours, not weeks |
 | **Load** | Track B freeze + LabelGrid submit + DSP gate clear |
-| **Press** | Track C — site finals, journal, YT fragments, Spotify/Apple links live the same day the stores unlock |
-| **Ride** | First ~2–4 weeks: posts, pitches, measure (**R1–R12**) while DSP freshness is strongest |
+| **Press** | Track C — site finals, journal, YT fragments, Spotify/Apple links, newsletter, Bandcamp live the same day the stores unlock |
+| **Ride** | First ~2–4 weeks: pitches, posts, optional curator credits + tiny retarget, measure (**R1–R12**) while DSP freshness is strongest |
 
 **Off-site thesis** (social / YT only — never on journal entries):
 
@@ -43,11 +88,16 @@ Spotify (and to a lesser extent YouTube) reward **release-week activity**: saves
 | Album hub + song pages | Drop-in finals; play release cut; outbound Spotify/Apple |
 | Press / EPK | Links + assets ready when gate clears |
 | Shop PWYW | Digital album buyable the same day |
-| Listening intelligence (P16–P19) | See what landings/plays convert during the push |
+| Newsletter | Release blast same window — owned list → hub CTA |
+| Bandcamp | Album live (or week-1) for listeners who pay |
+| **Phone hotline** | Live before press — call-in / listen experience tied to the release (conceived; build is open) |
+| Listening intelligence (P16–P19) | See what landings/plays convert during the push — UTMs on every fragment |
 | YouTube (@burnfolder) | Fragments post the same day as DSP live — hub is the CTA |
 | Spotify for Artists + Apple Music for Artists | Claim as soon as live; watch alg vs editorial |
 
 Manual YT upload + free artist dashboards are enough for day 0. Studio YouTube OAuth / LabelGrid analytics ingest stay **Tier 3** — do not block the button.
+
+**Do not arm with:** Laylo / NxtGen / un:hurd / Songstats / Chartmetric / Linktree / stream farms / AI captions. Newsletter + hub beat a rented fan CRM for this release. Paid curator *feedback* (Groover / SubmitHub credits) is optional in Ride only — never fake streams.
 
 ### Tracks (parallel)
 
@@ -80,22 +130,43 @@ Button is **armed** when all of these are true *before* D9 freeze:
 - [ ] **P9** empty slots ready for thoughts / visuals / press photos / 30s preview
 - [ ] **P11** press download paths survive hi-res swaps
 - [ ] Drop-in checklist known: **P12–P15** can land in one session
-- [ ] Launch runbook known: **L1–L8** + first YT fragment batch same calendar day as DSP unlock
+- [ ] Launch runbook known: **L1–L11** + first YT fragment batch same calendar day as DSP unlock
 - [ ] Spotify for Artists / Apple Music for Artists claim steps written (post-gate)
+- [ ] **P20** UTM scheme + pitch sheet skeleton + newsletter draft shell known (muscle memory — not SaaS)
 
-Button is **pressed** when gate clears and **L1–L8** execute without waiting on unfinished laptop work.
+Button is **pressed** when gate clears and **L1–L11** execute without waiting on unfinished laptop work.
 
-### Status (July 13, 2026)
+### Status (July 23, 2026)
 
 | Track | Reality |
 |-------|---------|
-| **A — Arm** | Hub / press / home / music / shop / listen intel live. Gaps for armed: **P7–P9**, **P11**, drop-in + launch runbook muscle memory. |
-| **B — Load** | Not frozen. Candidate Mux IDs on hub; cover 1024²; no press photos / track visuals / launch clips; LabelGrid not submitted. |
-| **C — Press** | Blocked on B freeze + DSP gate. Must not be blocked on A when that day comes. |
+| **A — Arm** | Hub / press / home / music / shop / listen intel live. Gaps for armed: **P7–P9**, **P11**, **P20**, drop-in + launch runbook. **Hotline** (new) must be built before press. |
+| **B — Load** | Mixes mostly done. Mastering engineer TBD (or none). Not frozen. SOMETIMES video unshot. Fragments/BTS: some raw, sparse, unedited. Cover still needs hi-res path; LabelGrid not submitted. |
+| **C — Press** | Blocked on B freeze + DSP gate + hotline. Must not be blocked on unfinished laptop work when that day comes. |
+| **Merch** | Physical clothes/merch **post-release only**. Day-0 money path = digital PWYW + tips. Revisit physical in Ride if hub/shop signal warrants. |
 
-**Laptop next (arm only):** P7 → P8 → P9 → P11 → write one-page press / claim checklist.  
-**Studio next (load):** D1–D5 → masters → D8 lead single → D14 hi-res → D17–D21 fragments → D22–D24 LabelGrid.  
-**Defer until after press / R12:** Tier 3+ Studio SaaS, YT OAuth in-app, multi-tenant depth, practice librarian — unless a item directly arms the button.
+**Laptop next (arm only):** P7 → P8 → P9 → P11 → **P20** → **hotline MVP** → one-page press / claim checklist.  
+**Studio next (load):** decide master path → D1–D5 listen/export → D8 lead single → D9 freeze → D14–D16 art → **lean D17–D21** (see fragment budget below) → D22–D24 LabelGrid → gate-wait drafts. Shoot SOMETIMES when the picture is ready — do not invent a full video if a strong still + fragments cover day 0.  
+**Defer until after press / R12:** Tier 3+ Studio SaaS, YT OAuth, multi-tenant depth, physical merch (unless demand during Ride), Laylo / Songstats / un:hurd.
+
+#### Fragment / BTS budget (lean — July 23)
+
+Do not wait for a perfect content library. Aim for **enough doors**, not a series.
+
+| Slot | What | Length | When |
+|------|------|--------|------|
+| **1 — Lead** | Lead single (D8): one strong performance or process cut → hub | 30–90s | Press day (L4) |
+| **2–3 — Album texture** | Two short ambient/BTS or lyric/visual cuts from existing raw | 15–45s | Press day + day 2–3 |
+| **4 — Title / thesis** | PHOTO NEGATIVE or darkroom beat — stills OK if motion is thin | 15–45s | Week 1 |
+| **5 — Ride refill** | One leftover edit or SOMETIMES stills/tease if video still pending | 15–60s | Week 1–2 |
+
+**Rules:** every CTA → album hub + P20 UTMs. Prefer **5 finished doors** over 20 half-edits. BTS stays sparse on purpose — matches the archive voice. If SOMETIMES video slips past freeze, ship fragments + stills on press day; treat the video as a Ride event, not a gate.
+
+#### Phone hotline (release blocker — open)
+
+- [ ] **H1** Spec: what the caller hears (album tease / one track / spoken note / rotating?) · how they reach it (dedicated number vs Twilio/etc.) · how hub/press/newsletter point to it
+- [ ] **H2** MVP live before DSP unlock (same window as L1–L11 — not a post-release nice-to-have)
+- [ ] **H3** Optional: log call counts somewhere crude for Ride metrics (even a weekly Twilio screenshot)
 
 ### A — Arm the button (platform)
 
@@ -118,6 +189,14 @@ Button is **pressed** when gate clears and **L1–L8** execute without waiting o
 #### Optional before press (does not block)
 
 - [ ] **P10** Optional homepage tagline: *music made slowly, released on purpose.*
+
+#### Ride prep — arm muscle memory (P20; does not block P12–P15 code)
+
+- [ ] **P20** No new SaaS — paper / Studio notes only:
+  - UTM scheme for every fragment & pitch: `utm_source` (youtube / ig / email / pitch) + `utm_campaign=photonegative` + `utm_content` (track or clip id) → album hub so **P18** can score doors
+  - Pitch spreadsheet skeleton: columns for target, contact, angle, date sent, reply, outcome (playlist / blog / ignore)
+  - Newsletter draft shell (subject + hub link placeholder — you write the body during gate wait)
+  - Bandcamp album draft checklist (masters, cover, price / NYP, release date = gate day)
 
 #### Listening intelligence (armed — ahead of masters)
 
@@ -159,19 +238,51 @@ DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block the butt
 
 **⛔ GATE** — Wait for Spotify + Apple live (usually 3–14 days). Finish A + remaining B during the wait. No public launch until gate clears.
 
+#### Gate wait (during ⛔ — arm freshness, do not publish)
+
+Use the DSP wait. None of this replaces freeze or A.
+
+- [ ] **G1** Finish newsletter body (artist pens every word) — hub CTA with UTM `utm_source=email`
+- [ ] **G2** Fill pitch spreadsheet: 15–30 real targets (blogs, indie playlists, local / scene) — personal email angles, not blast services
+- [ ] **G3** Bandcamp album drafted / scheduled for gate day (or explicit “week 1” if art still late)
+- [ ] **G4** Optional budget cap: Groover **or** SubmitHub credits for Ride week 1 (feedback only — skip if $0)
+- [ ] **G5** Fragment link QA: every YT/IG CTA uses hub + P20 UTMs
+- [ ] **G6** Optional coming-soon note to list *only if* gate is >7 days out — still no “OUT NOW” until Press
+
 ### C — Press the button + ride freshness
 
 Same calendar day the DSP gate clears (or as close as humanly possible):
 
 - [ ] **L1–L2** Drop-in P12–P15 + verify production (hub, song pages, press, shop)
 - [ ] **L3** Release journal entry (document the picture — not hype)
-- [ ] **L4–L8** Five off-site fragments — **YouTube first**, then other doors → album hub / 5.17.26
+- [ ] **L4–L8** Five off-site fragments — **YouTube first**, then other doors → album hub / 5.17.26 *(UTMs from P20)*
 - [ ] **L9** Claim Spotify for Artists + Apple Music for Artists; paste live URLs (P15)
-- [ ] **R1–R3** Pitch spreadsheet + lead single batch 1 + press batch 1 *(inside freshness window)*
-- [ ] **R4–R11** Track posts, more pitches, finished-adjacent journals
-- [ ] **R12** Metrics snapshot (site listen feed + Spotify/Apple free dashboards + YT Studio) → extend push **or** unlock §17 Tier 3. Threshold: one playlist/press win OR meaningful saves/sales.
+- [ ] **L10** Newsletter blast → album hub
+- [ ] **L11** Bandcamp publish (same day if G3 ready; else first Ride week)
+- [ ] **R1–R3** Pitch spreadsheet live + lead single batch 1 + press batch 1 *(inside freshness window — personal email first)*
+- [ ] **R4–R6** Track posts + finished-adjacent journals; optional Groover/SubmitHub credit round (G4) for curator **feedback**, not stream guarantees
+- [ ] **R7–R9** Second pitch batch; watch Spotify for Artists (saves, alg vs editorial) + site P16–P19
+- [ ] **R10–R11** Optional Meta retarget ($5–10/day, hard cap, album hub pixel/visitors → save or shop) **only if** P18 shows outbound interest; kill in 5 days if no lift. Else more pitches / one strong journal
+- [ ] **R12** Metrics snapshot (site listen feed + Spotify/Apple free dashboards + YT Studio + newsletter opens if available + Bandcamp sales) → extend push **or** unlock §17 Tier 3. Threshold: one playlist/press win OR meaningful saves/sales.
 
-**Press-day order:** production drop-in → verify → journal → YT fragments with hub CTA → claim artist dashboards → pitch batch 1. Do not invent blockers outside this list on press day.
+**Press-day order:** production drop-in → verify → journal → YT fragments with hub CTA → claim artist dashboards → newsletter → Bandcamp → pitch batch 1. Do not invent blockers outside this list on press day.
+
+### Ride toolkit (what earns a seat this release)
+
+| When | Tool | Job | Rule |
+|------|------|-----|------|
+| Arm (P20) | UTM scheme | Make P18 score real doors | Hub is link-in-bio — no Linktree |
+| Gate wait | Pitch sheet | Targets ready before unlock | Human pitches; no spam lists |
+| Gate wait | Newsletter draft | Owned blast | Artist pens every word |
+| Gate wait | Bandcamp draft | Parallel sell room | NYP or honest price; same art as hub |
+| Press (L9) | Spotify / Apple for Artists | Claim + watch | Required — free truth layer |
+| Press (L10) | Newsletter | List → hub | Same window as DSP live |
+| Press (L11) | Bandcamp | Listeners who pay | Same day or week 1 |
+| Ride (R4–R6) | Groover **or** SubmitHub | Guaranteed curator feedback | Credits only; skip if no budget |
+| Ride (R10) | Meta Ads (optional) | Retarget hub visitors | Tiny cap; kill fast if dead |
+| After R12 | Songstats / Laylo / un:hurd | Playlist intel / SMS CRM / campaign brain | **Defer** until pitching is weekly or list outgrows email |
+
+**One bet at a time during Ride** (matches §9.5 desk): pitch batch *or* curator credits *or* retarget *or* journal event — not all four the same day.
 
 ### Release cut table
 
@@ -190,13 +301,13 @@ Same calendar day the DSP gate clears (or as close as humanly possible):
 
 **Press:** copy done · streaming after gate · cover download live · photos/preview pending.
 
-**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions · promo to unstable cuts · playlist spam · waiting on LabelGrid API / R2 / Tier 3–4 / YT OAuth before the button is armed · blocking laptop work on unfinished masters · starting multi-tenant depth while P7–P9 are open · missing the DSP freshness window because the site or YT posts were “almost ready.”
+**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions · promo to unstable cuts · playlist spam / stream farms · renting Laylo/NxtGen before the list needs SMS · buying Songstats/Chartmetric before pitching weekly · waiting on LabelGrid API / R2 / Tier 3–4 / YT OAuth before the button is armed · blocking laptop work on unfinished masters · starting multi-tenant depth while P7–P9 are open · missing the DSP freshness window because the site or YT posts were “almost ready” · stacking pitch + curator credits + ads the same day.
 
-**Deferred past press / R12:** Tier 3+ SaaS · in-studio YouTube OAuth · marketing planner · multi-tenant galleries · IG analytics · physical merch unless ready · living album on `music.html` · full DSP ingest into Studio (site P16–P19 already covers day-0 measurement).
+**Deferred past press / R12:** Tier 3+ SaaS · in-studio YouTube OAuth · marketing planner · multi-tenant galleries · IG analytics · physical merch unless ready · living album on `music.html` · full DSP ingest into Studio (site P16–P19 already covers day-0 measurement) · Laylo / NxtGen / Fanaura · un:hurd · Songstats / Chartmetric · Feature.fm-style smart links (hub is enough).
 
-**Key URLs:** album hub · `music.html` · `press.html` · `5.17.26.html` · `shop.html` · home.
+**Key URLs:** album hub · `music.html` · `press.html` · `5.17.26.html` · `shop.html` · home · Bandcamp (gate day).
 
-**Legend:** `[x]` done · `[ ]` open · **P#** platform · **D#** deliverable · **L#** launch · **R#** push.
+**Legend:** `[x]` done · `[ ]` open · **P#** platform · **D#** deliverable · **G#** gate wait · **L#** launch · **R#** push.
 
 ---
 
@@ -605,14 +716,12 @@ Gates before distro submit or gallery publish:
 
 Metrics exist to change **what you release, pitch, post, and double down on** — not to decorate a dashboard. Cloudflare pageviews are table stakes; what propels careers is signal tied to decisions.
 
-**Dashboard** (`/studio/dashboard.html`) is the only analytics surface — not a separate tab.
-
-**Marketing consultant plan (ongoing):** `DASHBOARD-MARKETING-PLAN.md` — pulse · work · look closer; ship contract; site data → site architecture; sticky bets + scoreback. Copilot: *"implement dashboard marketing plan Phase A/B/C …"*.
+**Dashboard** (`/studio/dashboard.html`) is the only analytics surface — not a separate tab. The **marketing consultant desk** (below) is the product layer on top of this data.
 
 | Section | Role |
 |---------|------|
 | **Streaming** | Site plays/linger, share links, DSP, YouTube/IG — per-track / per-release |
-| **AI** | Digest that snapshot — trends, comparisons, focus; **never invent numbers** |
+| **AI / desk** | Digest that snapshot → one bet → ship into Studio tools; **never invent numbers** |
 
 #### Why measure (decision loop)
 
@@ -670,9 +779,12 @@ Prefer **free first-party dashboards + Studio** over paid A&R suites until playl
 | **LabelGrid** analytics API | Streams by platform/date/country; approx saves | Trends in Studio (Tier 3); lag 1–3 days; statements = money truth |
 | **Spotify for Artists** + **Apple Music for Artists** | Saves, playlist sources, algorithmic vs editorial | **Required** after DSP live — LabelGrid does not replace these |
 | **YouTube Studio** / **IG Insights** | Fragment performance | Manual until OAuth |
+| **Newsletter + Bandcamp** | Owned blast + pay-what-you-want sell | Press-day (L10–L11) — see §0 Ride toolkit |
+| **Groover** or **SubmitHub** | Curator/blog feedback credits | Optional Ride only; never stream farms |
+| **Meta Ads** (tiny retarget) | Hub visitors → save/shop | Optional R10; hard cap; kill if no lift |
 | **Songstats** or **Chartmetric Artist** | Playlist intel across platforms | **Defer** (~$5–15/mo) until pitching weekly |
 
-**Do not buy** Chartmetric Premium, radio suites, or a second smart-link product before P18. No Linktree — album hub is link-in-bio.
+**Do not buy** Chartmetric Premium, Laylo/NxtGen, un:hurd, radio suites, or a second smart-link product before P18. No Linktree — album hub is link-in-bio.
 
 #### Build order
 
@@ -682,7 +794,7 @@ Prefer **free first-party dashboards + Studio** over paid A&R suites until playl
 2. **P9 / P11** — Drop-in slots + durable press asset paths
 3. ~~**P16–P19**~~ — Done; use during Ride, do not rebuild
 
-**Press day / freshness:** site drop-in + YT fragments + claim Spotify/Apple for Artists (manual dashboards). No Studio OAuth required.
+**Press day / freshness:** site drop-in + YT fragments + claim Spotify/Apple for Artists + newsletter (L10) + Bandcamp (L11). No Studio OAuth required. Ride toolkit in **§0**.
 
 **After R12:** LabelGrid `getAnalytics` + share aggregates + site play aggregates → `dspMetrics`; optional Cloudflare GraphQL into Studio; YouTube OAuth; AI `metricsSnapshot`.
 
@@ -695,9 +807,141 @@ sync-analytics.js → dspMetrics + share-link aggregates + site play aggregates
 
 Normalized store: workspace Blob `dspMetrics` or Supabase — `{ platform, isrc, streams, listeners, revenue, date }` plus first-party play aggregates shaped for the same feed.
 
-**Current state:** P16–P19 live — first-party plays/linger/path/UTM/outbound, share links, Stripe commerce, newsletter count on `#dashboardAnalyticsFeed`; AI receives `metricsSnapshot`. DSP ingest remains Tier 3.
+**Current state:** P16–P19 live — first-party plays/linger/path/UTM/outbound, share links, Stripe commerce, newsletter count on `#dashboardAnalyticsFeed`; AI receives `metricsSnapshot`. DSP ingest remains Tier 3. Near-term checklist: **§0** P16–P19.
 
-*Expanded tool matrix (optional): `MUSIC-GROWTH-TOOLS.md`. Near-term checklist: **§0** P16–P19.*
+#### Dashboard marketing consultant (desk product)
+
+North star: turn the Studio dashboard into a **boutique marketing firm on retainer** for a solo artist — data in, strategy out, ship into owned tools, score whether it worked. Copilot: *"implement dashboard marketing Phase A/B/C …"*.
+
+**Thesis loop**
+
+```
+people walk the site
+     ↓
+pathways show the real floor plan
+     ↓
+desk picks one weight change (or email / fix)
+     ↓
+you ship in entry · music · shop · press · pen
+     ↓
+pathways + pulse prove it worked (or didn’t)
+```
+
+AI never replaces taste. It never pens fan-facing copy. It translates numbers into **where to go and what to change**.
+
+**Design principles**
+
+| # | Principle | Meaning |
+|---|-----------|---------|
+| 1 | **One screen, three jobs** | Pulse · Work · Look closer — never five equal tabs |
+| 2 | **One bet at a time** | Max one primary `nextMove` / queued action |
+| 3 | **Silence > filler** | Empty or “not enough signal” beats fake ambition |
+| 4 | **Anti-generation** | Artist pens every outbound word; AI only briefs |
+| 5 | **Ship or it isn’t a move** | Every action names a Studio surface + done condition |
+| 6 | **Architecture over reach** | Prefer feature / path / spotlight / offer / fix over “post more” |
+| 7 | **Close the loop** | Sticky bets + scoreback; advice that evaporates is worthless |
+| 8 | **No cards / no dashboard chrome clutter** | Burnfolder spareness; power in hierarchy, not widgets |
+
+**Marketer cadence:** Mon read (pulse) → diagnose (funnel + pathways) → bet (`nextMove`) → ship (`ship.href`) → Wed follow-up (queue) → Fri score (scoreback).
+
+**Funnel lens:** `discover → listen → land → subscribe / tip / buy / shop`
+
+**Diagnosis categories (AI picks one in `why`):** Attention · Conversion · Offer · Retention · Distribution · Architecture
+
+**UI — three surfaces**
+
+| Surface | Job |
+|---------|-----|
+| **Pulse** | listen / lands / earned (+ period deltas); optional outbound chip if DSP interest dominates |
+| **Work / market desk** | One `nextMove`; **do this** commits bet; **again** re-reads; queue = emailable pen or studio-task deep-link; sticky until done/sent/skipped |
+| **Look closer** (collapsed) | listen board · pathway **map** · pathways leaderboard · email · money · shares |
+
+**AI output contract** — one highest-leverage move; grounded in `metricsSnapshot` only:
+
+```json
+{
+  "digest": { "headline": "", "period": "week", "nextMove": "…" },
+  "actions": [{
+    "move": "feature",
+    "title": "…",
+    "why": "conversion · …",
+    "aiHint": "…",
+    "ship": { "surface": "entry", "href": "/studio/index.html?bet=…", "cta": "open entry", "doneWhen": "publish" }
+  }]
+}
+```
+
+**Move vocabulary:** `feature` / `path` · `spotlight` · `offer` · `fix` · `email` · `thank` (rare) · `bridge` · `drop`
+
+**Hard rules:** never invent emails/numbers · anonymous plays → architecture moves only (never email) · max 1 action · no customer-facing copy · prefer no-move when signal is thin.
+
+**Ship contract** — every action carries `ship` (surface, href, CTA, doneWhen):
+
+| Lever | Ship into | Done means |
+|-------|-----------|------------|
+| Pathway / tip / shop converts | Entry | Published |
+| Song heat concentrated | Entry / music feature | Live featured |
+| Offer mix wrong | Shop designer | Product order / active published |
+| Addressable cohort + purpose | Email pen | Artist wrote + sent |
+| Friction on money path | Tip / shop / press | Friction removed + published |
+| Outbound high, return low | Entry / press bridge | Live return path |
+
+Surfaces: entry (`/studio/index.html`) · music (`stream.html` + `musicFeaturedRelease`) · press · shop · journal · email queue on desk. Target `?bet=&target=` + one-line desk brief while shipping.
+
+**Site data → site architecture (flagship):** pathway labels are rooms; desk reweights the building. Levers in priority: entry block composition → `musicFeaturedRelease` → homepage `entryOrder` → shop product order/`active` → tip hop in pathway graph → press bridge CTAs. Not building a Webflow clone.
+
+**Sticky bets + scoreback:** accepted bet persists until sent/done/skipped; next digest opens with “Last bet → lands +N · earned +$X” (or “too early”).
+
+**Desk data inputs**
+
+| Source | Status | Use |
+|--------|--------|-----|
+| Site lands / listens / heat | Live | Attention + architecture |
+| Pathways / UTM / referrers / outbound | Live | Map + diagnosis |
+| Commerce tips / digital / shop | Live | Offer + conversion |
+| Newsletter subs + blasts + UTM click rate | Live | Email moves |
+| Fan actions (tip/digital/shop/subscribe emails) | Live | Addressable cohorts |
+| Share-link plays | In snapshot, not in UI yet | Look closer + AI |
+| Time series | In snapshot, unused | Deltas / slopes for AI |
+| Cloudflare visits | Optional API, not in UI | Secondary pulse |
+| DSP (Spotify/Apple) | Stub pending | Later; until then outbound = distribution signal |
+
+**Desk phases**
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| **A — Consultant core** | Pulse · work · look closer; marketing-advisor prompt; opt-in **do this**; email vs studio-task queue; cut demo metrics | Partly shipped — still open: sticky bet persist, ship object on actions, queue CTA = open tool, period deltas, series → AI |
+| **B — Architecture loop** | Pathway map; tip hop; deep-link entry/shop/press with brief; Studio control for `musicFeaturedRelease` + `entryOrder`; AI prefers architecture for anonymous signal | Open |
+| **C — Score & cadence** | Scoreback; Mon/Fri copy; server weekly act quota; share/outbound chip when dominant | Open |
+| **D — Distribution & fidelity** | DSP ingest (Tier 3); Cloudflare chip only if it changes a decision; light pathway A/B; multi-tenant scoping | Open |
+
+**Desk non-goals:** more home metric tabs · AI-written emails/captions · auto-thank everyone · full social scheduler · auto-publish without artist · vanity follower graphs · mega page builder.
+
+**Success:** non-marketer opens dashboard → health in three numbers → accepts one bet with reason → lands in the right Studio tool with a brief → publish/send → returns and sees whether pulse/pathways moved.
+
+**Desk file map**
+
+| Path | Role |
+|------|------|
+| `studio/dashboard.html` | Shell: pulse, desk, closer |
+| `studio/js/dashboard-page.js` | Analytics render, closer, map (future) |
+| `studio/js/studio-ai-panel.js` | Digest, queue, ship CTAs |
+| `netlify/functions/studio-analytics.js` | Period snapshot |
+| `netlify/functions/studio-ai.js` | Consultant model |
+| `netlify/functions/studio-market-desk.js` | Queue + send |
+| `netlify/functions/lib/market-desk-store.js` | Store, scrutiny, audiences |
+| `shared/site-analytics.js` | Collection + pathway labels |
+| `entries.js` → `entryOrder`, `musicFeaturedRelease` | Architecture data |
+
+**Desk decisions log**
+
+| Date | Decision |
+|------|----------|
+| 2026-07-13 | Remodel to pulse · work · look closer; kill tab parity |
+| 2026-07-13 | Retire thank-you-only desk; marketing advisor + rare thanks |
+| 2026-07-13 | Opt-in queue; remove demo metrics fixture |
+| 2026-07-13 | North star: ship contract + site data → site architecture |
+| 2026-07-23 | Merged into this master (§9.5); stub left at `DASHBOARD-MARKETING-PLAN.md` |
 
 ### 9.6 Social integrations
 
@@ -1699,12 +1943,13 @@ When operator says *"implement Tier N"*, Copilot runs the **For Copilot** block 
 
 ## 19. Next step
 
-**Default (next ~6 months):** open **§0** — laptop **P16** (or P7–P8); studio **D1–D5**.
+**Default (next ~6 months):** open **§0** — laptop **P7–P8** (arm gaps); studio **D1–D5**. Update the **Status log** when reality changes.
 
 | If you need… | Go to |
 |--------------|--------|
+| Where we are | **Status log** (top) |
 | Release / platform checklist | **§0** |
-| What to measure / tools | **§9.5** |
+| What to measure / desk product | **§9.5** |
 | Post-R12 platform tiers | **§17** |
 
 Do not create LabelGrid, R2, or YouTube accounts until their tier (unless §0 Distro **D22** needs LabelGrid for the release).

@@ -3,6 +3,19 @@
 
   if (!document.body || !document.body.classList.contains('studio-page')) return;
 
+  // Accidental re-exec (SPA loader race) must not rebuild the live engine/player.
+  if (window.BurnfolderStudioPlaybackShell && window.BurnfolderStudioPlaybackShell.getEngine) {
+    try {
+      window.BurnfolderStudioPlaybackShell.ensureShell();
+      if (window.BurnfolderStudioPlaybackShell.syncAfterNavigation) {
+        window.BurnfolderStudioPlaybackShell.syncAfterNavigation();
+      }
+    } catch (e) {
+      /* noop */
+    }
+    return;
+  }
+
   const stack = window.BurnfolderStudioPlaybackStack;
   const SHELL_ID = (stack && stack.SHELL_ID) || 'studioGlobalPlayback';
   const PLAYER_ID = (stack && stack.PLAYER_ID) || 'activeMuxPlayer';

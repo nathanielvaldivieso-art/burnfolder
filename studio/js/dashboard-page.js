@@ -249,13 +249,16 @@
 
     if (hasHeat) {
       for (let i = 0; i < heat.length; i++) {
-        heat[i] = Math.max(0, Math.round(Number(heat[i]) || 0));
+        const v = Number(heat[i]) || 0;
+        // Keep coverage: fractional legacy shares must not round to quiet holes.
+        heat[i] = v > 0 ? Math.max(1, Math.round(v)) : 0;
       }
     }
 
-    // Display curve: median-smooth kills single-second boundary spikes while
-    // keeping the real shape. Scrub readout still uses raw pass counts.
-    const display = smoothHeatMedian(heat, 2);
+    // Display curve: median-smooth kills single-second boundary spikes, then
+    // bridge tiny tracking holes so a whole listen reads as a solid band.
+    // Scrub readout still uses raw pass counts.
+    const display = bridgeHeatGaps(smoothHeatMedian(heat, 2), 4);
     let max = 0;
     let peakAt = 0;
     let rawMax = 0;
@@ -294,6 +297,31 @@
       });
       const mid = Math.floor(window.length / 2);
       out.push(window.length % 2 ? window[mid] : (window[mid - 1] + window[mid]) / 2);
+    }
+    return out;
+  }
+
+  /** Fill gaps of <= maxGap seconds between heard regions (tracking holes, not skips). */
+  function bridgeHeatGaps(heat, maxGap) {
+    const max = Math.max(0, Number(maxGap) || 0);
+    if (!max || !heat || !heat.length) return heat || [];
+    const out = heat.slice();
+    let i = 0;
+    while (i < out.length) {
+      if (out[i] > 0) {
+        i += 1;
+        continue;
+      }
+      let j = i;
+      while (j < out.length && !(out[j] > 0)) j += 1;
+      const gap = j - i;
+      if (gap > 0 && gap <= max && i > 0 && j < out.length) {
+        const fill = Math.min(Number(out[i - 1]) || 0, Number(out[j]) || 0);
+        if (fill > 0) {
+          for (let k = i; k < j; k++) out[k] = Math.max(Number(out[k]) || 0, fill);
+        }
+      }
+      i = j;
     }
     return out;
   }
@@ -344,7 +372,7 @@
     track.setAttribute('aria-valuetext', '0:00');
 
     function draw() {
-      const width = Math.max(1, track.clientWidth || wrap.clientWidth || 320);
+      const width = Math.max(1, Math.floor(track.clientWidth || wrap.clientWidth || 320));
       const height = 8;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.round(width * dpr);
@@ -354,20 +382,37 @@
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, width, height);
 
       const series = data.display || data.heat;
       const n = Math.max(1, series.length);
-      const barW = Math.max(1, width / n);
       const color = getComputedStyle(wrap).color || '#111';
       ctx.fillStyle = color;
 
-      // Thin strip: listen density is carried by opacity, not bar height.
-      for (let i = 0; i < n; i++) {
-        const passes = series[i] || 0;
+      // Downsample to one column per CSS pixel (max of seconds in that column),
+      // then coalesce equal-opacity runs into single rects — avoids zebra seams
+      // from one fillRect per second with fractional x / Math.max(1, width/n).
+      const cols = [];
+      for (let x = 0; x < width; x++) {
+        const s0 = Math.floor((x * n) / width);
+        const s1 = Math.max(s0 + 1, Math.floor(((x + 1) * n) / width));
+        let passes = 0;
+        for (let s = s0; s < s1 && s < n; s++) {
+          passes = Math.max(passes, Number(series[s]) || 0);
+        }
         const t = relativeShade(passes, data.max);
-        ctx.globalAlpha = passes <= 0 ? 0.06 : 0.14 + t * 0.86;
-        ctx.fillRect(i * (width / n), 0, barW, height);
+        cols.push(passes <= 0 ? 0.06 : 0.14 + t * 0.86);
+      }
+
+      let x = 0;
+      while (x < cols.length) {
+        const alpha = cols[x];
+        let x2 = x + 1;
+        while (x2 < cols.length && cols[x2] === alpha) x2 += 1;
+        ctx.globalAlpha = alpha;
+        ctx.fillRect(x, 0, x2 - x, height);
+        x = x2;
       }
       ctx.globalAlpha = 1;
     }

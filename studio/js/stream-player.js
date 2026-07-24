@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  if (window.BurnfolderStreamPlayer) return;
+
   let localPlayback = null;
 
   function createLocalPlayback() {

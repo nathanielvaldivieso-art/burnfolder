@@ -55,6 +55,7 @@ Facebook Page (minimal only if Meta requires it for IG Business), Snapchat, Link
 | Use | Platforms |
 |---|---|
 | Active (post / point home) | Instagram, YouTube, site, newsletter |
-| Parked (name only for now) | TikTok, Vimeo, Bandcamp, Discord, X (`@burnfolderr`), others as claimed |
+| Release window (PHOTONEGATIVE) | Bandcamp (L11 — same day or week 1), Spotify / Apple after LabelGrid gate |
+| Parked (name only for now) | TikTok, Vimeo, Discord, X (`@burnfolderr`), others as claimed |
 
 Update this file when a handle is claimed or a URL goes public.

@@ -29,7 +29,7 @@
     'press-page.js?v=20260709l',
     'shared/playback-prefetch.js?v=20260709l',
     'shared/studio-tap.js?v=20260709l',
-    'shared/mux-playback.js?v=20260720play2',
+    'shared/mux-playback.js?v=20260723lock1',
     'shared/playback-context.js?v=20260709l',
     'shared/version-picker.js?v=20260709l',
     'shared/now-playing-bar.js?v=20260720play1',

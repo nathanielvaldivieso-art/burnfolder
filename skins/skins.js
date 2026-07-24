@@ -263,7 +263,7 @@
     var critical = [
       'skins/home-music.js?v=20260720s',
       'scripts.js?v=20260720play2',
-      'shared/mux-playback.js?v=20260720play2',
+      'shared/mux-playback.js?v=20260723lock1',
       'shared/now-playing-bar.js?v=20260720play1',
       'shared/playback-context.js?v=20260709l',
       'shared/version-picker.js?v=20260709l',

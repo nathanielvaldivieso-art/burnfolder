@@ -317,6 +317,57 @@ function addHeatSpan(song, patchSong, fromSec, toSec, durationSec) {
   addHeatPasses(song, patchSong, passes, durationSec || end);
 }
 
+/**
+ * Paint coverage for a listen span without double-counting.
+ * Missed heartbeats / sparse play_progress left zebra holes even on whole listens;
+ * play_end runs this so start→stop is contiguous at >= 1.
+ */
+function ensureHeatCoverage(song, patchSong, fromSec, toSec, durationSec) {
+  const start = Math.max(0, Number(fromSec) || 0);
+  const end = Math.max(start, Number(toSec) || 0);
+  if (end <= start) return;
+  const from = Math.floor(start);
+  const to = Math.min(MAX_HEAT_SECONDS - 1, Math.max(from, Math.floor(end - 1e-6)));
+  const duration = Math.max(
+    Number(durationSec) || 0,
+    to + 1,
+    Number(song.durationSeconds) || 0,
+    1
+  );
+
+  if (
+    song.heatUnit !== 's' ||
+    (Array.isArray(song.heat) && song.heat.length === 32 && Number(song.durationSeconds) > 40)
+  ) {
+    if (isLegacyHeatBins(song.heat, song.heatUnit) || song.heatUnit === 'bin32') {
+      song.heat = [];
+    } else if (Array.isArray(song.heat) && song.heat.length === 32 && duration > 40) {
+      song.heat = [];
+    }
+  }
+
+  song.durationSeconds = Math.max(Number(song.durationSeconds) || 0, duration);
+  song.heatUnit = 's';
+  if (patchSong) {
+    if (
+      patchSong.heatUnit !== 's' ||
+      (Array.isArray(patchSong.heat) && patchSong.heat.length === 32 && duration > 40)
+    ) {
+      patchSong.heat = [];
+    }
+    patchSong.durationSeconds = Math.max(Number(patchSong.durationSeconds) || 0, duration);
+    patchSong.heatUnit = 's';
+  }
+
+  const maxSec = Math.min(MAX_HEAT_SECONDS, Math.ceil(duration));
+  const songHeat = ensureHeatLength(song, maxSec);
+  const patchHeat = patchSong ? ensureHeatLength(patchSong, maxSec) : null;
+  for (let s = from; s <= to && s < maxSec; s++) {
+    if (!(Number(songHeat[s]) > 0)) songHeat[s] = 1;
+    if (patchHeat && !(Number(patchHeat[s]) > 0)) patchHeat[s] = 1;
+  }
+}
+
 function ensureSong(map, groupKey, title) {
   const key = String(groupKey || 'unknown').slice(0, 80) || 'unknown';
   if (!map[key]) {
@@ -540,6 +591,14 @@ function applyEvent(agg, event, patch) {
         event.startSeconds != null ? event.startSeconds : prevSeconds;
       const stopSeconds = event.stopSeconds != null ? event.stopSeconds : seconds;
       recordListenSpan(song, patchSong, startSeconds, stopSeconds);
+      // Whole listen → solid coverage even if progress pings dropped seconds.
+      ensureHeatCoverage(
+        song,
+        patchSong,
+        startSeconds,
+        stopSeconds,
+        duration || stopSeconds
+      );
     }
     return;
   }

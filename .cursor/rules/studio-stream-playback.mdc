@@ -76,9 +76,11 @@ Never list-delegation alone for row play.
 
 ## SPA bootstrap
 
-Every SPA entry page (`index`, `dashboard`, `stream`, `video`, `journal`) must load `studio-playback-stack.js`.
+Every SPA entry page (`index`, `dashboard`, `stream`, `video`, `journal`, `ideas`, `releases`, `word-pull`, `stream-song`, `stream-album`) must load `studio-playback-stack.js` + `studio-spa-router.js`.
 
-`studio-spa-router.js` prepends `PLAYBACK_CORE` to journal, entry, and dashboard lazy script loads so SPA nav to music/journal always has `BurnfolderStreamPlayer`.
+`studio-spa-router.js` prepends `PLAYBACK_CORE` to lazy script loads so SPA nav always has `BurnfolderStreamPlayer`. Script dedupe keys by **pathname** (absolute vs relative URLs must not re-inject playback modules — that restarts audio).
+
+Song/album hubs are soft-SPA: never hard-navigate them while audio is playing.
 
 ## Inline / preview players (allowed, separate)
 
@@ -98,9 +100,11 @@ These must **not** use `#activeMuxPlayer` unless inside `#studioGlobalPlayback`.
 5. Play via `BurnfolderStreamPlayer.playItem` / `playQueue` or shell engine directly
 6. Bump `?v=` cache on touched scripts
 
-## Regression check
+  ## Regression check
 
 1. Hard refresh `/studio/stream.html` — songs load, no stack error
 2. Click track → bottom bar + audio
-3. SPA: dashboard → music → journal — play still works
-4. Entry editor preview bar still independent from global shell
+3. SPA: dashboard → music → journal → ideas — **audio must keep playing without restart**
+4. Soft-nav into `stream-song` / `stream-album` — audio continues
+5. Entry editor preview bar still independent from global shell
+6. Public site: play on audio → soft-nav to song/album hub — audio continues

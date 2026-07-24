@@ -597,7 +597,22 @@
       active.reportedSeconds = Math.max(active.reportedSeconds, duration);
       completed = true;
     }
+    // Snapshot span before credit/end so ingest can paint solid coverage
+    // even if some heartbeat seconds never made it into heatCounts.
+    var spanStart = active.startSeconds || 0;
+    var spanStop = Math.max(seconds, active.reportedSeconds);
+    if (completed && duration > 0) spanStop = Math.max(spanStop, duration);
     reportProgress(true, completed);
+    // Ensure the play_end event carries the full start→stop window.
+    if (queue.length) {
+      var last = queue[queue.length - 1];
+      if (last && last.type === 'play_end') {
+        last.startSeconds = spanStart;
+        last.stopSeconds = Math.max(Number(last.stopSeconds) || 0, spanStop);
+        last.seconds = Math.max(Number(last.seconds) || 0, spanStop);
+        if (duration > 0) last.duration = Math.max(Number(last.duration) || 0, duration);
+      }
+    }
     active = null;
     stopHeartbeat();
     flush();

@@ -31,7 +31,7 @@
     if (window.BurnfolderSiteAnalytics) return;
     if (document.querySelector('script[data-bf-site-analytics]')) return;
     var script = document.createElement('script');
-    script.src = scriptBase() + 'site-analytics.js?v=20260720hang';
+    script.src = scriptBase() + 'site-analytics.js?v=20260723zebra';
     script.defer = true;
     script.setAttribute('data-bf-site-analytics', '1');
     document.head.appendChild(script);

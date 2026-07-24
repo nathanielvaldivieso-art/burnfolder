@@ -1,17 +1,16 @@
 # burnfolder.com — Copilot context
 
-## Active plan (next ~6 months)
+## Active plan (single source)
 
-**`STUDIO-MASTER-PLAN.md` §0** is the only near-term goal: **arm the PHOTONEGATIVE red button**, then press it the day deliverables + DSP gate clear so YouTube + Spotify freshness can run without scramble.
+**[`STUDIO-MASTER-PLAN.md`](STUDIO-MASTER-PLAN.md)** is the only operating plan. Status lives in its **Status log** at the top.
 
-- **§0** — PHOTONEGATIVE: **Arm** platform (**P#**) · **Load** deliverables (**D#**) · **Press** launch (**L#**) · **Ride** push (**R#**). Platform runs ahead of masters; Tier 3+ / multi-tenant depth waits until after press unless it arms the button.
-- **§9.5** — Analytics / growth map (day-0: site listen feed + free Spotify/Apple/YT dashboards).
-- **`DASHBOARD-MARKETING-PLAN.md`** — ongoing: dashboard as marketing consultant (pulse · ship · architecture loop). *"implement dashboard marketing plan Phase A/B/C …"*
-- **§17** — Frugal tiers after push review **R12** — not before the button is pressed.
+- **§0** — PHOTONEGATIVE: **Arm** (**P#**) · **Load** (**D#**) · **Press** (**L#**) · **Ride** (**R#**). Near-term only goal.
+- **§9.5** — Analytics + dashboard marketing consultant (pulse · ship · architecture loop). *"implement dashboard marketing Phase A/B/C …"*
+- **§17** — Frugal tiers after **R12** — not before the button is pressed (unless an item arms the button).
 
-Tell Copilot *"implement platform step P#"* for §0 arm work (priority: **P7 → P8 → P9 → P11**). Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
+Tell Copilot *"implement platform step P#"* for §0 arm work (priority: **P7 → P8 → P9 → P11 → P20**), or *"log status: …"* to append the Status log. Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
 
-`PHOTONEGATIVE-RELEASE-PLAN.md` and `MUSIC-GROWTH-*.md` are short pointers into this file.
+`PHOTONEGATIVE-RELEASE-PLAN.md`, `DASHBOARD-MARKETING-PLAN.md`, and `MUSIC-GROWTH-*.md` are stubs that redirect here.
 
 ## What this site is
 burnfolder.com is a personal artistic hub and portfolio. It is structured as a series of
