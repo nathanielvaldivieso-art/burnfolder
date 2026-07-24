@@ -10,7 +10,7 @@
 | **Build money path** | **§17** Frugal tiers (after R12 unless it arms the button) |
 | **Copilot cues** | *"implement platform step P#"* · *"implement dashboard marketing Phase A/B/C"* · *"Implement Tier N per STUDIO-MASTER-PLAN.md section 17"* |
 
-**Last updated:** July 23, 2026
+**Last updated:** July 24, 2026
 
 ---
 
@@ -18,22 +18,23 @@
 
 Newest first. Paste updates here (or tell Copilot *"log status: …"* and it appends).
 
-### Snapshot (July 23, 2026)
+### Snapshot (July 24, 2026)
 
 | Track | Where we are |
 |-------|----------------|
-| **A — Arm (laptop)** | Unchanged from last plan pass — hub/press/shop/listen intel live; P7–P9 / P11 / P20 still open. **New day-0 ask:** phone hotline must be live for press (conceived, not built). |
-| **B — Load (studio / art)** | **Mixes mostly done.** Choosing mastering engineer (or skip). Masters / freeze not declared. **SOMETIMES** video not shot. Launch clips + BTS: some raw exists, sparse, unedited — volume/breakup undecided. LabelGrid not submitted. |
+| **A — Arm (laptop)** | Hub/press/shop/listen intel live; P7–P9 / P11 / P20 still open. Hotline still conceived, not built. **New dig ask:** song pages need enriched lyrics + BTS clips (slots + drop-in), not just empty shells. |
+| **B — Load (studio / art)** | Mixes mostly done. Master path TBD. Not frozen. **New:** per-song dig layer — full lyrics + a real BTS/clip set on each of the four song pages (for listeners who want to dig). Off-site fragment budget stays lean (**D17–D21**); dig content lives **on** the song pages. |
 | **C — Press / Ride** | Blocked on B freeze + DSP gate + hotline. |
 | **Merch / clothes** | **Tabled until post-release.** Digital PWYW shop still day-0. Physical deferred on purpose (revisit week 1–2 of Ride if demand shows). |
 | **Studio tiers (§17)** | Not the focus until after press / R12 (unless hotline or arm work needs it). |
 | **Dashboard desk (§9.5)** | Not mentioned this update — leave as prior (Phase A partly shipped). |
-| **Active focus** | Finish mix → master decision → freeze path; shoot SOMETIMES if it's the visual anchor; edit lean fragment set; **birth the phone hotline** before gate day. |
+| **Active focus** | Finish mix → master decision → freeze path; **enrich song-page dig content (D13 + D25)**; lean off-site fragments; **birth the phone hotline** before gate day. |
 
 ### Log
 
 | Date | Note |
 |------|------|
+| 2026-07-24 | Operator: enrich **lyrics + BTS clips on song pages** — a good amount of content per song for diggers. Added **D13** (all four tracks) + **D25** dig-clip set; **P9** slots must include lyrics + clips. Off-site YT fragment budget stays lean; dig depth lives on-site. |
 | 2026-07-23 | Operator has **2 hours** (non-music). Recommendation: birth hotline (**H1** decide + start **H2** MVP) — highest unique release blocker with zero progress. Alt: **P7–P8** song shells if hotline decisions aren’t ready. |
 | 2026-07-23 | Operator update: mixes mostly done; mastering engineer TBD (may skip). SOMETIMES video unshot. Clips/BTS sparse + unedited; unsure how much / how to break up. Clothes/merch tabled post-release (possible money/engagement left on table — accepted for now). Phone hotline wanted for release but not started. |
 | 2026-07-23 | Plans consolidated again into this single master. |
@@ -127,9 +128,9 @@ Button is **armed** when all of these are true *before* D9 freeze:
 - [x] Hub / press / home / music / shop PWYW / Cloudflare
 - [x] **P16–P19** listening + UTM + outbound DSP clicks + commerce on dashboard
 - [ ] **P7–P8** song page shells + hub → song links (four tracks)
-- [ ] **P9** empty slots ready for thoughts / visuals / press photos / 30s preview
+- [ ] **P9** empty slots ready for thoughts / visuals / press photos / 30s preview / **lyrics + clips dig layer**
 - [ ] **P11** press download paths survive hi-res swaps
-- [ ] Drop-in checklist known: **P12–P15** can land in one session
+- [ ] Drop-in checklist known: **P12–P15** + **D13 / D25** dig content can land in one session
 - [ ] Launch runbook known: **L1–L11** + first YT fragment batch same calendar day as DSP unlock
 - [ ] Spotify for Artists / Apple Music for Artists claim steps written (post-gate)
 - [ ] **P20** UTM scheme + pitch sheet skeleton + newsletter draft shell known (muscle memory — not SaaS)
@@ -140,18 +141,25 @@ Button is **pressed** when gate clears and **L1–L11** execute without waiting 
 
 | Track | Reality |
 |-------|---------|
-| **A — Arm** | Hub / press / home / music / shop / listen intel live. Gaps for armed: **P7–P9**, **P11**, **P20**, drop-in + launch runbook. **Hotline** (new) must be built before press. |
-| **B — Load** | Mixes mostly done. Mastering engineer TBD (or none). Not frozen. SOMETIMES video unshot. Fragments/BTS: some raw, sparse, unedited. Cover still needs hi-res path; LabelGrid not submitted. |
+| **A — Arm** | Hub / press / home / music / shop / listen intel live. Gaps for armed: **P7–P9**, **P11**, **P20**, drop-in + launch runbook. Song pages must accept **lyrics + clips dig layer**. **Hotline** must be built before press. |
+| **B — Load** | Mixes mostly done. Mastering engineer TBD (or none). Not frozen. SOMETIMES video unshot. Off-site fragments lean; **on-site dig** (lyrics + BTS clips per song) is a deliberate depth layer. Cover still needs hi-res path; LabelGrid not submitted. |
 | **C — Press** | Blocked on B freeze + DSP gate + hotline. Must not be blocked on unfinished laptop work when that day comes. |
 | **Merch** | Physical clothes/merch **post-release only**. Day-0 money path = digital PWYW + tips. Revisit physical in Ride if hub/shop signal warrants. |
 
 **Laptop next (arm only):** P7 → P8 → P9 → P11 → **P20** → **hotline MVP** → one-page press / claim checklist.  
-**Studio next (load):** decide master path → D1–D5 listen/export → D8 lead single → D9 freeze → D14–D16 art → **lean D17–D21** (see fragment budget below) → D22–D24 LabelGrid → gate-wait drafts. Shoot SOMETIMES when the picture is ready — do not invent a full video if a strong still + fragments cover day 0.  
+**Studio next (load):** decide master path → D1–D5 listen/export → D8 lead single → D9 freeze → **D13 + D25 dig layer** → D14–D16 art → **lean D17–D21** (off-site doors) → D22–D24 LabelGrid → gate-wait drafts. Shoot SOMETIMES when the picture is ready — do not invent a full video if a strong still + fragments cover day 0.  
 **Defer until after press / R12:** Tier 3+ Studio SaaS, YT OAuth, multi-tenant depth, physical merch (unless demand during Ride), Laylo / Songstats / un:hurd.
 
-#### Fragment / BTS budget (lean — July 23)
+#### Two content layers (do not conflate)
 
-Do not wait for a perfect content library. Aim for **enough doors**, not a series.
+| Layer | Where | Job | Density |
+|-------|--------|-----|---------|
+| **Off-site doors** | YouTube / IG → album hub (**D17–D21**, L4–L8) | Freshness / discovery | **Lean** — ~5 finished fragments |
+| **On-site dig** | Each song page (**D13**, **D25**) | Reward listeners who open the work | **Rich** — full lyrics + a real BTS/clip set per track |
+
+#### Fragment / BTS budget — off-site doors (lean — July 23)
+
+Do not wait for a perfect *external* content library. Aim for **enough doors**, not a series.
 
 | Slot | What | Length | When |
 |------|------|--------|------|
@@ -160,7 +168,20 @@ Do not wait for a perfect content library. Aim for **enough doors**, not a serie
 | **4 — Title / thesis** | PHOTO NEGATIVE or darkroom beat — stills OK if motion is thin | 15–45s | Week 1 |
 | **5 — Ride refill** | One leftover edit or SOMETIMES stills/tease if video still pending | 15–60s | Week 1–2 |
 
-**Rules:** every CTA → album hub + P20 UTMs. Prefer **5 finished doors** over 20 half-edits. BTS stays sparse on purpose — matches the archive voice. If SOMETIMES video slips past freeze, ship fragments + stills on press day; treat the video as a Ride event, not a gate.
+**Rules (off-site only):** every CTA → album hub + P20 UTMs. Prefer **5 finished doors** over 20 half-edits. External BTS stays sparse on purpose — matches the archive voice. If SOMETIMES video slips past freeze, ship fragments + stills on press day; treat the video as a Ride event, not a gate. **Song-page dig clips (D25) are separate** and may be denser.
+
+#### Song-page dig layer (enrich — July 24)
+
+For listeners who want to dig: each of the four song pages should feel like a small archive, not a stub.
+
+| Track | Lyrics (**D13**) | Clips / BTS (**D25**) |
+|-------|------------------|----------------------|
+| SOMETIMES | Full release-cut lyrics + any meaningful version deltas worth keeping | Process / take / room / stills — enough to linger |
+| FIRE ESCAPE | Same | Same |
+| PHOTO NEGATIVE | Same | Same |
+| IT DOESNT MATTER | Same | Same |
+
+**Target per song (guideline, not a hard count):** complete lyrics for the release cut; **3–6** short clips or stills (mix of BTS, process, lyric/visual beats) so the Clips panel is worth opening. Prefer real raw over inventing volume. Artist pens lyrics; AI never writes them.
 
 #### Phone hotline (release blocker — open)
 
@@ -183,7 +204,7 @@ Do not wait for a perfect content library. Aim for **enough doors**, not a serie
 
 - [ ] **P7** Song page shells (all 4 tracks)
 - [ ] **P8** Album hub tracklist → song page links
-- [ ] **P9** Empty slots: thoughts, visuals, press photos, 30s preview
+- [ ] **P9** Empty slots: thoughts, visuals, press photos, 30s preview, **lyrics panel + clips/BTS grid** (ready for D13 / D25 drop-in)
 - [ ] **P11** Press download paths that survive hi-res swaps
 
 #### Optional before press (does not block)
@@ -213,7 +234,7 @@ DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block the butt
 
 - [ ] **P12** Final hub playbackIds
 - [ ] **P13** `useLatestVersions: false`
-- [ ] **P14** Final cover, visuals, thoughts, lyrics, credits
+- [ ] **P14** Final cover, visuals, thoughts, lyrics, credits + **per-song dig** (D13 / D25 landed)
 - [ ] **P15** Spotify + Apple URLs on hub + press
 
 ### B — Load the button (deliverables)
@@ -231,10 +252,11 @@ DSP ingest stays Tier 3 (§17) after LabelGrid is live — do not block the butt
 
 - [ ] **D10** Album hub thoughts pull from 5.17.26
 - [x] **D11** Press copy · [x] **D12** Homepage intro
-- [ ] **D13** Lyrics/notes for title track + lead single
+- [ ] **D13** **Song-page lyrics dig (all 4 tracks):** full release-cut lyrics on each song page; keep meaningful version lyrics/notes where they help diggers; artist-written only
 - [ ] **D14** Hi-res cover (≥3000²) · **D15** press photos · **D16** four track visuals
-- [ ] **D17–D21** Launch fragments (edit, link to hub)
+- [ ] **D17–D21** Launch fragments — **off-site doors only** (edit, link to hub; stay lean)
 - [ ] **D22–D24** LabelGrid create → metadata/ISRC/UPC → submit
+- [ ] **D25** **Song-page BTS / clips dig (all 4 tracks):** publish a real clip/still set on each song page (guideline **3–6** items) — process, takes, room, lyric/visual beats — so diggers have somewhere to go. Distinct from D17–D21 off-site doors.
 
 **⛔ GATE** — Wait for Spotify + Apple live (usually 3–14 days). Finish A + remaining B during the wait. No public launch until gate clears.
 
@@ -297,11 +319,13 @@ Same calendar day the DSP gate clears (or as close as humanly possible):
 
 ### §0 references
 
-**Album hub:** header/subtitle done · cover needs hi-res (D14) · tracklist candidates (D7) · links placeholders + shop · thoughts empty (D10) · credits generic (D6) · lyrics need P7–P8 + D13 · darkroom done · visuals empty (D16).
+**Album hub:** header/subtitle done · cover needs hi-res (D14) · tracklist candidates (D7) · links placeholders + shop · thoughts empty (D10) · credits generic (D6) · lyrics/clips dig need P7–P9 + **D13 / D25** · darkroom done · visuals empty (D16).
+
+**Song pages:** shells still open (P7–P8). **FIRE ESCAPE** has lyrics on some versions; others thin or empty. Clips/`media` grids empty across photonegative tracks. Goal = dig-worthy lyrics + BTS per song, not stubs.
 
 **Press:** copy done · streaming after gate · cover download live · photos/preview pending.
 
-**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions · promo to unstable cuts · playlist spam / stream farms · renting Laylo/NxtGen before the list needs SMS · buying Songstats/Chartmetric before pitching weekly · waiting on LabelGrid API / R2 / Tier 3–4 / YT OAuth before the button is armed · blocking laptop work on unfinished masters · starting multi-tenant depth while P7–P9 are open · missing the DSP freshness window because the site or YT posts were “almost ready” · stacking pitch + curator credits + ads the same day.
+**What not to do:** marketing on journal · living versions after freeze · "OUT NOW" · WIP posts after launch · AI captions / AI lyrics · promo to unstable cuts · playlist spam / stream farms · renting Laylo/NxtGen before the list needs SMS · buying Songstats/Chartmetric before pitching weekly · waiting on LabelGrid API / R2 / Tier 3–4 / YT OAuth before the button is armed · blocking laptop work on unfinished masters · starting multi-tenant depth while P7–P9 are open · missing the DSP freshness window because the site or YT posts were “almost ready” · stacking pitch + curator credits + ads the same day · starving song pages to keep *only* off-site fragments lean (lean is for doors; dig lives on-site).
 
 **Deferred past press / R12:** Tier 3+ SaaS · in-studio YouTube OAuth · marketing planner · multi-tenant galleries · IG analytics · physical merch unless ready · living album on `music.html` · full DSP ingest into Studio (site P16–P19 already covers day-0 measurement) · Laylo / NxtGen / Fanaura · un:hurd · Songstats / Chartmetric · Feature.fm-style smart links (hub is enough).
 
@@ -1943,7 +1967,7 @@ When operator says *"implement Tier N"*, Copilot runs the **For Copilot** block 
 
 ## 19. Next step
 
-**Default (next ~6 months):** open **§0** — laptop **P7–P8** (arm gaps); studio **D1–D5**. Update the **Status log** when reality changes.
+**Default (next ~6 months):** open **§0** — laptop **P7–P8** (arm gaps); studio **D1–D5** + dig layer **D13 / D25**. Update the **Status log** when reality changes.
 
 | If you need… | Go to |
 |--------------|--------|
