@@ -245,6 +245,80 @@ function scrubQueueItems(items) {
   return { items: next, changed: changed };
 }
 
+var PHANTOM_COMMERCE =
+  /\b(thank|tipper|tippers|buyer|buyers|tips?\b|purchase|purchases|order|orders|download|digital buyer|fire escape)\b/i;
+
+function audienceCountMap(audiences) {
+  const map = {};
+  const rows = (audiences && audiences.actions) || [];
+  rows.forEach(function (row) {
+    if (!row || !row.actionKey) return;
+    map[String(row.actionKey).toLowerCase()] = Number(row.count) || 0;
+  });
+  return map;
+}
+
+function claimsUnsupportedCommerce(item, audiences) {
+  const text = [item.title, item.why, item.cohortLabel, item.move].filter(Boolean).join(' ');
+  if (!PHANTOM_COMMERCE.test(text) && String(item.move || '').toLowerCase() !== 'thank') {
+    return false;
+  }
+  const counts = audienceCountMap(audiences);
+  const tip = counts.tip || 0;
+  const digital = counts.digital || 0;
+  const shop = counts.shop || 0;
+  const mode = String((item.audience && item.audience.mode) || 'none').toLowerCase();
+  const key = String((item.audience && item.audience.actionKey) || '').toLowerCase();
+
+  if (mode === 'action' && (key === 'tip' || key === 'digital' || key === 'shop')) {
+    return (counts[key] || 0) < 1;
+  }
+  if (/\btipper|tippers|tips?\b/i.test(text) && tip < 1) return true;
+  if (/\bbuyer|buyers|digital|download|fire escape|purchase|order/i.test(text) && digital + shop < 1) {
+    return true;
+  }
+  if (String(item.move || '').toLowerCase() === 'thank' && tip + digital + shop < 1) return true;
+  return false;
+}
+
+/** Cancel leftover demo / hallucinated thank-you acts that the live site cannot support. */
+function scrubAgainstReality(items, audiences) {
+  let changed = false;
+  const next = (items || []).map(function (item) {
+    if (!item || item.status === 'cancelled' || item.status === 'sent' || item.status === 'done') {
+      return item;
+    }
+    if (!claimsUnsupportedCommerce(item, audiences)) return item;
+    changed = true;
+    return Object.assign({}, item, {
+      status: 'cancelled',
+      updatedAt: new Date().toISOString(),
+      aiHint:
+        (item.aiHint ? item.aiHint + ' · ' : '') +
+        'auto-cancelled: no matching tip/buy signal on site'
+    });
+  });
+  return { items: next, changed: changed };
+}
+
+async function clearOpenQueue(blobStore, workspaceId) {
+  const queue = await readQueue(blobStore, workspaceId);
+  let changed = false;
+  const next = queue.items.map(function (item) {
+    if (!item || item.status === 'cancelled' || item.status === 'sent' || item.status === 'done') {
+      return item;
+    }
+    changed = true;
+    return Object.assign({}, item, {
+      status: 'cancelled',
+      updatedAt: new Date().toISOString(),
+      aiHint: (item.aiHint ? item.aiHint + ' · ' : '') + 'cleared: reset desk to live site'
+    });
+  });
+  if (changed) await writeQueue(blobStore, workspaceId, next);
+  return { items: next, changed: changed };
+}
+
 async function addQueueItems(blobStore, workspaceId, actions) {
   const queue = await readQueue(blobStore, workspaceId);
   const added = [];
@@ -328,6 +402,9 @@ module.exports = {
   passesScrutiny,
   isEmailableAction,
   scrubQueueItems,
+  scrubAgainstReality,
+  clearOpenQueue,
+  claimsUnsupportedCommerce,
   audienceSummary,
   listSubscribers,
   uniqueEmails,

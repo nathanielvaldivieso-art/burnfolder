@@ -11,7 +11,8 @@ const MUSIC_PROJECT_KEYS = [
   'trackRegistry',
   'releaseCatalog',
   'projectFiles',
-  'imageLibrary'
+  'imageLibrary',
+  'clips'
 ];
 const OWNER_ONLY_KEYS = [
   'drafts',
@@ -20,6 +21,9 @@ const OWNER_ONLY_KEYS = [
   'journalDays',
   'songPages',
   'albumPages',
+  'pressPage',
+  'shopProducts',
+  'notes',
   'releaseDates',
   'trackPipeline',
   'pendingStack',

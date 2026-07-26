@@ -189,19 +189,22 @@
     document.body.classList.add('studio-music-only');
     document.querySelectorAll('.studio-main-nav-link[data-nav]').forEach(function (link) {
       const nav = link.dataset.nav || link.getAttribute('data-nav');
-      if (nav !== 'stream' && nav !== 'releases') link.hidden = true;
+      if (nav !== 'clips' && nav !== 'releases') link.hidden = true;
       else link.hidden = false;
     });
     const path = location.pathname || '';
     if (
+      path.indexOf('/studio/clips') < 0 &&
+      path.indexOf('clips.html') < 0 &&
       path.indexOf('/studio/stream') < 0 &&
       path.indexOf('stream.html') < 0 &&
       path.indexOf('stream-album') < 0 &&
       path.indexOf('stream-song') < 0 &&
+      path.indexOf('word-pull') < 0 &&
       path.indexOf('releases.html') < 0 &&
       path.indexOf('invite.html') < 0
     ) {
-      window.location.replace('/studio/stream.html');
+      window.location.replace('/studio/clips.html');
     }
   }
 

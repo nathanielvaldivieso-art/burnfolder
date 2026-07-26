@@ -19,8 +19,10 @@ function systemPrompt(access) {
     'MOVE TYPES (examples): feature a converting pathway or song; push a product/drop that already earns; email a real cohort with a purpose; fix friction on a money path; optional selective thank — never automatic.\n\n' +
     'THANK-YOUS: rare and deliberate (first-time big support, remarkable order, quiet high-value fan). Do NOT default to thanking every tipper — that trains fans that tips trigger a script and weakens the brand.\n\n' +
     'ANTI-GENERATION: never write email bodies/subjects/captions/lyrics/posts. Artist pens every outbound word. Queue subject/body empty. Put brief craft direction in aiHint only.\n\n' +
-    'Data truth: metricsSnapshot only. Never invent numbers, names, or emails. Anonymous plays cannot be emailed.\n\n' +
-    'Voice: nextMove is the only user-facing sentence — imperative, punchy, specific, ≤16 words. headline empty. sections always []. No markdown. No labels. No pep talk.\n\n' +
+    'Data truth: metricsSnapshot only. Never invent numbers, names, cohorts, or emails. Anonymous plays cannot be emailed.\n' +
+    'If commerce tips/digital/shop counts are 0 (or absent), never invent tippers, buyers, orders, downloads, or thank-yous. Prefer listen/lands/pathways moves — or empty nextMove.\n' +
+    'If lands/listens are near-zero, prefer quiet no-move over fake ambition.\n\n' +
+    'Voice: nextMove is the only user-facing sentence — imperative, punchy, specific, ≤16 words. headline empty. sections always []. No markdown. No labels. No pep talk. Never wrap the answer in ``` fences in nextMove.\n\n' +
     'When nothing material is in the snapshot, nextMove "" and actions []. Prefer a quieter no-move over filler.\n\n' +
     'actions: at most 1. title mirrors nextMove. why = one short lever (cite real snapshot facts). move = short verb (feature|email|drop|fix|thank|spotlight|offer|path).\n' +
     'audience.mode: "none" for studio/ops tasks; "action" + actionKey tip|digital|shop|subscribe when emailing that cohort; "subscribers" for list-wide; "manual" + emails only if emails appear in context.\n\n' +
@@ -105,6 +107,65 @@ function extractActions(parsed) {
         shareHint: String(row.shareHint || '').slice(0, 400)
       };
     });
+}
+
+function commerceCounts(metricsSnapshot) {
+  const commerce = (metricsSnapshot && metricsSnapshot.commerce) || {};
+  return {
+    tips: Number((commerce.tips && commerce.tips.count) || 0) || 0,
+    digital: Number((commerce.digital && commerce.digital.count) || 0) || 0,
+    shop: Number((commerce.shop && commerce.shop.count) || 0) || 0
+  };
+}
+
+function inventsUnsupportedCommerce(text, metricsSnapshot) {
+  const raw = String(text || '');
+  if (!raw) return false;
+  const counts = commerceCounts(metricsSnapshot);
+  const money = counts.tips + counts.digital + counts.shop;
+  if (money > 0) return false;
+  return /\b(thank|tipper|tippers|buyer|buyers|tips?\b|purchase|purchases|order|orders|download|fire escape|\$\d)/i.test(
+    raw
+  );
+}
+
+function groundActions(actions, metricsSnapshot) {
+  return (actions || []).filter(function (row) {
+    if (!row) return false;
+    if (inventsUnsupportedCommerce([row.title, row.why, row.move].join(' '), metricsSnapshot)) {
+      return false;
+    }
+    const key = String((row.audience && row.audience.actionKey) || '').toLowerCase();
+    const counts = commerceCounts(metricsSnapshot);
+    if (key === 'tip' && counts.tips < 1) return false;
+    if (key === 'digital' && counts.digital < 1) return false;
+    if (key === 'shop' && counts.shop < 1) return false;
+    return true;
+  });
+}
+
+function groundDigest(digest, metricsSnapshot) {
+  if (!digest) return null;
+  const nextMove = String(digest.nextMove || '').trim();
+  if (!nextMove || inventsUnsupportedCommerce(nextMove, metricsSnapshot)) {
+    return {
+      headline: '',
+      period: digest.period,
+      periodLabel: digest.periodLabel,
+      sections: [],
+      nextMove: ''
+    };
+  }
+  if (/^```/.test(nextMove) || /\{"digest"/.test(nextMove)) {
+    return {
+      headline: '',
+      period: digest.period,
+      periodLabel: digest.periodLabel,
+      sections: [],
+      nextMove: ''
+    };
+  }
+  return digest;
 }
 
 function extractDigest(parsed, metricsSnapshot) {
@@ -242,13 +303,18 @@ exports.handler = async function (event) {
   try {
     const raw = await callAnthropic(message, access, metricsSnapshot, context);
     const parsed = parseAiJson(raw);
-    const actions = extractActions(parsed);
-    const digest = extractDigest(parsed, metricsSnapshot);
-    const reply = stripJsonFence(raw) || raw;
+    const actions = groundActions(extractActions(parsed), metricsSnapshot);
+    const digest = groundDigest(extractDigest(parsed, metricsSnapshot), metricsSnapshot);
+    const reply = stripJsonFence(raw).replace(/^```[\s\S]*$/m, '').trim();
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, reply: reply, actions: actions, digest: digest })
+      body: JSON.stringify({
+        ok: true,
+        reply: reply && !/^[{[]/.test(reply) ? reply : '',
+        actions: actions,
+        digest: digest
+      })
     };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ message: error.message || 'AI failed' }) };

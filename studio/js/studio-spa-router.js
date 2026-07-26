@@ -6,10 +6,11 @@
   const SPA_PAGES = {
     'index.html': 'entry',
     'dashboard.html': 'dashboard',
-    'stream.html': 'stream',
-    'video.html': 'video',
+    'clips.html': 'clips',
+    'stream.html': 'clips',
+    'video.html': 'clips',
     'journal.html': 'journal',
-    'ideas.html': 'ideas',
+    'ideas.html': 'clips',
     'word-pull.html': 'word-pull',
     'releases.html': 'releases',
     // Song/album hubs must soft-nav so the live mux-player is never torn down.
@@ -31,7 +32,7 @@
     'js/stream-now-playing.js'
   ];
 
-  const STREAM_PAGE_SCRIPTS = PLAYBACK_CORE.concat([
+  const CLIPS_PAGE_SCRIPTS = PLAYBACK_CORE.concat([
     '../entries.js',
     '../songs.js',
     '../shared/song-versions.js',
@@ -41,24 +42,22 @@
     'js/mux-naming.js',
     'js/mux-client.js',
     'js/studio-mux-lib.js',
+    'js/cloud-store-kit.js',
     'js/journal-day-store.js',
     'js/journal-contributions.js',
-    '../shared/studio-tap.js',
     'js/cloud-state.js',
     'js/stream-shared.js',
     'js/upload-queue.js',
     'js/cloud-ui.js',
-    'js/studio-dnd.js',
-    'js/share-links.js',
-    '../shared/share-hub-ui.js',
-    'js/music-project-collab.js',
-    'js/stream-page.js'
+    'js/vault-upload.js',
+    'js/clips-store.js',
+    'js/clips-page.js'
   ]);
 
   const PAGE_SCRIPTS = {
-    stream: STREAM_PAGE_SCRIPTS,
-    video: STREAM_PAGE_SCRIPTS,
+    clips: CLIPS_PAGE_SCRIPTS,
     journal: PLAYBACK_CORE.concat([
+      'js/cloud-store-kit.js',
       'js/journal-day-store.js',
       'js/journal-contributions.js',
       'js/mux-client.js',
@@ -69,8 +68,8 @@
     ]),
     dashboard: PLAYBACK_CORE.concat(['js/dashboard-page.js', 'js/studio-ai-panel.js']),
     entry: PLAYBACK_CORE.concat([
+      'js/cloud-store-kit.js',
       'js/drafts.js',
-      '../shared/studio-tap.js',
       'js/studio-hub.js',
       'js/studio-bridge.js',
       'js/studio-editor-loader.js',
@@ -84,7 +83,6 @@
       'js/release-checklist.js',
       'js/releases-page.js'
     ]),
-    ideas: PLAYBACK_CORE.concat(['js/ideas-page.js']),
     'word-pull': PLAYBACK_CORE.concat([
       'js/studio-dates.js',
       'js/cloud-state.js',
@@ -103,6 +101,7 @@
       'js/studio-mux-lib.js',
       'js/cloud-state.js',
       '../shared/song-page-render.js',
+      'js/cloud-store-kit.js',
       'js/song-page-store.js',
       'js/stream-shared.js',
       'js/share-links.js',
@@ -120,13 +119,8 @@
       'js/mux-client.js',
       'js/studio-mux-lib.js',
       'js/cloud-state.js',
-      '../shared/song-page-render.js',
-      '../shared/album-page-render.js',
-      'js/song-page-store.js',
-      'js/album-page-store.js',
       'js/stream-shared.js',
-      'js/share-links.js',
-      '../shared/share-hub-ui.js',
+      'js/studio-dnd.js',
       'js/stream-album-page.js'
     ])
   };
@@ -137,13 +131,8 @@
   const loadedScripts = new Set();
   const htmlCache = new Map();
 
-  function cacheHtmlKey(fetchPath) {
-    return fetchPath;
-  }
-
   function fetchPageHtml(fetchPath) {
-    const key = cacheHtmlKey(fetchPath);
-    const cached = htmlCache.get(key);
+    const cached = htmlCache.get(fetchPath);
     if (cached) return Promise.resolve(cached);
 
     return fetch(fetchPath, { credentials: 'same-origin' }).then(function (response) {
@@ -158,14 +147,14 @@
   function prefetchSpaPages() {
     Object.keys(SPA_PAGES).forEach(function (file) {
       const path = studioPagePath(file);
-      if (htmlCache.has(cacheHtmlKey(path))) return;
+      if (htmlCache.has(path)) return;
       fetch(path, { credentials: 'same-origin' })
         .then(function (res) {
           if (!res.ok) return null;
           return res.text();
         })
         .then(function (html) {
-          if (html) htmlCache.set(cacheHtmlKey(path), html);
+          if (html) htmlCache.set(path, html);
         })
         .catch(function () {});
     });
@@ -200,11 +189,14 @@
     const file = pageFileFromPath(resolved.pathname);
     const pageKey = SPA_PAGES[file];
     if (!pageKey) return null;
+    // Legacy music/video/ideas URLs soft-nav into the Clips board shell.
+    const fetchFile =
+      pageKey === 'clips' && file !== 'clips.html' ? 'clips.html' : file;
     return {
       pageKey: pageKey,
-      file: file,
-      fetchPath: studioPagePath(file),
-      href: studioPagePath(file) + resolved.search
+      file: fetchFile,
+      fetchPath: studioPagePath(fetchFile),
+      href: studioPagePath(fetchFile) + resolved.search
     };
   }
 
@@ -392,16 +384,14 @@
   }
 
   function runPageInit(pageKey) {
-    if ((pageKey === 'stream' || pageKey === 'video') && typeof window.studioInitStreamPage === 'function') {
-      window.studioInitStreamPage();
+    if (pageKey === 'clips' && typeof window.studioInitClipsPage === 'function') {
+      window.studioInitClipsPage();
     } else if (pageKey === 'stream-song' && typeof window.studioInitStreamSongPage === 'function') {
       window.studioInitStreamSongPage();
     } else if (pageKey === 'stream-album' && typeof window.studioInitStreamAlbumPage === 'function') {
       window.studioInitStreamAlbumPage();
     } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
       window.studioInitJournalPage();
-    } else if (pageKey === 'ideas' && typeof window.studioInitIdeasPage === 'function') {
-      window.studioInitIdeasPage();
     } else if (pageKey === 'word-pull' && typeof window.studioInitWordPullPage === 'function') {
       window.studioInitWordPullPage();
     } else if (pageKey === 'dashboard' && typeof window.studioInitDashboardPage === 'function') {
@@ -412,7 +402,11 @@
     if (pageKey === 'entry' && typeof window.studioInitEditorWorkspace === 'function') {
       window.studioInitEditorWorkspace();
     }
-    markNav(pageKey === 'stream-song' || pageKey === 'stream-album' ? 'stream' : pageKey);
+    var navKey = pageKey;
+    if (pageKey === 'stream-song' || pageKey === 'stream-album' || pageKey === 'word-pull') {
+      navKey = 'clips';
+    }
+    markNav(navKey);
   }
 
   function entryShellLive() {
@@ -451,7 +445,7 @@
     }
     loading = true;
     const target = resolveStudioNavigation(url);
-    const htmlCached = !!(target && htmlCache.has(cacheHtmlKey(target.fetchPath)));
+    const htmlCached = !!(target && htmlCache.has(target.fetchPath));
     if (!htmlCached) {
       document.body.classList.add('studio-spa-loading');
       const banner = statusBanner();
@@ -473,11 +467,19 @@
       }
 
       if (push !== false) {
-        history.pushState(
-          { studioSpa: true, pageKey: target.pageKey },
-          '',
-          target.href
-        );
+        var navState = { studioSpa: true, pageKey: target.pageKey };
+        try {
+          var navUrl = new URL(target.href, window.location.href);
+          var albumParam = navUrl.searchParams.get('album') || navUrl.searchParams.get('id');
+          if (albumParam) navState.albumId = albumParam;
+          var songParam = navUrl.searchParams.get('song');
+          var pParam = navUrl.searchParams.get('p');
+          if (songParam) navState.song = songParam;
+          if (pParam) navState.playbackId = pParam;
+        } catch (e) {
+          /* noop */
+        }
+        history.pushState(navState, '', target.href);
       }
 
       const response = await fetchPageHtml(target.fetchPath);
@@ -489,8 +491,8 @@
       if (typeof window.studioFlushJournalSave === 'function') {
         await window.studioFlushJournalSave();
       }
-      if (typeof window.studioFlushIdeasSave === 'function') {
-        await window.studioFlushIdeasSave();
+      if (typeof window.studioFlushClipsSave === 'function') {
+        await window.studioFlushClipsSave();
       }
       if (typeof window.studioFlushWordPullLog === 'function') {
         await window.studioFlushWordPullLog();

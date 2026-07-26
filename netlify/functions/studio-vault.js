@@ -11,12 +11,31 @@ function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
 }
 
-function parseBody(event) {
+function parseJsonBody(event) {
   try {
     return JSON.parse(event.body || '{}');
   } catch {
     return null;
   }
+}
+
+function headerValue(event, name) {
+  const headers = event.headers || {};
+  const lower = name.toLowerCase();
+  const keys = Object.keys(headers);
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === lower) return headers[keys[i]];
+  }
+  return '';
+}
+
+function readBinaryBody(event) {
+  const raw = event.body || '';
+  if (!raw) return Buffer.alloc(0);
+  if (event.isBase64Encoded) {
+    return Buffer.from(raw, 'base64');
+  }
+  return Buffer.from(raw, 'binary');
 }
 
 function queryFilters(params) {
@@ -28,6 +47,56 @@ function queryFilters(params) {
     trackKey: p.trackKey || '',
     releaseKey: p.releaseKey || ''
   };
+}
+
+async function handleBinaryPut(event, access, headers) {
+  const params = event.queryStringParameters || {};
+  const kind = params.kind || 'master';
+  if (!vault.isAllowedKind(kind)) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'Unknown vault kind: ' + kind })
+    };
+  }
+  const buffer = readBinaryBody(event);
+  if (!buffer.length) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'empty body' }) };
+  }
+  const contentType =
+    params.contentType || headerValue(event, 'content-type') || 'application/octet-stream';
+  const result = await vault.putObject(access.workspaceId, {
+    kind: kind,
+    fileName: params.fileName || 'file',
+    contentType: contentType,
+    trackKey: params.trackKey || params.tempId,
+    releaseKey: params.releaseKey,
+    songGroupKey: params.songGroupKey,
+    folderKey: params.folderKey,
+    vaultKey: params.vaultKey,
+    body: buffer
+  });
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify(Object.assign({ configured: true, kind: kind }, result))
+  };
+}
+
+async function handleBinaryPart(event, access, headers) {
+  const params = event.queryStringParameters || {};
+  const buffer = readBinaryBody(event);
+  if (!buffer.length) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'empty body' }) };
+  }
+  const partNumber = parseInt(params.partNumber, 10);
+  const result = await vault.uploadPart(access.workspaceId, {
+    vaultKey: params.vaultKey,
+    uploadId: params.uploadId,
+    partNumber: partNumber,
+    body: buffer
+  });
+  return { statusCode: 200, headers, body: JSON.stringify(result) };
 }
 
 exports.handler = async function (event) {
@@ -60,16 +129,33 @@ exports.handler = async function (event) {
     const params = event.queryStringParameters || {};
     const action = params.action || 'status';
     if (action === 'status') {
+      let cors = null;
+      try {
+        cors = await vault.ensureBucketCors();
+      } catch (error) {
+        cors = {
+          ok: false,
+          message: error && error.message ? error.message : 'cors ensure failed'
+        };
+      }
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ configured: true, bucket: vault.bucketName() })
+        body: JSON.stringify({ configured: true, bucket: vault.bucketName(), cors: cors })
       };
     }
     if (action === 'download') {
       const vaultKey = params.vaultKey || '';
+      const filename = params.filename || params.fileName || '';
+      const inline =
+        params.inline === '1' ||
+        params.inline === 'true' ||
+        params.disposition === 'inline';
       try {
-        const result = await vault.createDownloadUrl(access.workspaceId, vaultKey);
+        const result = await vault.createDownloadUrl(access.workspaceId, vaultKey, {
+          filename: filename,
+          inline: inline
+        });
         return { statusCode: 200, headers, body: JSON.stringify(result) };
       } catch (error) {
         return {
@@ -124,14 +210,24 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers, body: JSON.stringify({ message: 'Method Not Allowed' }) };
   }
 
-  const body = parseBody(event);
-  if (!body) {
-    return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid JSON body' }) };
-  }
-
-  const action = body.action || 'upload-url';
+  const queryAction = (event.queryStringParameters || {}).action || '';
 
   try {
+    // Binary proxy uploads (avoids browser→R2 CORS / Safari "Load failed")
+    if (queryAction === 'put') {
+      return await handleBinaryPut(event, access, headers);
+    }
+    if (queryAction === 'multipart-part') {
+      return await handleBinaryPart(event, access, headers);
+    }
+
+    const body = parseJsonBody(event);
+    if (!body) {
+      return { statusCode: 400, headers, body: JSON.stringify({ message: 'Invalid JSON body' }) };
+    }
+
+    const action = body.action || 'upload-url';
+
     if (action === 'upload-url') {
       const kind = body.kind || 'master';
       if (!vault.isAllowedKind(kind)) {
@@ -163,6 +259,49 @@ exports.handler = async function (event) {
       return { statusCode: 200, headers, body: JSON.stringify(result) };
     }
 
+    if (action === 'multipart-init') {
+      const kind = body.kind || 'master';
+      if (!vault.isAllowedKind(kind)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Unknown vault kind: ' + kind })
+        };
+      }
+      const result = await vault.createMultipartUpload(access.workspaceId, {
+        kind: kind,
+        fileName: body.fileName,
+        contentType: body.contentType,
+        trackKey: body.trackKey || body.tempId,
+        releaseKey: body.releaseKey,
+        songGroupKey: body.songGroupKey,
+        folderKey: body.folderKey,
+        vaultKey: body.vaultKey
+      });
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(Object.assign({ configured: true, kind: kind }, result))
+      };
+    }
+
+    if (action === 'multipart-complete') {
+      const result = await vault.completeMultipartUpload(access.workspaceId, {
+        vaultKey: body.vaultKey,
+        uploadId: body.uploadId,
+        parts: body.parts
+      });
+      return { statusCode: 200, headers, body: JSON.stringify(result) };
+    }
+
+    if (action === 'multipart-abort') {
+      const result = await vault.abortMultipartUpload(access.workspaceId, {
+        vaultKey: body.vaultKey,
+        uploadId: body.uploadId
+      });
+      return { statusCode: 200, headers, body: JSON.stringify(result) };
+    }
+
     if (action === 'delete') {
       if (!access.isOwner) {
         return {
@@ -176,7 +315,6 @@ exports.handler = async function (event) {
       try {
         unregistered = await manifest.unregisterFile(event, access.workspaceId, body.vaultKey);
       } catch (error) {
-        // Object deleted; manifest cleanup is best-effort.
         unregistered = { removed: null, manifest: null, warning: error.message };
       }
       return {

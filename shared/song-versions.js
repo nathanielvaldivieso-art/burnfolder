@@ -118,6 +118,7 @@
 
   /**
    * One UI row per song name. Picks newest version from catalog among allowed playback ids.
+   * listSortMode 'manual' keeps first-appearance order from `items` (album/collection stacks).
    */
   function dedupeToOneRowPerSong(catalog, items, options) {
     const opts = options || {};
@@ -135,16 +136,40 @@
 
     if (!allowed.size) return [];
 
-    const groupKeys = new Set();
-    (catalog || []).forEach(function (song) {
-      if (!song || !song.playbackId || !allowed.has(song.playbackId)) return;
-      groupKeys.add(getTrackGroupKey(song.title));
-    });
-    (items || []).forEach(function (item) {
-      if (!songFromItem) return;
-      const song = songFromItem(item);
-      if (song && song.title) groupKeys.add(getTrackGroupKey(song.title));
-    });
+    const groupKeys = [];
+    const seenKeys = new Set();
+
+    function addKey(key) {
+      if (!key || seenKeys.has(key)) return;
+      seenKeys.add(key);
+      groupKeys.push(key);
+    }
+
+    if (listSortMode === 'manual') {
+      (items || []).forEach(function (item) {
+        if (!item || !item.playbackId) return;
+        let key = '';
+        if (songFromItem) {
+          const song = songFromItem(item);
+          if (song && song.title) key = getTrackGroupKey(song.title);
+        }
+        if (!key) {
+          const catalogSong = resolvePlaybackInCatalog(catalog, item.playbackId);
+          if (catalogSong && catalogSong.title) key = getTrackGroupKey(catalogSong.title);
+        }
+        addKey(key || item.playbackId);
+      });
+    } else {
+      (catalog || []).forEach(function (song) {
+        if (!song || !song.playbackId || !allowed.has(song.playbackId)) return;
+        addKey(getTrackGroupKey(song.title));
+      });
+      (items || []).forEach(function (item) {
+        if (!songFromItem) return;
+        const song = songFromItem(item);
+        if (song && song.title) addKey(getTrackGroupKey(song.title));
+      });
+    }
 
     const rows = [];
     groupKeys.forEach(function (key) {
@@ -179,6 +204,8 @@
         versionCount: versions.length
       });
     });
+
+    if (listSortMode === 'manual') return rows;
 
     rows.sort(function (a, b) {
       if (listSortMode === 'az') {
@@ -411,7 +438,8 @@
 
   /**
    * Collapse dated versions to one row per song name (newest wins).
-   * listSortMode: 'az' (default, like music catalog) or 'newest' / 'oldest' by canonical date.
+   * listSortMode: 'manual' (preserve input/stack order), 'az' (default catalog),
+   * or 'newest' / 'oldest' by canonical date.
    */
   function dedupeLibraryItemsToNewest(items, titleForItem, listSortMode) {
     const labelFn =
@@ -451,6 +479,7 @@
     });
 
     const mode = listSortMode || 'az';
+    if (mode === 'manual') return rows;
     rows.sort(function (a, b) {
       if (mode === 'az') {
         return a.baseTitle.localeCompare(b.baseTitle, undefined, { sensitivity: 'base' });

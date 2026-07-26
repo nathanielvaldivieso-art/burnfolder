@@ -9,8 +9,38 @@
   status = 301
 
 [[redirects]]
+  from = "/studio/stream"
+  to = "/studio/clips.html"
+  status = 301
+
+[[redirects]]
+  from = "/studio/stream.html"
+  to = "/studio/clips.html"
+  status = 301
+
+[[redirects]]
+  from = "/studio/video"
+  to = "/studio/clips.html"
+  status = 301
+
+[[redirects]]
+  from = "/studio/video.html"
+  to = "/studio/clips.html"
+  status = 301
+
+[[redirects]]
   from = "/studio/ideas"
-  to = "/studio/ideas.html"
+  to = "/studio/clips.html"
+  status = 301
+
+[[redirects]]
+  from = "/studio/ideas.html"
+  to = "/studio/clips.html"
+  status = 301
+
+[[redirects]]
+  from = "/studio/clips"
+  to = "/studio/clips.html"
   status = 200
 
 [[redirects]]

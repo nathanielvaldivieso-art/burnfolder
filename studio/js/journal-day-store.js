@@ -1,49 +1,30 @@
-(function () {
+(function (root) {
   'use strict';
 
-  const STORAGE_KEY = 'burnfolderStudioJournalDays';
-  const CLOUD_KEY = 'journalDays';
+  const kit = root.BurnfolderCloudStoreKit;
+  const cloudStore = kit.createLocalCloudStore({
+    storageKey: 'burnfolderStudioJournalDays',
+    cloudKey: 'journalDays',
+    emptyState: function () {
+      return { version: 1, days: {} };
+    },
+    isValidLocal: function (parsed) {
+      return typeof parsed.days === 'object';
+    },
+    isValidCloudValue: function (value) {
+      return !!(value.days && typeof value.days === 'object');
+    },
+    hasLocalContent: function (local) {
+      return Object.keys(local.days).length;
+    },
+    syncEventName: 'burnfolder-journal-synced'
+  });
+  const readStore = cloudStore.readStore;
+  const writeStore = cloudStore.writeStore;
+  const ensureHydrated = cloudStore.ensureHydrated;
 
   function makeId() {
-    return 'rem-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8);
-  }
-
-  function readStore() {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { version: 1, days: {} };
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed.days !== 'object') return { version: 1, days: {} };
-      return parsed;
-    } catch {
-      return { version: 1, days: {} };
-    }
-  }
-
-  function writeStore(store) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    const cs = window.BurnfolderCloudState;
-    if (cs && cs.put) cs.put(CLOUD_KEY, store);
-  }
-
-  let hydratePromise = null;
-  function ensureHydrated() {
-    if (hydratePromise) return hydratePromise;
-    const cs = window.BurnfolderCloudState;
-    if (!cs || !cs.get) {
-      hydratePromise = Promise.resolve();
-      return hydratePromise;
-    }
-    hydratePromise = cs.get(CLOUD_KEY).then(function (value) {
-      if (value && value.days && typeof value.days === 'object') {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-        window.dispatchEvent(new CustomEvent('burnfolder-journal-synced'));
-      } else if (value === null) {
-        const local = readStore();
-        if (Object.keys(local.days).length && cs.put) cs.put(CLOUD_KEY, local);
-      }
-    }).catch(function () {});
-    return hydratePromise;
+    return kit.makeId('rem');
   }
 
   function emptyDay(dateKey) {
@@ -229,7 +210,7 @@
     });
   }
 
-  window.BurnfolderJournalDays = {
+  root.BurnfolderJournalDays = {
     getDay: getDay,
     saveDay: saveDay,
     listDays: listDays,
@@ -243,4 +224,4 @@
     dateFromKey: dateFromKey,
     makeReminderId: makeId
   };
-})();
+})(typeof window !== 'undefined' ? window : globalThis);

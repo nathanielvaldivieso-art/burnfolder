@@ -576,6 +576,45 @@
     return groups;
   }
 
+  /** Song identity for stack membership (version collapse key). */
+  function songKeyForStackTrack(track) {
+    if (!track) return '';
+    const title = track.title || track.passthrough || '';
+    const sv = window.BurnfolderSongVersions;
+    if (sv && sv.getTrackGroupKey && title) {
+      return sv.getTrackGroupKey(title) || track.playbackId || '';
+    }
+    return track.playbackId || '';
+  }
+
+  /**
+   * Unique songs in stack order. Duplicate titles share one slot; members stay
+   * together so reorder never flattens/auto-sorts curated album order (e.g. PN).
+   */
+  function uniqueSongSlots(tracks) {
+    const keys = [];
+    const membersByKey = new Map();
+    (tracks || []).forEach(function (track) {
+      if (!track || !track.playbackId) return;
+      const key = songKeyForStackTrack(track) || track.playbackId;
+      if (!membersByKey.has(key)) {
+        membersByKey.set(key, []);
+        keys.push(key);
+      }
+      membersByKey.get(key).push(track);
+    });
+    return { keys: keys, membersByKey: membersByKey };
+  }
+
+  function songKeyForPlaybackInGroup(group, playbackId) {
+    if (!group || !playbackId) return '';
+    const hit = (group.tracks || []).find(function (t) {
+      return t && t.playbackId === playbackId;
+    });
+    if (hit) return songKeyForStackTrack(hit) || playbackId;
+    return '';
+  }
+
   /** Move a track within its group (for arranging order). */
   function reorderStack(fromPlaybackId, toIndex, groupId) {
     const groups = loadGroups();
@@ -599,6 +638,96 @@
     group.tracks = list;
     saveGroups(groups);
     return groups;
+  }
+
+  /**
+   * Drag-reorder unique songs inside a collection. Version stacks move as one
+   * unit; member tracks and relative stack order are preserved (never A–Z).
+   * fromId / ontoId may be any member playback id, or a song groupKey.
+   */
+  function reorderUniqueSongs(fromId, ontoId, groupId, before) {
+    const groups = loadGroups();
+    const group = groupId
+      ? groups.find(function (g) {
+          return g.id === groupId;
+        })
+      : findGroupForTrack(fromId);
+    if (!group) return { ok: false };
+
+    const slots = uniqueSongSlots(group.tracks);
+    const keys = slots.keys;
+    const membersByKey = slots.membersByKey;
+
+    function resolveKey(id) {
+      const raw = String(id || '').trim();
+      if (!raw) return '';
+      if (membersByKey.has(raw)) return raw;
+      const fromPlayback = songKeyForPlaybackInGroup(group, raw);
+      if (fromPlayback && membersByKey.has(fromPlayback)) return fromPlayback;
+      return '';
+    }
+
+    const fromKey = resolveKey(fromId);
+    const ontoKey = resolveKey(ontoId);
+    if (!fromKey || !ontoKey || fromKey === ontoKey) return { ok: false };
+
+    const fromIdx = keys.indexOf(fromKey);
+    let toIdx = keys.indexOf(ontoKey);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return { ok: false };
+
+    const moved = keys.splice(fromIdx, 1)[0];
+    if (fromIdx < toIdx) toIdx -= 1;
+    let insertAt = before === false ? toIdx + 1 : toIdx;
+    if (insertAt < 0) insertAt = 0;
+    if (insertAt > keys.length) insertAt = keys.length;
+    keys.splice(insertAt, 0, moved);
+
+    const next = [];
+    keys.forEach(function (key) {
+      const members = membersByKey.get(key) || [];
+      members.forEach(function (track) {
+        next.push(track);
+      });
+    });
+    group.tracks = next;
+    saveGroups(groups);
+    return { ok: true, groupId: group.id };
+  }
+
+  /**
+   * Remove every version of a song from its group (by playback id or groupKey).
+   * Leaves other songs' stack order untouched.
+   */
+  function removeUniqueSong(playbackIdOrKey, groupId) {
+    const id = String(playbackIdOrKey || '').trim();
+    if (!id) return { ok: false };
+    const groups = loadGroups();
+    const group = groupId
+      ? groups.find(function (g) {
+          return g.id === groupId;
+        })
+      : findGroupForTrack(id);
+    if (!group) {
+      removeFromStack(id);
+      return { ok: true };
+    }
+
+    let key = '';
+    if (uniqueSongSlots(group.tracks).membersByKey.has(id)) {
+      key = id;
+    } else {
+      key = songKeyForPlaybackInGroup(group, id);
+    }
+    if (!key) {
+      removeFromStack(id);
+      return { ok: true };
+    }
+
+    group.tracks = (group.tracks || []).filter(function (track) {
+      return (songKeyForStackTrack(track) || track.playbackId) !== key;
+    });
+    saveGroups(groups);
+    return { ok: true, groupId: group.id };
   }
 
   function clearStack() {
@@ -772,6 +901,9 @@
     dropOntoSong: dropOntoSong,
     removeFromStack: removeFromStack,
     reorderStack: reorderStack,
+    reorderUniqueSongs: reorderUniqueSongs,
+    removeUniqueSong: removeUniqueSong,
+    songKeyForStackTrack: songKeyForStackTrack,
     clearStack: clearStack,
     thumbnailUrl: thumbnailUrl,
     songPageUrl: songPageUrl,

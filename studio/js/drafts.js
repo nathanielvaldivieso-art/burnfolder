@@ -1,52 +1,27 @@
-(function () {
+(function (root) {
   'use strict';
 
-  const STORAGE_KEY = 'burnfolderStudioDrafts';
-  const CLOUD_KEY = 'drafts';
+  const kit = root.BurnfolderCloudStoreKit;
+  const cloudStore = kit.createLocalCloudStore({
+    storageKey: 'burnfolderStudioDrafts',
+    cloudKey: 'drafts',
+    emptyState: function () {
+      return { version: 1, drafts: [] };
+    },
+    isValidLocal: function (parsed) {
+      return Array.isArray(parsed.drafts);
+    },
+    hasLocalContent: function (local) {
+      return local.drafts.length;
+    },
+    syncEventName: 'burnfolder-drafts-synced'
+  });
+  const readStore = cloudStore.readStore;
+  const writeStore = cloudStore.writeStore;
+  const ensureHydrated = cloudStore.ensureHydrated;
 
   function makeId() {
-    return 'draft-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8);
-  }
-
-  function readStore() {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { version: 1, drafts: [] };
-      const parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.drafts)) return { version: 1, drafts: [] };
-      return parsed;
-    } catch {
-      return { version: 1, drafts: [] };
-    }
-  }
-
-  function writeStore(store) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    const cs = window.BurnfolderCloudState;
-    if (cs && cs.put) cs.put(CLOUD_KEY, store);
-  }
-
-  // Personal-cloud hydration: pull drafts once per page load so entries you
-  // wrote on another device are available here. Cloud is the source of truth;
-  // an empty cloud is seeded from whatever is local (first run).
-  let hydratePromise = null;
-  function ensureHydrated() {
-    if (hydratePromise) return hydratePromise;
-    const cs = window.BurnfolderCloudState;
-    if (!cs || !cs.get) {
-      hydratePromise = Promise.resolve();
-      return hydratePromise;
-    }
-    hydratePromise = cs.get(CLOUD_KEY).then(function (value) {
-      if (value && Array.isArray(value.drafts)) {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-        window.dispatchEvent(new CustomEvent('burnfolder-drafts-synced'));
-      } else if (value === null) {
-        const local = readStore();
-        if (local.drafts.length && cs.put) cs.put(CLOUD_KEY, local);
-      }
-    }).catch(function () {});
-    return hydratePromise;
+    return kit.makeId('draft');
   }
 
   function sortDrafts(drafts) {
@@ -140,7 +115,7 @@
     });
   }
 
-  window.BurnfolderDrafts = {
+  root.BurnfolderDrafts = {
     listDrafts: listDrafts,
     getDraftById: getDraftById,
     upsertDraft: upsertDraft,
@@ -148,4 +123,4 @@
     createDraft: createDraft,
     deleteDraft: deleteDraft
   };
-})();
+})(typeof window !== 'undefined' ? window : globalThis);

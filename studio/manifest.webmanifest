@@ -1,8 +1,8 @@
 {
-  "name": "burnfolder stream",
-  "short_name": "stream",
+  "name": "burnfolder clips",
+  "short_name": "clips",
   "description": "Play and stack tracks from your burnfolder library",
-  "start_url": "./stream.html",
+  "start_url": "./clips.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",

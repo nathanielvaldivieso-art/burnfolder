@@ -45,12 +45,13 @@ Open studio at:
 
 ## 4. Live Server + Mux together (optional)
 
-If you prefer Live Server on port 5500 for HTML:
+If you prefer Live Server (or any other static server) on a port other than
+8888 for HTML:
 
 1. Keep `netlify dev` running on 8888
-2. Copy `studio/studio-config.example.js` → `studio/js/studio-config.js`
-3. Uncomment `muxApiBase: 'http://localhost:8888/.netlify/functions'`
-4. Use Live Server on `studio/index.html` as usual
+2. Use Live Server on `studio/index.html` as usual — the studio auto-detects
+   any other localhost port and routes API calls to `localhost:8888` for you,
+   no config file needed.
 
 ## 5. In the UI
 

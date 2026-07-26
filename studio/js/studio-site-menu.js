@@ -23,7 +23,8 @@
  * Smoke checklist:
  *   unlock → soft-nav every SPA area → lock → music-project gating →
  *   entry draft picker → playback during nav → mobile open/close →
- *   designer / stream-song / stream-album current=music → hard refresh deep link
+ *   brand = constellation; section label = hub (clips drill-in / stream-song / …) →
+ *   designer / stream-song / stream-album current=clips → hard refresh deep link
  */
 (function () {
   'use strict';
@@ -33,10 +34,8 @@
   var NAV_ITEMS = [
     { id: 'dashboard', label: 'dashboard', href: '/studio/dashboard.html' },
     { id: 'entry', label: 'entry', href: '/studio/index.html' },
-    { id: 'stream', label: 'music', href: '/studio/stream.html' },
-    { id: 'video', label: 'video', href: '/studio/video.html' },
+    { id: 'clips', label: 'clips', href: '/studio/clips.html' },
     { id: 'journal', label: 'journal', href: '/studio/journal.html' },
-    { id: 'ideas', label: 'ideas', href: '/studio/ideas.html' },
     { id: 'releases', label: 'releases', href: '/studio/releases.html' }
   ];
 
@@ -44,24 +43,26 @@
     'dashboard.html': 'dashboard',
     'index.html': 'entry',
     'editor.html': 'entry',
-    'stream.html': 'stream',
-    'video.html': 'video',
-    'stream-album.html': 'stream',
-    'stream-song.html': 'stream',
-    'stream-stack.html': 'stream',
-    'song-designer.html': 'stream',
-    'album-designer.html': 'stream',
-    'press-designer.html': 'stream',
-    'shop-designer.html': 'stream',
+    'clips.html': 'clips',
+    'stream.html': 'clips',
+    'video.html': 'clips',
+    'stream-album.html': 'clips',
+    'stream-song.html': 'clips',
+    'stream-stack.html': 'clips',
+    'song-designer.html': 'clips',
+    'album-designer.html': 'clips',
+    'press-designer.html': 'clips',
+    'shop-designer.html': 'clips',
     'journal.html': 'journal',
-    'ideas.html': 'ideas',
-    'word-pull.html': 'ideas',
+    'ideas.html': 'clips',
+    'word-pull.html': 'clips',
     'releases.html': 'releases'
   };
 
   var handlersBound = false;
   var MENU_ID = 'studioSiteMenu';
   var TOOLS_ID = 'studioMenuTools';
+  var didHomeConstellationOpen = false;
 
   function readMode() {
     try {
@@ -79,14 +80,69 @@
   }
 
   function pageFile() {
-    var parts = window.location.pathname.split('/');
+    var parts = (window.location.pathname || '')
+      .split('/')
+      .filter(function (p) {
+        return !!p;
+      });
     var file = parts[parts.length - 1] || 'index.html';
-    if (file.indexOf('.html') < 0) file = file ? file + '.html' : 'index.html';
+    /* /studio (no trailing slash) otherwise becomes studio.html and breaks current=entry */
+    if (file === 'studio') return 'index.html';
+    if (file.indexOf('.html') < 0) file = file + '.html';
     return file;
   }
 
   function detectCurrentSection() {
     return FILE_TO_NAV[pageFile()] || null;
+  }
+
+  function fileFromHref(href) {
+    try {
+      var parts = new URL(href, window.location.href).pathname.split('/').filter(Boolean);
+      var file = parts[parts.length - 1] || '';
+      if (file === 'studio') return 'index.html';
+      if (file && file.indexOf('.html') < 0) file = file + '.html';
+      return file;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /** True only when already on that item's hub page (not a section subpage). */
+  function isOnExactHub(link) {
+    if (!link) return false;
+    var target = fileFromHref(link.getAttribute('href') || '');
+    return !!target && target === pageFile();
+  }
+
+  function goToSectionHub() {
+    var current = detectCurrentSection();
+    var item = findNavItem(current);
+    if (!item) return;
+
+    setMenuOpen(false);
+
+    /* Same-page drill-in: page-id crumb is hidden, so close via its button. */
+    if (
+      fileFromHref(item.href) === pageFile() &&
+      (document.body.classList.contains('clips-collection-open') ||
+        document.body.classList.contains('clips-folder-open'))
+    ) {
+      var back = document.getElementById('clipsCrumbBack') || document.getElementById('clipsFolderBack');
+      if (back) {
+        back.click();
+        return;
+      }
+    }
+
+    /* Already on that hub — stay. Brand is how constellation opens. */
+    if (fileFromHref(item.href) === pageFile()) return;
+
+    if (typeof window.studioSpaNavigate === 'function') {
+      window.studioSpaNavigate(item.href);
+      return;
+    }
+    window.location.href = item.href;
   }
 
   function findNavItem(id) {
@@ -132,46 +188,77 @@
   function setMenuOpen(open) {
     var menu = document.getElementById(MENU_ID);
     var toggle = document.getElementById('studioSiteMenuToggle');
+    var brand = document.getElementById('studioSiteMenuBrand');
     var panel = document.getElementById('studioSiteMenuPanel');
-    if (!menu || !toggle || !panel) return;
+    if (!menu || !panel) return;
     panel.hidden = !open;
     menu.classList.toggle('is-open', open);
     document.body.classList.toggle('is-site-menu-open', open);
     document.body.classList.toggle('is-studio-menu-open', open);
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var expanded = open ? 'true' : 'false';
+    if (toggle) toggle.setAttribute('aria-expanded', expanded);
+    if (brand) brand.setAttribute('aria-expanded', expanded);
   }
 
   function bindHandlers() {
     if (handlersBound) return;
     handlersBound = true;
 
-    document.addEventListener('click', function (e) {
-      var menu = document.getElementById(MENU_ID);
-      var panel = document.getElementById('studioSiteMenuPanel');
-      if (!menu || !panel) return;
+    // Capture phase so we win over SPA link hijacking.
+    document.addEventListener(
+      'click',
+      function (e) {
+        var menu = document.getElementById(MENU_ID);
+        var panel = document.getElementById('studioSiteMenuPanel');
+        if (!menu || !panel) return;
 
-      if (e.target.closest('.site-menu__brand') && menu.contains(e.target.closest('.site-menu__brand'))) {
-        setMenuOpen(false);
-        return;
-      }
+        // Brand always opens/closes the constellation.
+        var brand = e.target.closest('#studioSiteMenuBrand, .site-menu__brand');
+        if (brand && menu.contains(brand)) {
+          e.preventDefault();
+          e.stopPropagation();
+          setMenuOpen(panel.hidden);
+          return;
+        }
 
-      if (e.target.closest('#studioSiteMenuToggle')) {
-        e.preventDefault();
-        e.stopPropagation();
-        setMenuOpen(panel.hidden);
-        return;
-      }
+        // Section label always goes to that section's hub (never opens constellation).
+        var toggle = e.target.closest('#studioSiteMenuToggle');
+        if (toggle && menu.contains(toggle)) {
+          e.preventDefault();
+          e.stopPropagation();
+          goToSectionHub();
+          return;
+        }
 
-      var link = e.target.closest('.site-menu__item');
-      if (link && menu.contains(link)) {
-        setMenuOpen(false);
-        return;
-      }
+        var link = e.target.closest('.site-menu__item');
+        if (link && menu.contains(link)) {
+          setMenuOpen(false);
+          // Section highlight (e.g. clips while on word-pull) must still navigate
+          // to the hub. Only skip nav when already on that exact page — unless an
+          // in-page drill-in (clips collection) is open.
+          if (
+            link.getAttribute('data-nav') === 'clips' &&
+            (document.body.classList.contains('clips-collection-open') ||
+              document.body.classList.contains('clips-folder-open'))
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            goToSectionHub();
+            return;
+          }
+          if (isOnExactHub(link)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          return;
+        }
 
-      if (!panel.hidden && !e.target.closest('#' + MENU_ID)) {
-        setMenuOpen(false);
-      }
-    });
+        if (!panel.hidden && !e.target.closest('#' + MENU_ID)) {
+          setMenuOpen(false);
+        }
+      },
+      true
+    );
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') setMenuOpen(false);
@@ -195,11 +282,23 @@
 
     var existingTools = document.getElementById(TOOLS_ID);
     var toolsWasConnected = existingTools && existingTools.isConnected;
-    var toolsParent = toolsWasConnected ? existingTools.parentElement : null;
 
     root.innerHTML = '';
     root.className = 'site-menu studio-site-menu';
     root.id = MENU_ID;
+
+    var bar = document.createElement('div');
+    bar.className = 'site-menu__bar';
+
+    var brand = document.createElement('button');
+    brand.type = 'button';
+    brand.className = 'site-menu__brand';
+    brand.id = 'studioSiteMenuBrand';
+    brand.textContent = 'burnfolder studio';
+    brand.setAttribute('aria-expanded', 'false');
+    brand.setAttribute('aria-controls', 'studioSiteMenuPanel');
+    brand.setAttribute('aria-label', 'Open studio menu');
+    bar.appendChild(brand);
 
     var toggle = document.createElement('button');
     toggle.type = 'button';
@@ -207,12 +306,10 @@
     toggle.id = 'studioSiteMenuToggle';
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-controls', 'studioSiteMenuPanel');
-
-    var brand = document.createElement('a');
-    brand.className = 'site-menu__brand';
-    brand.href = '/studio/dashboard.html';
-    brand.textContent = 'burnfolder studio';
-    toggle.appendChild(brand);
+    toggle.setAttribute(
+      'aria-label',
+      currentItem ? 'Go to ' + currentItem.label : 'Open studio menu'
+    );
 
     if (currentItem) {
       var sep = document.createElement('span');
@@ -225,7 +322,12 @@
       currentEl.className = 'site-menu__current';
       currentEl.textContent = currentItem.label;
       toggle.appendChild(currentEl);
+    } else {
+      toggle.textContent = 'menu';
     }
+
+    bar.appendChild(toggle);
+    root.appendChild(bar);
 
     var panel = document.createElement('nav');
     panel.className = 'site-menu__panel';
@@ -244,12 +346,13 @@
       el.setAttribute('data-nav', item.id);
       if (item.id === current) {
         el.classList.add('is-current', 'is-active', 'page-nav');
-        el.setAttribute('aria-current', 'page');
+        if (fileFromHref(item.href) === pageFile()) {
+          el.setAttribute('aria-current', 'page');
+        }
       }
       panel.appendChild(el);
     });
 
-    root.appendChild(toggle);
     root.appendChild(panel);
 
     if (existingTools && toolsWasConnected) {
@@ -257,8 +360,15 @@
     } else {
       ensureToolsSlot(root);
     }
+  }
 
-    void toolsParent;
+  function openConstellationHomeOnce() {
+    if (didHomeConstellationOpen) return;
+    didHomeConstellationOpen = true;
+    // Studio home = constellation, not the dashboard desk.
+    if (pageFile() === 'dashboard.html') {
+      setMenuOpen(true);
+    }
   }
 
   function syncCurrent() {
@@ -266,14 +376,12 @@
     if (!root || !root.classList.contains('studio-site-menu')) return;
     var current = detectCurrentSection();
     var currentItem = findNavItem(current);
+    var here = pageFile();
 
     var toggle = document.getElementById('studioSiteMenuToggle');
     if (toggle) {
-      var brand = toggle.querySelector('.site-menu__brand');
-      Array.prototype.slice.call(toggle.querySelectorAll('.site-menu__sep, .site-menu__current')).forEach(function (n) {
-        n.remove();
-      });
-      if (currentItem && brand) {
+      toggle.innerHTML = '';
+      if (currentItem) {
         var sep = document.createElement('span');
         sep.className = 'site-menu__sep';
         sep.setAttribute('aria-hidden', 'true');
@@ -283,16 +391,21 @@
         currentEl.className = 'site-menu__current';
         currentEl.textContent = currentItem.label;
         toggle.appendChild(currentEl);
+        toggle.setAttribute('aria-label', 'Go to ' + currentItem.label);
+      } else {
+        toggle.textContent = 'menu';
+        toggle.setAttribute('aria-label', 'Open studio menu');
       }
     }
 
     root.querySelectorAll('.studio-main-nav-link[data-nav]').forEach(function (link) {
       var nav = link.getAttribute('data-nav');
       var active = nav === current;
+      var exact = active && fileFromHref(link.getAttribute('href') || '') === here;
       link.classList.toggle('is-current', active);
       link.classList.toggle('is-active', active);
       link.classList.toggle('page-nav', active);
-      if (active) link.setAttribute('aria-current', 'page');
+      if (exact) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
 
@@ -424,6 +537,7 @@
     }
 
     remountTools();
+    openConstellationHomeOnce();
   }
 
   function onNavigated() {

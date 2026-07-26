@@ -1,14 +1,8 @@
 const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
+const { muxAuthHeader } = require('./lib/mux-client');
 
 function corsHeaders() {
   return studioCorsHeaders('POST, OPTIONS');
-}
-
-function muxAuthHeader() {
-  const id = process.env.MUX_TOKEN_ID;
-  const secret = process.env.MUX_TOKEN_SECRET;
-  if (!id || !secret) return null;
-  return 'Basic ' + Buffer.from(id + ':' + secret).toString('base64');
 }
 
 function sanitizeFileName(name) {
@@ -37,32 +31,6 @@ function uniqueMuxFileName(fileName, takenSet) {
 
   taken.add(candidate);
   return candidate;
-}
-
-async function muxGet(path, auth) {
-  const res = await fetch('https://api.mux.com' + path, {
-    headers: { Authorization: auth }
-  });
-  const data = await res.json();
-  return { ok: res.ok, data };
-}
-
-async function listMuxPassthroughs(auth, maxPages) {
-  const taken = new Set();
-  const pages = maxPages || 5;
-
-  for (let page = 1; page <= pages; page += 1) {
-    const result = await muxGet('/video/v1/assets?limit=100&page=' + page, auth);
-    if (!result.ok || !result.data || !Array.isArray(result.data.data)) break;
-
-    result.data.data.forEach(function (asset) {
-      if (asset.passthrough) taken.add(String(asset.passthrough));
-    });
-
-    if (result.data.data.length < 100) break;
-  }
-
-  return taken;
 }
 
 exports.handler = async function (event) {
@@ -108,7 +76,9 @@ exports.handler = async function (event) {
     : [];
 
   try {
-    const taken = await listMuxPassthroughs(auth, 5);
+    // Unique against client-known names only. Listing Mux assets here used to
+    // page hundreds of GETs before every upload and made starts feel slow.
+    const taken = new Set();
     reserved.forEach(function (name) {
       taken.add(sanitizeFileName(name));
     });
@@ -120,6 +90,7 @@ exports.handler = async function (event) {
       cors_origin: corsOrigin,
       new_asset_settings: {
         playback_policy: ['public'],
+        mp4_support: 'standard',
         passthrough: passthrough
       }
     };

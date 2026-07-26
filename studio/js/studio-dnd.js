@@ -346,7 +346,7 @@
         return {
           type: 'reorder',
           targetEl: albumTrack,
-          targetId: albumTrack.dataset.playbackId,
+          targetId: albumTrack.dataset.songKey || albumTrack.dataset.playbackId,
           before: before,
           groupId: activeGroup.dataset.groupId || ''
         };

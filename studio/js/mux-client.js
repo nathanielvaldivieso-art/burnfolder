@@ -27,19 +27,27 @@
     });
   }
 
+  // Cap how many local names we send for uniqueness — full library scans
+  // before every upload added avoidable delay as the library grew.
+  const RESERVED_NAME_CAP = 80;
+
   function reservedPassthroughsFromCloud(excludeAssetId) {
     const cloud = window.BurnfolderAssetCloud;
-    if (!cloud) return Promise.resolve([]);
+    if (!cloud || typeof cloud.listAssets !== 'function') return Promise.resolve([]);
     return cloud.listAssets().then(function (assets) {
-      return assets
-        .filter(function (a) {
-          return !excludeAssetId || a.id !== excludeAssetId;
-        })
-        .map(function (a) {
-          if (a.muxPassthrough) return a.muxPassthrough;
-          return naming ? naming.sanitizeFileName(a.name) : a.name;
-        })
-        .filter(Boolean);
+      const names = [];
+      const rows = assets || [];
+      for (let i = 0; i < rows.length && names.length < RESERVED_NAME_CAP; i += 1) {
+        const a = rows[i];
+        if (excludeAssetId && a.id === excludeAssetId) continue;
+        const name = a.muxPassthrough
+          ? a.muxPassthrough
+          : naming
+            ? naming.sanitizeFileName(a.name)
+            : a.name;
+        if (name) names.push(name);
+      }
+      return names;
     });
   }
 
@@ -128,13 +136,15 @@
           message: 'processing on mux…'
         });
 
-        const maxAttempts = 120;
+        const maxAttempts = 90;
         let attempt = 0;
 
         function pollDelayMs(n) {
-          if (n <= 5) return 350;
-          if (n <= 15) return 600;
-          return 1200;
+          // Mux usually needs a moment after PUT; avoid hammering early.
+          if (n <= 1) return 700;
+          if (n <= 4) return 900;
+          if (n <= 12) return 1400;
+          return 2000;
         }
 
         function poll() {
@@ -178,7 +188,7 @@
             });
         }
 
-        return poll();
+        return delay(pollDelayMs(0)).then(poll);
       })
       .catch(function (err) {
         reportProgress(options, {

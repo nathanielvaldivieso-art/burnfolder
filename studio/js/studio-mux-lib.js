@@ -2,7 +2,6 @@
   'use strict';
 
   const naming = window.BurnfolderMuxDisplayName;
-  const legacyNaming = window.BurnfolderMuxNaming;
 
   function siteTitleMap() {
     return naming ? naming.buildSitePlaybackTitleMap(window) : new Map();
@@ -98,7 +97,6 @@
     if (naming && naming.preferredDisplayTitle) {
       return naming.preferredDisplayTitle(item, ctx);
     }
-    if (legacyNaming && legacyNaming.muxFileLabel) return legacyNaming.muxFileLabel(item);
     return item.muxCanonicalTitle || item.passthrough || item.displayTitle || 'untitled';
   }
 

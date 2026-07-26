@@ -48,15 +48,26 @@
     const options = opts || {};
     const sv = window.BurnfolderSongVersions;
     const mux = window.BurnfolderStudioMux;
-    let label =
-      mux && mux.muxFileLabel ? mux.muxFileLabel(item) : item.muxCanonicalTitle || item.passthrough || 'untitled';
-    if (sv) {
+    const explicit = String(
+      item.title || item.displayTitle || item.filename || item.name || ''
+    ).trim();
+    let label = explicit;
+    if (!label) {
+      label =
+        mux && mux.muxFileLabel
+          ? mux.muxFileLabel(item)
+          : item.muxCanonicalTitle || item.passthrough || 'untitled';
+    }
+    if (sv && sv.titleFromCatalog) {
       const catalog = sv.mergeSongCatalog
-        ? sv.mergeSongCatalog(sv.getSiteCatalog(window), [item], function (row) {
+        ? sv.mergeSongCatalog(sv.getSiteCatalog(window), [item], function () {
             return label;
           })
         : window.allSongs || [];
-      label = sv.titleFromCatalog(catalog, item.playbackId, label);
+      label = sv.titleFromCatalog(catalog, item.playbackId, label) || label;
+    }
+    if (!label || label === 'untitled') {
+      label = explicit || item.passthrough || item.muxCanonicalTitle || 'untitled';
     }
     return {
       title: label,

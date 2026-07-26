@@ -397,7 +397,7 @@
       .then(function () {
         shared.removeFromStack(item.playbackId);
         if (player) player.stop();
-        window.location.href = shared.isVideoItem(item) ? 'video.html' : 'stream.html';
+        window.location.href = 'clips.html';
       })
       .catch(function (err) {
         setStatus(err.message || 'delete failed');
@@ -445,7 +445,7 @@
     bindSongPageListeners();
 
     document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-      const active = link.getAttribute('data-nav') === 'stream';
+      const active = link.getAttribute('data-nav') === 'clips';
       link.classList.toggle('is-active', active);
       link.classList.toggle('page-nav', active);
     });

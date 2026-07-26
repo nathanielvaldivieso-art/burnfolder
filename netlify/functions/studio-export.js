@@ -15,13 +15,17 @@ const EXPORT_KEYS = [
   'journalDays',
   'songPages',
   'albumPages',
+  'pressPage',
+  'shopProducts',
+  'notes',
   'releaseDates',
   'trackPipeline',
   'trackRegistry',
   'releaseCatalog',
   'distroPreferences',
   'projectFiles',
-  'imageLibrary'
+  'imageLibrary',
+  'clips'
 ];
 
 function corsHeaders() {

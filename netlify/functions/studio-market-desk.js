@@ -80,11 +80,16 @@ exports.handler = async function (event) {
 
   if (event.httpMethod === 'GET') {
     const queue = await desk.readQueue(blobStore, workspaceId);
-    const scrubbed = desk.scrubQueueItems(queue.items);
-    if (scrubbed.changed) {
-      await desk.writeQueue(blobStore, workspaceId, scrubbed.items);
+    const audiences = await desk.audienceSummary(blobStore, workspaceId, event);
+    let items = queue.items;
+    const scrubbed = desk.scrubQueueItems(items);
+    items = scrubbed.items;
+    const reality = desk.scrubAgainstReality(items, audiences);
+    items = reality.items;
+    if (scrubbed.changed || reality.changed) {
+      await desk.writeQueue(blobStore, workspaceId, items);
     }
-    const visible = scrubbed.items.filter(function (item) {
+    const visible = items.filter(function (item) {
       return (
         item.status !== 'cancelled' &&
         item.status !== 'sent' &&
@@ -92,7 +97,6 @@ exports.handler = async function (event) {
         desk.passesScrutiny(item)
       );
     });
-    const audiences = await desk.audienceSummary(blobStore, workspaceId, event);
     return {
       statusCode: 200,
       headers,
@@ -117,12 +121,25 @@ exports.handler = async function (event) {
 
   const action = String(body.action || '').trim();
 
+  if (action === 'clearOpen') {
+    const cleared = await desk.clearOpenQueue(blobStore, workspaceId);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ ok: true, cleared: !!cleared.changed })
+    };
+  }
+
   if (action === 'queue') {
     const actions = Array.isArray(body.actions) ? body.actions : body.item ? [body.item] : [];
     if (!actions.length) {
       return { statusCode: 400, headers, body: JSON.stringify({ message: 'actions required' }) };
     }
-    const added = await desk.addQueueItems(blobStore, workspaceId, actions);
+    const audiences = await desk.audienceSummary(blobStore, workspaceId, event);
+    const grounded = actions.filter(function (row) {
+      return !desk.claimsUnsupportedCommerce(desk.normalizeQueueItem(row), audiences);
+    });
+    const added = await desk.addQueueItems(blobStore, workspaceId, grounded);
     if (!added.length) {
       return {
         statusCode: 400,

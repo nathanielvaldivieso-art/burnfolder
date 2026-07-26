@@ -1,4 +1,4 @@
-const { studioCorsHeaders, requireStudioAccess } = require('./lib/studio-auth');
+const { studioCorsHeaders } = require('./lib/studio-auth');
 
 exports.handler = async function (event) {
   const headers = studioCorsHeaders('POST, OPTIONS');

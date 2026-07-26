@@ -1,7 +1,8 @@
 (function () {
   'use strict';
 
-  var DIGEST_CACHE_KEY = 'bf_site_digest_cache_v5';
+  var DIGEST_CACHE_KEY = 'bf_site_digest_cache_v6';
+  var HOUSE_CLEAR_KEY = 'bf_market_desk_cleared_v20260726';
   var asking = false;
   var autoAsked = false;
   var pendingMoveAction = null;
@@ -28,9 +29,19 @@
     return !!(auth && auth.getAuthHeaders && Object.keys(auth.getAuthHeaders()).length);
   }
 
+  function cleanLine(text) {
+    const line = String(text || '')
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    if (!line || /^[{[]/.test(line) || /"digest"\s*:/.test(line)) return '';
+    return line.slice(0, 180);
+  }
+
   function setLine(text) {
     const el = document.getElementById('siteDigestHeadline');
-    if (el) el.textContent = text || '';
+    if (!el) return;
+    el.textContent = cleanLine(text) || 'nothing to act on yet';
   }
 
   function setBusy(busy) {
@@ -43,7 +54,7 @@
   function dashboardContext(audiences) {
     const ctx = {
       goal:
-        'marketing advisor: turn all snapshot data into one punchy action to maintain/scale; thank rarely and selectively; AI never pens fan-facing copy',
+        'marketing advisor: turn all snapshot data into one punchy action to maintain/scale; thank rarely and selectively; AI never pens fan-facing copy; never invent tippers/buyers when commerce counts are 0',
       antiGeneration: true,
       maxWeeklyActs: 7,
       ux: 'one imperative nextMove; artist opts in with do this'
@@ -83,6 +94,17 @@
     ].join(':');
   }
 
+  function inventsUnsupportedCommerce(text, snap) {
+    const commerce = (snap && snap.commerce) || {};
+    const tips = Number((commerce.tips && commerce.tips.count) || 0) || 0;
+    const digital = Number((commerce.digital && commerce.digital.count) || 0) || 0;
+    const shop = Number((commerce.shop && commerce.shop.count) || 0) || 0;
+    if (tips + digital + shop > 0) return false;
+    return /\b(thank|tipper|tippers|buyer|buyers|tips?\b|purchase|order|download|fire escape)\b/i.test(
+      String(text || '')
+    );
+  }
+
   function readDigestCache() {
     try {
       const raw = sessionStorage.getItem(DIGEST_CACHE_KEY);
@@ -108,6 +130,16 @@
     }
   }
 
+  function clearStaleDigestCaches() {
+    try {
+      sessionStorage.removeItem('bf_site_digest_cache_v5');
+      sessionStorage.removeItem('bf_site_digest_cache_v4');
+      sessionStorage.removeItem('bf_site_digest_cache_v3');
+    } catch (e) {
+      /* noop */
+    }
+  }
+
   function restoreCachedDigest() {
     const snap =
       typeof window.studioGetAnalyticsSnapshot === 'function'
@@ -116,8 +148,44 @@
     const cache = readDigestCache();
     if (!cache || !cache.digest) return false;
     if (snap && cache.fingerprint && cache.fingerprint !== snapshotFingerprint(snap)) return false;
+    if (inventsUnsupportedCommerce(cache.digest.nextMove || cache.digest.headline, snap)) {
+      try {
+        sessionStorage.removeItem(DIGEST_CACHE_KEY);
+      } catch (e) {
+        /* noop */
+      }
+      return false;
+    }
     renderDigest(cache.digest, cache.actions || []);
     return true;
+  }
+
+  function clearHouseOnce() {
+    clearStaleDigestCaches();
+    let already = false;
+    try {
+      already = localStorage.getItem(HOUSE_CLEAR_KEY) === '1';
+    } catch (e) {
+      already = false;
+    }
+    if (already || !hasAuth()) return Promise.resolve(false);
+    return deskFetch('/studio-market-desk', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ action: 'clearOpen' })
+    })
+      .then(function () {
+        try {
+          localStorage.setItem(HOUSE_CLEAR_KEY, '1');
+          sessionStorage.removeItem(DIGEST_CACHE_KEY);
+        } catch (e) {
+          /* noop */
+        }
+        return true;
+      })
+      .catch(function () {
+        return false;
+      });
   }
 
   function loadDesk() {
@@ -324,6 +392,10 @@
 
   function renderDigest(digest, actions) {
     const doBtn = document.getElementById('siteDigestQueueMove');
+    const snap =
+      typeof window.studioGetAnalyticsSnapshot === 'function'
+        ? window.studioGetAnalyticsSnapshot()
+        : null;
 
     if (!digest) {
       setLine('nothing to act on yet');
@@ -332,16 +404,26 @@
       return;
     }
 
-    const line = digest.nextMove || digest.headline || 'nothing to act on yet';
-    setLine(line);
+    let line = cleanLine(digest.nextMove || digest.headline || '');
+    if (!line || inventsUnsupportedCommerce(line, snap)) {
+      setLine('nothing to act on yet');
+      if (doBtn) doBtn.hidden = true;
+      pendingMoveAction = null;
+      try {
+        sessionStorage.removeItem(DIGEST_CACHE_KEY);
+      } catch (e) {
+        /* noop */
+      }
+      return;
+    }
 
+    setLine(line);
     pendingMoveAction = digest.nextMove ? actionFromDigest(digest, actions) : null;
+    if (pendingMoveAction && inventsUnsupportedCommerce(pendingMoveAction.title, snap)) {
+      pendingMoveAction = null;
+    }
     if (doBtn) doBtn.hidden = !pendingMoveAction;
 
-    const snap =
-      typeof window.studioGetAnalyticsSnapshot === 'function'
-        ? window.studioGetAnalyticsSnapshot()
-        : null;
     writeDigestCache(
       digest,
       pendingMoveAction ? [pendingMoveAction] : [],
@@ -383,7 +465,8 @@
           return;
         }
         if (result.ok && data.reply) {
-          setLine(String(data.reply).split('\n')[0].slice(0, 180));
+          const line = cleanLine(String(data.reply).split('\n')[0]);
+          setLine(line || 'nothing to act on yet');
           return;
         }
         setLine((data && data.message) || 'could not read the room');
@@ -398,19 +481,21 @@
   }
 
   function onAnalyticsReady(snapshot) {
-    if (restoreCachedDigest()) {
-      loadDesk();
-      return;
-    }
-
-    loadDesk().then(function () {
-      if (autoAsked) return;
-      if (!snapshot) {
-        setLine('nothing to say yet');
+    clearHouseOnce().then(function () {
+      if (restoreCachedDigest()) {
+        loadDesk();
         return;
       }
-      autoAsked = true;
-      askDigest(false);
+
+      loadDesk().then(function () {
+        if (autoAsked) return;
+        if (!snapshot) {
+          setLine('nothing to say yet');
+          return;
+        }
+        autoAsked = true;
+        askDigest(false);
+      });
     });
   }
 

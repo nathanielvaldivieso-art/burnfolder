@@ -1,53 +1,29 @@
 (function (root) {
   'use strict';
 
-  const STORAGE_KEY = 'burnfolderStudioAlbumPages';
-  const CLOUD_KEY = 'albumPages';
-
-  function makeId(prefix) {
-    return (prefix || 'item') + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8);
-  }
-
-  function readStore() {
-    try {
-      const raw = root.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { version: 1, pages: {} };
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed.pages !== 'object') return { version: 1, pages: {} };
-      return parsed;
-    } catch (e) {
+  const kit = root.BurnfolderCloudStoreKit;
+  const cloudStore = kit.createLocalCloudStore({
+    storageKey: 'burnfolderStudioAlbumPages',
+    cloudKey: 'albumPages',
+    emptyState: function () {
       return { version: 1, pages: {} };
-    }
-  }
-
-  function writeStore(store) {
-    root.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    const cs = root.BurnfolderCloudState;
-    if (cs && cs.put) cs.put(CLOUD_KEY, store);
-  }
-
-  let hydratePromise = null;
-  function ensureHydrated() {
-    if (hydratePromise) return hydratePromise;
-    const cs = root.BurnfolderCloudState;
-    if (!cs || !cs.get) {
-      hydratePromise = Promise.resolve();
-      return hydratePromise;
-    }
-    hydratePromise = cs
-      .get(CLOUD_KEY)
-      .then(function (value) {
-        if (value && value.pages && typeof value.pages === 'object') {
-          root.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-          root.dispatchEvent(new CustomEvent('burnfolder-album-pages-synced'));
-        } else if (value === null) {
-          const local = readStore();
-          if (Object.keys(local.pages).length && cs.put) cs.put(CLOUD_KEY, local);
-        }
-      })
-      .catch(function () {});
-    return hydratePromise;
-  }
+    },
+    isValidLocal: function (parsed) {
+      return typeof parsed.pages === 'object';
+    },
+    isValidCloudValue: function (value) {
+      return !!(value.pages && typeof value.pages === 'object');
+    },
+    hasLocalContent: function (local) {
+      return Object.keys(local.pages).length;
+    },
+    syncEventName: 'burnfolder-album-pages-synced'
+  });
+  const readStore = cloudStore.readStore;
+  const writeStore = cloudStore.writeStore;
+  const ensureHydrated = cloudStore.ensureHydrated;
+  const makeId = kit.makeId;
+  const getFunctionsBase = kit.getFunctionsBase;
 
   function normalizeMediaItem(item) {
     if (!item || typeof item !== 'object') return null;
@@ -223,17 +199,6 @@
       };
     });
     return out;
-  }
-
-  function getFunctionsBase() {
-    const cfg = root.BurnfolderStudioConfig || {};
-    if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
-    const host = root.location && root.location.hostname;
-    const port = root.location && root.location.port;
-    const isLocalDevServer =
-      (host === 'localhost' || host === '127.0.0.1') && port && port !== '8888';
-    if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
-    return '/.netlify/functions';
   }
 
   function pushToSite(groupContext) {

@@ -1,14 +1,8 @@
 const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
+const { muxAuthHeader } = require('./lib/mux-client');
 
 function corsHeaders() {
   return studioCorsHeaders('POST, OPTIONS');
-}
-
-function muxAuthHeader() {
-  const id = process.env.MUX_TOKEN_ID;
-  const secret = process.env.MUX_TOKEN_SECRET;
-  if (!id || !secret) return null;
-  return 'Basic ' + Buffer.from(id + ':' + secret).toString('base64');
 }
 
 exports.handler = async function (event) {

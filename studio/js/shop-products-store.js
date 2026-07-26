@@ -1,12 +1,41 @@
 (function (root) {
   'use strict';
 
-  const STORAGE_KEY = 'burnfolderStudioShopProducts';
-  const CLOUD_KEY = 'shopProducts';
-
-  function makeId(prefix) {
-    return (prefix || 'item') + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8);
-  }
+  const kit = root.BurnfolderCloudStoreKit;
+  const cloudStore = kit.createLocalCloudStore({
+    storageKey: 'burnfolderStudioShopProducts',
+    cloudKey: 'shopProducts',
+    emptyState: function () {
+      return { version: 1, catalog: null, pendingCover: null };
+    },
+    isValidCloudValue: function (value) {
+      return !!(value.catalog && typeof value.catalog === 'object');
+    },
+    hasLocalContent: function (local) {
+      return !!local.catalog;
+    },
+    syncEventName: 'burnfolder-shop-products-synced',
+    toCloudValue: function (store) {
+      return {
+        version: 1,
+        catalog: store.catalog,
+        pendingCover: null
+      };
+    },
+    mergeCloudValue: function (cloudValue, local) {
+      return {
+        version: 1,
+        catalog: cloudValue.catalog,
+        pendingCover: (local && local.pendingCover) || null
+      };
+    }
+  });
+  const readStore = cloudStore.readStore;
+  const writeStore = cloudStore.writeStore;
+  const ensureHydrated = cloudStore.ensureHydrated;
+  const makeId = kit.makeId;
+  const getFunctionsBase = kit.getFunctionsBase;
+  const fileToBase64 = kit.fileToBase64;
 
   function sanitizeId(raw) {
     return String(raw || '')
@@ -15,62 +44,6 @@
       .replace(/[^a-z0-9-]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 64);
-  }
-
-  function readStore() {
-    try {
-      const raw = root.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { version: 1, catalog: null, pendingCover: null };
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return { version: 1, catalog: null, pendingCover: null };
-      return parsed;
-    } catch (e) {
-      return { version: 1, catalog: null, pendingCover: null };
-    }
-  }
-
-  function writeStore(store) {
-    root.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    const cs = root.BurnfolderCloudState;
-    if (cs && cs.put) {
-      const cloudSafe = {
-        version: store.version || 1,
-        catalog: store.catalog,
-        pendingCover: null
-      };
-      cs.put(CLOUD_KEY, cloudSafe);
-    }
-  }
-
-  let hydratePromise = null;
-  function ensureHydrated() {
-    if (hydratePromise) return hydratePromise;
-    const cs = root.BurnfolderCloudState;
-    if (!cs || !cs.get) {
-      hydratePromise = Promise.resolve();
-      return hydratePromise;
-    }
-    hydratePromise = cs
-      .get(CLOUD_KEY)
-      .then(function (value) {
-        if (value && value.catalog && typeof value.catalog === 'object') {
-          const local = readStore();
-          const merged = {
-            version: 1,
-            catalog: value.catalog,
-            pendingCover: local.pendingCover || null
-          };
-          root.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-          root.dispatchEvent(new CustomEvent('burnfolder-shop-products-synced'));
-        } else if (value === null) {
-          const local = readStore();
-          if (local.catalog && cs.put) {
-            cs.put(CLOUD_KEY, { version: 1, catalog: local.catalog, pendingCover: null });
-          }
-        }
-      })
-      .catch(function () {});
-    return hydratePromise;
   }
 
   function emptyProduct() {
@@ -248,32 +221,6 @@
       }),
       updatedAt: catalog.updatedAt
     };
-  }
-
-  function getFunctionsBase() {
-    const cfg = root.BurnfolderStudioConfig || {};
-    if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
-    const host = root.location && root.location.hostname;
-    const port = root.location && root.location.port;
-    const isLocalDevServer =
-      (host === 'localhost' || host === '127.0.0.1') && port && port !== '8888';
-    if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
-    return '/.netlify/functions';
-  }
-
-  function fileToBase64(file) {
-    return new Promise(function (resolve, reject) {
-      const reader = new FileReader();
-      reader.onload = function () {
-        const result = String(reader.result || '');
-        const comma = result.indexOf(',');
-        resolve(comma >= 0 ? result.slice(comma + 1) : result);
-      };
-      reader.onerror = function () {
-        reject(new Error('could not read file'));
-      };
-      reader.readAsDataURL(file);
-    });
   }
 
   function pushToSite() {

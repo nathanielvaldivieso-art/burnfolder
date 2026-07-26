@@ -22,6 +22,22 @@ One-time operator checklist after Copilot deploys Tier 2 code. Full plan: `STUDI
 | `R2_SECRET_ACCESS_KEY` | Token creation screen (shown once) |
 | `R2_BUCKET_NAME` | `burnfolder-masters` |
 
+**CORS (optional for browser direct PUT):** Studio uploads go through the Netlify `studio-vault` proxy by default, so bucket CORS is not required for Clips/picture uploads. Direct presigned PUT (releases masters, or `directPut: true`) still needs CORS — Safari shows **"Load failed"** without it.
+
+Auto-apply runs on `upload-url` / `status` when the R2 token has Admin permission. Manual (Cloudflare → R2 → bucket → Settings → CORS):
+
+```json
+[
+  {
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
 ## 2. LabelGrid
 
 1. Sign up at [labelgrid.com](https://www.labelgrid.com) on an **API-capable** plan (confirm cost fits budget — pause if > ~$40/mo on top of Mux)
@@ -97,7 +113,9 @@ Same R2 bucket; separate path prefixes + Blob manifests.
 | Action | Method | Notes |
 |--------|--------|-------|
 | `status` | GET | vault configured? |
-| `upload-url` | POST | presigned PUT; pass `kind`, `songGroupKey` or `folderKey` |
+| `upload-url` | POST | presigned PUT; pass `kind`, `songGroupKey` or `folderKey` (optional; proxy preferred) |
+| `put` | POST (binary body) | `?action=put&kind=&fileName=` — server PutObject, no R2 CORS |
+| `multipart-init` / `multipart-part` / `multipart-complete` | POST | chunked proxy for files > 5MB |
 | `register` | POST | after PUT — writes manifest row (idempotent on `vaultKey`) |
 | `list` | GET | merge manifest + R2; prefer registered rows |
 | `download` | GET | short-lived presigned GET |

@@ -25,6 +25,10 @@ const MIGRATABLE_KEYS = [
   'journalDays',
   'songPages',
   'albumPages',
+  'pressPage',
+  'shopProducts',
+  'notes',
+  'clips',
   'releaseDates',
   'trackPipeline'
 ];

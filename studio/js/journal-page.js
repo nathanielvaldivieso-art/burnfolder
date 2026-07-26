@@ -181,7 +181,7 @@
       playBtn.textContent = item.kind === 'video' ? 'open' : 'play';
       playBtn.addEventListener('click', function () {
         if (item.kind === 'video') {
-          window.location.href = '/studio/video.html';
+          window.location.href = '/studio/clips.html';
           return;
         }
         playContribution(item);
@@ -190,8 +190,7 @@
 
       const streamLink = document.createElement('a');
       streamLink.className = 'studio-journal-contribution-link';
-      streamLink.href =
-        item.kind === 'video' ? '/studio/video.html' : '/studio/stream.html';
+      streamLink.href = '/studio/clips.html';
       streamLink.textContent = 'library';
       actions.appendChild(streamLink);
 

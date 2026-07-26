@@ -679,7 +679,7 @@
 
         const libraryLink = document.createElement('a');
         libraryLink.className = 'icon-btn';
-        libraryLink.href = 'video.html';
+        libraryLink.href = 'clips.html';
         libraryLink.textContent = 'video library';
 
         actions.appendChild(replaceBtn);
@@ -958,7 +958,7 @@
   }
 
   document.querySelectorAll('.studio-main-nav-link').forEach(function (link) {
-    const active = link.getAttribute('data-nav') === 'stream';
+    const active = link.getAttribute('data-nav') === 'clips';
     link.classList.toggle('is-active', active);
     link.classList.toggle('page-nav', active);
   });

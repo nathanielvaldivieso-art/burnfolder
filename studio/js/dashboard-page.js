@@ -897,7 +897,7 @@
   function initDashboardPage() {
     const auth = window.BurnfolderStudioAuth;
     if (auth && auth.isMusicProjectOnly && auth.isMusicProjectOnly()) {
-      window.location.replace('/studio/stream.html');
+      window.location.replace('/studio/clips.html');
       return;
     }
     currentPeriod = readStoredPeriod();

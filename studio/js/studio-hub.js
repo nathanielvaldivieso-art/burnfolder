@@ -107,7 +107,7 @@
     if (!window.BurnfolderDrafts) return;
     window.BurnfolderDrafts.listDrafts().then(function (items) {
       renderDraftList(items);
-      setStatus(items.length ? '' : '');
+      setStatus('');
     });
   }
 
