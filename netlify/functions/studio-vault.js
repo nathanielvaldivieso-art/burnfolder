@@ -5,6 +5,7 @@ const {
   requireWorkspaceAccess
 } = require('./lib/workspace-auth');
 const vault = require('./lib/master-vault');
+const manifest = require('./lib/vault-manifest');
 
 function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
@@ -16,6 +17,17 @@ function parseBody(event) {
   } catch {
     return null;
   }
+}
+
+function queryFilters(params) {
+  const p = params || {};
+  return {
+    kind: p.kind || '',
+    songGroupKey: p.songGroupKey || '',
+    folderKey: p.folderKey || '',
+    trackKey: p.trackKey || '',
+    releaseKey: p.releaseKey || ''
+  };
 }
 
 exports.handler = async function (event) {
@@ -45,7 +57,8 @@ exports.handler = async function (event) {
   }
 
   if (event.httpMethod === 'GET') {
-    const action = (event.queryStringParameters && event.queryStringParameters.action) || 'status';
+    const params = event.queryStringParameters || {};
+    const action = params.action || 'status';
     if (action === 'status') {
       return {
         statusCode: 200,
@@ -54,7 +67,7 @@ exports.handler = async function (event) {
       };
     }
     if (action === 'download') {
-      const vaultKey = (event.queryStringParameters && event.queryStringParameters.vaultKey) || '';
+      const vaultKey = params.vaultKey || '';
       try {
         const result = await vault.createDownloadUrl(access.workspaceId, vaultKey);
         return { statusCode: 200, headers, body: JSON.stringify(result) };
@@ -67,7 +80,7 @@ exports.handler = async function (event) {
       }
     }
     if (action === 'head') {
-      const vaultKey = (event.queryStringParameters && event.queryStringParameters.vaultKey) || '';
+      const vaultKey = params.vaultKey || '';
       try {
         const result = await vault.headObject(access.workspaceId, vaultKey);
         return { statusCode: 200, headers, body: JSON.stringify(result) };
@@ -76,6 +89,31 @@ exports.handler = async function (event) {
           statusCode: 400,
           headers,
           body: JSON.stringify({ message: error.message || 'head failed' })
+        };
+      }
+    }
+    if (action === 'list') {
+      try {
+        const filters = queryFilters(params);
+        const [manifestItems, r2] = await Promise.all([
+          manifest.listManifest(event, access.workspaceId, filters),
+          vault.listPrefix(access.workspaceId, filters)
+        ]);
+        const items = manifest.mergeList(manifestItems, r2.objects);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            prefix: r2.prefix,
+            items: items,
+            count: items.length
+          })
+        };
+      } catch (error) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: error.message || 'list failed' })
         };
       }
     }
@@ -95,22 +133,34 @@ exports.handler = async function (event) {
 
   try {
     if (action === 'upload-url') {
+      const kind = body.kind || 'master';
+      if (!vault.isAllowedKind(kind)) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Unknown vault kind: ' + kind })
+        };
+      }
       const result = await vault.createUploadUrl(access.workspaceId, {
-        kind: body.kind || 'master',
+        kind: kind,
         fileName: body.fileName,
         contentType: body.contentType,
         trackKey: body.trackKey || body.tempId,
         releaseKey: body.releaseKey,
         songGroupKey: body.songGroupKey,
+        folderKey: body.folderKey,
         vaultKey: body.vaultKey
       });
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify(
-          Object.assign({ configured: true, kind: body.kind || 'master' }, result)
-        )
+        body: JSON.stringify(Object.assign({ configured: true, kind: kind }, result))
       };
+    }
+
+    if (action === 'register') {
+      const result = await manifest.registerFile(event, access.workspaceId, body);
+      return { statusCode: 200, headers, body: JSON.stringify(result) };
     }
 
     if (action === 'delete') {
@@ -122,7 +172,18 @@ exports.handler = async function (event) {
         };
       }
       const result = await vault.deleteObject(access.workspaceId, body.vaultKey);
-      return { statusCode: 200, headers, body: JSON.stringify(result) };
+      let unregistered = null;
+      try {
+        unregistered = await manifest.unregisterFile(event, access.workspaceId, body.vaultKey);
+      } catch (error) {
+        // Object deleted; manifest cleanup is best-effort.
+        unregistered = { removed: null, manifest: null, warning: error.message };
+      }
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(Object.assign({}, result, { unregistered: unregistered }))
+      };
     }
 
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Unknown action' }) };

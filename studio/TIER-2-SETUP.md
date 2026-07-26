@@ -81,15 +81,54 @@ DSP store review: **3–14 days** (passive wait).
 
 Never put `LABELGRID_API_KEY` or R2 secrets in client JS or git. Rotate if pasted in chat.
 
+## 7. Sessions + pictures cloud vault
+
+Same R2 bucket; separate path prefixes + Blob manifests.
+
+| Kind | R2 path | Blob manifest |
+|------|---------|---------------|
+| `session` / `stem` / `ref` | `ws/{id}/projects/{songGroupKey}/{kind}s/{file}` | `projectFiles` |
+| `image` | `ws/{id}/images/{folderKey}/{file}` | `imageLibrary` |
+| `press` | `ws/{id}/press/{folderKey}/{file}` | `imageLibrary` |
+| `epk` | `ws/{id}/epk/{folderKey}/{file}` | `imageLibrary` |
+
+**API** (`studio-vault`):
+
+| Action | Method | Notes |
+|--------|--------|-------|
+| `status` | GET | vault configured? |
+| `upload-url` | POST | presigned PUT; pass `kind`, `songGroupKey` or `folderKey` |
+| `register` | POST | after PUT — writes manifest row (idempotent on `vaultKey`) |
+| `list` | GET | merge manifest + R2; prefer registered rows |
+| `download` | GET | short-lived presigned GET |
+| `delete` | POST | owner only; deletes object + manifest row |
+
+**Client helpers**
+
+- `studio/js/vault-upload.js` — low-level; auto-registers project/image kinds after upload
+- `studio/js/cloud-files.js` — `uploadSession`, `uploadImage`, `listSessions`, `listImages`, `download`, `remove`
+
+### Verify (on deployed Studio after R2 env is set)
+
+- [ ] `GET /api/studio-vault?action=status` → `{ configured: true }`
+- [ ] Upload a session via `BurnfolderCloudFiles.uploadSession(file, { songGroupKey })`
+- [ ] `list` / `listSessions` returns the file with `verified: true`
+- [ ] `download` returns a working URL
+- [ ] Owner `remove` deletes object + clears manifest row
+- [ ] Upload a press photo via `uploadImage(file, { kind: 'press', folderKey: 'photonegative' })`
+
+UI wiring (song/stream/press pages) is separate — helpers only until those surfaces land.
+
 ## Functions added
 
 | Function | Role |
 |----------|------|
-| `studio-vault` | Presigned R2 upload / download |
+| `studio-vault` | Presigned R2 upload / download / list / register |
 | `studio-distro` | LabelGrid create / validate+distribute / status / prefs |
 
 | Lib | Role |
 |-----|------|
-| `lib/master-vault.js` | R2 paths + signing |
+| `lib/master-vault.js` | R2 paths + signing + list |
+| `lib/vault-manifest.js` | `projectFiles` + `imageLibrary` Blob rows |
 | `lib/distribution/distribution.interface.js` | Provider factory (`labelgrid` only) |
 | `lib/distribution/labelgrid.provider.js` | LabelGrid REST adapter |

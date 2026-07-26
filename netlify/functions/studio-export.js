@@ -20,7 +20,8 @@ const EXPORT_KEYS = [
   'trackRegistry',
   'releaseCatalog',
   'distroPreferences',
-  'projectFiles'
+  'projectFiles',
+  'imageLibrary'
 ];
 
 function corsHeaders() {
