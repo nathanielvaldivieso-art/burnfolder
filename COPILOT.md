@@ -8,7 +8,7 @@
 - **§9.5** — Analytics + dashboard marketing consultant (pulse · ship · architecture loop). *"implement dashboard marketing Phase A/B/C …"*
 - **§17** — Frugal tiers after **R12** — not before the button is pressed (unless an item arms the button).
 
-Tell Copilot *"implement platform step P#"* for §0 arm work (priority: **P7 → P8 → P9 → P11 → P20**), or *"log status: …"* to append the Status log. Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
+Tell Copilot *"implement platform step P#"* for §0 arm work (priority: **P7 → P8 → P9 → P11 → P20**), or *"log status: …"* to append the Status log. Dig layer for song pages: **D13** (lyrics, all 4) + **D25** (BTS/clips dig set, all 4) — rich on-site; off-site fragments stay lean (**D17–D21**). Do not freeze/launch until §0 Deliverables clear. Prefer first-party site plays + linger over raw Cloudflare pageviews; AI digests must never invent numbers.
 
 `PHOTONEGATIVE-RELEASE-PLAN.md`, `DASHBOARD-MARKETING-PLAN.md`, and `MUSIC-GROWTH-*.md` are stubs that redirect here.
 
