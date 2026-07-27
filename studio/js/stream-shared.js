@@ -588,6 +588,40 @@
   }
 
   /**
+   * When a newer mix is uploaded, swap matching collection tracks to the new playbackId
+   * so albums/stacks don't keep playing the previous dated version.
+   */
+  function upgradeTracksBySongKey(groupKey, patch) {
+    const key = String(groupKey || '').trim();
+    const nextId = patch && patch.playbackId ? String(patch.playbackId).trim() : '';
+    if (!key || !nextId) return false;
+
+    const groups = loadGroups();
+    let changed = false;
+    const nextGroups = groups.map(function (group) {
+      let groupChanged = false;
+      const tracks = (group.tracks || []).map(function (track) {
+        if (!track) return track;
+        if (songKeyForStackTrack(track) !== key) return track;
+        if (track.playbackId === nextId) return track;
+        groupChanged = true;
+        changed = true;
+        return Object.assign({}, track, {
+          playbackId: nextId,
+          title: patch.title || track.title,
+          passthrough: patch.passthrough || track.passthrough,
+          filename: patch.filename || track.filename,
+          name: patch.filename || track.name || track.title
+        });
+      });
+      return groupChanged ? Object.assign({}, group, { tracks: tracks }) : group;
+    });
+
+    if (changed) saveGroups(nextGroups);
+    return changed;
+  }
+
+  /**
    * Unique songs in stack order. Duplicate titles share one slot; members stay
    * together so reorder never flattens/auto-sorts curated album order (e.g. PN).
    */
@@ -904,6 +938,7 @@
     reorderUniqueSongs: reorderUniqueSongs,
     removeUniqueSong: removeUniqueSong,
     songKeyForStackTrack: songKeyForStackTrack,
+    upgradeTracksBySongKey: upgradeTracksBySongKey,
     clearStack: clearStack,
     thumbnailUrl: thumbnailUrl,
     songPageUrl: songPageUrl,

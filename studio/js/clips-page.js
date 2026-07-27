@@ -1906,21 +1906,11 @@
       if (shell.mountBar) shell.mountBar();
     }
 
-    // Same song stack already active (any version) → snappy pause/resume.
+    // Same clip already active → pause/resume. Different mix of same song → switch.
     if (player && block.kind !== 'video' && typeof player.togglePause === 'function') {
-      var activeSong = typeof player.getActiveSong === 'function' ? player.getActiveSong() : null;
       var sameClip =
         typeof player.isActivePlaybackId === 'function' && player.isActivePlaybackId(block.playbackId);
-      var sameStack = false;
-      if (!sameClip && activeSong && block.playbackId) {
-        var blockKey = groupKeyForBlock(block);
-        var activeKey =
-          versionsApi() && versionsApi().getTrackGroupKey
-            ? versionsApi().getTrackGroupKey(activeSong.title || activeSong.displayTitle || '')
-            : '';
-        sameStack = !!(blockKey && activeKey && blockKey === activeKey);
-      }
-      if (sameClip || sameStack) {
+      if (sameClip) {
         player.togglePause();
         syncPlayingBlocks();
         return;
@@ -2417,9 +2407,109 @@
       });
   }
 
+  function rememberUploadedAsset(payload) {
+    if (!payload || !payload.playbackId) return;
+    var existing = libraryCache.find(function (row) {
+      return row && row.playbackId === payload.playbackId;
+    });
+    if (existing) {
+      existing.passthrough = payload.passthrough || existing.passthrough;
+      existing.name = payload.filename || existing.name;
+      existing.displayTitle = payload.title || existing.displayTitle;
+      existing.kind = payload.kind || existing.kind;
+    } else {
+      libraryCache = [
+        {
+          playbackId: payload.playbackId,
+          passthrough: payload.passthrough || payload.filename || '',
+          name: payload.filename || payload.title || '',
+          displayTitle: payload.title || '',
+          kind: payload.kind || 'audio',
+          createdAt: new Date().toISOString()
+        }
+      ].concat(libraryCache || []);
+    }
+    syncNowPlayingCatalog();
+  }
+
+  function upgradeCollectionsForUpload(payload) {
+    var shared = window.BurnfolderStreamShared;
+    if (!shared || typeof shared.upgradeTracksBySongKey !== 'function') return;
+    var key =
+      versionsApi() && versionsApi().getTrackGroupKey
+        ? versionsApi().getTrackGroupKey(
+            payload.passthrough || payload.filename || payload.title || ''
+          )
+        : '';
+    if (!key) return;
+    shared.upgradeTracksBySongKey(key, {
+      playbackId: payload.playbackId,
+      title: payload.title,
+      passthrough: payload.passthrough,
+      filename: payload.filename
+    });
+  }
+
+  function playUploadedMix(payload) {
+    if (!payload || !payload.playbackId || payload.kind === 'video') return;
+    var player = window.BurnfolderStreamPlayer;
+    if (!player || typeof player.playItem !== 'function') return;
+    var activeSong = typeof player.getActiveSong === 'function' ? player.getActiveSong() : null;
+    var activeKey = '';
+    var uploadKey =
+      versionsApi() && versionsApi().getTrackGroupKey
+        ? versionsApi().getTrackGroupKey(
+            payload.passthrough || payload.filename || payload.title || ''
+          )
+        : '';
+    if (activeSong && versionsApi() && versionsApi().getTrackGroupKey) {
+      activeKey = versionsApi().getTrackGroupKey(
+        activeSong.title || activeSong.displayTitle || activeSong.passthrough || ''
+      );
+    }
+    var sameStack = !!(uploadKey && activeKey && uploadKey === activeKey);
+    var sameId =
+      typeof player.isActivePlaybackId === 'function' &&
+      player.isActivePlaybackId(payload.playbackId);
+    if (!sameStack && !sameId) return;
+    if (sameId) return;
+
+    var title =
+      (versionsApi() && versionsApi().stripTrailingDate
+        ? versionsApi().stripTrailingDate(payload.title || payload.passthrough || '')
+        : payload.title) || 'track';
+    try {
+      player.playItem({
+        title: title,
+        displayTitle: title,
+        filename: payload.filename || '',
+        name: payload.filename || title,
+        passthrough: payload.passthrough || payload.filename || title,
+        playbackId: payload.playbackId,
+        kind: 'audio',
+        hasVideoTrack: false
+      });
+    } catch (err) {
+      /* keep current playback if swap fails */
+    }
+  }
+
   function uploadMuxFile(file, kind, opts) {
     return uploadMuxPayload(file, kind, opts).then(function (payload) {
-      return store.addBlock(payload);
+      rememberUploadedAsset(payload);
+      upgradeCollectionsForUpload(payload);
+      var mux = window.BurnfolderStudioMux;
+      if (mux && typeof mux.invalidateMuxLibraryCache === 'function') {
+        mux.invalidateMuxLibraryCache();
+      }
+      var save =
+        kind === 'audio' && store && typeof store.upsertAudioUpload === 'function'
+          ? store.upsertAudioUpload(payload)
+          : store.addBlock(payload);
+      return save.then(function (block) {
+        playUploadedMix(payload);
+        return block;
+      });
     });
   }
 
@@ -3056,7 +3146,7 @@
         var mux = window.BurnfolderStudioMux;
         if (mux && typeof mux.listMuxLibrary === 'function') {
           return mux
-            .listMuxLibrary()
+            .listMuxLibrary({ force: true })
             .then(function (assets) {
               libraryCache = assets || [];
               syncNowPlayingCatalog();

@@ -372,10 +372,14 @@
   }
 
   function songLikeFromBlock(block) {
+    // Prefer passthrough/filename so dated mix names survive after title is collapsed to base.
+    var dated = String(
+      (block && (block.passthrough || block.filename || block.title)) || ''
+    ).trim();
     return {
-      title: blockLabel(block),
+      title: dated || blockLabel(block),
       playbackId: block && block.playbackId,
-      createdAt: block && block.createdAt
+      createdAt: block && (block.updatedAt || block.createdAt)
     };
   }
 
@@ -456,6 +460,68 @@
       changed = true;
     }
     return changed;
+  }
+
+  /**
+   * Drop/upload path: always land the new Mux asset as the active mix for that song.
+   * Upgrades an existing audio tile by group key instead of stacking a duplicate.
+   */
+  function upsertAudioUpload(partial) {
+    return load().then(function (state) {
+      var payload = Object.assign({}, partial || {});
+      var kind = String(payload.kind || 'audio').toLowerCase();
+      if (kind !== 'audio') {
+        return addBlock(payload);
+      }
+
+      var rawTitle =
+        payload.title || payload.passthrough || payload.filename || 'track';
+      var title = String(rawTitle)
+        .replace(/\.[^.]+$/, '')
+        .trim() || 'track';
+      var key = groupKeyForTitle(title);
+      var existing = key ? findAudioBlockByGroupKey(state, key) : null;
+      var now = new Date().toISOString();
+
+      if (existing) {
+        existing.playbackId = payload.playbackId || existing.playbackId;
+        existing.title = baseTitleForLabel(title) || existing.title;
+        existing.filename = payload.filename || existing.filename;
+        existing.passthrough = payload.passthrough || existing.passthrough;
+        existing.contentType = payload.contentType || existing.contentType;
+        existing.size = payload.size != null ? payload.size : existing.size;
+        existing.updatedAt = now;
+        existing = normalizeBlock(existing);
+        state.blocks = state.blocks.map(function (b) {
+          return b.id === existing.id ? existing : b;
+        });
+        if (collapseAudioVersionStacks(state)) {
+          existing = findAudioBlockByGroupKey(state, key) || existing;
+        }
+        return save(state).then(function () {
+          return existing;
+        });
+      }
+
+      var block = normalizeBlock(
+        Object.assign({}, payload, {
+          id: payload.id || makeId('block'),
+          kind: 'audio',
+          title: baseTitleForLabel(title) || title,
+          order: typeof payload.order === 'number' ? payload.order : nextOrder(state.blocks),
+          createdAt: payload.createdAt || now,
+          updatedAt: now
+        })
+      );
+      if (!block) return null;
+      state.blocks.unshift(block);
+      if (collapseAudioVersionStacks(state)) {
+        block = findBlockByPlaybackId(state, block.playbackId) || block;
+      }
+      return save(state).then(function () {
+        return block;
+      });
+    });
   }
 
   function findAlbumBlock(state, groupId) {
@@ -879,6 +945,7 @@
     ensureAlbumBlock: ensureAlbumBlock,
     patchAlbumPresentation: patchAlbumPresentation,
     importAudioLibrary: importAudioLibrary,
+    upsertAudioUpload: upsertAudioUpload,
     collapseAudioVersionStacks: collapseAudioVersionStacks,
     blocksInFolder: blocksInFolder,
     findBlockByPlaybackId: findBlockByPlaybackId,
