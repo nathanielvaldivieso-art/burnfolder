@@ -387,18 +387,23 @@
       });
   }
 
-  function blockDownloadButtonHtml(block) {
-    if (!canDownloadClip(block)) return '';
+  function blockActionsMenuHtml(block, opts) {
+    var o = opts || {};
+    var removeAttr = o.folderItem ? 'data-folder-item-remove="1"' : 'data-remove="1"';
+    var downloadItem = canDownloadClip(block)
+      ? '<button type="button" class="clips-block-menu-item" data-download="1" role="menuitem">Download</button>'
+      : '';
     return (
-      '<button type="button" class="clips-block-dl" data-download="1" aria-label="Download" title="download">↓</button>'
+      '<div class="clips-block-menu">' +
+      '<button type="button" class="clips-block-more" data-clip-more="1" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" title="more">⋯</button>' +
+      '<div class="clips-block-menu-panel" role="menu" hidden>' +
+      downloadItem +
+      '<button type="button" class="clips-block-menu-item" ' +
+      removeAttr +
+      ' role="menuitem">Remove</button>' +
+      '</div>' +
+      '</div>'
     );
-  }
-
-  function decorateWithDownload(html, block) {
-    var btn = blockDownloadButtonHtml(block);
-    if (!btn || !html) return html || '';
-    if (/<\/div>\s*$/.test(html)) return html.replace(/<\/div>\s*$/, btn + '</div>');
-    return html + btn;
   }
 
   function normalizeClipName(raw) {
@@ -618,7 +623,7 @@
       ' data-item-count="' +
       versionCount +
       '" tabindex="0">' +
-      blockRemoveButtonHtml() +
+      blockActionsMenuHtml(row.block || { kind: 'audio', title: row.title }) +
       densityMarksHtml(seed, versionCount) +
       '<div class="clips-block-media clips-block-media--blank" aria-hidden="true"></div>' +
       '<h3 class="clips-block-title">' +
@@ -940,7 +945,7 @@
     } else {
       html = '<div class="clips-block-media clips-block-media--blank" aria-hidden="true"></div>';
     }
-    return decorateWithDownload(html, block);
+    return html;
   }
 
   function boardBlockHtml(block) {
@@ -965,7 +970,7 @@
       ' data-item-count="' +
       itemCount +
       '" tabindex="0">' +
-      blockRemoveButtonHtml() +
+      blockActionsMenuHtml(block) +
       densityMarksHtml(block.id || block.groupId || title, itemCount) +
       blockBodyHtml(block) +
       '<h3 class="clips-block-title">' +
@@ -1253,7 +1258,7 @@
       '" data-kind="' +
       escapeHtml(asBlock.kind) +
       '" tabindex="0">' +
-      '<button type="button" class="clips-block-remove" data-folder-item-remove="1" aria-label="Remove" title="remove">×</button>' +
+      blockActionsMenuHtml(asBlock, { folderItem: true }) +
       blockBodyHtml(asBlock) +
       '<h3 class="clips-block-title">' +
       escapeHtml(title) +
@@ -1338,13 +1343,21 @@
             return !!(
               event &&
               event.target &&
-              event.target.closest('[data-folder-item-remove], .clips-block-dl')
+              event.target.closest(
+                '[data-folder-item-remove], [data-download], [data-clip-more], .clips-block-menu'
+              )
             );
           }
         });
       } else {
         node.addEventListener('click', function (event) {
-          if (event.target.closest('[data-folder-item-remove], .clips-block-dl')) return;
+          if (
+            event.target.closest(
+              '[data-folder-item-remove], [data-download], [data-clip-more], .clips-block-menu'
+            )
+          ) {
+            return;
+          }
           onActivate();
         });
       }
@@ -1366,11 +1379,6 @@
     );
   }
 
-  function blockRemoveButtonHtml() {
-    return (
-      '<button type="button" class="clips-block-remove" data-remove="1" aria-label="Remove" title="remove">×</button>'
-    );
-  }
 
   function blockPreview(block) {
     if (block.kind === 'image' && block.vaultKey) {
@@ -1555,7 +1563,7 @@
               (event &&
                 event.target &&
                 event.target.closest(
-                  '.clips-block-edit, .clips-block-remove, .clips-block-dl, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play, .clips-composer-submit, .clips-composer-files, .clips-composer-folder'
+                  '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play, .clips-composer-submit, .clips-composer-files, .clips-composer-folder'
                 )) ||
               node.dataset.studioJustDragged === '1'
             );
@@ -1839,7 +1847,7 @@
       if (
         event.target &&
         event.target.closest(
-          '.clips-block-edit, .clips-block-remove, .clips-block-dl, .clips-composer-files, .clips-composer-folder, .clips-composer-submit, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play'
+          '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-composer-files, .clips-composer-folder, .clips-composer-submit, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play'
         )
       ) {
         return;
@@ -2763,16 +2771,53 @@
       });
   }
 
+  function closeAllClipMenus(exceptMenu) {
+    var root = el('clipsRoot') || document.body;
+    root.querySelectorAll('.clips-block-menu.is-open').forEach(function (menu) {
+      if (exceptMenu && menu === exceptMenu) return;
+      menu.classList.remove('is-open');
+      var btn = menu.querySelector('[data-clip-more]');
+      var panel = menu.querySelector('.clips-block-menu-panel');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      if (panel) panel.hidden = true;
+    });
+  }
+
+  function toggleClipMenu(menu) {
+    if (!menu) return;
+    var willOpen = !menu.classList.contains('is-open');
+    closeAllClipMenus(willOpen ? menu : null);
+    var btn = menu.querySelector('[data-clip-more]');
+    var panel = menu.querySelector('.clips-block-menu-panel');
+    if (willOpen) {
+      menu.classList.add('is-open');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      if (panel) panel.hidden = false;
+    } else {
+      menu.classList.remove('is-open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      if (panel) panel.hidden = true;
+    }
+  }
+
   function bindOnce() {
     if (bound) return;
     bound = true;
     var root = el('clipsRoot') || document.body;
 
     root.addEventListener('click', function (event) {
-      var downloadBtn = event.target.closest('[data-download], .clips-block-dl');
+      var moreBtn = event.target.closest('[data-clip-more]');
+      if (moreBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleClipMenu(moreBtn.closest('.clips-block-menu'));
+        return;
+      }
+      var downloadBtn = event.target.closest('[data-download]');
       if (downloadBtn) {
         event.preventDefault();
         event.stopPropagation();
+        closeAllClipMenus();
         var dlBlockEl = downloadBtn.closest('.clips-block');
         if (!dlBlockEl) return;
         var folderItemId = dlBlockEl.getAttribute('data-folder-item-id');
@@ -2797,6 +2842,7 @@
       if (removeBtn) {
         event.preventDefault();
         event.stopPropagation();
+        closeAllClipMenus();
         var removeBlockEl = removeBtn.closest('.clips-block');
         handleRemoveTarget(removeBlockEl);
         return;
@@ -2805,11 +2851,15 @@
       if (folderItemRemove) {
         event.preventDefault();
         event.stopPropagation();
+        closeAllClipMenus();
         var itemNode = folderItemRemove.closest('[data-folder-item-id]');
         var itemId = itemNode && itemNode.getAttribute('data-folder-item-id');
         if (!itemId) return;
         removeOpenFolderItem(itemId);
         return;
+      }
+      if (!event.target.closest('.clips-block-menu')) {
+        closeAllClipMenus();
       }
       if (event.target.closest('#clipsComposerSubmit')) {
         event.preventDefault();
@@ -2852,6 +2902,12 @@
 
     root.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
+        var openMenu = root.querySelector('.clips-block-menu.is-open');
+        if (openMenu) {
+          event.preventDefault();
+          closeAllClipMenus();
+          return;
+        }
         var box = el('clipsLightbox');
         if (box && !box.hidden) {
           event.preventDefault();
