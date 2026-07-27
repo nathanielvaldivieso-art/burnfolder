@@ -184,6 +184,7 @@
 
     return openDb().then(function (db) {
       const results = [];
+      const failures = [];
       let chain = Promise.resolve();
 
       files.forEach(function (file, index) {
@@ -202,6 +203,7 @@
               return saved;
             })
             .catch(function (err) {
+              failures.push(err);
               if (cbs.onFileError) cbs.onFileError(file, err, index, files.length);
               return null;
             });
@@ -210,7 +212,12 @@
 
       return chain.then(function () {
         db.close();
-        return results.filter(Boolean);
+        const kept = results.filter(Boolean);
+        // Single-file callers (clips) need the real Mux error, not an empty array.
+        if (!kept.length && failures.length && !cbs.onFileError) {
+          return Promise.reject(failures[0]);
+        }
+        return kept;
       });
     });
   }

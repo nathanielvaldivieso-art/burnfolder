@@ -2345,7 +2345,13 @@
       .then(function (assets) {
         var asset = assets && assets[0];
         var playbackId = asset && (asset.muxPlaybackId || asset.playbackId);
-        if (!playbackId) throw new Error('mux upload failed');
+        if (!playbackId) {
+          throw new Error(
+            (assets && assets.length === 0
+              ? 'mux upload failed'
+              : 'mux upload failed — no playback id')
+          );
+        }
         finishUploadRow(file, true);
         return {
           kind: kind,

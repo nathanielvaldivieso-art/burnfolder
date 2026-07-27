@@ -88,6 +88,34 @@
     });
   }
 
+  function putFileWithRetry(url, file, options, phaseLabel) {
+    const attempts = 3;
+    let tryNo = 0;
+
+    function run() {
+      tryNo += 1;
+      return xhrPutFile(url, file, options, phaseLabel).catch(function (err) {
+        const msg = String((err && err.message) || '');
+        const retryable =
+          msg === 'mux file upload failed' || /failed \((0|408|429|5\d\d)\)$/.test(msg);
+        if (!retryable || tryNo >= attempts) throw err;
+        onStatusRetry(options, tryNo);
+        return delay(600 * tryNo).then(run);
+      });
+    }
+
+    return run();
+  }
+
+  function onStatusRetry(options, tryNo) {
+    reportProgress(options, {
+      percent: 12,
+      status: 'working',
+      phase: 'retrying',
+      message: 'retrying upload (' + tryNo + ')…'
+    });
+  }
+
   function uploadFileToMux(file, opts) {
     const options = opts || {};
     const onStatus = options.onStatus || function () {};
@@ -121,7 +149,7 @@
       })
       .then(function (created) {
         onStatus('uploading to mux as ' + (created.passthrough || fileName) + '…');
-        return xhrPutFile(created.uploadUrl, file, options, 'uploading').then(function () {
+        return putFileWithRetry(created.uploadUrl, file, options, 'uploading').then(function () {
           return {
             uploadId: created.uploadId,
             passthrough: created.passthrough || fileName
@@ -136,7 +164,9 @@
           message: 'processing on mux…'
         });
 
-        const maxAttempts = 90;
+        // Large WAV/AIFF exports need more headroom than short clips.
+        const sizeMb = (file && file.size ? file.size : 0) / (1024 * 1024);
+        const maxAttempts = sizeMb > 80 ? 180 : sizeMb > 30 ? 140 : 90;
         let attempt = 0;
 
         function pollDelayMs(n) {
@@ -165,6 +195,9 @@
             })
             .then(function (data) {
               if (data.error) throw new Error(data.error.message || 'mux processing error');
+              if (data.assetStatus === 'errored') {
+                throw new Error('mux asset processing failed');
+              }
               if (data.playbackId) {
                 onStatus('mux ready: ' + started.passthrough);
                 reportProgress(options, {
@@ -180,7 +213,11 @@
                   muxLabel: started.passthrough
                 };
               }
-              if (data.status === 'errored' || data.status === 'cancelled') {
+              if (
+                data.status === 'errored' ||
+                data.status === 'cancelled' ||
+                data.status === 'timed_out'
+              ) {
                 throw new Error('mux upload ' + data.status);
               }
               if (attempt >= maxAttempts) throw new Error('mux processing timed out');

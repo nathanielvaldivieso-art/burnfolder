@@ -68,6 +68,17 @@ exports.handler = async function (event) {
         out.assetStatus = asset.status;
         out.passthrough = uploadPassthrough || asset.passthrough || null;
 
+        // Upload can sit at asset_created while the asset itself errored —
+        // surface that so the client doesn't poll until timeout.
+        if (asset.status === 'errored' && !out.error) {
+          const assetErr = asset.errors && asset.errors.length ? asset.errors[0] : null;
+          out.error = {
+            message:
+              (assetErr && (assetErr.message || assetErr.type)) ||
+              'mux asset processing failed'
+          };
+        }
+
         if (uploadPassthrough && !String(asset.passthrough || '').trim()) {
           await muxPatch(
             '/video/v1/assets/' + encodeURIComponent(upload.asset_id),
