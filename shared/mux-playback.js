@@ -312,9 +312,15 @@
 
     /**
      * Detect end-of-track for queue advance.
-     * Visible tabs use a tiny tail slack so we don't chop the last notes.
-     * Hidden/lock-screen uses a larger window because iOS throttles timeupdate
-     * and timers while the screen is off — waiting for true `ended` stalls albums.
+     *
+     * Visible tabs wait for the native `ended` event only. Near-end duration
+     * checks chop outros on album queues — the main site always queues the next
+     * track after PHOTO NEGATIVE, so an early handoff is audible there, while
+     * studio single-song play masks the same bug (no next track to swap to).
+     *
+     * Hidden/lock-screen keeps a sub-second fallback because iOS can throttle
+     * timeupdate and skip `ended`. Keep that window tiny — a multi-second slack
+     * (e.g. 1.5s) cuts songs short whenever the PWA is backgrounded.
      */
     function trackFinished(player) {
       if (!player) return false;
@@ -325,8 +331,8 @@
         return false;
       }
       const hidden = typeof document !== 'undefined' && document.hidden;
-      const tailSlack = hidden ? 1.5 : 0.08;
-      return current >= duration - tailSlack;
+      if (!hidden) return false;
+      return current >= duration - 0.15;
     }
 
     function ensureQueueHandoffPlaying(player, normalized, immediatePlay) {
