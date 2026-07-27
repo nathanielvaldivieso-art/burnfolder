@@ -86,11 +86,13 @@ exports.handler = async function (event) {
     const sourceName = fileName || legacyPassthrough || 'file';
     const passthrough = uniqueMuxFileName(sourceName, taken);
 
+    // Mux rejects deprecated mp4_support:"standard" on basic-quality assets.
+    // static_renditions covers downloadable MP4/M4A for video + audio uploads.
     const payload = {
       cors_origin: corsOrigin,
       new_asset_settings: {
-        playback_policy: ['public'],
-        mp4_support: 'standard',
+        playback_policies: ['public'],
+        static_renditions: [{ resolution: 'highest' }, { resolution: 'audio-only' }],
         passthrough: passthrough
       }
     };
@@ -107,11 +109,16 @@ exports.handler = async function (event) {
     const data = await res.json();
 
     if (!res.ok) {
+      const err = data && data.error;
+      const fromMessages =
+        err && Array.isArray(err.messages) && err.messages.length
+          ? err.messages.join('; ')
+          : '';
       return {
         statusCode: res.status,
         headers,
         body: JSON.stringify({
-          message: data && data.error && data.error.message ? data.error.message : 'Mux create upload failed',
+          message: (err && err.message) || fromMessages || 'Mux create upload failed',
           details: data
         })
       };

@@ -298,12 +298,17 @@
     return false;
   }
 
-  function muxDownloadUrl(playbackId, filename) {
+  function muxDownloadUrl(playbackId, filename, kind) {
+    var safeName = filename || (kind === 'audio' ? 'clip.m4a' : 'clip.mp4');
+    // New uploads use static_renditions; audio-only assets expose audio.m4a.
+    var rendition = kind === 'audio' ? 'audio.m4a' : 'highest.mp4';
     return (
       'https://stream.mux.com/' +
       encodeURIComponent(playbackId) +
-      '/c.mp4?download=' +
-      encodeURIComponent(filename || 'clip.mp4')
+      '/' +
+      rendition +
+      '?download=' +
+      encodeURIComponent(safeName)
     );
   }
 
@@ -323,7 +328,9 @@
     if (!block) return Promise.reject(new Error('nothing to download'));
     var name = clipDownloadName(block);
     if (block.vaultKey) return fetchDownloadUrl(block.vaultKey, name);
-    if (block.playbackId) return Promise.resolve(muxDownloadUrl(block.playbackId, name));
+    if (block.playbackId) {
+      return Promise.resolve(muxDownloadUrl(block.playbackId, name, block.kind));
+    }
     return Promise.reject(new Error('nothing to download'));
   }
 
