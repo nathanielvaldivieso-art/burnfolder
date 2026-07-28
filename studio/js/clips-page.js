@@ -2679,11 +2679,52 @@
     });
   }
 
+  function looksLikeLocalFilePath(text) {
+    var value = String(text || '').trim();
+    if (!value) return false;
+    if (/^https?:\/\//i.test(value)) return false;
+    if (/^file:\/\//i.test(value)) return true;
+    if (value.charAt(0) === '/') return true;
+    if (/^[A-Za-z]:[\\/]/.test(value)) return true;
+    return /\.(wav|mp3|flac|aiff|aif|m4a|ogg|aac|mp4|mov|m4v|webm|mkv|avi|png|jpe?g|gif|webp|pdf|zip)(\s|$)/i.test(
+      value
+    );
+  }
+
+  function clearComposerInput() {
+    var input = el('clipsComposerInput');
+    if (input) input.value = '';
+  }
+
+  /** Safari drops on textareas often leave dt.files empty unless dragover was prevented early. */
+  function collectDroppedFiles(dt) {
+    if (!dt) return [];
+    if (dt.files && dt.files.length) {
+      return Array.prototype.slice.call(dt.files);
+    }
+    if (!dt.items || !dt.items.length) return [];
+    var files = [];
+    Array.prototype.slice.call(dt.items).forEach(function (item) {
+      if (!item || item.kind !== 'file') return;
+      var file = typeof item.getAsFile === 'function' ? item.getAsFile() : null;
+      if (file) files.push(file);
+    });
+    return files;
+  }
+
   function handleDrop(event) {
     event.preventDefault();
+    event.stopPropagation();
     document.body.classList.remove('clips-drag-over');
     var dt = event.dataTransfer;
     if (!dt) return;
+
+    var droppedFiles = collectDroppedFiles(dt);
+    if (droppedFiles.length) {
+      clearComposerInput();
+      handleFiles(droppedFiles);
+      return;
+    }
 
     var folderEntries = collectDroppedFolderEntries(dt);
     if (folderEntries) {
@@ -2691,6 +2732,7 @@
         setStatus('read only');
         return;
       }
+      clearComposerInput();
       setStatus('reading folder…');
       folderEntries
         .then(function (entries) {
@@ -2704,9 +2746,15 @@
 
     var uri = dt.getData('text/uri-list') || '';
     var plain = dt.getData('text/plain') || '';
+    if (looksLikeLocalFilePath(uri) || looksLikeLocalFilePath(plain)) {
+      setStatus('drop the file itself, not the path');
+      clearComposerInput();
+      return;
+    }
     if (uri && /^https?:\/\//i.test(uri.trim()) && !(dt.files && dt.files.length)) {
       if (!canWrite()) return;
       var href = uri.trim().split(/\s+/)[0];
+      clearComposerInput();
       store
         .addBlock({
           kind: 'link',
@@ -2721,6 +2769,7 @@
     if (plain && /^https?:\/\//i.test(plain.trim()) && !(dt.files && dt.files.length)) {
       if (!canWrite()) return;
       var linkHref = plain.trim().split(/\s+/)[0];
+      clearComposerInput();
       store
         .addBlock({
           kind: 'link',
@@ -2735,6 +2784,7 @@
     if (plain && plain.trim() && !(dt.files && dt.files.length) && !/^https?:\/\//i.test(plain.trim())) {
       if (!canWrite()) return;
       var note = plain.trim();
+      clearComposerInput();
       store
         .addBlock({
           kind: 'text',
@@ -2745,10 +2795,6 @@
           return refresh();
         });
       return;
-    }
-
-    if (dt.files && dt.files.length) {
-      handleFiles(dt.files);
     }
   }
 
@@ -3089,21 +3135,23 @@
     root.addEventListener('dragenter', function (event) {
       if (!event.dataTransfer) return;
       event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
       document.body.classList.add('clips-drag-over');
-    });
+    }, true);
     root.addEventListener('dragover', function (event) {
       if (!event.dataTransfer) return;
       event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
       document.body.classList.add('clips-drag-over');
-    });
+    }, true);
     root.addEventListener('dragleave', function (event) {
       if (!root.contains(event.relatedTarget)) {
         document.body.classList.remove('clips-drag-over');
       }
-    });
+    }, true);
     root.addEventListener('drop', function (event) {
       handleDrop(event);
-    });
+    }, true);
 
     window.addEventListener('burnfolder-stream-playback', syncPlayingBlocks);
     window.addEventListener('burnfolder-stack-changed', function () {
