@@ -7387,14 +7387,16 @@ body.clips-clip-dragging .clips-block {
   text-transform: lowercase;
   opacity: 0.35;
   pointer-events: none;
+  z-index: 1;
 }
 
 .clips-composer-input {
   flex: 1;
   width: 100%;
+  min-height: 0;
   box-sizing: border-box;
   margin: 0;
-  padding: 28px 12px 44px;
+  padding: 28px 12px 8px;
   border: none;
   resize: none;
   background: transparent;
@@ -7410,12 +7412,15 @@ body.clips-clip-dragging .clips-block {
 }
 
 .clips-composer-actions {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
+  padding: 0 8px 8px;
+  pointer-events: auto;
 }
 
 .clips-composer-submit,
@@ -7562,7 +7567,7 @@ body.clips-clip-dragging .clips-block {
   }
 
   .clips-composer-input {
-    padding-bottom: 56px;
+    padding-bottom: 8px;
   }
 
   .clips-composer-submit,

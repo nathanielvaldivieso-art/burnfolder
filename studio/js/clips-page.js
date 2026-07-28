@@ -1535,8 +1535,51 @@
         });
     });
 
+    wireComposerActions(board);
     wireBlockTaps(board);
     syncPlayingBlocks();
+  }
+
+  function openClipsFilePicker() {
+    var fileInput = el('clipsFileInput');
+    if (fileInput) fileInput.click();
+  }
+
+  function openClipsFolderPicker() {
+    var folderPickerInput = el('clipsFolderInput');
+    if (folderPickerInput) folderPickerInput.click();
+  }
+
+  function wireComposerActions(board) {
+    if (!board) return;
+    var submit = board.querySelector('#clipsComposerSubmit');
+    var files = board.querySelector('#clipsComposerFiles');
+    var folder = board.querySelector('#clipsComposerFolder');
+    if (submit && submit.dataset.bound !== '1') {
+      submit.dataset.bound = '1';
+      submit.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var submitInput = el('clipsComposerInput');
+        commitComposerValue(submitInput && submitInput.value);
+      });
+    }
+    if (files && files.dataset.bound !== '1') {
+      files.dataset.bound = '1';
+      files.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openClipsFilePicker();
+      });
+    }
+    if (folder && folder.dataset.bound !== '1') {
+      folder.dataset.bound = '1';
+      folder.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openClipsFolderPicker();
+      });
+    }
   }
 
   function wireBlockTaps(board) {
@@ -3012,18 +3055,21 @@
       }
       if (event.target.closest('#clipsComposerSubmit')) {
         event.preventDefault();
+        event.stopPropagation();
         var submitInput = el('clipsComposerInput');
         commitComposerValue(submitInput && submitInput.value);
         return;
       }
       if (event.target.closest('#clipsComposerFiles')) {
-        var fileInput = el('clipsFileInput');
-        if (fileInput) fileInput.click();
+        event.preventDefault();
+        event.stopPropagation();
+        openClipsFilePicker();
         return;
       }
       if (event.target.closest('#clipsComposerFolder')) {
-        var folderPickerInput = el('clipsFolderInput');
-        if (folderPickerInput) folderPickerInput.click();
+        event.preventDefault();
+        event.stopPropagation();
+        openClipsFolderPicker();
         return;
       }
       if (event.target.closest('[data-composer]')) {
@@ -3031,7 +3077,9 @@
         if (
           composer &&
           event.target !== composer &&
-          !event.target.closest('#clipsComposerFiles, #clipsComposerSubmit')
+          !event.target.closest(
+            '#clipsComposerFiles, #clipsComposerSubmit, #clipsComposerFolder, .clips-composer-actions'
+          )
         ) {
           composer.focus();
         }
