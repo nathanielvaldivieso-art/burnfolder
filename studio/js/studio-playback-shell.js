@@ -311,39 +311,51 @@
   }
 
   function bindSpacePlayPause() {
-    if (window.__studioSpacePlayBound) return;
-    window.__studioSpacePlayBound = true;
-    document.addEventListener('keydown', function (event) {
-      if (event.code !== 'Space' && event.key !== ' ') return;
-      if (event.defaultPrevented) return;
-      if (isTypingTarget(event.target)) return;
-      ensureShell();
-      mountBar();
-      const eng = getEngine();
-      const song = eng && eng.getActiveSong ? eng.getActiveSong() : null;
-      if (!song || !song.playbackId) return;
-      const shell = document.getElementById(SHELL_ID);
-      const bar = shell ? shell.querySelector('#bottomBar') : null;
-      const barOpen =
-        (bar && bar.style.display === 'flex') ||
-        document.body.classList.contains('stream-playback-active');
-      if (!barOpen) return;
-      event.preventDefault();
-      event.stopPropagation();
-      window.__burnfolderSpacePlay = true;
-      eng.togglePlayPause();
-      const active = document.activeElement;
-      if (
-        active &&
-        typeof active.blur === 'function' &&
-        active !== document.body &&
-        (active.id === 'streamPlayPause' ||
-          active.id === 'bottomPlayPause' ||
-          (active.classList && active.classList.contains('clips-block')))
-      ) {
-        active.blur();
-      }
-    });
+    if (window.__studioSpacePlayBoundV2) return;
+    window.__studioSpacePlayBoundV2 = true;
+    // Capture phase so focused clip tiles cannot steal Space before we toggle.
+    document.addEventListener(
+      'keydown',
+      function (event) {
+        if (event.code !== 'Space' && event.key !== ' ') return;
+        if (isTypingTarget(event.target)) return;
+        ensureShell();
+        mountBar();
+        const eng = getEngine();
+        const song = eng && eng.getActiveSong ? eng.getActiveSong() : null;
+        const player = getShellPlayer();
+        const playbackId =
+          (song && song.playbackId) ||
+          (player && player.getAttribute && player.getAttribute('playback-id')) ||
+          '';
+        if (!playbackId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') {
+          event.stopImmediatePropagation();
+        }
+        window.__burnfolderSpacePlay = true;
+        if (eng && typeof eng.togglePlayPause === 'function' && song && song.playbackId) {
+          eng.togglePlayPause();
+        } else if (player) {
+          if (player.paused) player.play().catch(function () {});
+          else player.pause();
+        }
+        const active = document.activeElement;
+        if (
+          active &&
+          typeof active.blur === 'function' &&
+          active !== document.body &&
+          (active.id === 'streamPlayPause' ||
+            active.id === 'bottomPlayPause' ||
+            active.id === 'clipsCollectionPlay' ||
+            (active.classList && active.classList.contains('clips-block')))
+        ) {
+          active.blur();
+        }
+      },
+      true
+    );
     document.addEventListener('keyup', function (event) {
       if (event.code !== 'Space' && event.key !== ' ') return;
       if (!window.__burnfolderSpacePlay) return;

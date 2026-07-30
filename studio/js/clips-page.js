@@ -1628,10 +1628,12 @@
         var block = findBlock(node.getAttribute('data-block-id'));
         if (block) {
           activateBlock(block);
+          if (node.blur) node.blur();
           return;
         }
         if (openGroupId && node.getAttribute('data-collection-track') === '1') {
           playCollectionFrom(0, node.getAttribute('data-playback-id') || '');
+          if (node.blur) node.blur();
         }
       }
       if (tap && typeof tap.bind === 'function') {
@@ -3164,28 +3166,12 @@
       }
       var blockEl = event.target.closest('.clips-block[data-block-id]');
       if (!blockEl) return;
-      if (event.key === 'Enter' || event.key === ' ') {
-        // Space while something is already playing belongs to global play/pause.
-        // preventDefault + activateBlock here stole Space (and collection Space
-        // restarted the queue) until the bar button blurred focus off the tile.
-        if (event.key === ' ') {
-          var spacePlayer = window.BurnfolderStreamPlayer;
-          var spaceSong =
-            spacePlayer && typeof spacePlayer.getActiveSong === 'function'
-              ? spacePlayer.getActiveSong()
-              : null;
-          if (spaceSong && spaceSong.playbackId && typeof spacePlayer.togglePause === 'function') {
-            event.preventDefault();
-            spacePlayer.togglePause();
-            syncPlayingBlocks();
-            releaseClipKeyboardFocus();
-            return;
-          }
-        }
-        var spaceBlock = findBlock(blockEl.getAttribute('data-block-id'));
-        if (!spaceBlock) return;
+      // Space is owned by studio-playback-shell (capture). Enter still activates.
+      if (event.key === 'Enter') {
+        var enterBlock = findBlock(blockEl.getAttribute('data-block-id'));
+        if (!enterBlock) return;
         event.preventDefault();
-        activateBlock(spaceBlock);
+        activateBlock(enterBlock);
       }
       if (event.key === 'Backspace' || event.key === 'Delete') {
         event.preventDefault();
