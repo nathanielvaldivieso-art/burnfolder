@@ -1079,9 +1079,11 @@
         if (playBtn.classList.contains('is-playing') && player && player.togglePause) {
           player.togglePause();
           syncPlayingBlocks();
+          if (playBtn.blur) playBtn.blur();
           return;
         }
         playCollectionFrom(0);
+        if (playBtn.blur) playBtn.blur();
       });
     }
   }
@@ -1125,6 +1127,19 @@
     return coverFileInput;
   }
 
+  function releaseClipKeyboardFocus() {
+    var active = document.activeElement;
+    if (
+      active &&
+      active !== document.body &&
+      typeof active.blur === 'function' &&
+      active.classList &&
+      active.classList.contains('clips-block')
+    ) {
+      active.blur();
+    }
+  }
+
   function playCollectionFrom(index, startPlaybackId) {
     var rows = collectionSongRows();
     if (!rows.length) return;
@@ -1136,6 +1151,18 @@
     }
     if (!player || typeof player.playQueue !== 'function') {
       setStatus('playback unavailable');
+      return;
+    }
+    // Same active track → pause/resume (Space / re-activate), not restart.
+    if (
+      startPlaybackId &&
+      typeof player.isActivePlaybackId === 'function' &&
+      player.isActivePlaybackId(startPlaybackId) &&
+      typeof player.togglePause === 'function'
+    ) {
+      player.togglePause();
+      syncPlayingBlocks();
+      releaseClipKeyboardFocus();
       return;
     }
     var tracks = rows.map(function (row) {
@@ -1160,6 +1187,7 @@
       startPlaybackId: (tracks[idx] && tracks[idx].playbackId) || startPlaybackId || ''
     });
     syncPlayingBlocks();
+    releaseClipKeyboardFocus();
   }
 
   function fileIntoOpenCollection(block) {
@@ -1956,6 +1984,7 @@
       if (sameClip) {
         player.togglePause();
         syncPlayingBlocks();
+        releaseClipKeyboardFocus();
         return;
       }
     }
@@ -1981,6 +2010,7 @@
           stage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         syncPlayingBlocks();
+        releaseClipKeyboardFocus();
         return;
       }
     }
@@ -2016,6 +2046,7 @@
       if (mux.paused) mux.play().catch(function () {});
     }
     syncPlayingBlocks();
+    releaseClipKeyboardFocus();
   }
 
   function markBlockPlaying(blockId, on) {
@@ -3134,8 +3165,27 @@
       var blockEl = event.target.closest('.clips-block[data-block-id]');
       if (!blockEl) return;
       if (event.key === 'Enter' || event.key === ' ') {
+        // Space while something is already playing belongs to global play/pause.
+        // preventDefault + activateBlock here stole Space (and collection Space
+        // restarted the queue) until the bar button blurred focus off the tile.
+        if (event.key === ' ') {
+          var spacePlayer = window.BurnfolderStreamPlayer;
+          var spaceSong =
+            spacePlayer && typeof spacePlayer.getActiveSong === 'function'
+              ? spacePlayer.getActiveSong()
+              : null;
+          if (spaceSong && spaceSong.playbackId && typeof spacePlayer.togglePause === 'function') {
+            event.preventDefault();
+            spacePlayer.togglePause();
+            syncPlayingBlocks();
+            releaseClipKeyboardFocus();
+            return;
+          }
+        }
+        var spaceBlock = findBlock(blockEl.getAttribute('data-block-id'));
+        if (!spaceBlock) return;
         event.preventDefault();
-        activateBlock(findBlock(blockEl.getAttribute('data-block-id')));
+        activateBlock(spaceBlock);
       }
       if (event.key === 'Backspace' || event.key === 'Delete') {
         event.preventDefault();

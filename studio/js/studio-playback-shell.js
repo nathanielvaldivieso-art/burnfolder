@@ -330,7 +330,27 @@
       if (!barOpen) return;
       event.preventDefault();
       event.stopPropagation();
+      window.__burnfolderSpacePlay = true;
       eng.togglePlayPause();
+      const active = document.activeElement;
+      if (
+        active &&
+        typeof active.blur === 'function' &&
+        active !== document.body &&
+        (active.id === 'streamPlayPause' ||
+          active.id === 'bottomPlayPause' ||
+          (active.classList && active.classList.contains('clips-block')))
+      ) {
+        active.blur();
+      }
+    });
+    document.addEventListener('keyup', function (event) {
+      if (event.code !== 'Space' && event.key !== ' ') return;
+      if (!window.__burnfolderSpacePlay) return;
+      window.__burnfolderSpacePlay = false;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
     });
   }
 
