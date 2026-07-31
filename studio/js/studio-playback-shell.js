@@ -245,6 +245,7 @@
       barEl: bar,
       titleEl: shell.querySelector('#streamNowPlayingTitle'),
       playBtnEl: shell.querySelector('#streamPlayPause'),
+      rateBtnEl: shell.querySelector('#streamPlaybackRate'),
       closeBtnEl: shell.querySelector('#streamNowPlayingClose'),
       progressEl: bar.querySelector('#progressBarArea'),
       muxPlayerEl: getShellPlayer(),
@@ -253,9 +254,19 @@
       },
       bodyActiveClass: 'stream-playback-active',
       playbackEventName: 'burnfolder-stream-playback',
+      enablePlaybackRate: true,
+      playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
       getActiveSong: function () {
         const e = getEngine();
         return e ? e.getActiveSong() : null;
+      },
+      getPlaybackRate: function () {
+        const e = getEngine();
+        return e && e.getPlaybackRate ? e.getPlaybackRate() : 1;
+      },
+      onSetPlaybackRate: function (rate) {
+        const e = getEngine();
+        if (e && e.setPlaybackRate) e.setPlaybackRate(rate);
       },
       onTogglePlay: function () {
         const e = getEngine();

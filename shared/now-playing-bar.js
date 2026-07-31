@@ -24,6 +24,31 @@
   const PAUSE_SVG =
     '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>';
 
+  const DEFAULT_PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  function formatPlaybackRate(rate) {
+    const n = Number(rate);
+    if (!Number.isFinite(n) || n <= 0) return '1×';
+    const rounded = Math.round(n * 100) / 100;
+    const label = Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    return label + '×';
+  }
+
+  function nearestRateIndex(rates, rate) {
+    const n = Number(rate);
+    if (!Number.isFinite(n) || !rates.length) return 0;
+    let best = 0;
+    let bestDist = Math.abs(rates[0] - n);
+    for (let i = 1; i < rates.length; i++) {
+      const dist = Math.abs(rates[i] - n);
+      if (dist < bestDist) {
+        best = i;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+
   function formatTimecode(totalSeconds) {
     if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
     const whole = Math.floor(totalSeconds);
@@ -42,6 +67,51 @@
     const titleEl = opts.titleEl || document.getElementById('songTitle') || document.getElementById('streamNowPlayingTitle');
     const playBtn = opts.playBtnEl || document.getElementById('bottomPlayPause') || document.getElementById('streamPlayPause');
     const closeBtn = opts.closeBtnEl || document.getElementById('closeBtn') || document.getElementById('streamNowPlayingClose');
+    const rateBtn =
+      opts.rateBtnEl ||
+      (bar && (bar.querySelector('#streamPlaybackRate') || bar.querySelector('.bottom-playback-rate-btn'))) ||
+      document.getElementById('streamPlaybackRate');
+    const playbackRates =
+      Array.isArray(opts.playbackRates) && opts.playbackRates.length
+        ? opts.playbackRates.filter(function (r) {
+            return Number.isFinite(Number(r)) && Number(r) > 0;
+          })
+        : DEFAULT_PLAYBACK_RATES;
+    let resolvedRateBtn = rateBtn;
+    const rateEnabled =
+      opts.enablePlaybackRate === true || typeof opts.onSetPlaybackRate === 'function';
+
+    function ensureRateButton() {
+      if (!rateEnabled || !bar) return null;
+      if (resolvedRateBtn && resolvedRateBtn.isConnected) return resolvedRateBtn;
+      const controls =
+        (playBtn && playBtn.parentElement) ||
+        bar.querySelector('.bottom-bar-controls');
+      if (!controls) return null;
+      const existing =
+        controls.querySelector('#streamPlaybackRate') ||
+        controls.querySelector('.bottom-playback-rate-btn');
+      if (existing) {
+        resolvedRateBtn = existing;
+        return resolvedRateBtn;
+      }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bottom-playback-rate-btn';
+      btn.id = 'streamPlaybackRate';
+      btn.setAttribute('aria-label', 'Playback speed');
+      btn.textContent = '1×';
+      if (playBtn && playBtn.parentElement === controls) {
+        playBtn.insertAdjacentElement('afterend', btn);
+      } else {
+        controls.appendChild(btn);
+      }
+      resolvedRateBtn = btn;
+      return resolvedRateBtn;
+    }
+
+    if (rateEnabled) ensureRateButton();
+
     const progressBarArea =
       opts.progressEl ||
       bar.querySelector('#progressBarArea') ||
@@ -146,6 +216,47 @@
       if (!playBtn) return;
       playBtn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
       playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    }
+
+    function currentPlaybackRate() {
+      if (typeof opts.getPlaybackRate === 'function') {
+        const fromOpts = Number(opts.getPlaybackRate());
+        if (Number.isFinite(fromOpts) && fromOpts > 0) return fromOpts;
+      }
+      const player = resolveMuxPlayer();
+      const fromPlayer = player ? Number(player.playbackRate) : NaN;
+      return Number.isFinite(fromPlayer) && fromPlayer > 0 ? fromPlayer : 1;
+    }
+
+    function renderRateButton(rate) {
+      const btn = ensureRateButton();
+      if (!btn || !rateEnabled) return;
+      const value = Number.isFinite(Number(rate)) && Number(rate) > 0 ? Number(rate) : currentPlaybackRate();
+      btn.hidden = false;
+      btn.textContent = formatPlaybackRate(value);
+      btn.setAttribute('aria-label', 'Playback speed ' + formatPlaybackRate(value));
+      btn.title = 'Speed: ' + formatPlaybackRate(value) + ' (tap to change)';
+    }
+
+    function cyclePlaybackRate() {
+      if (!rateEnabled) return;
+      const idx = nearestRateIndex(playbackRates, currentPlaybackRate());
+      const next = playbackRates[(idx + 1) % playbackRates.length];
+      if (typeof opts.onSetPlaybackRate === 'function') {
+        opts.onSetPlaybackRate(next);
+      } else {
+        const player = resolveMuxPlayer();
+        if (player) {
+          try {
+            player.playbackRate = next;
+          } catch (err) {
+            /* ignore */
+          }
+        }
+      }
+      renderRateButton(next);
+      const btn = ensureRateButton();
+      if (btn && btn.blur) btn.blur();
     }
 
     function playingFromPlayer() {
@@ -259,6 +370,11 @@
         const playing = d.playing !== undefined ? !!d.playing : !!(player && !player.paused);
         renderPlayButton(playing);
       }
+      if (rateEnabled) {
+        const rate =
+          d.playbackRate !== undefined ? d.playbackRate : currentPlaybackRate();
+        renderRateButton(rate);
+      }
       if (pickerApi) pickerApi.render();
       updateProgress();
     }
@@ -297,6 +413,21 @@
       } else {
         playBtn.addEventListener('click', togglePlayFromBar);
       }
+    }
+
+    if (rateEnabled) {
+      const btn = ensureRateButton();
+      if (btn) {
+        renderRateButton(currentPlaybackRate());
+        const tap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
+        if (tap && tap.bind) {
+          tap.bind(btn, cyclePlaybackRate);
+        } else {
+          btn.addEventListener('click', cyclePlaybackRate);
+        }
+      }
+    } else if (rateBtn) {
+      rateBtn.hidden = true;
     }
 
     if (closeBtn) {
@@ -397,7 +528,7 @@
     };
   }
 
-  return { mount: mount, formatTimecode: formatTimecode, playButtonHtml: function (playing) {
+  return { mount: mount, formatTimecode: formatTimecode, formatPlaybackRate: formatPlaybackRate, playButtonHtml: function (playing) {
     return playing ? PAUSE_SVG : PLAY_SVG;
   } };
 });

@@ -47,6 +47,7 @@
     let lifecycleBound = false;
     let startGeneration = 0;
     let zeroGuardTimer = null;
+    let playbackRate = 1;
 
     function notify(extra) {
       const player = getPlayer();
@@ -55,7 +56,8 @@
           song: activeSong,
           playing: !!(activeSong && player && !player.paused),
           queue: activeQueue.slice(),
-          queueIdx: activeQueueIdx
+          queueIdx: activeQueueIdx,
+          playbackRate: playbackRate
         },
         extra || {}
       );
@@ -605,6 +607,7 @@
         }
       }
       player.setAttribute('metadata-video-title', normalized.title);
+      applyPlaybackRate(player);
 
       if (root.BurnfolderPlaybackPrefetch) {
         root.BurnfolderPlaybackPrefetch.setActivePlayer(player);
@@ -684,6 +687,7 @@
         ) {
           return;
         }
+        applyPlaybackRate(player);
         if (recallAt) {
           applyRecallPosition(player, recall, normalized.playbackId);
         } else if (!keepPlayhead) {
@@ -794,6 +798,35 @@
       }
     }
 
+    function applyPlaybackRate(player) {
+      const target = player || getPlayer();
+      if (!target) return;
+      try {
+        if (Math.abs((Number(target.playbackRate) || 1) - playbackRate) > 0.001) {
+          target.playbackRate = playbackRate;
+        }
+      } catch (e) {
+        /* noop */
+      }
+    }
+
+    function setPlaybackRate(rate) {
+      const next = Number(rate);
+      if (!Number.isFinite(next) || next <= 0) return playbackRate;
+      playbackRate = next;
+      applyPlaybackRate();
+      notify({ playbackRate: playbackRate });
+      return playbackRate;
+    }
+
+    function getPlaybackRate() {
+      const player = getPlayer();
+      if (player && Number.isFinite(player.playbackRate) && player.playbackRate > 0) {
+        playbackRate = player.playbackRate;
+      }
+      return playbackRate;
+    }
+
     function stop() {
       const player = getPlayer();
       activeSong = null;
@@ -856,6 +889,8 @@
       playQueuedTrack: playQueuedTrack,
       primeTrack: primeTrack,
       togglePlayPause: togglePlayPause,
+      setPlaybackRate: setPlaybackRate,
+      getPlaybackRate: getPlaybackRate,
       stop: stop,
       restoreRecall: restoreRecall,
       persistRecall: persistRecall,

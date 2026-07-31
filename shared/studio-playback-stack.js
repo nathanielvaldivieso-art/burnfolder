@@ -22,6 +22,7 @@
     '<div class="song-title-wrap"><span class="song-title" id="streamNowPlayingTitle">—</span></div>' +
     '<div class="bottom-bar-controls">' +
     '<button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>' +
+    '<button type="button" class="bottom-playback-rate-btn" id="streamPlaybackRate" aria-label="Playback speed">1×</button>' +
     '</div>' +
     '<div class="progress-bar-area" id="progressBarArea">' +
     '<div class="progress" id="progress"></div>' +

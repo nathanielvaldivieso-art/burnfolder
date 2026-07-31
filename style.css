@@ -2061,6 +2061,33 @@ mux-player#activeMuxPlayer {
   touch-action: manipulation;
 }
 
+.bottom-playback-rate-btn {
+  position: relative;
+  z-index: 2;
+  height: var(--now-playing-btn-size);
+  min-width: 2.75em;
+  min-height: var(--now-playing-btn-size);
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: #000;
+  opacity: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-site);
+  font-size: 0.72em;
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .bottom-play-pause-btn svg {
   width: 20px;
   height: 20px;
@@ -2072,13 +2099,28 @@ mux-player#activeMuxPlayer {
     color: #000;
     opacity: 0.45;
   }
+
+  .bottom-playback-rate-btn:hover {
+    background: transparent;
+    color: #000;
+    opacity: 0.45;
+  }
 }
 
 .bottom-play-pause-btn:focus {
   outline: none;
 }
 
+.bottom-playback-rate-btn:focus {
+  outline: none;
+}
+
 .bottom-play-pause-btn:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.bottom-playback-rate-btn:focus-visible {
   outline: 2px solid #000;
   outline-offset: 2px;
 }
@@ -2091,7 +2133,15 @@ mux-player#activeMuxPlayer {
     opacity: 1;
   }
 
-  .bottom-play-pause-btn:active {
+  .bottom-playback-rate-btn:hover,
+  .bottom-playback-rate-btn:focus:not(:focus-visible) {
+    background: transparent;
+    color: #000;
+    opacity: 1;
+  }
+
+  .bottom-play-pause-btn:active,
+  .bottom-playback-rate-btn:active {
     background: transparent;
     color: #000;
     opacity: 0.45;
