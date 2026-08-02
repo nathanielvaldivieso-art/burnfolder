@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v60',
+  cacheName: 'burnfolder-stream-v63',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',

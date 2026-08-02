@@ -6953,7 +6953,8 @@ body.studio-menu-on:not(:has(#studio-spa-content)) {
 .studio-site-menu .studio-site-menu-tools,
 .studio-site-menu #studioMenuTools {
   position: fixed;
-  top: calc(28px + env(safe-area-inset-top, 0px));
+  /* Sit below the brand/menu line so "synced" doesn't collide with it. */
+  top: calc(40px + env(safe-area-inset-top, 0px));
   right: calc(60px + env(safe-area-inset-right, 0px));
   left: auto;
   z-index: 111;
@@ -7030,7 +7031,7 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
 @media (max-width: 600px) {
   .studio-site-menu .studio-site-menu-tools,
   .studio-site-menu #studioMenuTools {
-    top: calc(18px + env(safe-area-inset-top, 0px));
+    top: calc(44px + env(safe-area-inset-top, 0px));
     right: var(--page-gutter-mobile, 20px);
   }
 
