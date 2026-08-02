@@ -20,6 +20,7 @@
   var IMAGE_RE = /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i;
   var AUDIO_RE = /\.(mp3|wav|flac|aiff|aif|m4a|ogg|aac)(\?.*)?$/i;
   var VIDEO_RE = /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?.*)?$/i;
+  var CAMERA_VIDEO_STEM_RE = /(?:^|[^a-z0-9])(mvi|mov)_\d+/i;
 
   function el(id) {
     return document.getElementById(id);
@@ -142,9 +143,52 @@
     var name = (file && file.name) || '';
     var type = (file && file.type) || '';
     if (type.indexOf('image/') === 0 || IMAGE_RE.test(name)) return 'image';
-    if (type.indexOf('video/') === 0 || VIDEO_RE.test(name)) return 'video';
+    if (type.indexOf('video/') === 0 || VIDEO_RE.test(name) || CAMERA_VIDEO_STEM_RE.test(name)) {
+      return 'video';
+    }
     if (type.indexOf('audio/') === 0 || AUDIO_RE.test(name)) return 'audio';
     return 'file';
+  }
+
+  function libraryAssetForBlock(block) {
+    if (!block || !block.playbackId || !libraryCache || !libraryCache.length) return null;
+    var id = block.playbackId;
+    for (var i = 0; i < libraryCache.length; i++) {
+      var row = libraryCache[i];
+      if (row && (row.playbackId === id || row.muxAssetId === id)) return row;
+    }
+    return null;
+  }
+
+  /** Prefer live Mux/library kind so mis-filed camera clips still open as video. */
+  function effectiveBlockKind(block) {
+    if (!block) return '';
+    if (block.kind !== 'audio' && block.kind !== 'video') return block.kind;
+    var shared = window.BurnfolderStreamShared;
+    var asset = libraryAssetForBlock(block);
+    var probe = {
+      kind: block.kind,
+      playbackId: block.playbackId,
+      passthrough: block.passthrough || (asset && asset.passthrough) || '',
+      filename: block.filename || (asset && asset.name) || '',
+      name: block.filename || block.title || '',
+      displayTitle: block.title || '',
+      title: block.title || '',
+      hasVideoTrack: asset ? asset.hasVideoTrack : undefined,
+      isVideo: asset && (asset.isVideo || asset.kind === 'video')
+    };
+    if (asset && asset.kind) probe.kind = asset.kind;
+    if (shared && typeof shared.resolveMediaKind === 'function') {
+      return shared.resolveMediaKind(probe);
+    }
+    if (probe.hasVideoTrack === true || probe.isVideo) return 'video';
+    if (
+      VIDEO_RE.test(probe.passthrough || probe.filename || probe.name) ||
+      CAMERA_VIDEO_STEM_RE.test(probe.passthrough || probe.filename || probe.name || probe.title)
+    ) {
+      return 'video';
+    }
+    return block.kind;
   }
 
   function isMuxable(kind) {
@@ -941,14 +985,15 @@
   }
 
   /** Body under the title — media/text when useful, else a blank field for density marks. */
-  function blockBodyHtml(block) {
+  function blockBodyHtml(block, playKind) {
+    var kind = playKind || (block && block.kind) || '';
     var html = '';
-    if (block.kind === 'image' || block.kind === 'video' || block.kind === 'folder') {
-      html = blockPreview(block);
-    } else if (block.kind === 'text' || block.kind === 'link' || block.kind === 'file') {
-      html = blockPreview(block);
-    } else if (block.kind === 'album' || block.kind === 'audio' || block.kind === 'tool') {
-      html = blockPreview(block);
+    if (kind === 'image' || kind === 'video' || kind === 'folder') {
+      html = blockPreview(block, kind);
+    } else if (kind === 'text' || kind === 'link' || kind === 'file') {
+      html = blockPreview(block, kind);
+    } else if (kind === 'album' || kind === 'audio' || kind === 'tool') {
+      html = blockPreview(block, kind);
     } else {
       html = '<div class="clips-block-media clips-block-media--blank" aria-hidden="true"></div>';
     }
@@ -956,19 +1001,23 @@
   }
 
   function boardBlockHtml(block) {
+    var playKind = effectiveBlockKind(block) || block.kind;
     var itemCount = blockItemCount(block);
     var title =
-      block.kind === 'audio' ? blockDisplayTitle(block) : block.title || defaultTitle(block);
+      block.kind === 'audio' || playKind === 'audio'
+        ? blockDisplayTitle(block)
+        : block.title || defaultTitle(block);
     var songKey =
-      block.kind === 'audio' && groupKeyForBlock(block) ? groupKeyForBlock(block) : '';
+      playKind === 'audio' && groupKeyForBlock(block) ? groupKeyForBlock(block) : '';
+    var showDensity = playKind !== 'video' && playKind !== 'image' && itemCount > 0;
     return (
       '<article class="clips-block clips-block--' +
-      escapeHtml(block.kind) +
-      (itemCount > 0 ? ' has-density' : '') +
+      escapeHtml(playKind || block.kind) +
+      (showDensity ? ' has-density' : '') +
       '" data-block-id="' +
       escapeHtml(block.id) +
       '" data-kind="' +
-      escapeHtml(block.kind) +
+      escapeHtml(playKind || block.kind) +
       '"' +
       (block.kind === 'album' && block.groupId
         ? ' data-group-id="' + escapeHtml(block.groupId) + '"'
@@ -978,8 +1027,8 @@
       itemCount +
       '" tabindex="0">' +
       blockActionsMenuHtml(block) +
-      densityMarksHtml(block.id || block.groupId || title, itemCount) +
-      blockBodyHtml(block) +
+      (showDensity ? densityMarksHtml(block.id || block.groupId || title, itemCount) : '') +
+      blockBodyHtml(block, playKind) +
       '<h3 class="clips-block-title">' +
       escapeHtml(title) +
       '</h3>' +
@@ -1286,15 +1335,18 @@
   function folderItemTileHtml(item) {
     var asBlock = folderItemAsBlock(item);
     if (!asBlock) return '';
+    var playKind = effectiveBlockKind(asBlock) || asBlock.kind;
     var title = asBlock.title || asBlock.filename || 'file';
     return (
-      '<article class="clips-block" data-folder-item-id="' +
+      '<article class="clips-block clips-block--' +
+      escapeHtml(playKind) +
+      '" data-folder-item-id="' +
       escapeHtml(item.id) +
       '" data-kind="' +
-      escapeHtml(asBlock.kind) +
+      escapeHtml(playKind) +
       '" tabindex="0">' +
       blockActionsMenuHtml(asBlock, { folderItem: true }) +
-      blockBodyHtml(asBlock) +
+      blockBodyHtml(asBlock, playKind) +
       '<h3 class="clips-block-title">' +
       escapeHtml(title) +
       '</h3>' +
@@ -1415,16 +1467,17 @@
   }
 
 
-  function blockPreview(block) {
-    if (block.kind === 'image' && block.vaultKey) {
+  function blockPreview(block, playKind) {
+    var kind = playKind || (block && block.kind) || '';
+    if (kind === 'image' && block.vaultKey) {
       return (
         '<div class="clips-block-media clips-block-media--image" data-vault-preview="' +
         escapeHtml(block.vaultKey) +
         '"></div>'
       );
     }
-    if ((block.kind === 'video' || block.kind === 'audio') && block.playbackId) {
-      if (block.kind === 'video') {
+    if ((kind === 'video' || kind === 'audio') && block.playbackId) {
+      if (kind === 'video') {
         return (
           '<div class="clips-block-media clips-block-media--video" style="background-image:url(\'' +
           escapeHtml(muxThumb(block.playbackId)) +
@@ -1632,7 +1685,16 @@
           return;
         }
         if (openGroupId && node.getAttribute('data-collection-track') === '1') {
-          playCollectionFrom(0, node.getAttribute('data-playback-id') || '');
+          var trackPlaybackId = node.getAttribute('data-playback-id') || '';
+          var trackBlock =
+            (store && state && store.findBlockByPlaybackId
+              ? store.findBlockByPlaybackId(state, trackPlaybackId)
+              : null) || { kind: 'audio', playbackId: trackPlaybackId, title: node.textContent || '' };
+          if (effectiveBlockKind(trackBlock) === 'video') {
+            playMuxBlock(trackBlock);
+          } else {
+            playCollectionFrom(0, trackPlaybackId);
+          }
           if (node.blur) node.blur();
         }
       }
@@ -1979,8 +2041,11 @@
       if (shell.mountBar) shell.mountBar();
     }
 
+    var playKind = effectiveBlockKind(block) || block.kind;
+    var isVideo = playKind === 'video';
+
     // Same clip already active → pause/resume. Different mix of same song → switch.
-    if (player && block.kind !== 'video' && typeof player.togglePause === 'function') {
+    if (player && !isVideo && typeof player.togglePause === 'function') {
       var sameClip =
         typeof player.isActivePlaybackId === 'function' && player.isActivePlaybackId(block.playbackId);
       if (sameClip) {
@@ -1999,11 +2064,16 @@
       name: block.filename || title,
       passthrough: block.passthrough || block.filename || title,
       playbackId: block.playbackId,
-      kind: block.kind === 'video' ? 'video' : 'audio',
-      hasVideoTrack: block.kind === 'video'
+      kind: isVideo ? 'video' : 'audio',
+      hasVideoTrack: isVideo
     };
 
-    if (block.kind === 'video') {
+    if (isVideo) {
+      // Leave playlist drill-in so the video stage isn't buried under collection chrome.
+      if (openGroupId) {
+        openGroupId = null;
+        renderBoard();
+      }
       var stage = el('clipsVideoStage');
       var shared = window.BurnfolderStreamShared;
       if (stage && shared && typeof shared.mountStreamVideo === 'function') {
@@ -2312,7 +2382,8 @@
 
   function activateBlock(block) {
     if (!block) return;
-    switch (block.kind) {
+    var playKind = effectiveBlockKind(block) || block.kind;
+    switch (playKind) {
       case 'audio':
         if (openGroupId) {
           playCollectionFrom(0, block.playbackId);

@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-site-v20260802varispeed2',
+  cacheName: 'burnfolder-site-v20260802videofix',
   includeRoot: true,
   freshSuffixes: ['/entries.js', '/songs.js', '/album-pages.js', '/song-pages.js', '/spa-router.js', '/shared/site-menu.js', '/shared/site-version.js', '/skins/soft-enter-audio.js', '/skins/skins.js'],
   staticPrefixes: ['/shared/', '/IMAGES/']
