@@ -77,11 +77,19 @@ assert.ok(
   stackSrc.includes('bridgeMuxPlayer'),
   'shell markup includes bridge mux-player'
 );
-assert.ok(muxSrc.includes('beginBridgeHandoff'), 'bridge handoff implemented');
-assert.ok(muxSrc.includes('shouldUseBridgeHandoff'), 'bridge gate present');
+assert.ok(muxSrc.includes('beginBridgeHandoff'), 'ping-pong handoff implemented');
+assert.ok(muxSrc.includes('unlockStandbyPlayerForIos'), 'standby iOS unlock present');
+assert.ok(muxSrc.includes('pingpongInFlight'), 'ping-pong lock guard present');
+assert.ok(muxSrc.includes('PINGPONG_LEAD_HIDDEN_SEC'), 'locked lead window present');
 assert.ok(
   !/seekbackward:\s*function/.test(muxSrc),
   'media session seek handlers omitted for iOS next/prev'
+);
+/* Locked advances must not fall back to same-element reload. */
+assert.ok(
+  muxSrc.includes('Never fall back to reloading') ||
+    muxSrc.includes('NEVER fall back to reloading'),
+  'documents no same-element fallback while locked'
 );
 
 const song = { title: 'PHOTO NEGATIVE', playbackId: 'pn-playback-id', coverArt: '/x.jpg' };

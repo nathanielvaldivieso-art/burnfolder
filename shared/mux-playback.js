@@ -60,6 +60,13 @@
     let lastKnownDuration = 0;
     let nativeEndedBound = false;
     let bridgeHandoffGeneration = 0;
+    let bridgeRetryTimer = null;
+    let pingpongInFlight = false;
+    let playersUnlocked = false;
+    /* Near-end window to start the standby player. Locked needs more lead time
+       because iOS throttles timers; foreground stays tight so outros aren't cut. */
+    const PINGPONG_LEAD_HIDDEN_SEC = 2.0;
+    const PINGPONG_LEAD_VISIBLE_SEC = 0.2;
 
     function notify(extra) {
       const player = getPlayer();
@@ -168,9 +175,68 @@
       outgoing.id = standbyId;
     }
 
+    function stopBridgeRetry() {
+      if (bridgeRetryTimer === null) return;
+      window.clearInterval(bridgeRetryTimer);
+      bridgeRetryTimer = null;
+    }
+
     /**
-     * Preload the next queue item onto the standby bridge player while the
-     * live track is still playing. Required for locked-phone handoffs.
+     * iOS only allows background play() on media elements unlocked during a
+     * user gesture. The live player is unlocked by the real play(); this
+     * mute-play-pause unlocks the STANDBY so later ping-pong advances work
+     * while the phone is locked.
+     */
+    function unlockStandbyPlayerForIos() {
+      const live = getPlayer();
+      const bridge = ensureBridgePlayer();
+      if (!bridge || bridge === live) return;
+      playersUnlocked = true;
+      let wasMuted = false;
+      try {
+        wasMuted = !!bridge.muted;
+        bridge.muted = true;
+      } catch (e) {
+        /* noop */
+      }
+      /* Give standby a real asset so play() isn't a no-op unlock. */
+      if (!(bridge.getAttribute('playback-id') || '')) {
+        const seed =
+          (activeQueue[activeQueueIdx + 1] && activeQueue[activeQueueIdx + 1].playbackId) ||
+          (activeSong && activeSong.playbackId) ||
+          (live && live.getAttribute('playback-id')) ||
+          '';
+        if (seed) bridge.setAttribute('playback-id', seed);
+      }
+      let playPromise;
+      try {
+        if (typeof bridge.play === 'function') playPromise = bridge.play();
+      } catch (e2) {
+        playPromise = undefined;
+      }
+      const finish = function () {
+        try {
+          bridge.pause();
+        } catch (e3) {
+          /* noop */
+        }
+        try {
+          bridge.muted = wasMuted;
+        } catch (e4) {
+          /* noop */
+        }
+        seekToZero(bridge);
+      };
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.then(finish).catch(finish);
+      } else {
+        finish();
+      }
+    }
+
+    /**
+     * Preload the next queue item onto the standby player while the live track
+     * is still playing. Ping-pong advances always use this element.
      */
     function prepareBridgeForNext() {
       if (activeQueueIdx + 1 >= activeQueue.length) return null;
@@ -201,11 +267,9 @@
     }
 
     /**
-     * Locked-phone album advance: play the next track on a SECOND mux-player
-     * while the current one is still playing, then swap ids.
-     * Reloading playback-id on the same element pauses media and iOS drops the
-     * background session — play() then only works after the app is foregrounded
-     * (exactly the "opens and plays without touching" symptom).
+     * THE only queue-advance mechanism: play next on standby while current is
+     * still alive, then swap live ids. Never reloads playback-id on the live
+     * element for advances — that path is what silences iOS when locked.
      */
     function beginBridgeHandoff() {
       if (queueAdvanceLock) return false;
@@ -220,16 +284,17 @@
       if (!bridge) return false;
 
       queueAdvanceLock = true;
+      pingpongInFlight = true;
       handoffStartedAt = Date.now();
       bridgeHandoffGeneration += 1;
       const handoffGen = bridgeHandoffGeneration;
       stopEndWatch();
+      stopBridgeRetry();
       window.clearTimeout(recallTimer);
       recallTimer = null;
       lastProgressAt = 0;
       lastProgressTime = -1;
 
-      seekToZero(bridge);
       applyPlaybackRate(bridge);
       bridge.setAttribute('metadata-video-title', next.title);
 
@@ -237,12 +302,13 @@
         if (handoffGen !== bridgeHandoffGeneration) return false;
         if (playbackSnapshot(bridge).paused) return false;
 
+        stopBridgeRetry();
+        pingpongInFlight = false;
         startGeneration += 1;
         activeSong = next;
         activeQueueIdx = nextIdx;
         lastKnownDuration = 0;
 
-        /* Kill outgoing audio immediately so we don't layer two tracks. */
         try {
           outgoing.muted = true;
         } catch (e) {
@@ -257,7 +323,7 @@
         swapLivePlayerIds(outgoing, bridge);
         const live = getPlayer();
         try {
-          live.muted = false;
+          if (live) live.muted = false;
         } catch (e) {
           /* noop */
         }
@@ -283,10 +349,8 @@
         startQueueMonitorPoll(live);
         if (typeof document !== 'undefined' && document.hidden) {
           startHiddenAdvancePoll(live);
-          scheduleEndWatch(live);
-        } else {
-          scheduleEndWatch(live);
         }
+        scheduleEndWatch(live);
         prepareBridgeForNext();
         return true;
       }
@@ -296,7 +360,6 @@
         if ((bridge.getAttribute('playback-id') || '') !== next.playbackId) {
           bridge.setAttribute('playback-id', next.playbackId);
         }
-        seekToZero(bridge);
         if (typeof bridge.play !== 'function' && typeof customElements !== 'undefined') {
           try {
             customElements.upgrade(bridge);
@@ -304,23 +367,34 @@
             /* noop */
           }
         }
-        const playPromise = typeof bridge.play === 'function' ? bridge.play() : undefined;
+        /* Only seek to 0 if we're clearly mid-wrong-playhead — seeking right
+           before every play() can cancel a just-started decode on iOS. */
+        const snap = playbackSnapshot(bridge);
+        if (Number.isFinite(snap.current) && snap.current > 0.5) {
+          seekToZero(bridge);
+        }
+        let playPromise;
+        try {
+          playPromise = typeof bridge.play === 'function' ? bridge.play() : undefined;
+        } catch (e) {
+          return;
+        }
         if (playPromise && typeof playPromise.then === 'function') {
           playPromise
             .then(function () {
               promote();
             })
             .catch(function () {
-              /* Retries below — keep outgoing playing as long as possible. */
+              /* Retries keep trying — never same-element while locked. */
             });
         } else if (!playbackSnapshot(bridge).paused) {
           promote();
         }
       }
 
-      /* Must call play() while outgoing is still playing to keep iOS audio permission. */
+      /* Must call play() while outgoing can still hold the audio session. */
       attemptBridgePlay();
-      [40, 120, 280, 600, 1200, 2400, 4000].forEach(function (delayMs) {
+      [30, 80, 160, 320, 640, 1200, 2000, 3500].forEach(function (delayMs) {
         window.setTimeout(function () {
           if (handoffGen !== bridgeHandoffGeneration) return;
           if (!queueAdvanceLock) return;
@@ -329,26 +403,48 @@
         }, delayMs);
       });
 
-      /* If bridge never started, fall back to same-element handoff (works in foreground). */
-      window.setTimeout(function () {
-        if (handoffGen !== bridgeHandoffGeneration) return;
-        if (!queueAdvanceLock) return;
-        if (!playbackSnapshot(bridge).paused) {
-          promote();
+      /* Keep hammering the standby player. NEVER fall back to reloading
+         playback-id on the live element while the page is hidden — that is the
+         intermittent silence bug. Foreground may use same-element as last resort. */
+      bridgeRetryTimer = window.setInterval(function () {
+        if (handoffGen !== bridgeHandoffGeneration) {
+          stopBridgeRetry();
           return;
         }
-        queueAdvanceLock = false;
-        handoffStartedAt = 0;
-        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
-      }, 5500);
+        if (!queueAdvanceLock) {
+          stopBridgeRetry();
+          return;
+        }
+        if (promote()) return;
+        attemptBridgePlay();
+        const elapsed = Date.now() - handoffStartedAt;
+        if (
+          elapsed >= 8000 &&
+          typeof document !== 'undefined' &&
+          !document.hidden &&
+          playbackSnapshot(bridge).paused
+        ) {
+          stopBridgeRetry();
+          pingpongInFlight = false;
+          queueAdvanceLock = false;
+          handoffStartedAt = 0;
+          playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
+        }
+      }, 700);
 
       return true;
     }
 
     function shouldUseBridgeHandoff() {
-      /* Locked/background only — foreground same-element handoff is reliable and
-         must not trim outros. */
-      return typeof document !== 'undefined' && document.hidden;
+      /* Always. One advance path — ping-pong. Same-element reload is only a
+         foreground last resort inside beginBridgeHandoff after long failure. */
+      return activeQueueIdx + 1 < activeQueue.length;
+    }
+
+    function pingpongLeadSec() {
+      return typeof document !== 'undefined' && document.hidden
+        ? PINGPONG_LEAD_HIDDEN_SEC
+        : PINGPONG_LEAD_VISIBLE_SEC;
     }
 
     /** Inner media element — mux-player host props often go stale while locked. */
@@ -444,12 +540,11 @@
       }
       const remainingMs = (snap.duration - snap.current) * 1000;
       if (!Number.isFinite(remainingMs)) return;
-      const hidden = typeof document !== 'undefined' && document.hidden;
-      /* Warm the bridge a few seconds out; start handoff ~1.2s before end when locked. */
-      if (hidden && remainingMs <= 8000) {
+      /* Always warm standby a few seconds out; fire ping-pong at the lead window. */
+      if (remainingMs <= 10000) {
         prepareBridgeForNext();
       }
-      const leadMs = hidden ? 1200 : 0;
+      const leadMs = Math.round(pingpongLeadSec() * 1000);
       const delay = Math.min(Math.max(remainingMs - leadMs, 80), 180000);
       const gen = startGeneration;
       const songId = activeSong.playbackId;
@@ -568,11 +663,9 @@
         },
         nexttrack: function () {
           if (activeQueueIdx + 1 < activeQueue.length) {
-            /* Locked: prefer bridge so next/prev keep working without a seek UI
-               that would hide these controls on iOS. */
-            if (typeof document !== 'undefined' && document.hidden && beginBridgeHandoff()) {
-              return;
-            }
+            /* Always ping-pong — same path as natural end-of-track advance. */
+            if (beginBridgeHandoff()) return;
+            if (typeof document !== 'undefined' && document.hidden) return;
             stopEndWatch();
             handoffStartedAt = Date.now();
             queueAdvanceLock = true;
@@ -583,9 +676,6 @@
             });
             const livePlayer = getPlayer();
             startQueueMonitorPoll(livePlayer);
-            if (typeof document !== 'undefined' && document.hidden) {
-              startHiddenAdvancePoll(livePlayer);
-            }
           }
         }
         /* Intentionally omit seekbackward/seekforward/seekto:
@@ -661,21 +751,25 @@
         lastProgressTime = current;
         lastProgressAt = Date.now();
       }
+      if (
+        Number.isFinite(snap.remaining) &&
+        snap.remaining <= 12 &&
+        activeQueueIdx + 1 < activeQueue.length
+      ) {
+        prepareBridgeForNext();
+      }
+      /* Start ping-pong in the lead window while audio is still playing. */
+      if (
+        !queueAdvanceLock &&
+        !snap.paused &&
+        Number.isFinite(snap.remaining) &&
+        snap.remaining <= pingpongLeadSec() &&
+        activeQueueIdx + 1 < activeQueue.length
+      ) {
+        beginBridgeHandoff();
+        return;
+      }
       if (typeof document !== 'undefined' && document.hidden) {
-        if (Number.isFinite(snap.remaining) && snap.remaining <= 8) {
-          prepareBridgeForNext();
-        }
-        /* Locked: start bridge handoff while still playing, before iOS pauses us. */
-        if (
-          !queueAdvanceLock &&
-          !snap.paused &&
-          Number.isFinite(snap.remaining) &&
-          snap.remaining <= 1.35 &&
-          activeQueueIdx + 1 < activeQueue.length
-        ) {
-          beginBridgeHandoff();
-          return;
-        }
         scheduleEndWatch(player);
       }
     }
@@ -709,17 +803,18 @@
 
       const remaining = snap.remaining;
       if (!Number.isFinite(remaining)) return false;
+      const lead = pingpongLeadSec();
 
-      /* Still playing: enter finished window early enough for bridge handoff. */
-      if (!snap.paused && remaining <= 1.35) return true;
+      /* Still playing: enter finished window early enough for ping-pong. */
+      if (!snap.paused && remaining <= lead) return true;
 
       /* Locked phone: track ended as pause without `ended` (common on iOS). */
-      if (snap.paused && remaining <= 1.25) return true;
+      if (snap.paused && remaining <= Math.max(lead, 1.25)) return true;
 
       /* Locked phone: playhead froze at the end while still reporting playing. */
       if (
         !snap.paused &&
-        remaining <= 1.25 &&
+        remaining <= Math.max(lead, 1.25) &&
         lastProgressAt > 0 &&
         Date.now() - lastProgressAt >= 1200
       ) {
@@ -747,6 +842,9 @@
 
     function ensureQueueHandoffComplete(player) {
       if (!queueAdvanceLock || !player || !activeSong) return;
+      /* Ping-pong owns the lock until promote() — the outgoing live element is
+         supposed to still be playing the old song; that is NOT completion. */
+      if (pingpongInFlight) return;
       const elapsed = handoffStartedAt ? Date.now() - handoffStartedAt : 0;
       const liveId = player.getAttribute('playback-id') || '';
       const matches = liveId === activeSong.playbackId;
@@ -838,13 +936,12 @@
 
     function maybeAdvanceQueue(player) {
       if (queueAdvanceLock || !player || !activeSong) return false;
+      markPlaybackProgress(player);
       const snap = playbackSnapshot(player);
       if (
-        typeof document !== 'undefined' &&
-        document.hidden &&
         !snap.paused &&
         Number.isFinite(snap.remaining) &&
-        snap.remaining <= 1.35 &&
+        snap.remaining <= pingpongLeadSec() &&
         activeQueueIdx + 1 < activeQueue.length
       ) {
         prepareBridgeForNext();
@@ -854,8 +951,12 @@
         advanceQueueAfterEnd(player);
         return true;
       }
-      if (typeof document !== 'undefined' && document.hidden) {
-        markPlaybackProgress(player);
+      if (
+        Number.isFinite(snap.remaining) &&
+        snap.remaining <= 12 &&
+        activeQueueIdx + 1 < activeQueue.length
+      ) {
+        prepareBridgeForNext();
       }
       return false;
     }
@@ -870,22 +971,24 @@
         lastProgressAt = 0;
         lastProgressTime = -1;
         lastKnownDuration = 0;
-        /* Locked: bridge handoff keeps the audio session across track changes. */
-        if (shouldUseBridgeHandoff()) {
-          prepareBridgeForNext();
-          if (beginBridgeHandoff()) return;
+        /* Single path: ping-pong. No same-element advance while locked. */
+        prepareBridgeForNext();
+        if (beginBridgeHandoff()) return;
+        if (typeof document !== 'undefined' && document.hidden) {
+          /* Bridge markup missing — keep polling; do not reload live element. */
+          startHiddenAdvancePoll(player || getPlayer());
+          startQueueMonitorPoll(player || getPlayer());
+          return;
         }
         queueAdvanceLock = true;
         handoffStartedAt = Date.now();
         playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
         startQueueMonitorPoll(player || getPlayer());
-        if (typeof document !== 'undefined' && document.hidden) {
-          startHiddenAdvancePoll(player || getPlayer());
-        }
       } else {
         stopQueueMonitorPoll();
         stopHiddenAdvancePoll();
         stopEndWatch();
+        stopBridgeRetry();
         notify({ playing: false });
       }
     }
@@ -971,31 +1074,20 @@
             return;
           }
           stopHiddenAdvancePoll();
-          stopEndWatch();
-          /* Keep the monitor alive when returning from lock screen / Control Center.
-             Stopping it here used to stall the rest of the album until the PWA was opened. */
+          /* Keep the monitor alive when returning from lock screen / Control Center. */
           startQueueMonitorPoll(livePlayer);
+          scheduleEndWatch(livePlayer);
           const snap = playbackSnapshot(livePlayer);
-          /* Cancel in-flight bridge retries; finish in foreground if we stalled on a handoff. */
+          /* If a ping-pong handoff is in flight, let it finish (or foreground
+             last-resort inside beginBridgeHandoff). Do not cancel + same-element. */
           if (queueAdvanceLock) {
-            bridgeHandoffGeneration += 1;
-            const liveId = livePlayer.getAttribute('playback-id') || '';
-            const onActive =
-              activeSong && liveId === activeSong.playbackId && !snap.paused;
-            queueAdvanceLock = false;
-            handoffStartedAt = 0;
-            if (!onActive && activeQueueIdx + 1 < activeQueue.length) {
-              playQueuedTrack(activeQueueIdx + 1, {
-                immediatePlay: true,
-                queueHandoff: true
-              });
-              return;
-            }
+            ensureQueueHandoffComplete(livePlayer);
+            return;
           }
           const nearEndPaused =
             snap.paused &&
             Number.isFinite(snap.remaining) &&
-            snap.remaining <= 1.25 &&
+            snap.remaining <= Math.max(pingpongLeadSec(), 1.25) &&
             activeQueueIdx + 1 < activeQueue.length;
           if (snap.ended || nearEndPaused) {
             advanceQueueAfterEnd(livePlayer);
@@ -1110,6 +1202,7 @@
       // Queue handoffs must NOT pause when already playing — iOS drops background
       // media permission on pause(), which stops album autoplay on a locked phone.
       // Zero-guard below still forces the new asset to start at 0:00.
+      // Ping-pong advances should not reach here — they swap elements instead.
       if (!sameSource) {
         if (!isQueueHandoff || !wasPlayingBeforeSwap) {
           try {
@@ -1156,10 +1249,15 @@
 
       if (activeQueueIdx + 1 < activeQueue.length || isQueueHandoff) {
         startQueueMonitorPoll(player);
+        scheduleEndWatch(player);
         if (typeof document !== 'undefined' && document.hidden) {
           startHiddenAdvancePoll(player);
-          scheduleEndWatch(player);
         }
+        /* Standby should already hold the next track before we near the end. */
+        window.setTimeout(function () {
+          if (generation !== startGeneration) return;
+          prepareBridgeForNext();
+        }, isQueueHandoff ? 200 : 400);
       }
 
       function ensurePlaying() {
@@ -1224,6 +1322,9 @@
             }, delayMs);
           });
         } else {
+          /* Same tap turn: seed + unlock standby so lock-screen ping-pong can play(). */
+          prepareBridgeForNext();
+          unlockStandbyPlayerForIos();
           retryPlay(player, normalized, false);
         }
       }
@@ -1443,12 +1544,25 @@
       activeQueue = [];
       activeQueueIdx = 0;
       queueAdvanceLock = false;
+      pingpongInFlight = false;
       handoffStartedAt = 0;
+      bridgeHandoffGeneration += 1;
+      stopBridgeRetry();
+      stopEndWatch();
+      stopHiddenAdvancePoll();
       stopQueueMonitorPoll();
       stopZeroGuard();
       if (player) {
         player.pause();
         player.removeAttribute('playback-id');
+      }
+      const bridge = document.getElementById(bridgePlayerId());
+      if (bridge && bridge !== player) {
+        try {
+          bridge.pause();
+        } catch (e) {
+          /* noop */
+        }
       }
       if (recallApi && opts.recall !== false) recallApi.clear();
       notify();

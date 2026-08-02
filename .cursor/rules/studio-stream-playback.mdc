@@ -50,8 +50,17 @@ Shell is injected once via `BurnfolderStudioPlaybackStack.ensureShellMarkup()` �
 IDs (global only — do not reuse in preview UIs):
 
 - `#studioGlobalPlayback` — shell wrapper
-- `#activeMuxPlayer` — global audio element
+- `#activeMuxPlayer` — live global audio element
+- `#bridgeMuxPlayer` — standby ping-pong element for queue advances
 - `#bottomBar`, `#streamNowPlayingTitle`, `#streamPlayPause`, `#streamNowPlayingClose`
+
+### Queue advance (steel — do not fork)
+
+**One path only: ping-pong.** Preload next on `#bridgeMuxPlayer`, `play()` it while the live element is still playing, swap ids, preload the following track on the new standby.
+
+- Never reload `playback-id` on the live element to advance while `document.hidden` (iOS drops background audio).
+- On every user tap-to-play, unlock the standby with muted play→pause in the same gesture turn.
+- Same-element handoff is foreground last-resort only.
 
 Entry editor preview uses **separate** IDs inside `.studio-preview-player`: `previewMuxPlayer`, `previewBottomBar`, etc. Global dedupe must **never** steal preview nodes.
 
