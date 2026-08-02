@@ -63,8 +63,25 @@
     let rateSlider = null;
     let rateValueBtn = null;
     let rateDragging = false;
+    let ratePopupEl = null;
+    let ratePopupSlider = null;
+    let ratePopupValueEl = null;
+    let ratePopupOpen = false;
     const rateEnabled =
       opts.enablePlaybackRate === true || typeof opts.onSetPlaybackRate === 'function';
+
+    function prefersCompactRateUi() {
+      try {
+        return !!(
+          globalRef.matchMedia &&
+          globalRef.matchMedia(
+            '(max-width: 600px), ((hover: none) and (pointer: coarse) and (max-width: 932px))'
+          ).matches
+        );
+      } catch (err) {
+        return false;
+      }
+    }
 
     function ensureRateControl() {
       if (!rateEnabled || !bar) return null;
@@ -131,6 +148,38 @@
       rateSlider = slider;
       rateValueBtn = valueBtn;
       return resolvedRateEl;
+    }
+
+    function ensureRatePopup() {
+      if (!rateEnabled) return null;
+      if (ratePopupEl && ratePopupEl.isConnected) return ratePopupEl;
+      const overlay = document.createElement('div');
+      overlay.className = 'bottom-playback-rate-popup';
+      overlay.id = 'streamPlaybackRatePopup';
+      overlay.hidden = true;
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.innerHTML =
+        '<div class="bottom-playback-rate-popup-panel" role="dialog" aria-modal="true" aria-label="Varispeed">' +
+        '<div class="bottom-playback-rate-popup-header">' +
+        '<span class="bottom-playback-rate-popup-title">varispeed</span>' +
+        '<button type="button" class="bottom-playback-rate-popup-close" aria-label="Close varispeed">close</button>' +
+        '</div>' +
+        '<div class="bottom-playback-rate-popup-readout" aria-live="polite">100%</div>' +
+        '<input type="range" class="bottom-playback-rate-popup-slider" min="' +
+        rateMinPercent +
+        '" max="' +
+        rateMaxPercent +
+        '" step="1" value="100" aria-label="Playback speed">' +
+        '<div class="bottom-playback-rate-popup-actions">' +
+        '<button type="button" class="bottom-playback-rate-popup-reset">100%</button>' +
+        '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      ratePopupEl = overlay;
+      ratePopupSlider = overlay.querySelector('.bottom-playback-rate-popup-slider');
+      ratePopupValueEl = overlay.querySelector('.bottom-playback-rate-popup-readout');
+      if (ratePopupSlider) ratePopupSlider.style.touchAction = 'none';
+      return ratePopupEl;
     }
 
     if (rateEnabled) ensureRateControl();
@@ -221,6 +270,7 @@
       const bodyClass = opts.bodyActiveClass || 'stream-playback-active';
       if (bodyClass) document.body.classList.toggle(bodyClass, !!show);
       if (!show && pickerApi) pickerApi.close();
+      if (!show) closeRatePopup();
     }
 
     function updateProgress() {
@@ -257,6 +307,32 @@
       return Math.max(rateMinPercent, Math.min(rateMaxPercent, n));
     }
 
+    function syncRateLabels(percent) {
+      const label = percent + '%';
+      if (rateValueBtn) {
+        rateValueBtn.textContent = label;
+        if (prefersCompactRateUi()) {
+          rateValueBtn.setAttribute('aria-label', 'Open varispeed (now ' + label + ')');
+          rateValueBtn.setAttribute('aria-haspopup', 'dialog');
+          rateValueBtn.setAttribute('aria-expanded', ratePopupOpen ? 'true' : 'false');
+        } else {
+          rateValueBtn.setAttribute('aria-label', 'Reset speed to 100% (now ' + label + ')');
+          rateValueBtn.removeAttribute('aria-haspopup');
+          rateValueBtn.removeAttribute('aria-expanded');
+        }
+      }
+      if (ratePopupValueEl) ratePopupValueEl.textContent = label;
+      if (rateSlider) {
+        rateSlider.setAttribute('aria-valuetext', percent + ' percent');
+      }
+      if (ratePopupSlider) {
+        ratePopupSlider.setAttribute('aria-valuetext', percent + ' percent');
+      }
+      if (resolvedRateEl) {
+        resolvedRateEl.title = 'Varispeed ' + label + ' (pitch follows speed)';
+      }
+    }
+
     function applyRateFromPercent(pct, fromUi) {
       const percent = clampPercent(pct);
       const rate = percent / 100;
@@ -277,9 +353,10 @@
         }
       }
       if (!fromUi) renderRateControl(rate);
-      else if (rateValueBtn) {
-        rateValueBtn.textContent = percent + '%';
-        rateValueBtn.setAttribute('aria-label', 'Reset speed to 100% (now ' + percent + '%)');
+      else {
+        if (rateSlider) rateSlider.value = String(percent);
+        if (ratePopupSlider) ratePopupSlider.value = String(percent);
+        syncRateLabels(percent);
       }
     }
 
@@ -294,10 +371,47 @@
       rateSlider.min = String(rateMinPercent);
       rateSlider.max = String(rateMaxPercent);
       rateSlider.value = String(percent);
-      rateValueBtn.textContent = percent + '%';
-      rateValueBtn.setAttribute('aria-label', 'Reset speed to 100% (now ' + percent + '%)');
-      rateSlider.setAttribute('aria-valuetext', percent + ' percent');
-      wrap.title = 'Varispeed ' + percent + '% (pitch follows speed)';
+      if (ratePopupSlider) {
+        ratePopupSlider.min = String(rateMinPercent);
+        ratePopupSlider.max = String(rateMaxPercent);
+        ratePopupSlider.value = String(percent);
+      }
+      syncRateLabels(percent);
+    }
+
+    function closeRatePopup() {
+      if (!ratePopupEl) return;
+      ratePopupOpen = false;
+      ratePopupEl.hidden = true;
+      ratePopupEl.classList.remove('open');
+      ratePopupEl.setAttribute('aria-hidden', 'true');
+      if (rateValueBtn) rateValueBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    function openRatePopup() {
+      if (!rateEnabled) return;
+      ensureRatePopup();
+      if (!ratePopupEl) return;
+      renderRateControl(currentPlaybackRate());
+      ratePopupOpen = true;
+      ratePopupEl.hidden = false;
+      ratePopupEl.classList.add('open');
+      ratePopupEl.setAttribute('aria-hidden', 'false');
+      if (rateValueBtn) rateValueBtn.setAttribute('aria-expanded', 'true');
+      if (rateValueBtn && rateValueBtn.blur) rateValueBtn.blur();
+    }
+
+    function toggleRatePopup() {
+      if (ratePopupOpen) closeRatePopup();
+      else openRatePopup();
+    }
+
+    function onRateValueActivate() {
+      if (prefersCompactRateUi()) {
+        toggleRatePopup();
+        return;
+      }
+      resetPlaybackRate();
     }
 
     function resetPlaybackRate() {
@@ -464,37 +578,83 @@
 
     if (rateEnabled) {
       const wrap = ensureRateControl();
-      if (wrap && rateSlider) {
-        renderRateControl(currentPlaybackRate());
+      ensureRatePopup();
+
+      function bindRateSlider(slider) {
+        if (!slider) return;
         const onSlide = function () {
-          applyRateFromPercent(rateSlider.value, true);
+          applyRateFromPercent(slider.value, true);
         };
-        rateSlider.addEventListener('pointerdown', function () {
+        slider.addEventListener('pointerdown', function () {
           rateDragging = true;
         });
-        rateSlider.addEventListener('pointerup', function () {
+        slider.addEventListener('pointerup', function () {
           rateDragging = false;
           renderRateControl(currentPlaybackRate());
         });
-        rateSlider.addEventListener('pointercancel', function () {
+        slider.addEventListener('pointercancel', function () {
           rateDragging = false;
           renderRateControl(currentPlaybackRate());
         });
-        rateSlider.addEventListener('input', onSlide);
-        rateSlider.addEventListener('change', function () {
+        slider.addEventListener('input', onSlide);
+        slider.addEventListener('change', function () {
           rateDragging = false;
-          applyRateFromPercent(rateSlider.value, false);
+          applyRateFromPercent(slider.value, false);
         });
         // Keep page from scrolling while dragging the speed slider on touch.
-        rateSlider.style.touchAction = 'none';
+        slider.style.touchAction = 'none';
       }
+
+      if (wrap && rateSlider) {
+        renderRateControl(currentPlaybackRate());
+        bindRateSlider(rateSlider);
+      }
+      bindRateSlider(ratePopupSlider);
+
       if (rateValueBtn) {
         const tap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
         if (tap && tap.bind) {
-          tap.bind(rateValueBtn, resetPlaybackRate);
+          tap.bind(rateValueBtn, onRateValueActivate);
         } else {
-          rateValueBtn.addEventListener('click', resetPlaybackRate);
+          rateValueBtn.addEventListener('click', onRateValueActivate);
         }
+      }
+
+      if (ratePopupEl) {
+        const closeBtn = ratePopupEl.querySelector('.bottom-playback-rate-popup-close');
+        const resetBtn = ratePopupEl.querySelector('.bottom-playback-rate-popup-reset');
+        const panel = ratePopupEl.querySelector('.bottom-playback-rate-popup-panel');
+        const tap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
+        if (closeBtn) {
+          if (tap && tap.bind) tap.bind(closeBtn, closeRatePopup);
+          else closeBtn.addEventListener('click', closeRatePopup);
+        }
+        if (resetBtn) {
+          if (tap && tap.bind) {
+            tap.bind(resetBtn, function () {
+              resetPlaybackRate();
+            });
+          } else {
+            resetBtn.addEventListener('click', function () {
+              resetPlaybackRate();
+            });
+          }
+        }
+        ratePopupEl.addEventListener('click', function (event) {
+          if (event.target === ratePopupEl) closeRatePopup();
+        });
+        if (panel) {
+          panel.addEventListener('click', function (event) {
+            event.stopPropagation();
+          });
+        }
+        document.addEventListener('keydown', function (event) {
+          if (!ratePopupOpen) return;
+          if (event.key === 'Escape') {
+            closeRatePopup();
+            event.preventDefault();
+          }
+        });
       }
     } else if (rateEl) {
       rateEl.hidden = true;
