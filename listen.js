@@ -161,30 +161,17 @@
     mountBar();
     if (playBtn) {
       playBtn.addEventListener('click', function () {
+        const e = getEngine();
         const active = getActiveSong();
-        if (active && activeMuxPlayer && !activeMuxPlayer.paused) {
-          const e = getEngine();
-          if (e) e.togglePlayPause();
-          updateUI();
-          return;
-        }
-        if (active && activeMuxPlayer && activeMuxPlayer.paused) {
-          activeMuxPlayer.play().catch(function () {});
+        if (active && e) {
+          e.togglePlayPause();
           updateUI();
           return;
         }
         startPlayback(activeIdx);
       });
     }
-
-    if (activeMuxPlayer) {
-      activeMuxPlayer.addEventListener('ended', function () {
-        if (activeIdx < tracks.length - 1) {
-          activeIdx += 1;
-          startPlayback(activeIdx);
-        }
-      });
-    }
+    // Queue advance is owned by BurnfolderMuxPlayback (ended + watchdog).
   }
 
   function boot(share) {

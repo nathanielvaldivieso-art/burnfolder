@@ -7,7 +7,6 @@
 
   var SHELL_ID = 'studioGlobalPlayback';
   var PLAYER_ID = 'activeMuxPlayer';
-  var BRIDGE_PLAYER_ID = 'bridgeMuxPlayer';
   var PREVIEW_PLAYER_SELECTOR = '.studio-preview-player #activeMuxPlayer, .studio-preview-player mux-player';
   var PLAYER_STYLE =
     'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
@@ -21,13 +20,6 @@
     '<div class="bottom-bar-content">' +
     '<mux-player id="' +
     PLAYER_ID +
-    '" audio playsinline stream-type="on-demand" preload="auto" style="' +
-    PLAYER_STYLE +
-    '"></mux-player>' +
-    /* Second element for lock-screen queue handoffs — iOS blocks play() after
-       playback-id reload on the same element once the session has paused. */
-    '<mux-player id="' +
-    BRIDGE_PLAYER_ID +
     '" audio playsinline stream-type="on-demand" preload="auto" style="' +
     PLAYER_STYLE +
     '"></mux-player>' +
@@ -73,34 +65,12 @@
     return root.document.getElementById(SHELL_ID);
   }
 
-  function ensureBridgePlayerMarkup() {
-    if (!root.document || !root.document.body) return null;
-    var existing = root.document.getElementById(BRIDGE_PLAYER_ID);
-    if (existing) return existing;
-    ensureShellMarkup();
-    existing = root.document.getElementById(BRIDGE_PLAYER_ID);
-    if (existing) return existing;
-    var primary = root.document.getElementById(PLAYER_ID);
-    if (!primary || !primary.parentNode) return null;
-    var bridge = root.document.createElement('mux-player');
-    bridge.id = BRIDGE_PLAYER_ID;
-    bridge.setAttribute('audio', '');
-    bridge.setAttribute('playsinline', '');
-    bridge.setAttribute('stream-type', 'on-demand');
-    bridge.setAttribute('preload', 'auto');
-    bridge.setAttribute('style', PLAYER_STYLE);
-    primary.parentNode.insertBefore(bridge, primary.nextSibling);
-    return bridge;
-  }
-
   root.BurnfolderStudioPlaybackStack = {
     SHELL_ID: SHELL_ID,
     PLAYER_ID: PLAYER_ID,
-    BRIDGE_PLAYER_ID: BRIDGE_PLAYER_ID,
     SHELL_MARKUP: SHELL_MARKUP,
     CORE_SCRIPTS: CORE_SCRIPTS,
     isPreviewPlaybackNode: isPreviewPlaybackNode,
-    ensureShellMarkup: ensureShellMarkup,
-    ensureBridgePlayerMarkup: ensureBridgePlayerMarkup
+    ensureShellMarkup: ensureShellMarkup
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

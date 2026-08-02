@@ -2292,22 +2292,10 @@ function setNowPlayingBarVisible(show) {
 }
 
 function persistPlaybackState() {
-  refreshPlaybackChromeRefs();
-  if (!activeMuxPlayer) return;
-  const playbackId = activeMuxPlayer.getAttribute('playback-id');
-  const activeSong = getActiveSong();
-  if (!playbackId || !activeSong || activeSong.playbackId !== playbackId) return;
-  let t = Number(activeMuxPlayer.currentTime) || 0;
-  if (!Number.isFinite(t) || t < 0) t = 0;
-  sessionStorage.setItem(
-    'playbackState',
-    JSON.stringify({
-      playbackId: activeSong.playbackId,
-      title: activeSong.title,
-      currentTime: t,
-      isPlaying: !activeMuxPlayer.paused,
-    })
-  );
+  const engine = typeof getSiteMuxPlayback === 'function' ? getSiteMuxPlayback() : null;
+  if (engine && typeof engine.persistRecall === 'function') {
+    engine.persistRecall();
+  }
 }
 
 function preservePlaybackAcrossNavigation() {
@@ -2400,121 +2388,17 @@ if (!window.globalMuxPlayer) {
   window.globalMuxPlayer = activeMuxPlayer;
 }
 
-// Restore playback state from previous page (never on the index gate —
-// restoring a Mux stream here leaves Safari's loading spinner spinning forever).
-const savedState = sessionStorage.getItem('playbackState');
-const isIndexGate = isIndexGatePage();
-if (savedState && !isIndexGate) {
-  refreshPlaybackChromeRefs();
-  try {
-    const state = JSON.parse(savedState);
-    // Only restore if the song is valid for the current page
-    let songIndex = window.currentSongs.findIndex(s => s.playbackId === state.playbackId);
-    const fallbackSong = songIndex === -1 && Array.isArray(window.allSongs)
-      ? window.allSongs.find(s => s.playbackId === state.playbackId)
-      : null;
-    if (songIndex !== -1) {
-      activeSongOverride = window.currentSongs[songIndex];
-      activeIdx = songIndex;
-      activeQueue = window.currentSongs.slice();
-      activeQueueIdx = songIndex;
-      // Check if player already has this track loaded
-      const currentPlaybackId = activeMuxPlayer
-        ? activeMuxPlayer.getAttribute('playback-id')
-        : '';
-      if (currentPlaybackId === state.playbackId) {
-        // Same track, just update UI - don't reload
-        setNowPlayingBarVisible(true);
-        updateUI();
-        initializeVolumeControl();
-      } else if (activeMuxPlayer) {
-        // Different track or first load
-        setTimeout(() => {
-          if (!activeMuxPlayer) return;
-          activeMuxPlayer.setAttribute('playback-id', state.playbackId);
-          activeMuxPlayer.setAttribute('metadata-video-title', state.title);
-          // mux-player reacts to playback-id changes automatically — no .load() needed
-          activeMuxPlayer.addEventListener('loadedmetadata', () => {
-            activeMuxPlayer.currentTime = state.currentTime || 0;
-            if (state.isPlaying) {
-              activeMuxPlayer.play().catch(() => {
-                // Auto-play blocked
-                console.log('Auto-play prevented');
-              });
-            }
-            setNowPlayingBarVisible(true);
-            updateUI();
-            initializeVolumeControl();
-          }, { once: true });
-        }, 50);
-      }
-    } else if (fallbackSong && activeMuxPlayer) {
-      activeSongOverride = fallbackSong;
-      activeIdx = -1;
-      activeQueue = [fallbackSong];
-      activeQueueIdx = 0;
-      setTimeout(() => {
-        if (!activeMuxPlayer) return;
-        activeMuxPlayer.setAttribute('playback-id', fallbackSong.playbackId);
-        activeMuxPlayer.setAttribute('metadata-video-title', fallbackSong.title);
-        activeMuxPlayer.addEventListener('loadedmetadata', () => {
-          activeMuxPlayer.currentTime = state.currentTime || 0;
-          if (state.isPlaying) {
-            activeMuxPlayer.play().catch(() => {
-              console.log('Auto-play prevented');
-            });
-          }
-          setNowPlayingBarVisible(true);
-          updateUI();
-          initializeVolumeControl();
-        }, { once: true });
-      }, 50);
-    } else if (state.playbackId && activeMuxPlayer) {
-      activeSongOverride = {
-        playbackId: state.playbackId,
-        title: state.title || 'Track',
-      };
-      activeIdx = null;
-      activeQueue = [activeSongOverride];
-      activeQueueIdx = 0;
-      const currentPlaybackId = activeMuxPlayer.getAttribute('playback-id') || '';
-      if (currentPlaybackId === state.playbackId) {
-        setNowPlayingBarVisible(true);
-        updateUI();
-        initializeVolumeControl();
-      } else {
-        setTimeout(() => {
-          if (!activeMuxPlayer) return;
-          activeMuxPlayer.setAttribute('playback-id', state.playbackId);
-          activeMuxPlayer.setAttribute('metadata-video-title', state.title || 'Track');
-          activeMuxPlayer.addEventListener('loadedmetadata', () => {
-            activeMuxPlayer.currentTime = state.currentTime || 0;
-            if (state.isPlaying) {
-              activeMuxPlayer.play().catch(() => {
-                console.log('Auto-play prevented');
-              });
-            }
-            setNowPlayingBarVisible(true);
-            updateUI();
-            initializeVolumeControl();
-          }, { once: true });
-        }, 50);
-      }
-    }
-  } catch (e) {
-    console.error('Failed to restore playback state:', e);
-  }
+// Playback resume is owned by BurnfolderMuxPlayback recall (burnfolderPlaybackRecall).
+// Drop the legacy sessionStorage.playbackState autoplay path — it raced the engine
+// and caused unreliable lock-screen / soft-nav resumes.
+try {
+  sessionStorage.removeItem('playbackState');
+} catch (e) {
+  /* noop */
 }
-
-// Save playback state before page unload
-window.addEventListener('beforeunload', () => {
-  persistPlaybackState();
-});
-
-// Update playback state periodically
-setInterval(() => {
-  persistPlaybackState();
-}, 1000);
+if (!isIndexGatePage()) {
+  getSiteMuxPlayback();
+}
 
 // Render song list — only when spa-router hasn't already populated it
 // (spa-router.js runs before scripts.js and calls updateAudioListForPage on load;
@@ -2598,9 +2482,6 @@ function getSiteMuxPlayback() {
       restoreRecall: true,
       artist: 'burnfolder',
       album: 'burnfolder.com',
-      onPlayBlocked: (player) => {
-        if (player) player.play().catch(() => {});
-      },
       onStateChange: (detail) => {
         if (Array.isArray(detail.queue)) {
           activeQueue = detail.queue.slice();
@@ -2645,13 +2526,22 @@ function mountNowPlayingBar() {
     onPlayVersion: playTrackBySong,
     onClose: function () {
       refreshPlaybackChromeRefs();
-      if (activeMuxPlayer) activeMuxPlayer.pause();
+      const engine = getSiteMuxPlayback();
+      if (engine && typeof engine.stop === 'function') {
+        engine.stop();
+      } else if (activeMuxPlayer) {
+        activeMuxPlayer.pause();
+        activeMuxPlayer.removeAttribute('playback-id');
+      }
       activeIdx = null;
       activeSongOverride = null;
       activeQueue = [];
       activeQueueIdx = null;
-      if (activeMuxPlayer) activeMuxPlayer.removeAttribute('playback-id');
-      sessionStorage.removeItem('playbackState');
+      try {
+        sessionStorage.removeItem('playbackState');
+      } catch (e) {
+        /* noop */
+      }
       updateUI();
     }
   });

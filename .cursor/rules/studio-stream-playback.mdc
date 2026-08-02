@@ -51,16 +51,16 @@ IDs (global only — do not reuse in preview UIs):
 
 - `#studioGlobalPlayback` — shell wrapper
 - `#activeMuxPlayer` — live global audio element
-- `#bridgeMuxPlayer` — standby ping-pong element for queue advances
 - `#bottomBar`, `#streamNowPlayingTitle`, `#streamPlayPause`, `#streamNowPlayingClose`
 
 ### Queue advance (steel — do not fork)
 
-**One path only: ping-pong.** Preload next on `#bridgeMuxPlayer`, `play()` it while the live element is still playing, swap ids, preload the following track on the new standby.
+**One path: continuous single-element handoff** (`shared/mux-playback.js`).
 
-- Never reload `playback-id` on the live element to advance while `document.hidden` (iOS drops background audio).
-- On every user tap-to-play, unlock the standby with muted play→pause in the same gesture turn.
-- Same-element handoff is foreground last-resort only.
+- Keep one intentional `wantPlaying` flag; a 500ms watchdog advances on end and retries `play()` while intent is playing.
+- Never `pause()` before swapping `playback-id` on a live queue handoff (iOS drops background media permission).
+- Prefer native `ended`; near-end slack is the lock-screen safety net only.
+- Media Session: play / pause / next / previous only — omit seek handlers (breaks iOS next/prev).
 
 Entry editor preview uses **separate** IDs inside `.studio-preview-player`: `previewMuxPlayer`, `previewBottomBar`, etc. Global dedupe must **never** steal preview nodes.
 
@@ -70,7 +70,7 @@ Per-row binding at build time in `stream-page.js` — `wireTrackRowPlay(row)`:
 
 - **Desktop:** plain `click` on each `.music-track-row`
 - **Coarse pointer:** `BurnfolderTouchTap.bind(row, …)`
-- After play: `nudgeMuxPlay(playbackId)` in the same click turn
+- After play: `nudgeMuxPlay(playbackId)` in the same click turn (play only — never rewrite `playback-id`)
 - **Start by `playbackId`**, never DOM/group index alone — `playQueue` remaps after filtering videos via `startPlaybackId`
 - **Do not** rewrite `#activeMuxPlayer` on `pointerdown` prime — prefetch only (`BurnfolderPlaybackPrefetch`)
 

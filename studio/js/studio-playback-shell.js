@@ -200,9 +200,6 @@
       restoreRecall: true,
       artist: 'burnfolder',
       album: 'stream',
-      onPlayBlocked: function (player) {
-        if (player) player.play().catch(function () {});
-      },
       onStateChange: function (detail) {
         window.dispatchEvent(new CustomEvent('burnfolder-stream-playback', { detail: detail }));
         if (barApi) barApi.update(detail);

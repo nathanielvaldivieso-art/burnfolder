@@ -377,15 +377,17 @@
     return (shell && shell.querySelector('#activeMuxPlayer')) || document.getElementById('activeMuxPlayer');
   }
 
+  /** Same-turn iOS gesture nudge — never rewrite playback-id (races the engine). */
   function nudgeMuxPlay(playbackId) {
+    const player = getPlayer();
+    if (player && typeof player.nudgePlay === 'function') {
+      player.nudgePlay(playbackId);
+      return;
+    }
     const mux = muxPlayerEl();
     if (!mux || typeof mux.play !== 'function') return;
-    if (playbackId && mux.getAttribute('playback-id') !== playbackId) {
-      mux.setAttribute('playback-id', playbackId);
-    }
-    if (mux.paused) {
-      mux.play().catch(function () {});
-    }
+    if (playbackId && mux.getAttribute('playback-id') !== playbackId) return;
+    if (mux.paused) mux.play().catch(function () {});
   }
 
   function playAudioItem(item) {

@@ -1,12 +1,29 @@
 /**
- * Shared Mux audio playback — same core logic as scripts.js (burnfolder.com).
- * Do not call player.load() after changing playback-id; mux-player updates automatically.
+ * Shared Mux audio playback — continuous session like Spotify / Apple Music.
+ *
+ * Lock-screen / PWA rules:
+ * 1. One in-DOM media element stays alive (never tear down on nav).
+ * 2. User gesture → play() immediately (do not wait for canplay).
+ * 3. Queue advance → never pause() before swapping playback-id (iOS drops
+ *    the background media session on pause).
+ * 4. One watchdog owns end-of-track advance + "should be playing" recovery.
+ * 5. Media Session is the lock-screen / Control Center transport.
+ *
+ * Do not call player.load() after changing playback-id; mux-player updates itself.
  */
 (function (root) {
   'use strict';
 
   const recallApi = root.BurnfolderPlaybackRecall;
   const mediaSessionApi = root.BurnfolderMediaSession;
+
+  /** How long after a start/handoff before the watchdog may call play() again. */
+  const PLAY_GRACE_MS = 400;
+  /** Watchdog tick — also the near-end poll when Mux skips `ended` on lock screen. */
+  const WATCHDOG_MS = 500;
+  /** Near-end slack: keep tiny so outros aren't chopped when a next track exists. */
+  const END_SLACK_VISIBLE = 0.08;
+  const END_SLACK_HIDDEN = 0.15;
 
   function resolvePlayer(playerOrId) {
     if (!playerOrId) return null;
@@ -27,16 +44,11 @@
 
   function create(options) {
     const opts = options || {};
-    const getPrimaryPlayer =
+    const getPlayer =
       opts.getPlayer ||
       function () {
         return resolvePlayer(opts.playerId || 'activeMuxPlayer');
       };
-
-    /** Always the live element — after a bridge promote, ids are swapped. */
-    function getPlayer() {
-      return getPrimaryPlayer();
-    }
 
     let activeSong = null;
     let activeQueue = [];
@@ -46,27 +58,18 @@
     let endedPlayer = null;
     let recallTimer = null;
     let mediaActionsBound = false;
-    let queueAdvanceLock = false;
-    let queueMonitorTimer = null;
-    let hiddenAdvanceTimer = null;
-    let endWatchTimer = null;
-    let handoffStartedAt = 0;
     let lifecycleBound = false;
+    let watchdogTimer = null;
     let startGeneration = 0;
-    let zeroGuardTimer = null;
     let playbackRate = 1;
-    let lastProgressAt = 0;
-    let lastProgressTime = -1;
-    let lastKnownDuration = 0;
-    let nativeEndedBound = false;
-    let bridgeHandoffGeneration = 0;
-    let bridgeRetryTimer = null;
-    let pingpongInFlight = false;
-    let playersUnlocked = false;
-    /* Near-end window to start the standby player. Locked needs more lead time
-       because iOS throttles timers; foreground stays tight so outros aren't cut. */
-    const PINGPONG_LEAD_HIDDEN_SEC = 2.0;
-    const PINGPONG_LEAD_VISIBLE_SEC = 0.2;
+
+    /** Intentional play state — same idea as a native player's "isPlaying" flag. */
+    let wantPlaying = false;
+    /** True while swapping to the next queue track (blocks double-advance). */
+    let advancing = false;
+    /** Timestamp of last startPlayback / playMedia — grace before watchdog retries. */
+    let lastPlayAttemptAt = 0;
+    let zeroGuardTimer = null;
 
     function notify(extra) {
       const player = getPlayer();
@@ -103,7 +106,6 @@
       const player = getPlayer();
       if (!player) return;
       const liveId = player.getAttribute('playback-id') || '';
-      // Never persist a playhead that still belongs to the previous asset.
       if (liveId && liveId !== activeSong.playbackId) return;
       let t = Number(player.currentTime) || 0;
       if (!Number.isFinite(t) || t < 0) t = 0;
@@ -112,7 +114,7 @@
         queue: activeQueue,
         queueIdx: activeQueueIdx,
         currentTime: t,
-        wasPlaying: !player.paused
+        wasPlaying: !!wantPlaying
       });
     }
 
@@ -126,451 +128,15 @@
     function seekToZero(player) {
       if (!player) return;
       try {
-        if (typeof player.currentTime === 'number' && player.currentTime > 0.05) {
-          player.currentTime = 0;
-        } else {
-          player.currentTime = 0;
-        }
+        player.currentTime = 0;
       } catch (e) {
         /* noop */
       }
     }
 
-    function bridgePlayerId() {
-      const stack = root.BurnfolderStudioPlaybackStack;
-      return (stack && stack.BRIDGE_PLAYER_ID) || 'bridgeMuxPlayer';
-    }
-
-    function ensureBridgePlayer() {
-      const stack = root.BurnfolderStudioPlaybackStack;
-      if (stack && typeof stack.ensureBridgePlayerMarkup === 'function') {
-        const fromStack = stack.ensureBridgePlayerMarkup();
-        if (fromStack) return fromStack;
-      }
-      let bridge = document.getElementById(bridgePlayerId());
-      if (bridge) return bridge;
-      const primary = getPlayer();
-      if (!primary || !primary.parentNode) return null;
-      bridge = document.createElement('mux-player');
-      bridge.id = bridgePlayerId();
-      bridge.setAttribute('audio', '');
-      bridge.setAttribute('playsinline', '');
-      bridge.setAttribute('stream-type', 'on-demand');
-      bridge.setAttribute('preload', 'auto');
-      bridge.setAttribute(
-        'style',
-        primary.getAttribute('style') ||
-          'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;'
-      );
-      primary.parentNode.insertBefore(bridge, primary.nextSibling);
-      return bridge;
-    }
-
-    function swapLivePlayerIds(outgoing, incoming) {
-      if (!outgoing || !incoming || outgoing === incoming) return;
-      const liveId = outgoing.id || 'activeMuxPlayer';
-      const standbyId = incoming.id || bridgePlayerId();
-      outgoing.id = 'bf-mux-swap-tmp';
-      incoming.id = liveId;
-      outgoing.id = standbyId;
-    }
-
-    function stopBridgeRetry() {
-      if (bridgeRetryTimer === null) return;
-      window.clearInterval(bridgeRetryTimer);
-      bridgeRetryTimer = null;
-    }
-
     /**
-     * iOS only allows background play() on media elements unlocked during a
-     * user gesture. The live player is unlocked by the real play(); this
-     * mute-play-pause unlocks the STANDBY so later ping-pong advances work
-     * while the phone is locked.
-     */
-    function unlockStandbyPlayerForIos() {
-      const live = getPlayer();
-      const bridge = ensureBridgePlayer();
-      if (!bridge || bridge === live) return;
-      playersUnlocked = true;
-      let wasMuted = false;
-      try {
-        wasMuted = !!bridge.muted;
-        bridge.muted = true;
-      } catch (e) {
-        /* noop */
-      }
-      /* Give standby a real asset so play() isn't a no-op unlock. */
-      if (!(bridge.getAttribute('playback-id') || '')) {
-        const seed =
-          (activeQueue[activeQueueIdx + 1] && activeQueue[activeQueueIdx + 1].playbackId) ||
-          (activeSong && activeSong.playbackId) ||
-          (live && live.getAttribute('playback-id')) ||
-          '';
-        if (seed) bridge.setAttribute('playback-id', seed);
-      }
-      let playPromise;
-      try {
-        if (typeof bridge.play === 'function') playPromise = bridge.play();
-      } catch (e2) {
-        playPromise = undefined;
-      }
-      const finish = function () {
-        try {
-          bridge.pause();
-        } catch (e3) {
-          /* noop */
-        }
-        try {
-          bridge.muted = wasMuted;
-        } catch (e4) {
-          /* noop */
-        }
-        seekToZero(bridge);
-      };
-      if (playPromise && typeof playPromise.then === 'function') {
-        playPromise.then(finish).catch(finish);
-      } else {
-        finish();
-      }
-    }
-
-    /**
-     * Preload the next queue item onto the standby player while the live track
-     * is still playing. Ping-pong advances always use this element.
-     */
-    function prepareBridgeForNext() {
-      if (activeQueueIdx + 1 >= activeQueue.length) return null;
-      const next = activeQueue[activeQueueIdx + 1];
-      if (!next || !next.playbackId) return null;
-      const bridge = ensureBridgePlayer();
-      if (!bridge) return null;
-      const live = getPlayer();
-      if (live && bridge === live) return null;
-      if ((bridge.getAttribute('playback-id') || '') !== next.playbackId) {
-        try {
-          bridge.pause();
-        } catch (e) {
-          /* noop */
-        }
-        try {
-          bridge.muted = false;
-        } catch (e2) {
-          /* noop */
-        }
-        bridge.setAttribute('preload', 'auto');
-        bridge.setAttribute('playback-id', next.playbackId);
-        bridge.setAttribute('metadata-video-title', next.title || '');
-        seekToZero(bridge);
-      }
-      applyPlaybackRate(bridge);
-      return bridge;
-    }
-
-    /**
-     * THE only queue-advance mechanism: play next on standby while current is
-     * still alive, then swap live ids. Never reloads playback-id on the live
-     * element for advances — that path is what silences iOS when locked.
-     */
-    function beginBridgeHandoff() {
-      if (queueAdvanceLock) return false;
-      const nextIdx = activeQueueIdx + 1;
-      if (nextIdx >= activeQueue.length) return false;
-      const next = normalizeSong(activeQueue[nextIdx]);
-      if (!next) return false;
-
-      const outgoing = getPlayer();
-      if (!outgoing) return false;
-      const bridge = prepareBridgeForNext();
-      if (!bridge) return false;
-
-      queueAdvanceLock = true;
-      pingpongInFlight = true;
-      handoffStartedAt = Date.now();
-      bridgeHandoffGeneration += 1;
-      const handoffGen = bridgeHandoffGeneration;
-      stopEndWatch();
-      stopBridgeRetry();
-      window.clearTimeout(recallTimer);
-      recallTimer = null;
-      lastProgressAt = 0;
-      lastProgressTime = -1;
-
-      applyPlaybackRate(bridge);
-      bridge.setAttribute('metadata-video-title', next.title);
-
-      function promote() {
-        if (handoffGen !== bridgeHandoffGeneration) return false;
-        if (playbackSnapshot(bridge).paused) return false;
-
-        stopBridgeRetry();
-        pingpongInFlight = false;
-        startGeneration += 1;
-        activeSong = next;
-        activeQueueIdx = nextIdx;
-        lastKnownDuration = 0;
-
-        try {
-          outgoing.muted = true;
-        } catch (e) {
-          /* noop */
-        }
-        try {
-          outgoing.pause();
-        } catch (e) {
-          /* noop */
-        }
-
-        swapLivePlayerIds(outgoing, bridge);
-        const live = getPlayer();
-        try {
-          if (live) live.muted = false;
-        } catch (e) {
-          /* noop */
-        }
-
-        endedBound = false;
-        endedPlayer = null;
-        positionBound = false;
-        nativeEndedBound = false;
-        bindEnded(live);
-        bindMediaSessionActions();
-
-        queueAdvanceLock = false;
-        handoffStartedAt = 0;
-
-        if (root.BurnfolderPlaybackPrefetch) {
-          root.BurnfolderPlaybackPrefetch.setActivePlayer(live);
-          root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
-          root.BurnfolderPlaybackPrefetch.warmArtwork(next.playbackId, next.coverArt);
-        }
-
-        notify();
-        persistRecall();
-        startQueueMonitorPoll(live);
-        if (typeof document !== 'undefined' && document.hidden) {
-          startHiddenAdvancePoll(live);
-        }
-        scheduleEndWatch(live);
-        prepareBridgeForNext();
-        return true;
-      }
-
-      function attemptBridgePlay() {
-        if (handoffGen !== bridgeHandoffGeneration) return;
-        if ((bridge.getAttribute('playback-id') || '') !== next.playbackId) {
-          bridge.setAttribute('playback-id', next.playbackId);
-        }
-        if (typeof bridge.play !== 'function' && typeof customElements !== 'undefined') {
-          try {
-            customElements.upgrade(bridge);
-          } catch (e) {
-            /* noop */
-          }
-        }
-        /* Only seek to 0 if we're clearly mid-wrong-playhead — seeking right
-           before every play() can cancel a just-started decode on iOS. */
-        const snap = playbackSnapshot(bridge);
-        if (Number.isFinite(snap.current) && snap.current > 0.5) {
-          seekToZero(bridge);
-        }
-        let playPromise;
-        try {
-          playPromise = typeof bridge.play === 'function' ? bridge.play() : undefined;
-        } catch (e) {
-          return;
-        }
-        if (playPromise && typeof playPromise.then === 'function') {
-          playPromise
-            .then(function () {
-              promote();
-            })
-            .catch(function () {
-              /* Retries keep trying — never same-element while locked. */
-            });
-        } else if (!playbackSnapshot(bridge).paused) {
-          promote();
-        }
-      }
-
-      /* Must call play() while outgoing can still hold the audio session. */
-      attemptBridgePlay();
-      [30, 80, 160, 320, 640, 1200, 2000, 3500].forEach(function (delayMs) {
-        window.setTimeout(function () {
-          if (handoffGen !== bridgeHandoffGeneration) return;
-          if (!queueAdvanceLock) return;
-          if (promote()) return;
-          attemptBridgePlay();
-        }, delayMs);
-      });
-
-      /* Keep hammering the standby player. NEVER fall back to reloading
-         playback-id on the live element while the page is hidden — that is the
-         intermittent silence bug. Foreground may use same-element as last resort. */
-      bridgeRetryTimer = window.setInterval(function () {
-        if (handoffGen !== bridgeHandoffGeneration) {
-          stopBridgeRetry();
-          return;
-        }
-        if (!queueAdvanceLock) {
-          stopBridgeRetry();
-          return;
-        }
-        if (promote()) return;
-        attemptBridgePlay();
-        const elapsed = Date.now() - handoffStartedAt;
-        if (
-          elapsed >= 8000 &&
-          typeof document !== 'undefined' &&
-          !document.hidden &&
-          playbackSnapshot(bridge).paused
-        ) {
-          stopBridgeRetry();
-          pingpongInFlight = false;
-          queueAdvanceLock = false;
-          handoffStartedAt = 0;
-          playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
-        }
-      }, 700);
-
-      return true;
-    }
-
-    function shouldUseBridgeHandoff() {
-      /* Always. One advance path — ping-pong. Same-element reload is only a
-         foreground last resort inside beginBridgeHandoff after long failure. */
-      return activeQueueIdx + 1 < activeQueue.length;
-    }
-
-    function pingpongLeadSec() {
-      return typeof document !== 'undefined' && document.hidden
-        ? PINGPONG_LEAD_HIDDEN_SEC
-        : PINGPONG_LEAD_VISIBLE_SEC;
-    }
-
-    /** Inner media element — mux-player host props often go stale while locked. */
-    function nativeMediaEl(player) {
-      if (!player) return null;
-      try {
-        if (player.media) return player.media;
-      } catch (e) {
-        /* noop */
-      }
-      try {
-        if (player.nativeEl) return player.nativeEl;
-      } catch (e) {
-        /* noop */
-      }
-      try {
-        if (typeof player.querySelector === 'function') {
-          return player.querySelector('audio, video');
-        }
-      } catch (e) {
-        /* noop */
-      }
-      return null;
-    }
-
-    /**
-     * Best-effort playhead/ended state from host + native media.
-     * Prefer the larger finite currentTime/duration so a stale host cannot hide end-of-track.
-     */
-    function playbackSnapshot(player) {
-      const native = nativeMediaEl(player);
-      const sources = [];
-      if (player) sources.push(player);
-      if (native && native !== player) sources.push(native);
-      let ended = false;
-      let paused = true;
-      let current = NaN;
-      let duration = NaN;
-      for (let i = 0; i < sources.length; i++) {
-        const el = sources[i];
-        if (!el) continue;
-        if (el.ended) ended = true;
-        if (el.paused === false) paused = false;
-        const c = Number(el.currentTime);
-        const d = Number(el.duration);
-        if (Number.isFinite(c) && c >= 0 && (!Number.isFinite(current) || c > current)) {
-          current = c;
-        }
-        if (Number.isFinite(d) && d > 0 && (!Number.isFinite(duration) || d > duration)) {
-          duration = d;
-        }
-      }
-      if (!Number.isFinite(duration) && lastKnownDuration > 0) {
-        duration = lastKnownDuration;
-      }
-      if (Number.isFinite(duration) && duration > 0) {
-        lastKnownDuration = duration;
-      }
-      return {
-        ended: ended,
-        paused: paused,
-        current: current,
-        duration: duration,
-        remaining:
-          Number.isFinite(duration) && Number.isFinite(current) ? duration - current : NaN
-      };
-    }
-
-    function stopEndWatch() {
-      if (endWatchTimer === null) return;
-      window.clearTimeout(endWatchTimer);
-      endWatchTimer = null;
-    }
-
-    /**
-     * Locked-phone advance cannot rely on interval polls alone — iOS throttles them.
-     * Arm a one-shot so the bridge player can start WHILE the current track is
-     * still playing (pause-at-end / same-element reload drops iOS audio permission).
-     */
-    function scheduleEndWatch(player) {
-      stopEndWatch();
-      if (!player || !activeSong) return;
-      if (queueAdvanceLock) return;
-      if (activeQueueIdx + 1 >= activeQueue.length) return;
-      const snap = playbackSnapshot(player);
-      if (
-        !Number.isFinite(snap.duration) ||
-        snap.duration <= 0 ||
-        !Number.isFinite(snap.current) ||
-        snap.current < 0
-      ) {
-        return;
-      }
-      const remainingMs = (snap.duration - snap.current) * 1000;
-      if (!Number.isFinite(remainingMs)) return;
-      /* Always warm standby a few seconds out; fire ping-pong at the lead window. */
-      if (remainingMs <= 10000) {
-        prepareBridgeForNext();
-      }
-      const leadMs = Math.round(pingpongLeadSec() * 1000);
-      const delay = Math.min(Math.max(remainingMs - leadMs, 80), 180000);
-      const gen = startGeneration;
-      const songId = activeSong.playbackId;
-      endWatchTimer = window.setTimeout(function () {
-        endWatchTimer = null;
-        if (gen !== startGeneration) return;
-        if (!activeSong || activeSong.playbackId !== songId) return;
-        const livePlayer = getPlayer() || player;
-        if (queueAdvanceLock) {
-          ensureQueueHandoffComplete(livePlayer);
-          return;
-        }
-        if (shouldUseBridgeHandoff()) {
-          prepareBridgeForNext();
-          if (beginBridgeHandoff()) return;
-        }
-        if (maybeAdvanceQueue(livePlayer)) return;
-        /* Timer woke early or playhead lagged — re-arm from live position. */
-        scheduleEndWatch(livePlayer);
-      }, delay);
-    }
-
-    /**
-     * Queue handoffs must never inherit the previous track's playhead.
-     * Mux can keep currentTime across playback-id changes if we don't re-assert
-     * after the new asset is ready — that produced mid-track starts (e.g. 0:15).
+     * Queue handoffs must not inherit the previous track's playhead.
+     * One short reassert window — not a long yank loop that fights live audio.
      */
     function forceStartAtZero(player, playbackId, generation) {
       if (!player || !playbackId) return;
@@ -588,40 +154,22 @@
 
       function reassert() {
         if (!stillCurrent()) return;
-        seekToZero(player);
+        const t = Number(player.currentTime) || 0;
+        // Only yank inherited mid-track starts, not intentional seeks.
+        if (t > 0.35 && t < 3) seekToZero(player);
       }
 
       player.addEventListener('loadedmetadata', reassert, { once: true });
-      player.addEventListener('loadeddata', reassert, { once: true });
       player.addEventListener('canplay', reassert, { once: true });
-      player.addEventListener(
-        'playing',
-        function onPlaying() {
-          if (!stillCurrent()) return;
-          // If the new asset somehow began mid-track, yank it back once.
-          if ((Number(player.currentTime) || 0) > 0.35) {
-            seekToZero(player);
-            if (player.paused) retryPlay(player, activeSong, false);
-          }
-        },
-        { once: true }
-      );
 
       let ticks = 0;
       zeroGuardTimer = window.setInterval(function () {
         ticks += 1;
-        if (!stillCurrent() || ticks > 25) {
+        if (!stillCurrent() || ticks > 12) {
           stopZeroGuard();
           return;
         }
-        const t = Number(player.currentTime) || 0;
-        // Inherited playheads from the previous asset often land mid-track (e.g. 0:15).
-        // Yank any non-zero start back during the first ~2.5s of a fresh handoff.
-        if (t > 0.35) {
-          seekToZero(player);
-        } else {
-          stopZeroGuard();
-        }
+        reassert();
       }, 100);
     }
 
@@ -657,29 +205,15 @@
           }
           const player = getPlayer();
           if (player) {
-            player.currentTime = 0;
+            seekToZero(player);
             notify();
           }
         },
         nexttrack: function () {
           if (activeQueueIdx + 1 < activeQueue.length) {
-            /* Always ping-pong — same path as natural end-of-track advance. */
-            if (beginBridgeHandoff()) return;
-            if (typeof document !== 'undefined' && document.hidden) return;
-            stopEndWatch();
-            handoffStartedAt = Date.now();
-            queueAdvanceLock = true;
-            lastKnownDuration = 0;
-            playQueuedTrack(activeQueueIdx + 1, {
-              immediatePlay: true,
-              queueHandoff: true
-            });
-            const livePlayer = getPlayer();
-            startQueueMonitorPoll(livePlayer);
+            advanceTo(activeQueueIdx + 1);
           }
-        }
-        /* Intentionally omit seekbackward/seekforward/seekto:
-           iOS hides next/previous lock-screen controls when seek handlers are set. */
+        },
       });
     }
 
@@ -694,368 +228,151 @@
       });
     }
 
-    function retryPlay(player, song, allowBlockedFallback) {
-      if (!player || !song) return;
-      if (typeof player.play !== 'function') {
-        if (typeof customElements !== 'undefined' && customElements.get('mux-player')) {
-          try {
-            customElements.upgrade(player);
-          } catch (e) {
-            /* noop */
-          }
+    function upgradePlayer(player) {
+      if (!player || typeof player.play === 'function') return;
+      if (typeof customElements === 'undefined') return;
+      if (customElements.get('mux-player')) {
+        try {
+          customElements.upgrade(player);
+        } catch (e) {
+          /* noop */
         }
-        if (typeof player.play !== 'function' && typeof customElements !== 'undefined') {
-          customElements.whenDefined('mux-player').then(function () {
-            try {
-              customElements.upgrade(player);
-            } catch (e) {
-              /* noop */
-            }
-            retryPlay(player, song, allowBlockedFallback);
-          });
-          return;
-        }
-      }
-      const playPromise = player.play();
-      if (playPromise === undefined) return;
-      playPromise.catch(function () {
-        if (allowBlockedFallback === false) return;
-        if (typeof opts.onPlayBlocked === 'function') {
-          opts.onPlayBlocked(player, song);
-          return;
-        }
-        if (typeof player.play === 'function') {
-          player.play().catch(function () {});
-        }
-      });
-    }
-
-    function stopQueueMonitorPoll() {
-      if (queueMonitorTimer === null) return;
-      window.clearInterval(queueMonitorTimer);
-      queueMonitorTimer = null;
-    }
-
-    function stopHiddenAdvancePoll() {
-      if (hiddenAdvanceTimer === null) return;
-      window.clearInterval(hiddenAdvanceTimer);
-      hiddenAdvanceTimer = null;
-    }
-
-    function markPlaybackProgress(player) {
-      if (!player) return;
-      const snap = playbackSnapshot(player);
-      const current = snap.current;
-      if (!Number.isFinite(current) || current < 0) return;
-      if (Math.abs(current - lastProgressTime) >= 0.05) {
-        lastProgressTime = current;
-        lastProgressAt = Date.now();
-      }
-      if (
-        Number.isFinite(snap.remaining) &&
-        snap.remaining <= 12 &&
-        activeQueueIdx + 1 < activeQueue.length
-      ) {
-        prepareBridgeForNext();
-      }
-      /* Start ping-pong in the lead window while audio is still playing. */
-      if (
-        !queueAdvanceLock &&
-        !snap.paused &&
-        Number.isFinite(snap.remaining) &&
-        snap.remaining <= pingpongLeadSec() &&
-        activeQueueIdx + 1 < activeQueue.length
-      ) {
-        beginBridgeHandoff();
-        return;
-      }
-      if (typeof document !== 'undefined' && document.hidden) {
-        scheduleEndWatch(player);
       }
     }
 
     /**
-     * Detect end-of-track for queue advance.
-     *
-     * Visible tabs wait for the native `ended` event only. Near-end duration
-     * checks chop outros on album queues — the main site always queues the next
-     * track after PHOTO NEGATIVE, so an early handoff is audible there.
-     *
-     * Hidden/lock-screen: iOS often skips `ended` and throttles timers. Advance when:
-     *  - native ended fires
-     *  - playhead is in a tiny pre-end window WHILE still playing (keep session)
-     *  - media paused / froze at the true end (locked-phone stall)
-     * Reads native media — mux-player host currentTime/paused often go stale locked.
+     * Single play entry. Call from user gestures and from the watchdog.
+     * Never stacks competing retries — the watchdog is the only retry loop.
      */
+    function playMedia(player) {
+      if (!player || !activeSong) return;
+      upgradePlayer(player);
+      if (typeof player.play !== 'function') {
+        if (typeof customElements !== 'undefined') {
+          customElements.whenDefined('mux-player').then(function () {
+            upgradePlayer(player);
+            if (wantPlaying && activeSong && typeof player.play === 'function') {
+              lastPlayAttemptAt = Date.now();
+              player.play().catch(function () {});
+            }
+          });
+        }
+        return;
+      }
+      lastPlayAttemptAt = Date.now();
+      const playPromise = player.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(function () {
+          /* Watchdog retries while wantPlaying. Optional page hook for UI. */
+          if (typeof opts.onPlayBlocked === 'function') {
+            opts.onPlayBlocked(player, activeSong);
+          }
+        });
+      }
+    }
+
     function trackFinished(player) {
       if (!player) return false;
-      const snap = playbackSnapshot(player);
-      if (snap.ended) return true;
-      if (
-        !Number.isFinite(snap.duration) ||
-        snap.duration <= 0 ||
-        !Number.isFinite(snap.current)
-      ) {
+      if (player.ended) return true;
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
         return false;
       }
       const hidden = typeof document !== 'undefined' && document.hidden;
-      if (!hidden) return false;
-
-      const remaining = snap.remaining;
-      if (!Number.isFinite(remaining)) return false;
-      const lead = pingpongLeadSec();
-
-      /* Still playing: enter finished window early enough for ping-pong. */
-      if (!snap.paused && remaining <= lead) return true;
-
-      /* Locked phone: track ended as pause without `ended` (common on iOS). */
-      if (snap.paused && remaining <= Math.max(lead, 1.25)) return true;
-
-      /* Locked phone: playhead froze at the end while still reporting playing. */
-      if (
-        !snap.paused &&
-        remaining <= Math.max(lead, 1.25) &&
-        lastProgressAt > 0 &&
-        Date.now() - lastProgressAt >= 1200
-      ) {
-        return true;
-      }
-
-      return false;
+      const slack = hidden ? END_SLACK_HIDDEN : END_SLACK_VISIBLE;
+      return current >= duration - slack;
     }
 
-    function ensureQueueHandoffPlaying(player, normalized, immediatePlay) {
-      if (
-        !player ||
-        !normalized ||
-        !activeSong ||
-        activeSong.playbackId !== normalized.playbackId
-      ) {
+    function stopWatchdog() {
+      if (watchdogTimer === null) return;
+      window.clearInterval(watchdogTimer);
+      watchdogTimer = null;
+    }
+
+    function startWatchdog() {
+      if (watchdogTimer !== null) return;
+      watchdogTimer = window.setInterval(watchdogTick, WATCHDOG_MS);
+    }
+
+    function watchdogTick() {
+      const player = getPlayer();
+      if (!player || !activeSong) {
+        stopWatchdog();
         return;
       }
-      seekToZero(player);
-      if (immediatePlay && playbackSnapshot(player).paused) {
-        retryPlay(player, normalized, false);
-      }
-      notify();
-    }
 
-    function ensureQueueHandoffComplete(player) {
-      if (!queueAdvanceLock || !player || !activeSong) return;
-      /* Ping-pong owns the lock until promote() — the outgoing live element is
-         supposed to still be playing the old song; that is NOT completion. */
-      if (pingpongInFlight) return;
-      const elapsed = handoffStartedAt ? Date.now() - handoffStartedAt : 0;
       const liveId = player.getAttribute('playback-id') || '';
       const matches = liveId === activeSong.playbackId;
-      const snap = playbackSnapshot(player);
-      if (matches && !snap.paused) {
-        queueAdvanceLock = false;
-        handoffStartedAt = 0;
-        scheduleEndWatch(player);
+
+      if (advancing && matches && !player.paused) {
+        advancing = false;
+      }
+
+      if (!advancing && trackFinished(player)) {
+        advanceAfterEnd();
         return;
       }
-      if (elapsed < 400) return;
-      if (matches && snap.paused) {
-        retryPlay(player, activeSong, false);
-      }
-      if (elapsed >= 12000) {
-        queueAdvanceLock = false;
-        handoffStartedAt = 0;
-      }
-    }
 
-    function startQueueMonitorPoll(player) {
-      if (queueMonitorTimer !== null || !player) return;
-      queueMonitorTimer = window.setInterval(function () {
-        const livePlayer = getPlayer();
-        if (!livePlayer || !activeSong) {
-          stopQueueMonitorPoll();
-          return;
-        }
-        markPlaybackProgress(livePlayer);
-        const hasNext = activeQueueIdx + 1 < activeQueue.length;
-        if (!hasNext && !queueAdvanceLock) {
-          stopQueueMonitorPoll();
-          return;
-        }
-        if (queueAdvanceLock) {
-          ensureQueueHandoffComplete(livePlayer);
-          return;
-        }
-        maybeAdvanceQueue(livePlayer);
-      }, 500);
-    }
-
-    /**
-     * Extra lock-screen poll. iOS throttles timeupdate while hidden; this keeps
-     * album advance alive without depending on the foreground monitor alone.
-     */
-    function startHiddenAdvancePoll(player) {
-      if (hiddenAdvanceTimer !== null || !player) return;
-      hiddenAdvanceTimer = window.setInterval(function () {
-        if (typeof document !== 'undefined' && !document.hidden) {
-          stopHiddenAdvancePoll();
-          return;
-        }
-        const livePlayer = getPlayer() || player;
-        if (!activeSong || !livePlayer) return;
-        markPlaybackProgress(livePlayer);
-        if (queueAdvanceLock) {
-          ensureQueueHandoffComplete(livePlayer);
-          return;
-        }
-        if (livePlayer.ended) {
-          advanceQueueAfterEnd(livePlayer);
-          return;
-        }
-        maybeAdvanceQueue(livePlayer);
-      }, 400);
-      startQueueMonitorPoll(player);
-    }
-
-    function resumeIfBackgroundPaused(player) {
-      if (!player || !activeSong || !playbackSnapshot(player).paused) return;
-      if (opts.recall === false || !recallApi) return;
-      const recall = recallApi.load(1000 * 60 * 60 * 12);
+      // Intentional play + unexpectedly paused (common during lock-screen handoffs
+      // while the next Mux asset buffers). One play() per grace window.
       if (
-        !recall ||
-        !recall.wasPlaying ||
-        !recall.song ||
-        recall.song.playbackId !== activeSong.playbackId
+        wantPlaying &&
+        matches &&
+        player.paused &&
+        Date.now() - lastPlayAttemptAt >= PLAY_GRACE_MS
       ) {
-        return;
+        playMedia(player);
       }
-      /* If we stalled at the end while locked, advance instead of replaying the tail. */
-      if (trackFinished(player) && activeQueueIdx + 1 < activeQueue.length) {
-        advanceQueueAfterEnd(player);
-        return;
-      }
-      retryPlay(player, activeSong, false);
     }
 
-    function maybeAdvanceQueue(player) {
-      if (queueAdvanceLock || !player || !activeSong) return false;
-      markPlaybackProgress(player);
-      const snap = playbackSnapshot(player);
-      if (
-        !snap.paused &&
-        Number.isFinite(snap.remaining) &&
-        snap.remaining <= pingpongLeadSec() &&
-        activeQueueIdx + 1 < activeQueue.length
-      ) {
-        prepareBridgeForNext();
-        if (beginBridgeHandoff()) return true;
-      }
-      if (trackFinished(player)) {
-        advanceQueueAfterEnd(player);
-        return true;
-      }
-      if (
-        Number.isFinite(snap.remaining) &&
-        snap.remaining <= 12 &&
-        activeQueueIdx + 1 < activeQueue.length
-      ) {
-        prepareBridgeForNext();
-      }
-      return false;
+    function advanceTo(nextIdx) {
+      if (nextIdx < 0 || nextIdx >= activeQueue.length) return false;
+      advancing = true;
+      return playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
     }
 
-    function advanceQueueAfterEnd(player) {
-      if (queueAdvanceLock) return;
+    function advanceAfterEnd() {
       const nextIdx = activeQueueIdx + 1;
       if (nextIdx < activeQueue.length) {
-        window.clearTimeout(recallTimer);
-        recallTimer = null;
-        stopEndWatch();
-        lastProgressAt = 0;
-        lastProgressTime = -1;
-        lastKnownDuration = 0;
-        /* Single path: ping-pong. No same-element advance while locked. */
-        prepareBridgeForNext();
-        if (beginBridgeHandoff()) return;
-        if (typeof document !== 'undefined' && document.hidden) {
-          /* Bridge markup missing — keep polling; do not reload live element. */
-          startHiddenAdvancePoll(player || getPlayer());
-          startQueueMonitorPoll(player || getPlayer());
-          return;
-        }
-        queueAdvanceLock = true;
-        handoffStartedAt = Date.now();
-        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
-        startQueueMonitorPoll(player || getPlayer());
-      } else {
-        stopQueueMonitorPoll();
-        stopHiddenAdvancePoll();
-        stopEndWatch();
-        stopBridgeRetry();
-        notify({ playing: false });
+        advanceTo(nextIdx);
+        return;
       }
-    }
-
-    function bindNativeEnded(player) {
-      if (!player || nativeEndedBound) return;
-      const nativeMedia = nativeMediaEl(player);
-      if (!nativeMedia || nativeMedia === player) return;
-      if (typeof nativeMedia.addEventListener !== 'function') return;
-      const onEnded = player._bfOnEnded;
-      const onLockPause = player._bfOnLockPause;
-      if (!onEnded || !onLockPause) return;
-      nativeMedia.addEventListener('ended', onEnded);
-      nativeMedia.addEventListener('pause', onLockPause);
-      nativeMedia.addEventListener('timeupdate', function () {
-        markPlaybackProgress(player);
-        maybeAdvanceQueue(player);
-      });
-      nativeEndedBound = true;
+      advancing = false;
+      wantPlaying = false;
+      stopWatchdog();
+      notify({ playing: false });
     }
 
     function bindEnded(player) {
       if (opts.bindEnded === false || !player) return;
-      if (endedPlayer === player && endedBound) {
-        bindNativeEnded(player);
-        return;
-      }
+      if (endedPlayer === player && endedBound) return;
       endedPlayer = player;
       endedBound = true;
       positionBound = false;
-      nativeEndedBound = false;
+
       function onEnded() {
-        /* Ignore ended on a demoted bridge/outgoing element after id swap. */
-        if (getPlayer() !== player) return;
-        advanceQueueAfterEnd(player);
+        advanceAfterEnd();
       }
-      function onLockPause() {
-        if (getPlayer() !== player) {
-          notify();
-          return;
-        }
-        /* Lock-screen end often arrives as pause without ended — try advance. */
-        if (typeof document !== 'undefined' && document.hidden) {
-          maybeAdvanceQueue(player);
-        }
-        notify();
-      }
-      player._bfOnEnded = onEnded;
-      player._bfOnLockPause = onLockPause;
+
       player.addEventListener('ended', onEnded);
-      player.addEventListener('pause', onLockPause);
-      bindNativeEnded(player);
+      const nativeMedia = player.media;
+      if (nativeMedia && nativeMedia !== player && typeof nativeMedia.addEventListener === 'function') {
+        nativeMedia.addEventListener('ended', onEnded);
+      }
+
+      // Safety net when Mux skips `ended` (common on lock screen).
       player.addEventListener('timeupdate', function () {
-        bindNativeEnded(player);
-        markPlaybackProgress(player);
-        maybeAdvanceQueue(player);
+        if (!advancing && trackFinished(player)) advanceAfterEnd();
       });
+
       player.addEventListener('play', function () {
-        queueAdvanceLock = false;
-        handoffStartedAt = 0;
-        bindNativeEnded(player);
-        markPlaybackProgress(player);
-        startQueueMonitorPoll(getPlayer());
-        if (typeof document !== 'undefined' && document.hidden) {
-          startHiddenAdvancePoll(getPlayer());
-          scheduleEndWatch(getPlayer());
-        }
+        if (wantPlaying) advancing = false;
+        notify();
+      });
+      player.addEventListener('pause', function () {
+        // User/OS pause — don't clear wantPlaying here; togglePlayPause owns that.
+        // Media Session pause and our toggle set wantPlaying=false first.
         notify();
       });
       bindPositionUpdates(player);
@@ -1063,63 +380,29 @@
       if (typeof document !== 'undefined' && !lifecycleBound) {
         lifecycleBound = true;
         document.addEventListener('visibilitychange', function () {
-          const livePlayer = getPlayer();
-          if (!livePlayer) return;
-          if (document.hidden) {
-            persistRecall();
-            prepareBridgeForNext();
-            startHiddenAdvancePoll(livePlayer);
-            scheduleEndWatch(livePlayer);
-            maybeAdvanceQueue(livePlayer);
+          const live = getPlayer();
+          if (!live) return;
+          persistRecall();
+          startWatchdog();
+          if (document.hidden) return;
+          // Returning from lock screen / Control Center / app switcher.
+          if (live.ended || trackFinished(live)) {
+            advanceAfterEnd();
             return;
           }
-          stopHiddenAdvancePoll();
-          /* Keep the monitor alive when returning from lock screen / Control Center. */
-          startQueueMonitorPoll(livePlayer);
-          scheduleEndWatch(livePlayer);
-          const snap = playbackSnapshot(livePlayer);
-          /* If a ping-pong handoff is in flight, let it finish (or foreground
-             last-resort inside beginBridgeHandoff). Do not cancel + same-element. */
-          if (queueAdvanceLock) {
-            ensureQueueHandoffComplete(livePlayer);
-            return;
-          }
-          const nearEndPaused =
-            snap.paused &&
-            Number.isFinite(snap.remaining) &&
-            snap.remaining <= Math.max(pingpongLeadSec(), 1.25) &&
-            activeQueueIdx + 1 < activeQueue.length;
-          if (snap.ended || nearEndPaused) {
-            advanceQueueAfterEnd(livePlayer);
-            return;
-          }
-          maybeAdvanceQueue(livePlayer);
-          resumeIfBackgroundPaused(livePlayer);
+          if (wantPlaying && live.paused) playMedia(live);
         });
-        if (typeof document.addEventListener === 'function') {
-          document.addEventListener('freeze', function () {
-            const livePlayer = getPlayer();
-            if (!livePlayer) return;
-            persistRecall();
-            scheduleEndWatch(livePlayer);
-            maybeAdvanceQueue(livePlayer);
-          });
-        }
         window.addEventListener('pagehide', persistRecall);
         window.addEventListener('pageshow', function (event) {
           if (!event.persisted) return;
-          const livePlayer = getPlayer();
-          if (!livePlayer) return;
-          startQueueMonitorPoll(livePlayer);
-          if (typeof document !== 'undefined' && document.hidden) {
-            startHiddenAdvancePoll(livePlayer);
-          }
-          if (livePlayer.ended) {
-            advanceQueueAfterEnd(livePlayer);
+          const live = getPlayer();
+          if (!live) return;
+          startWatchdog();
+          if (live.ended || trackFinished(live)) {
+            advanceAfterEnd();
             return;
           }
-          maybeAdvanceQueue(livePlayer);
-          resumeIfBackgroundPaused(livePlayer);
+          if (wantPlaying && live.paused) playMedia(live);
         });
       }
     }
@@ -1132,7 +415,6 @@
       if (!Number.isFinite(t) || t <= 0) return;
       const seek = function () {
         try {
-          // Only apply if we're still on the recalled asset.
           if (playbackId && (player.getAttribute('playback-id') || '') !== playbackId) return;
           player.currentTime = t;
         } catch (e) {
@@ -1150,28 +432,21 @@
       const isQueueHandoff =
         startOpts.queueHandoff === true || startOpts.seamlessAdvance === true;
       if (!player || !normalized) {
-        if (!isQueueHandoff) queueAdvanceLock = false;
+        if (!isQueueHandoff) advancing = false;
         return false;
       }
 
-      if (!player.getAttribute('audio')) {
-        player.setAttribute('audio', '');
-      }
-      if (!player.getAttribute('playsinline')) {
-        player.setAttribute('playsinline', '');
-      }
-      if (!player.getAttribute('stream-type')) {
-        player.setAttribute('stream-type', 'on-demand');
-      }
+      if (!player.getAttribute('audio')) player.setAttribute('audio', '');
+      if (!player.getAttribute('playsinline')) player.setAttribute('playsinline', '');
+      if (!player.getAttribute('stream-type')) player.setAttribute('stream-type', 'on-demand');
 
-      /* Keep advance lock through a queue handoff so we don't double-fire next. */
-      if (!isQueueHandoff) {
-        queueAdvanceLock = false;
-        handoffStartedAt = 0;
-      }
+      if (!isQueueHandoff) advancing = false;
+
       const immediatePlay =
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
+
+      wantPlaying = !!immediatePlay;
 
       const prevId = player.getAttribute('playback-id') || '';
       const sameSource = prevId === normalized.playbackId;
@@ -1195,14 +470,10 @@
 
       bindEnded(player);
       bindMediaSessionActions();
-      stopEndWatch();
-      lastKnownDuration = 0;
 
-      const wasPlayingBeforeSwap = !playbackSnapshot(player).paused;
-      // Queue handoffs must NOT pause when already playing — iOS drops background
-      // media permission on pause(), which stops album autoplay on a locked phone.
-      // Zero-guard below still forces the new asset to start at 0:00.
-      // Ping-pong advances should not reach here — they swap elements instead.
+      const wasPlayingBeforeSwap = !player.paused;
+      // CRITICAL: never pause() during a live queue handoff — iOS drops the
+      // background media permission and album autoplay dies on the lock screen.
       if (!sameSource) {
         if (!isQueueHandoff || !wasPlayingBeforeSwap) {
           try {
@@ -1215,9 +486,6 @@
         player.setAttribute('playback-id', normalized.playbackId);
       }
 
-      /* Fresh track / queue handoff: start at 0 unless recalling THIS song.
-       * Same-source with an established playhead must never yank to 0 — soft nav
-       * / accidental re-start used to audibly restart the song. */
       const keepPlayhead =
         sameSource &&
         !startOpts.forceRestart &&
@@ -1225,7 +493,6 @@
       if (!recallAt && !keepPlayhead) {
         forceStartAtZero(player, normalized.playbackId, generation);
         if (recallApi && opts.recall !== false) {
-          // Drop any stale mid-track recall so a later restore can't resurrect it.
           recallApi.save({
             song: normalized,
             queue: activeQueue,
@@ -1235,6 +502,7 @@
           });
         }
       }
+
       player.setAttribute('metadata-video-title', normalized.title);
       applyPlaybackRate(player);
 
@@ -1243,155 +511,38 @@
       }
 
       notify();
+      startWatchdog();
 
-      lastProgressAt = Date.now();
-      lastProgressTime = Number(playbackSnapshot(player).current) || 0;
-
-      if (activeQueueIdx + 1 < activeQueue.length || isQueueHandoff) {
-        startQueueMonitorPoll(player);
-        scheduleEndWatch(player);
-        if (typeof document !== 'undefined' && document.hidden) {
-          startHiddenAdvancePoll(player);
-        }
-        /* Standby should already hold the next track before we near the end. */
-        window.setTimeout(function () {
-          if (generation !== startGeneration) return;
-          prepareBridgeForNext();
-        }, isQueueHandoff ? 200 : 400);
+      if (recallAt) {
+        applyRecallPosition(player, recall, normalized.playbackId);
       }
 
-      function ensurePlaying() {
-        if (
-          !activeSong ||
-          activeSong.playbackId !== normalized.playbackId ||
-          generation !== startGeneration ||
-          !player.paused
-        ) {
-          return;
-        }
-        retryPlay(player, normalized, true);
-      }
-
-      function runHandoffPlay() {
-        if (generation !== startGeneration) return;
-        if (
-          !activeSong ||
-          activeSong.playbackId !== normalized.playbackId ||
-          (player.getAttribute('playback-id') || '') !== normalized.playbackId
-        ) {
-          return;
-        }
-        ensureQueueHandoffPlaying(player, normalized, immediatePlay);
-        if (!player.paused) {
-          queueAdvanceLock = false;
-          handoffStartedAt = 0;
-        }
-      }
-
-      // iOS requires play() during the tap handler — don't wait for canplay first.
-      // For background queue handoffs, also arm retries: loadedmetadata often won't
-      // fire until the phone is unlocked, so timed fallbacks keep the session alive.
-      if (immediatePlay) {
-        if (isQueueHandoff) {
-          if (!handoffStartedAt) handoffStartedAt = Date.now();
-          player.addEventListener('loadedmetadata', runHandoffPlay, { once: true });
-          player.addEventListener('canplay', runHandoffPlay, { once: true });
-          player.addEventListener('loadeddata', runHandoffPlay, { once: true });
-          if (player.readyState >= 1) runHandoffPlay();
-          else retryPlay(player, normalized, false);
-          /* Locked phones need longer retries — metadata often won't arrive until unlock. */
-          const handoffRetries =
-            typeof document !== 'undefined' && document.hidden
-              ? [80, 250, 700, 1500, 3000, 6000, 12000]
-              : [120, 500, 1200, 2500];
-          handoffRetries.forEach(function (delayMs) {
-            window.setTimeout(function () {
-              if (generation !== startGeneration) return;
-              const snap = playbackSnapshot(player);
-              if (
-                activeSong &&
-                activeSong.playbackId === normalized.playbackId &&
-                !snap.paused
-              ) {
-                queueAdvanceLock = false;
-                handoffStartedAt = 0;
-                scheduleEndWatch(player);
-                return;
-              }
-              runHandoffPlay();
-            }, delayMs);
-          });
-        } else {
-          /* Same tap turn: seed + unlock standby so lock-screen ping-pong can play(). */
-          prepareBridgeForNext();
-          unlockStandbyPlayerForIos();
-          retryPlay(player, normalized, false);
-        }
-      }
-
-      function onMediaReady() {
-        if (generation !== startGeneration) return;
-        if (
-          !activeSong ||
-          activeSong.playbackId !== normalized.playbackId ||
-          (player.getAttribute('playback-id') || '') !== normalized.playbackId
-        ) {
-          return;
-        }
-        applyPlaybackRate(player);
-        if (recallAt) {
-          applyRecallPosition(player, recall, normalized.playbackId);
-        } else if (!keepPlayhead) {
-          seekToZero(player);
-        }
-        if (recall && recall.wasPlaying === false) {
+      if (recall && recall.wasPlaying === false) {
+        wantPlaying = false;
+        try {
           player.pause();
-          notify({ playing: false });
-          return;
+        } catch (e) {
+          /* noop */
         }
-        if (player.paused) ensurePlaying();
+        notify({ playing: false });
+      } else if (immediatePlay) {
+        // Foreground taps: play in this turn (iOS gesture window).
+        // Background handoffs: play now; watchdog recovers if Mux isn't ready yet.
+        playMedia(player);
       }
 
-      player.addEventListener('canplay', onMediaReady, { once: true });
-      player.addEventListener('loadedmetadata', onMediaReady, { once: true });
-
-      window.setTimeout(function () {
-        if (generation !== startGeneration) return;
-        if (
-          player.paused &&
-          activeSong &&
-          activeSong.playbackId === normalized.playbackId &&
-          !(recall && recall.wasPlaying === false)
-        ) {
-          ensurePlaying();
-        }
-        if (typeof opts.onAfterStart === 'function') {
-          opts.onAfterStart(player, normalized);
-        }
-        persistRecall();
-      }, 100);
-
-      if (typeof document !== 'undefined' && document.hidden) {
+      if (typeof opts.onAfterStart === 'function') {
         window.setTimeout(function () {
           if (generation !== startGeneration) return;
-          if (
-            player.paused &&
-            activeSong &&
-            activeSong.playbackId === normalized.playbackId &&
-            !(recall && recall.wasPlaying === false)
-          ) {
-            ensurePlaying();
-          }
-        }, 800);
+          opts.onAfterStart(player, normalized);
+        }, 0);
       }
+
+      persistRecall();
 
       if (root.BurnfolderPlaybackPrefetch) {
         root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
         root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId, normalized.coverArt);
-      }
-      /* Keep standby mux-player loaded with the next album track for lock-screen handoff. */
-      if (activeQueueIdx + 1 < activeQueue.length) {
-        prepareBridgeForNext();
       }
 
       return true;
@@ -1400,8 +551,7 @@
     function primeTrack(song) {
       const normalized = normalizeSong(song);
       if (!normalized) return false;
-      // Prefer the prefetch pool. Rewriting #activeMuxPlayer on hover/touch-down
-      // caused intermittent wrong-song starts when the live element raced play().
+      // Prefer the prefetch pool. Never rewrite the live player on hover/touch-down.
       if (root.BurnfolderPlaybackPrefetch && root.BurnfolderPlaybackPrefetch.prefetch) {
         root.BurnfolderPlaybackPrefetch.prefetch(normalized.playbackId);
         if (normalized.coverArt && root.BurnfolderPlaybackPrefetch.warmArtwork) {
@@ -1441,16 +591,29 @@
       const player = getPlayer();
       if (!player || !activeSong) return;
       const shouldPlay = typeof forcePlay === 'boolean' ? forcePlay : player.paused;
+      wantPlaying = shouldPlay;
       if (shouldPlay) {
         notify({ playing: true });
-        player.play().catch(function () {
-          notify({ playing: false });
-          retryPlay(player, activeSong);
-        });
+        playMedia(player);
+        startWatchdog();
       } else {
-        player.pause();
+        try {
+          player.pause();
+        } catch (e) {
+          /* noop */
+        }
         notify({ playing: false });
       }
+    }
+
+    /** Same-turn gesture nudge after startPlayback — never rewrite playback-id. */
+    function nudgePlay(playbackId) {
+      const player = getPlayer();
+      if (!player || !activeSong) return;
+      if (playbackId && activeSong.playbackId !== playbackId) return;
+      if (playbackId && (player.getAttribute('playback-id') || '') !== playbackId) return;
+      wantPlaying = true;
+      if (player.paused) playMedia(player);
     }
 
     function disablePitchPreservation(el) {
@@ -1500,8 +663,8 @@
       for (i = 0; i < targets.length; i++) {
         disablePitchPreservation(targets[i]);
       }
-      // Browsers reject 0; treat 0% as paused. Floor tiny rates at the common min.
       if (rate === 0) {
+        wantPlaying = false;
         try {
           target.pause();
         } catch (e) {
@@ -1543,26 +706,17 @@
       activeSong = null;
       activeQueue = [];
       activeQueueIdx = 0;
-      queueAdvanceLock = false;
-      pingpongInFlight = false;
-      handoffStartedAt = 0;
-      bridgeHandoffGeneration += 1;
-      stopBridgeRetry();
-      stopEndWatch();
-      stopHiddenAdvancePoll();
-      stopQueueMonitorPoll();
+      wantPlaying = false;
+      advancing = false;
+      stopWatchdog();
       stopZeroGuard();
       if (player) {
-        player.pause();
-        player.removeAttribute('playback-id');
-      }
-      const bridge = document.getElementById(bridgePlayerId());
-      if (bridge && bridge !== player) {
         try {
-          bridge.pause();
+          player.pause();
         } catch (e) {
           /* noop */
         }
+        player.removeAttribute('playback-id');
       }
       if (recallApi && opts.recall !== false) recallApi.clear();
       notify();
@@ -1574,14 +728,9 @@
       const maxAge = recallOpts && recallOpts.maxAgeMs ? recallOpts.maxAgeMs : 1000 * 60 * 60 * 12;
       const recall = recallApi.load(maxAge);
       if (!recall || !recall.song) return false;
-      // Never clobber a live session — soft-nav / script re-entry must not restart.
       if (activeSong && activeSong.playbackId) return false;
       const player = getPlayer();
-      if (
-        player &&
-        !player.paused &&
-        player.getAttribute('playback-id')
-      ) {
+      if (player && !player.paused && player.getAttribute('playback-id')) {
         return false;
       }
       const queue = recall.queue && recall.queue.length ? recall.queue : [recall.song];
@@ -1613,6 +762,7 @@
       playQueuedTrack: playQueuedTrack,
       primeTrack: primeTrack,
       togglePlayPause: togglePlayPause,
+      nudgePlay: nudgePlay,
       setPlaybackRate: setPlaybackRate,
       getPlaybackRate: getPlaybackRate,
       stop: stop,

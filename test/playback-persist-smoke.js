@@ -69,27 +69,21 @@ assert.ok(root.BurnfolderPlaybackRecall, 'recall API mounted');
 assert.ok(root.BurnfolderStudioPlaybackStack, 'playback stack mounted');
 assert.ok(root.BurnfolderMuxPlayback, 'mux playback mounted');
 assert.strictEqual(
-  root.BurnfolderStudioPlaybackStack.BRIDGE_PLAYER_ID,
-  'bridgeMuxPlayer',
-  'bridge player id present'
+  root.BurnfolderStudioPlaybackStack.PLAYER_ID,
+  'activeMuxPlayer',
+  'primary player id present'
 );
+assert.ok(stackSrc.includes('activeMuxPlayer'), 'shell markup includes active mux-player');
+assert.ok(!stackSrc.includes('bridgeMuxPlayer'), 'bridge/ping-pong player removed');
+assert.ok(muxSrc.includes('wantPlaying'), 'intentional play state present');
+assert.ok(muxSrc.includes('watchdogTick') || muxSrc.includes('startWatchdog'), 'watchdog present');
 assert.ok(
-  stackSrc.includes('bridgeMuxPlayer'),
-  'shell markup includes bridge mux-player'
+  muxSrc.includes('never pause() during a live queue handoff'),
+  'documents no-pause handoff'
 );
-assert.ok(muxSrc.includes('beginBridgeHandoff'), 'ping-pong handoff implemented');
-assert.ok(muxSrc.includes('unlockStandbyPlayerForIos'), 'standby iOS unlock present');
-assert.ok(muxSrc.includes('pingpongInFlight'), 'ping-pong lock guard present');
-assert.ok(muxSrc.includes('PINGPONG_LEAD_HIDDEN_SEC'), 'locked lead window present');
 assert.ok(
   !/seekbackward:\s*function/.test(muxSrc),
   'media session seek handlers omitted for iOS next/prev'
-);
-/* Locked advances must not fall back to same-element reload. */
-assert.ok(
-  muxSrc.includes('Never fall back to reloading') ||
-    muxSrc.includes('NEVER fall back to reloading'),
-  'documents no same-element fallback while locked'
 );
 
 const song = { title: 'PHOTO NEGATIVE', playbackId: 'pn-playback-id', coverArt: '/x.jpg' };
