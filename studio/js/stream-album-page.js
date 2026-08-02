@@ -106,12 +106,12 @@
    * Unique songs in collection order. Duplicate titles collapse (newest wins);
    * version count comes from the catalog like the music page.
    */
-  function albumSongRows() {
-    if (!group) return [];
+  function albumSongRowsForGroup(targetGroup) {
+    if (!targetGroup) return [];
     const rows = [];
     const byKey = new Map();
 
-    (group.tracks || []).forEach(function (track) {
+    (targetGroup.tracks || []).forEach(function (track) {
       if (!track || !track.playbackId) return;
       const resolved = resolveStackTrackItem(track);
       if (!resolved || !resolved.playbackId || shared.canPlayAsVideo(resolved)) return;
@@ -165,11 +165,35 @@
     return rows;
   }
 
+  function albumSongRows() {
+    return albumSongRowsForGroup(group);
+  }
+
   /** Playable queue = one entry per unique song (continuous playback). */
   function albumTracks() {
     return albumSongRows().map(function (row) {
       return row.resolved;
     });
+  }
+
+  /**
+   * Current album + every group after it so lock-screen advance can cross collections.
+   */
+  function albumQueueFromCurrent() {
+    if (!shared || !group) return albumTracks();
+    const groups = shared.loadGroups() || [];
+    const startIdx = groups.findIndex(function (g) {
+      return g && g.id === group.id;
+    });
+    if (startIdx < 0) return albumTracks();
+    const items = [];
+    for (let i = startIdx; i < groups.length; i++) {
+      const rows = albumSongRowsForGroup(groups[i]);
+      for (let j = 0; j < rows.length; j++) {
+        if (rows[j] && rows[j].resolved) items.push(rows[j].resolved);
+      }
+    }
+    return items.length ? items : albumTracks();
   }
 
   function albumMetaText(rows) {
@@ -232,20 +256,30 @@
   }
 
   function playAlbumFrom(index, startPlaybackId) {
-    const tracks = albumTracks();
-    if (!tracks.length || !player) return;
-    let idx = typeof index === 'number' ? index : 0;
+    const groupTracks = albumTracks();
+    if (!groupTracks.length || !player) return;
+    let startIndexInGroup = typeof index === 'number' ? index : 0;
     if (startPlaybackId) {
-      const byId = tracks.findIndex(function (item) {
+      const byId = groupTracks.findIndex(function (item) {
         return item && item.playbackId === startPlaybackId;
       });
-      if (byId >= 0) idx = byId;
+      if (byId >= 0) startIndexInGroup = byId;
+    }
+    const started = groupTracks[startIndexInGroup] || groupTracks[0];
+    const queueTracks = albumQueueFromCurrent();
+    let idx = 0;
+    if (started && started.playbackId) {
+      const inQueue = queueTracks.findIndex(function (item) {
+        return item && item.playbackId === started.playbackId;
+      });
+      idx = inQueue >= 0 ? inQueue : 0;
+    } else {
+      idx = Math.min(startIndexInGroup, Math.max(0, queueTracks.length - 1));
     }
     const meta = shared.loadStackMeta(group.id);
-    const target = tracks[idx] || tracks[0];
-    player.playQueue(tracks, idx, {
+    player.playQueue(queueTracks, idx, {
       coverArt: (meta && meta.coverArt) || '',
-      startPlaybackId: (target && target.playbackId) || startPlaybackId || ''
+      startPlaybackId: (started && started.playbackId) || startPlaybackId || ''
     });
     syncTracklistPlayback();
   }
