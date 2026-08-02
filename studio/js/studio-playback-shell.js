@@ -171,6 +171,9 @@
 
   function ensureShell() {
     injectShellMarkup();
+    if (stack && typeof stack.ensureBridgePlayerMarkup === 'function') {
+      stack.ensureBridgePlayerMarkup();
+    }
     dedupeGlobalPlayer();
     const shell = document.getElementById(SHELL_ID);
     if (!shell) return null;
