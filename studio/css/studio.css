@@ -8042,20 +8042,24 @@ body.clips-drag-over .clips-block--composer {
 
   .clips-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
     /* Clear fixed synced/lock cluster on the first row */
     padding-top: 8px;
     padding-right: 0;
   }
 
   .clips-unfiled-shelf {
-    margin-top: 4px;
-    padding-top: 20px;
+    margin-top: 10px;
+    padding-top: 24px;
+  }
+
+  .clips-unfiled-label {
+    margin-bottom: 16px;
   }
 
   .clips-unfiled-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
   }
 
   .clips-block {
