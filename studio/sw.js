@@ -9,6 +9,8 @@ self.createBurnfolderServiceWorker({
     '/songs.js',
     '/shared/site-version.js',
     '/shared/mux-playback.js',
+    '/shared/studio-playback-stack.js',
+    '/studio/js/studio-playback-shell.js',
     '/studio/js/studio-site-menu.js',
     '/studio/js/clips-page.js',
     '/studio/js/clips-store.js',
