@@ -139,7 +139,7 @@
       if (!response.ok) throw new Error('Page not found');
       return response.text();
     }).then(function (html) {
-      htmlCache.set(key, html);
+      htmlCache.set(fetchPath, html);
       return html;
     });
   }
@@ -243,7 +243,12 @@
       'studio-locked',
       'studio-booting',
       'stream-playback-active',
-      'studio-has-player'
+      'studio-has-player',
+      'studio-menu-on',
+      'studio-menu-dual',
+      'studio-menu-legacy',
+      'is-site-menu-open',
+      'is-studio-menu-open'
     ];
     const preserved = runtimeClasses.filter(function (cls) {
       if (authed && cls === 'studio-booting') return false;
@@ -466,22 +471,6 @@
         return;
       }
 
-      if (push !== false) {
-        var navState = { studioSpa: true, pageKey: target.pageKey };
-        try {
-          var navUrl = new URL(target.href, window.location.href);
-          var albumParam = navUrl.searchParams.get('album') || navUrl.searchParams.get('id');
-          if (albumParam) navState.albumId = albumParam;
-          var songParam = navUrl.searchParams.get('song');
-          var pParam = navUrl.searchParams.get('p');
-          if (songParam) navState.song = songParam;
-          if (pParam) navState.playbackId = pParam;
-        } catch (e) {
-          /* noop */
-        }
-        history.pushState(navState, '', target.href);
-      }
-
       const response = await fetchPageHtml(target.fetchPath);
       const html = typeof response === 'string' ? response : await response.text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -506,6 +495,22 @@
 
       document.title = doc.title;
       applyBodyFromPage(doc);
+
+      if (push !== false) {
+        var navState = { studioSpa: true, pageKey: target.pageKey };
+        try {
+          var navUrl = new URL(target.href, window.location.href);
+          var albumParam = navUrl.searchParams.get('album') || navUrl.searchParams.get('id');
+          if (albumParam) navState.albumId = albumParam;
+          var songParam = navUrl.searchParams.get('song');
+          var pParam = navUrl.searchParams.get('p');
+          if (songParam) navState.song = songParam;
+          if (pParam) navState.playbackId = pParam;
+        } catch (e) {
+          /* noop */
+        }
+        history.pushState(navState, '', target.href);
+      }
 
       if (shellReady()) {
         window.BurnfolderStudioPlaybackShell.ensureShell();
@@ -616,6 +621,21 @@
     if (currentKey) markNav(currentKey);
     if (currentKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
       window.studioInitEntryHub();
+    }
+    // Clips cold-loads via its own DOMContentLoaded hook. If that miss-fires or
+    // stalls before painting, recover on the next tick so the board is not left
+    // empty under the constellation menu.
+    if (currentKey === 'clips') {
+      window.setTimeout(function () {
+        var board = document.getElementById('clipsBoard');
+        if (
+          board &&
+          !board.querySelector('[data-composer], .clips-composer, .clips-block') &&
+          typeof window.studioInitClipsPage === 'function'
+        ) {
+          window.studioInitClipsPage();
+        }
+      }, 0);
     }
 
     window.setTimeout(prefetchSpaPages, 400);

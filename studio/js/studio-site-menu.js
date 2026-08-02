@@ -136,7 +136,21 @@
     }
 
     /* Already on that hub — stay. Brand is how constellation opens. */
-    if (fileFromHref(item.href) === pageFile()) return;
+    if (fileFromHref(item.href) === pageFile()) {
+      if (
+        current === 'clips' &&
+        typeof window.studioInitClipsPage === 'function'
+      ) {
+        var clipsBoard = document.getElementById('clipsBoard');
+        if (
+          clipsBoard &&
+          !clipsBoard.querySelector('[data-composer], .clips-composer, .clips-block')
+        ) {
+          window.studioInitClipsPage();
+        }
+      }
+      return;
+    }
 
     if (typeof window.studioSpaNavigate === 'function') {
       window.studioSpaNavigate(item.href);
@@ -249,6 +263,20 @@
           if (isOnExactHub(link)) {
             e.preventDefault();
             e.stopPropagation();
+            // Clips can cold-load as an empty board under the menu; re-clicking
+            // the hub item should recover by re-running page init.
+            if (
+              link.getAttribute('data-nav') === 'clips' &&
+              typeof window.studioInitClipsPage === 'function'
+            ) {
+              var clipsBoard = document.getElementById('clipsBoard');
+              if (
+                clipsBoard &&
+                !clipsBoard.querySelector('[data-composer], .clips-composer, .clips-block')
+              ) {
+                window.studioInitClipsPage();
+              }
+            }
           }
           return;
         }

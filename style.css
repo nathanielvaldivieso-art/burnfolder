@@ -2821,9 +2821,11 @@ h1 { display: none; }
   .studio-page .page-wrap,
   .studio-page .studio-stream-layout,
   .studio-page .studio-home {
-    margin: 0 0 0 var(--page-gutter-mobile);
+    /* Equal left/right gutters (was 24px left / ~8px right via 100vw - 32px) */
+    margin: 0 var(--page-gutter-mobile);
     padding: 24px 0 120px 0;
-    max-width: calc(100vw - 32px);
+    max-width: calc(100vw - (2 * var(--page-gutter-mobile)));
+    box-sizing: border-box;
   }
 
   .bottom-progress-bar {
