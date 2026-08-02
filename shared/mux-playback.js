@@ -27,11 +27,16 @@
 
   function create(options) {
     const opts = options || {};
-    const getPlayer =
+    const getPrimaryPlayer =
       opts.getPlayer ||
       function () {
         return resolvePlayer(opts.playerId || 'activeMuxPlayer');
       };
+
+    /** Always the live element — after a bridge promote, ids are swapped. */
+    function getPlayer() {
+      return getPrimaryPlayer();
+    }
 
     let activeSong = null;
     let activeQueue = [];
@@ -44,6 +49,7 @@
     let queueAdvanceLock = false;
     let queueMonitorTimer = null;
     let hiddenAdvanceTimer = null;
+    let endWatchTimer = null;
     let handoffStartedAt = 0;
     let lifecycleBound = false;
     let startGeneration = 0;
@@ -51,6 +57,9 @@
     let playbackRate = 1;
     let lastProgressAt = 0;
     let lastProgressTime = -1;
+    let lastKnownDuration = 0;
+    let nativeEndedBound = false;
+    let bridgeHandoffGeneration = 0;
 
     function notify(extra) {
       const player = getPlayer();
@@ -118,6 +127,349 @@
       } catch (e) {
         /* noop */
       }
+    }
+
+    function bridgePlayerId() {
+      const stack = root.BurnfolderStudioPlaybackStack;
+      return (stack && stack.BRIDGE_PLAYER_ID) || 'bridgeMuxPlayer';
+    }
+
+    function ensureBridgePlayer() {
+      const stack = root.BurnfolderStudioPlaybackStack;
+      if (stack && typeof stack.ensureBridgePlayerMarkup === 'function') {
+        const fromStack = stack.ensureBridgePlayerMarkup();
+        if (fromStack) return fromStack;
+      }
+      let bridge = document.getElementById(bridgePlayerId());
+      if (bridge) return bridge;
+      const primary = getPlayer();
+      if (!primary || !primary.parentNode) return null;
+      bridge = document.createElement('mux-player');
+      bridge.id = bridgePlayerId();
+      bridge.setAttribute('audio', '');
+      bridge.setAttribute('playsinline', '');
+      bridge.setAttribute('stream-type', 'on-demand');
+      bridge.setAttribute('preload', 'auto');
+      bridge.setAttribute(
+        'style',
+        primary.getAttribute('style') ||
+          'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;'
+      );
+      primary.parentNode.insertBefore(bridge, primary.nextSibling);
+      return bridge;
+    }
+
+    function swapLivePlayerIds(outgoing, incoming) {
+      if (!outgoing || !incoming || outgoing === incoming) return;
+      const liveId = outgoing.id || 'activeMuxPlayer';
+      const standbyId = incoming.id || bridgePlayerId();
+      outgoing.id = 'bf-mux-swap-tmp';
+      incoming.id = liveId;
+      outgoing.id = standbyId;
+    }
+
+    /**
+     * Preload the next queue item onto the standby bridge player while the
+     * live track is still playing. Required for locked-phone handoffs.
+     */
+    function prepareBridgeForNext() {
+      if (activeQueueIdx + 1 >= activeQueue.length) return null;
+      const next = activeQueue[activeQueueIdx + 1];
+      if (!next || !next.playbackId) return null;
+      const bridge = ensureBridgePlayer();
+      if (!bridge) return null;
+      const live = getPlayer();
+      if (live && bridge === live) return null;
+      if ((bridge.getAttribute('playback-id') || '') !== next.playbackId) {
+        try {
+          bridge.pause();
+        } catch (e) {
+          /* noop */
+        }
+        try {
+          bridge.muted = false;
+        } catch (e2) {
+          /* noop */
+        }
+        bridge.setAttribute('preload', 'auto');
+        bridge.setAttribute('playback-id', next.playbackId);
+        bridge.setAttribute('metadata-video-title', next.title || '');
+        seekToZero(bridge);
+      }
+      applyPlaybackRate(bridge);
+      return bridge;
+    }
+
+    /**
+     * Locked-phone album advance: play the next track on a SECOND mux-player
+     * while the current one is still playing, then swap ids.
+     * Reloading playback-id on the same element pauses media and iOS drops the
+     * background session — play() then only works after the app is foregrounded
+     * (exactly the "opens and plays without touching" symptom).
+     */
+    function beginBridgeHandoff() {
+      if (queueAdvanceLock) return false;
+      const nextIdx = activeQueueIdx + 1;
+      if (nextIdx >= activeQueue.length) return false;
+      const next = normalizeSong(activeQueue[nextIdx]);
+      if (!next) return false;
+
+      const outgoing = getPlayer();
+      if (!outgoing) return false;
+      const bridge = prepareBridgeForNext();
+      if (!bridge) return false;
+
+      queueAdvanceLock = true;
+      handoffStartedAt = Date.now();
+      bridgeHandoffGeneration += 1;
+      const handoffGen = bridgeHandoffGeneration;
+      stopEndWatch();
+      window.clearTimeout(recallTimer);
+      recallTimer = null;
+      lastProgressAt = 0;
+      lastProgressTime = -1;
+
+      seekToZero(bridge);
+      applyPlaybackRate(bridge);
+      bridge.setAttribute('metadata-video-title', next.title);
+
+      function promote() {
+        if (handoffGen !== bridgeHandoffGeneration) return false;
+        if (playbackSnapshot(bridge).paused) return false;
+
+        startGeneration += 1;
+        activeSong = next;
+        activeQueueIdx = nextIdx;
+        lastKnownDuration = 0;
+
+        /* Kill outgoing audio immediately so we don't layer two tracks. */
+        try {
+          outgoing.muted = true;
+        } catch (e) {
+          /* noop */
+        }
+        try {
+          outgoing.pause();
+        } catch (e) {
+          /* noop */
+        }
+
+        swapLivePlayerIds(outgoing, bridge);
+        const live = getPlayer();
+        try {
+          live.muted = false;
+        } catch (e) {
+          /* noop */
+        }
+
+        endedBound = false;
+        endedPlayer = null;
+        positionBound = false;
+        nativeEndedBound = false;
+        bindEnded(live);
+        bindMediaSessionActions();
+
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+
+        if (root.BurnfolderPlaybackPrefetch) {
+          root.BurnfolderPlaybackPrefetch.setActivePlayer(live);
+          root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
+          root.BurnfolderPlaybackPrefetch.warmArtwork(next.playbackId, next.coverArt);
+        }
+
+        notify();
+        persistRecall();
+        startQueueMonitorPoll(live);
+        if (typeof document !== 'undefined' && document.hidden) {
+          startHiddenAdvancePoll(live);
+          scheduleEndWatch(live);
+        } else {
+          scheduleEndWatch(live);
+        }
+        prepareBridgeForNext();
+        return true;
+      }
+
+      function attemptBridgePlay() {
+        if (handoffGen !== bridgeHandoffGeneration) return;
+        if ((bridge.getAttribute('playback-id') || '') !== next.playbackId) {
+          bridge.setAttribute('playback-id', next.playbackId);
+        }
+        seekToZero(bridge);
+        if (typeof bridge.play !== 'function' && typeof customElements !== 'undefined') {
+          try {
+            customElements.upgrade(bridge);
+          } catch (e) {
+            /* noop */
+          }
+        }
+        const playPromise = typeof bridge.play === 'function' ? bridge.play() : undefined;
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise
+            .then(function () {
+              promote();
+            })
+            .catch(function () {
+              /* Retries below — keep outgoing playing as long as possible. */
+            });
+        } else if (!playbackSnapshot(bridge).paused) {
+          promote();
+        }
+      }
+
+      /* Must call play() while outgoing is still playing to keep iOS audio permission. */
+      attemptBridgePlay();
+      [40, 120, 280, 600, 1200, 2400, 4000].forEach(function (delayMs) {
+        window.setTimeout(function () {
+          if (handoffGen !== bridgeHandoffGeneration) return;
+          if (!queueAdvanceLock) return;
+          if (promote()) return;
+          attemptBridgePlay();
+        }, delayMs);
+      });
+
+      /* If bridge never started, fall back to same-element handoff (works in foreground). */
+      window.setTimeout(function () {
+        if (handoffGen !== bridgeHandoffGeneration) return;
+        if (!queueAdvanceLock) return;
+        if (!playbackSnapshot(bridge).paused) {
+          promote();
+          return;
+        }
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
+      }, 5500);
+
+      return true;
+    }
+
+    function shouldUseBridgeHandoff() {
+      /* Locked/background only — foreground same-element handoff is reliable and
+         must not trim outros. */
+      return typeof document !== 'undefined' && document.hidden;
+    }
+
+    /** Inner media element — mux-player host props often go stale while locked. */
+    function nativeMediaEl(player) {
+      if (!player) return null;
+      try {
+        if (player.media) return player.media;
+      } catch (e) {
+        /* noop */
+      }
+      try {
+        if (player.nativeEl) return player.nativeEl;
+      } catch (e) {
+        /* noop */
+      }
+      try {
+        if (typeof player.querySelector === 'function') {
+          return player.querySelector('audio, video');
+        }
+      } catch (e) {
+        /* noop */
+      }
+      return null;
+    }
+
+    /**
+     * Best-effort playhead/ended state from host + native media.
+     * Prefer the larger finite currentTime/duration so a stale host cannot hide end-of-track.
+     */
+    function playbackSnapshot(player) {
+      const native = nativeMediaEl(player);
+      const sources = [];
+      if (player) sources.push(player);
+      if (native && native !== player) sources.push(native);
+      let ended = false;
+      let paused = true;
+      let current = NaN;
+      let duration = NaN;
+      for (let i = 0; i < sources.length; i++) {
+        const el = sources[i];
+        if (!el) continue;
+        if (el.ended) ended = true;
+        if (el.paused === false) paused = false;
+        const c = Number(el.currentTime);
+        const d = Number(el.duration);
+        if (Number.isFinite(c) && c >= 0 && (!Number.isFinite(current) || c > current)) {
+          current = c;
+        }
+        if (Number.isFinite(d) && d > 0 && (!Number.isFinite(duration) || d > duration)) {
+          duration = d;
+        }
+      }
+      if (!Number.isFinite(duration) && lastKnownDuration > 0) {
+        duration = lastKnownDuration;
+      }
+      if (Number.isFinite(duration) && duration > 0) {
+        lastKnownDuration = duration;
+      }
+      return {
+        ended: ended,
+        paused: paused,
+        current: current,
+        duration: duration,
+        remaining:
+          Number.isFinite(duration) && Number.isFinite(current) ? duration - current : NaN
+      };
+    }
+
+    function stopEndWatch() {
+      if (endWatchTimer === null) return;
+      window.clearTimeout(endWatchTimer);
+      endWatchTimer = null;
+    }
+
+    /**
+     * Locked-phone advance cannot rely on interval polls alone — iOS throttles them.
+     * Arm a one-shot so the bridge player can start WHILE the current track is
+     * still playing (pause-at-end / same-element reload drops iOS audio permission).
+     */
+    function scheduleEndWatch(player) {
+      stopEndWatch();
+      if (!player || !activeSong) return;
+      if (queueAdvanceLock) return;
+      if (activeQueueIdx + 1 >= activeQueue.length) return;
+      const snap = playbackSnapshot(player);
+      if (
+        !Number.isFinite(snap.duration) ||
+        snap.duration <= 0 ||
+        !Number.isFinite(snap.current) ||
+        snap.current < 0
+      ) {
+        return;
+      }
+      const remainingMs = (snap.duration - snap.current) * 1000;
+      if (!Number.isFinite(remainingMs)) return;
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      /* Warm the bridge a few seconds out; start handoff ~1.2s before end when locked. */
+      if (hidden && remainingMs <= 8000) {
+        prepareBridgeForNext();
+      }
+      const leadMs = hidden ? 1200 : 0;
+      const delay = Math.min(Math.max(remainingMs - leadMs, 80), 180000);
+      const gen = startGeneration;
+      const songId = activeSong.playbackId;
+      endWatchTimer = window.setTimeout(function () {
+        endWatchTimer = null;
+        if (gen !== startGeneration) return;
+        if (!activeSong || activeSong.playbackId !== songId) return;
+        const livePlayer = getPlayer() || player;
+        if (queueAdvanceLock) {
+          ensureQueueHandoffComplete(livePlayer);
+          return;
+        }
+        if (shouldUseBridgeHandoff()) {
+          prepareBridgeForNext();
+          if (beginBridgeHandoff()) return;
+        }
+        if (maybeAdvanceQueue(livePlayer)) return;
+        /* Timer woke early or playhead lagged — re-arm from live position. */
+        scheduleEndWatch(livePlayer);
+      }, delay);
     }
 
     /**
@@ -216,44 +568,28 @@
         },
         nexttrack: function () {
           if (activeQueueIdx + 1 < activeQueue.length) {
+            /* Locked: prefer bridge so next/prev keep working without a seek UI
+               that would hide these controls on iOS. */
+            if (typeof document !== 'undefined' && document.hidden && beginBridgeHandoff()) {
+              return;
+            }
+            stopEndWatch();
             handoffStartedAt = Date.now();
             queueAdvanceLock = true;
+            lastKnownDuration = 0;
             playQueuedTrack(activeQueueIdx + 1, {
               immediatePlay: true,
               queueHandoff: true
             });
-            startQueueMonitorPoll(getPlayer());
+            const livePlayer = getPlayer();
+            startQueueMonitorPoll(livePlayer);
+            if (typeof document !== 'undefined' && document.hidden) {
+              startHiddenAdvancePoll(livePlayer);
+            }
           }
-        },
-        seekbackward: function (details) {
-          const player = getPlayer();
-          if (!player) return;
-          const skip = (details && Number(details.seekOffset)) || 10;
-          player.currentTime = Math.max(0, (player.currentTime || 0) - skip);
-          notify();
-          mediaSessionApi.setPositionState(player);
-        },
-        seekforward: function (details) {
-          const player = getPlayer();
-          if (!player) return;
-          const skip = (details && Number(details.seekOffset)) || 10;
-          const duration = Number(player.duration);
-          const next = (player.currentTime || 0) + skip;
-          player.currentTime = Number.isFinite(duration) ? Math.min(next, duration) : next;
-          notify();
-          mediaSessionApi.setPositionState(player);
-        },
-        seekto: function (details) {
-          const player = getPlayer();
-          if (!player || !details || !Number.isFinite(details.seekTime)) return;
-          const duration = Number(player.duration);
-          const target = details.seekTime;
-          player.currentTime = Number.isFinite(duration)
-            ? Math.max(0, Math.min(target, duration))
-            : Math.max(0, target);
-          notify();
-          mediaSessionApi.setPositionState(player);
         }
+        /* Intentionally omit seekbackward/seekforward/seekto:
+           iOS hides next/previous lock-screen controls when seek handlers are set. */
       });
     }
 
@@ -318,11 +654,29 @@
 
     function markPlaybackProgress(player) {
       if (!player) return;
-      const current = Number(player.currentTime);
+      const snap = playbackSnapshot(player);
+      const current = snap.current;
       if (!Number.isFinite(current) || current < 0) return;
       if (Math.abs(current - lastProgressTime) >= 0.05) {
         lastProgressTime = current;
         lastProgressAt = Date.now();
+      }
+      if (typeof document !== 'undefined' && document.hidden) {
+        if (Number.isFinite(snap.remaining) && snap.remaining <= 8) {
+          prepareBridgeForNext();
+        }
+        /* Locked: start bridge handoff while still playing, before iOS pauses us. */
+        if (
+          !queueAdvanceLock &&
+          !snap.paused &&
+          Number.isFinite(snap.remaining) &&
+          snap.remaining <= 1.35 &&
+          activeQueueIdx + 1 < activeQueue.length
+        ) {
+          beginBridgeHandoff();
+          return;
+        }
+        scheduleEndWatch(player);
       }
     }
 
@@ -333,37 +687,41 @@
      * checks chop outros on album queues — the main site always queues the next
      * track after PHOTO NEGATIVE, so an early handoff is audible there.
      *
-     * Hidden/lock-screen: iOS often skips `ended` and throttles timers. Do NOT
-     * advance early while audio is still playing (that cuts outros). Advance when:
+     * Hidden/lock-screen: iOS often skips `ended` and throttles timers. Advance when:
      *  - native ended fires
-     *  - playhead is within a tiny tail of duration while still playing
-     *  - media stopped / froze at the very end (locked-phone stall)
+     *  - playhead is in a tiny pre-end window WHILE still playing (keep session)
+     *  - media paused / froze at the true end (locked-phone stall)
+     * Reads native media — mux-player host currentTime/paused often go stale locked.
      */
     function trackFinished(player) {
       if (!player) return false;
-      if (player.ended) return true;
-      const duration = Number(player.duration);
-      const current = Number(player.currentTime);
-      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
+      const snap = playbackSnapshot(player);
+      if (snap.ended) return true;
+      if (
+        !Number.isFinite(snap.duration) ||
+        snap.duration <= 0 ||
+        !Number.isFinite(snap.current)
+      ) {
         return false;
       }
       const hidden = typeof document !== 'undefined' && document.hidden;
       if (!hidden) return false;
 
-      const remaining = duration - current;
-      if (remaining <= 0.15) return true;
+      const remaining = snap.remaining;
+      if (!Number.isFinite(remaining)) return false;
+
+      /* Still playing: enter finished window early enough for bridge handoff. */
+      if (!snap.paused && remaining <= 1.35) return true;
 
       /* Locked phone: track ended as pause without `ended` (common on iOS). */
-      if (player.paused && remaining <= 0.75) {
-        return true;
-      }
+      if (snap.paused && remaining <= 1.25) return true;
 
       /* Locked phone: playhead froze at the end while still reporting playing. */
       if (
-        !player.paused &&
-        remaining <= 0.75 &&
+        !snap.paused &&
+        remaining <= 1.25 &&
         lastProgressAt > 0 &&
-        Date.now() - lastProgressAt >= 1500
+        Date.now() - lastProgressAt >= 1200
       ) {
         return true;
       }
@@ -381,7 +739,7 @@
         return;
       }
       seekToZero(player);
-      if (immediatePlay && player.paused) {
+      if (immediatePlay && playbackSnapshot(player).paused) {
         retryPlay(player, normalized, false);
       }
       notify();
@@ -392,16 +750,18 @@
       const elapsed = handoffStartedAt ? Date.now() - handoffStartedAt : 0;
       const liveId = player.getAttribute('playback-id') || '';
       const matches = liveId === activeSong.playbackId;
-      if (matches && !player.paused) {
+      const snap = playbackSnapshot(player);
+      if (matches && !snap.paused) {
         queueAdvanceLock = false;
         handoffStartedAt = 0;
+        scheduleEndWatch(player);
         return;
       }
       if (elapsed < 400) return;
-      if (matches && player.paused) {
+      if (matches && snap.paused) {
         retryPlay(player, activeSong, false);
       }
-      if (elapsed >= 6000) {
+      if (elapsed >= 12000) {
         queueAdvanceLock = false;
         handoffStartedAt = 0;
       }
@@ -457,7 +817,7 @@
     }
 
     function resumeIfBackgroundPaused(player) {
-      if (!player || !activeSong || !player.paused) return;
+      if (!player || !activeSong || !playbackSnapshot(player).paused) return;
       if (opts.recall === false || !recallApi) return;
       const recall = recallApi.load(1000 * 60 * 60 * 12);
       if (
@@ -478,10 +838,24 @@
 
     function maybeAdvanceQueue(player) {
       if (queueAdvanceLock || !player || !activeSong) return false;
-      markPlaybackProgress(player);
+      const snap = playbackSnapshot(player);
+      if (
+        typeof document !== 'undefined' &&
+        document.hidden &&
+        !snap.paused &&
+        Number.isFinite(snap.remaining) &&
+        snap.remaining <= 1.35 &&
+        activeQueueIdx + 1 < activeQueue.length
+      ) {
+        prepareBridgeForNext();
+        if (beginBridgeHandoff()) return true;
+      }
       if (trackFinished(player)) {
         advanceQueueAfterEnd(player);
         return true;
+      }
+      if (typeof document !== 'undefined' && document.hidden) {
+        markPlaybackProgress(player);
       }
       return false;
     }
@@ -492,10 +866,17 @@
       if (nextIdx < activeQueue.length) {
         window.clearTimeout(recallTimer);
         recallTimer = null;
-        queueAdvanceLock = true;
-        handoffStartedAt = Date.now();
+        stopEndWatch();
         lastProgressAt = 0;
         lastProgressTime = -1;
+        lastKnownDuration = 0;
+        /* Locked: bridge handoff keeps the audio session across track changes. */
+        if (shouldUseBridgeHandoff()) {
+          prepareBridgeForNext();
+          if (beginBridgeHandoff()) return;
+        }
+        queueAdvanceLock = true;
+        handoffStartedAt = Date.now();
         playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
         startQueueMonitorPoll(player || getPlayer());
         if (typeof document !== 'undefined' && document.hidden) {
@@ -504,42 +885,73 @@
       } else {
         stopQueueMonitorPoll();
         stopHiddenAdvancePoll();
+        stopEndWatch();
         notify({ playing: false });
       }
     }
 
+    function bindNativeEnded(player) {
+      if (!player || nativeEndedBound) return;
+      const nativeMedia = nativeMediaEl(player);
+      if (!nativeMedia || nativeMedia === player) return;
+      if (typeof nativeMedia.addEventListener !== 'function') return;
+      const onEnded = player._bfOnEnded;
+      const onLockPause = player._bfOnLockPause;
+      if (!onEnded || !onLockPause) return;
+      nativeMedia.addEventListener('ended', onEnded);
+      nativeMedia.addEventListener('pause', onLockPause);
+      nativeMedia.addEventListener('timeupdate', function () {
+        markPlaybackProgress(player);
+        maybeAdvanceQueue(player);
+      });
+      nativeEndedBound = true;
+    }
+
     function bindEnded(player) {
       if (opts.bindEnded === false || !player) return;
-      if (endedPlayer === player && endedBound) return;
+      if (endedPlayer === player && endedBound) {
+        bindNativeEnded(player);
+        return;
+      }
       endedPlayer = player;
       endedBound = true;
       positionBound = false;
+      nativeEndedBound = false;
       function onEnded() {
+        /* Ignore ended on a demoted bridge/outgoing element after id swap. */
+        if (getPlayer() !== player) return;
         advanceQueueAfterEnd(player);
       }
-      player.addEventListener('ended', onEnded);
-      const nativeMedia = player.media;
-      if (nativeMedia && nativeMedia !== player && typeof nativeMedia.addEventListener === 'function') {
-        nativeMedia.addEventListener('ended', onEnded);
+      function onLockPause() {
+        if (getPlayer() !== player) {
+          notify();
+          return;
+        }
+        /* Lock-screen end often arrives as pause without ended — try advance. */
+        if (typeof document !== 'undefined' && document.hidden) {
+          maybeAdvanceQueue(player);
+        }
+        notify();
       }
+      player._bfOnEnded = onEnded;
+      player._bfOnLockPause = onLockPause;
+      player.addEventListener('ended', onEnded);
+      player.addEventListener('pause', onLockPause);
+      bindNativeEnded(player);
       player.addEventListener('timeupdate', function () {
+        bindNativeEnded(player);
         markPlaybackProgress(player);
         maybeAdvanceQueue(player);
       });
       player.addEventListener('play', function () {
         queueAdvanceLock = false;
         handoffStartedAt = 0;
+        bindNativeEnded(player);
         markPlaybackProgress(player);
         startQueueMonitorPoll(getPlayer());
         if (typeof document !== 'undefined' && document.hidden) {
           startHiddenAdvancePoll(getPlayer());
-        }
-        notify();
-      });
-      player.addEventListener('pause', function () {
-        /* Lock-screen end often arrives as pause without ended — try advance. */
-        if (typeof document !== 'undefined' && document.hidden) {
-          maybeAdvanceQueue(player);
+          scheduleEndWatch(getPlayer());
         }
         notify();
       });
@@ -552,21 +964,55 @@
           if (!livePlayer) return;
           if (document.hidden) {
             persistRecall();
+            prepareBridgeForNext();
             startHiddenAdvancePoll(livePlayer);
+            scheduleEndWatch(livePlayer);
             maybeAdvanceQueue(livePlayer);
             return;
           }
           stopHiddenAdvancePoll();
+          stopEndWatch();
           /* Keep the monitor alive when returning from lock screen / Control Center.
              Stopping it here used to stall the rest of the album until the PWA was opened. */
           startQueueMonitorPoll(livePlayer);
-          if (livePlayer.ended) {
+          const snap = playbackSnapshot(livePlayer);
+          /* Cancel in-flight bridge retries; finish in foreground if we stalled on a handoff. */
+          if (queueAdvanceLock) {
+            bridgeHandoffGeneration += 1;
+            const liveId = livePlayer.getAttribute('playback-id') || '';
+            const onActive =
+              activeSong && liveId === activeSong.playbackId && !snap.paused;
+            queueAdvanceLock = false;
+            handoffStartedAt = 0;
+            if (!onActive && activeQueueIdx + 1 < activeQueue.length) {
+              playQueuedTrack(activeQueueIdx + 1, {
+                immediatePlay: true,
+                queueHandoff: true
+              });
+              return;
+            }
+          }
+          const nearEndPaused =
+            snap.paused &&
+            Number.isFinite(snap.remaining) &&
+            snap.remaining <= 1.25 &&
+            activeQueueIdx + 1 < activeQueue.length;
+          if (snap.ended || nearEndPaused) {
             advanceQueueAfterEnd(livePlayer);
             return;
           }
           maybeAdvanceQueue(livePlayer);
           resumeIfBackgroundPaused(livePlayer);
         });
+        if (typeof document.addEventListener === 'function') {
+          document.addEventListener('freeze', function () {
+            const livePlayer = getPlayer();
+            if (!livePlayer) return;
+            persistRecall();
+            scheduleEndWatch(livePlayer);
+            maybeAdvanceQueue(livePlayer);
+          });
+        }
         window.addEventListener('pagehide', persistRecall);
         window.addEventListener('pageshow', function (event) {
           if (!event.persisted) return;
@@ -657,8 +1103,10 @@
 
       bindEnded(player);
       bindMediaSessionActions();
+      stopEndWatch();
+      lastKnownDuration = 0;
 
-      const wasPlayingBeforeSwap = !player.paused;
+      const wasPlayingBeforeSwap = !playbackSnapshot(player).paused;
       // Queue handoffs must NOT pause when already playing — iOS drops background
       // media permission on pause(), which stops album autoplay on a locked phone.
       // Zero-guard below still forces the new asset to start at 0:00.
@@ -704,12 +1152,13 @@
       notify();
 
       lastProgressAt = Date.now();
-      lastProgressTime = Number(player.currentTime) || 0;
+      lastProgressTime = Number(playbackSnapshot(player).current) || 0;
 
       if (activeQueueIdx + 1 < activeQueue.length || isQueueHandoff) {
         startQueueMonitorPoll(player);
         if (typeof document !== 'undefined' && document.hidden) {
           startHiddenAdvancePoll(player);
+          scheduleEndWatch(player);
         }
       }
 
@@ -752,16 +1201,23 @@
           player.addEventListener('loadeddata', runHandoffPlay, { once: true });
           if (player.readyState >= 1) runHandoffPlay();
           else retryPlay(player, normalized, false);
-          [120, 500, 1200, 2500].forEach(function (delayMs) {
+          /* Locked phones need longer retries — metadata often won't arrive until unlock. */
+          const handoffRetries =
+            typeof document !== 'undefined' && document.hidden
+              ? [80, 250, 700, 1500, 3000, 6000, 12000]
+              : [120, 500, 1200, 2500];
+          handoffRetries.forEach(function (delayMs) {
             window.setTimeout(function () {
               if (generation !== startGeneration) return;
+              const snap = playbackSnapshot(player);
               if (
                 activeSong &&
                 activeSong.playbackId === normalized.playbackId &&
-                !player.paused
+                !snap.paused
               ) {
                 queueAdvanceLock = false;
                 handoffStartedAt = 0;
+                scheduleEndWatch(player);
                 return;
               }
               runHandoffPlay();
@@ -831,6 +1287,10 @@
       if (root.BurnfolderPlaybackPrefetch) {
         root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
         root.BurnfolderPlaybackPrefetch.warmArtwork(normalized.playbackId, normalized.coverArt);
+      }
+      /* Keep standby mux-player loaded with the next album track for lock-screen handoff. */
+      if (activeQueueIdx + 1 < activeQueue.length) {
+        prepareBridgeForNext();
       }
 
       return true;

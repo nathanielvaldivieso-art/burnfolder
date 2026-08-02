@@ -1,33 +1,79 @@
 /**
- * Persist last playback session so headphones / lock-screen can resume after navigation.
+ * Persist last playback session so lock-screen / PWA relaunch can resume.
+ *
+ * Uses localStorage (not sessionStorage): iOS clears sessionStorage when the
+ * standalone PWA is closed or the WebContent process is evicted, which made
+ * queues vanish after "closing" Studio.
  */
 (function (root) {
   'use strict';
 
   const STORAGE_KEY = 'burnfolderPlaybackRecall';
+  const LEGACY_SESSION_KEY = 'burnfolderPlaybackRecall';
 
-  function readRaw() {
+  function storage() {
     try {
-      const raw = root.sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw);
+      return root.localStorage;
     } catch (e) {
       return null;
     }
+  }
+
+  function sessionStore() {
+    try {
+      return root.sessionStorage;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function readRaw() {
+    const ls = storage();
+    if (ls) {
+      try {
+        const raw = ls.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        /* fall through */
+      }
+    }
+    /* One-time migrate from older sessionStorage recalls. */
+    const ss = sessionStore();
+    if (!ss) return null;
+    try {
+      const legacy = ss.getItem(LEGACY_SESSION_KEY);
+      if (!legacy) return null;
+      const parsed = JSON.parse(legacy);
+      if (parsed && parsed.song) {
+        save(parsed);
+        try {
+          ss.removeItem(LEGACY_SESSION_KEY);
+        } catch (e2) {
+          /* noop */
+        }
+        return parsed;
+      }
+    } catch (e) {
+      /* noop */
+    }
+    return null;
   }
 
   function normalizeSong(song) {
     if (!song || !song.playbackId) return null;
     return {
       title: String(song.title || song.displayTitle || 'untitled').trim(),
-      playbackId: String(song.playbackId).trim()
+      playbackId: String(song.playbackId).trim(),
+      coverArt: song.coverArt || null
     };
   }
 
   function save(payload) {
     if (!payload || !payload.song || !payload.song.playbackId) return;
+    const ls = storage();
+    if (!ls) return;
     try {
-      root.sessionStorage.setItem(
+      ls.setItem(
         STORAGE_KEY,
         JSON.stringify({
           song: normalizeSong(payload.song),
@@ -61,10 +107,21 @@
   }
 
   function clear() {
-    try {
-      root.sessionStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      /* noop */
+    const ls = storage();
+    if (ls) {
+      try {
+        ls.removeItem(STORAGE_KEY);
+      } catch (e) {
+        /* noop */
+      }
+    }
+    const ss = sessionStore();
+    if (ss) {
+      try {
+        ss.removeItem(LEGACY_SESSION_KEY);
+      } catch (e) {
+        /* noop */
+      }
     }
   }
 
