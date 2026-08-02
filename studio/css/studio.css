@@ -7704,6 +7704,24 @@ body.clips-clip-dragging .clips-block {
   background-color: #f2f2f2;
 }
 
+.clips-block--video .clips-block-media--video {
+  z-index: 2;
+  min-height: 72px;
+}
+
+.clips-block--video.has-density .clips-density,
+.clips-block--video .clips-density {
+  display: none;
+}
+
+.clips-video-stage:not([hidden]) {
+  display: block;
+  width: 100%;
+  min-height: 200px;
+  margin: 8px 0 12px;
+  background: #000;
+}
+
 .clips-block-body {
   flex: 1;
   min-height: 0;
