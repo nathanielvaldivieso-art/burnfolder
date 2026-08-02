@@ -1544,12 +1544,25 @@
       activeQueue = [];
       activeQueueIdx = 0;
       queueAdvanceLock = false;
+      pingpongInFlight = false;
       handoffStartedAt = 0;
+      bridgeHandoffGeneration += 1;
+      stopBridgeRetry();
+      stopEndWatch();
+      stopHiddenAdvancePoll();
       stopQueueMonitorPoll();
       stopZeroGuard();
       if (player) {
         player.pause();
         player.removeAttribute('playback-id');
+      }
+      const bridge = document.getElementById(bridgePlayerId());
+      if (bridge && bridge !== player) {
+        try {
+          bridge.pause();
+        } catch (e) {
+          /* noop */
+        }
       }
       if (recallApi && opts.recall !== false) recallApi.clear();
       notify();
