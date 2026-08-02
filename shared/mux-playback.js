@@ -43,11 +43,14 @@
     let mediaActionsBound = false;
     let queueAdvanceLock = false;
     let queueMonitorTimer = null;
+    let hiddenAdvanceTimer = null;
     let handoffStartedAt = 0;
     let lifecycleBound = false;
     let startGeneration = 0;
     let zeroGuardTimer = null;
     let playbackRate = 1;
+    let lastProgressAt = 0;
+    let lastProgressTime = -1;
 
     function notify(extra) {
       const player = getPlayer();
@@ -308,8 +311,19 @@
     }
 
     function stopHiddenAdvancePoll() {
-      /* Alias kept for older call sites / mental model. */
-      stopQueueMonitorPoll();
+      if (hiddenAdvanceTimer === null) return;
+      window.clearInterval(hiddenAdvanceTimer);
+      hiddenAdvanceTimer = null;
+    }
+
+    function markPlaybackProgress(player) {
+      if (!player) return;
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(current) || current < 0) return;
+      if (Math.abs(current - lastProgressTime) >= 0.05) {
+        lastProgressTime = current;
+        lastProgressAt = Date.now();
+      }
     }
 
     /**
@@ -317,12 +331,13 @@
      *
      * Visible tabs wait for the native `ended` event only. Near-end duration
      * checks chop outros on album queues — the main site always queues the next
-     * track after PHOTO NEGATIVE, so an early handoff is audible there, while
-     * studio single-song play masks the same bug (no next track to swap to).
+     * track after PHOTO NEGATIVE, so an early handoff is audible there.
      *
-     * Hidden/lock-screen keeps a sub-second fallback because iOS can throttle
-     * timeupdate and skip `ended`. Keep that window tiny — a multi-second slack
-     * (e.g. 1.5s) cuts songs short whenever the PWA is backgrounded.
+     * Hidden/lock-screen: iOS often skips `ended` and throttles timers. Do NOT
+     * advance early while audio is still playing (that cuts outros). Advance when:
+     *  - native ended fires
+     *  - playhead is within a tiny tail of duration while still playing
+     *  - media stopped / froze at the very end (locked-phone stall)
      */
     function trackFinished(player) {
       if (!player) return false;
@@ -334,7 +349,26 @@
       }
       const hidden = typeof document !== 'undefined' && document.hidden;
       if (!hidden) return false;
-      return current >= duration - 0.15;
+
+      const remaining = duration - current;
+      if (remaining <= 0.15) return true;
+
+      /* Locked phone: track ended as pause without `ended` (common on iOS). */
+      if (player.paused && remaining <= 0.75) {
+        return true;
+      }
+
+      /* Locked phone: playhead froze at the end while still reporting playing. */
+      if (
+        !player.paused &&
+        remaining <= 0.75 &&
+        lastProgressAt > 0 &&
+        Date.now() - lastProgressAt >= 1500
+      ) {
+        return true;
+      }
+
+      return false;
     }
 
     function ensureQueueHandoffPlaying(player, normalized, immediatePlay) {
@@ -381,6 +415,7 @@
           stopQueueMonitorPoll();
           return;
         }
+        markPlaybackProgress(livePlayer);
         const hasNext = activeQueueIdx + 1 < activeQueue.length;
         if (!hasNext && !queueAdvanceLock) {
           stopQueueMonitorPoll();
@@ -394,7 +429,30 @@
       }, 500);
     }
 
+    /**
+     * Extra lock-screen poll. iOS throttles timeupdate while hidden; this keeps
+     * album advance alive without depending on the foreground monitor alone.
+     */
     function startHiddenAdvancePoll(player) {
+      if (hiddenAdvanceTimer !== null || !player) return;
+      hiddenAdvanceTimer = window.setInterval(function () {
+        if (typeof document !== 'undefined' && !document.hidden) {
+          stopHiddenAdvancePoll();
+          return;
+        }
+        const livePlayer = getPlayer() || player;
+        if (!activeSong || !livePlayer) return;
+        markPlaybackProgress(livePlayer);
+        if (queueAdvanceLock) {
+          ensureQueueHandoffComplete(livePlayer);
+          return;
+        }
+        if (livePlayer.ended) {
+          advanceQueueAfterEnd(livePlayer);
+          return;
+        }
+        maybeAdvanceQueue(livePlayer);
+      }, 400);
       startQueueMonitorPoll(player);
     }
 
@@ -410,11 +468,17 @@
       ) {
         return;
       }
+      /* If we stalled at the end while locked, advance instead of replaying the tail. */
+      if (trackFinished(player) && activeQueueIdx + 1 < activeQueue.length) {
+        advanceQueueAfterEnd(player);
+        return;
+      }
       retryPlay(player, activeSong, false);
     }
 
     function maybeAdvanceQueue(player) {
       if (queueAdvanceLock || !player || !activeSong) return false;
+      markPlaybackProgress(player);
       if (trackFinished(player)) {
         advanceQueueAfterEnd(player);
         return true;
@@ -423,14 +487,23 @@
     }
 
     function advanceQueueAfterEnd(player) {
+      if (queueAdvanceLock) return;
       const nextIdx = activeQueueIdx + 1;
       if (nextIdx < activeQueue.length) {
+        window.clearTimeout(recallTimer);
+        recallTimer = null;
         queueAdvanceLock = true;
         handoffStartedAt = Date.now();
+        lastProgressAt = 0;
+        lastProgressTime = -1;
         playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
         startQueueMonitorPoll(player || getPlayer());
+        if (typeof document !== 'undefined' && document.hidden) {
+          startHiddenAdvancePoll(player || getPlayer());
+        }
       } else {
         stopQueueMonitorPoll();
+        stopHiddenAdvancePoll();
         notify({ playing: false });
       }
     }
@@ -450,15 +523,26 @@
         nativeMedia.addEventListener('ended', onEnded);
       }
       player.addEventListener('timeupdate', function () {
+        markPlaybackProgress(player);
         maybeAdvanceQueue(player);
       });
       player.addEventListener('play', function () {
         queueAdvanceLock = false;
         handoffStartedAt = 0;
+        markPlaybackProgress(player);
         startQueueMonitorPoll(getPlayer());
+        if (typeof document !== 'undefined' && document.hidden) {
+          startHiddenAdvancePoll(getPlayer());
+        }
         notify();
       });
-      player.addEventListener('pause', notify);
+      player.addEventListener('pause', function () {
+        /* Lock-screen end often arrives as pause without ended — try advance. */
+        if (typeof document !== 'undefined' && document.hidden) {
+          maybeAdvanceQueue(player);
+        }
+        notify();
+      });
       bindPositionUpdates(player);
 
       if (typeof document !== 'undefined' && !lifecycleBound) {
@@ -468,10 +552,11 @@
           if (!livePlayer) return;
           if (document.hidden) {
             persistRecall();
-            startQueueMonitorPoll(livePlayer);
+            startHiddenAdvancePoll(livePlayer);
             maybeAdvanceQueue(livePlayer);
             return;
           }
+          stopHiddenAdvancePoll();
           /* Keep the monitor alive when returning from lock screen / Control Center.
              Stopping it here used to stall the rest of the album until the PWA was opened. */
           startQueueMonitorPoll(livePlayer);
@@ -488,6 +573,9 @@
           const livePlayer = getPlayer();
           if (!livePlayer) return;
           startQueueMonitorPoll(livePlayer);
+          if (typeof document !== 'undefined' && document.hidden) {
+            startHiddenAdvancePoll(livePlayer);
+          }
           if (livePlayer.ended) {
             advanceQueueAfterEnd(livePlayer);
             return;
@@ -615,8 +703,14 @@
 
       notify();
 
+      lastProgressAt = Date.now();
+      lastProgressTime = Number(player.currentTime) || 0;
+
       if (activeQueueIdx + 1 < activeQueue.length || isQueueHandoff) {
         startQueueMonitorPoll(player);
+        if (typeof document !== 'undefined' && document.hidden) {
+          startHiddenAdvancePoll(player);
+        }
       }
 
       function ensurePlaying() {
