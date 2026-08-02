@@ -1337,6 +1337,10 @@ body.studio-editor-page.playback-active .studio-preview-frame .entry-editor-prev
 
 .studio-lock-btn {
   order: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   font-family: inherit;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -6919,7 +6923,11 @@ body.studio-menu-on:not(:has(#studio-spa-content)) {
   align-items: baseline;
   flex-wrap: nowrap;
   gap: 8px;
-  max-width: calc(100vw - 160px);
+  /* Keep title clear of the fixed sync + lock cluster */
+  max-width: calc(100vw - 168px);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   color: var(--site-menu-ink, rgba(0, 0, 0, 0.9));
 }
 
@@ -6927,13 +6935,15 @@ body.studio-menu-on:not(:has(#studio-spa-content)) {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .studio-site-menu .site-menu__brand {
   position: relative;
   z-index: 123;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: none;
@@ -6956,17 +6966,19 @@ body.studio-menu-on:not(:has(#studio-spa-content)) {
   top: calc(28px + env(safe-area-inset-top, 0px));
   right: calc(60px + env(safe-area-inset-right, 0px));
   left: auto;
-  z-index: 111;
+  /* Above title so a long bar cannot paint over sync/lock */
+  z-index: 124;
   margin-left: 0;
   display: inline-flex;
-  align-items: center;
+  /* Top-align with title; lock's 44px hit area must not pull sync down onto the underline */
+  align-items: flex-start;
   gap: 10px;
   pointer-events: auto;
 }
 
 .studio-site-menu.is-open .studio-site-menu-tools,
 .studio-site-menu.is-open #studioMenuTools {
-  z-index: 121;
+  z-index: 125;
 }
 
 .studio-entry-chrome {
@@ -7027,11 +7039,39 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
   display: none !important;
 }
 
-@media (max-width: 600px) {
+/* Narrow phones + installed studio PWA (iOS can report width >600px). */
+@media (max-width: 600px), ((hover: none) and (pointer: coarse) and (max-width: 932px)) {
+  .studio-site-menu .site-menu__bar {
+    /* left gutter + sync dot + lock hit target + gaps */
+    max-width: calc(100vw - var(--page-gutter-mobile, 24px) - 96px);
+  }
+
   .studio-site-menu .studio-site-menu-tools,
   .studio-site-menu #studioMenuTools {
     top: calc(18px + env(safe-area-inset-top, 0px));
     right: var(--page-gutter-mobile, 20px);
+    align-items: flex-start;
+  }
+
+  /* Dot carries status on narrow screens; label was colliding with "— clips" */
+  .studio-site-menu .studio-sync {
+    position: relative;
+    gap: 0;
+    min-height: 14px;
+    min-width: 14px;
+    justify-content: center;
+  }
+
+  .studio-site-menu .studio-sync-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .studio-entry-chrome {
@@ -7067,9 +7107,7 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
   body.studio-menu-on {
     --studio-menu-top-pad: 48px;
   }
-}
 
-@media (max-width: 600px) {
   .studio-site-menu .site-menu__toggle,
   .studio-site-menu .studio-lock-btn {
     touch-action: manipulation;
@@ -7864,12 +7902,13 @@ body.clips-clip-dragging .clips-block {
 
 .clips-unfiled-shelf {
   border-top: 1px solid rgba(0, 0, 0, 0.2);
-  padding-top: 18px;
+  margin-top: 8px;
+  padding-top: 22px;
   min-height: 120px;
 }
 
 .clips-unfiled-label {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: lowercase;
@@ -7992,7 +8031,7 @@ body.clips-drag-over .clips-block--composer {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 600px), ((hover: none) and (pointer: coarse) and (max-width: 932px)) {
   body.studio-menu-on.studio-clips-page {
     --studio-menu-top-pad: 68px;
   }
@@ -8003,13 +8042,29 @@ body.clips-drag-over .clips-block--composer {
 
   .clips-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: 14px;
     /* Clear fixed synced/lock cluster on the first row */
     padding-top: 8px;
+    padding-right: 0;
+  }
+
+  .clips-unfiled-shelf {
+    margin-top: 4px;
+    padding-top: 20px;
+  }
+
+  .clips-unfiled-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
   }
 
   .clips-block {
     min-height: 0;
+  }
+
+  .clips-block-title {
+    /* Reserve two lines so wrapped labels don't shrink neighboring media */
+    min-height: calc(8px + 10px + (1.3em * 2));
   }
 }
 
