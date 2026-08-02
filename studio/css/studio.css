@@ -7041,15 +7041,61 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
 
 /* Narrow phones + installed studio PWA (iOS can report width >600px). */
 @media (max-width: 600px), ((hover: none) and (pointer: coarse) and (max-width: 932px)) {
-  .studio-site-menu .site-menu__bar {
-    /* left gutter + sync dot + lock hit target + gaps */
-    max-width: calc(100vw - var(--page-gutter-mobile, 24px) - 96px);
+  /*
+   * Keep title + sync/lock in one flex row so fixed tools cannot sit on “— clips”.
+   * Brand truncates; section label and tools stay intact.
+   */
+  .studio-site-menu:not(.is-open) {
+    left: var(--page-gutter-mobile, 24px);
+    right: var(--page-gutter-mobile, 24px);
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    box-sizing: border-box;
   }
 
-  .studio-site-menu .studio-site-menu-tools,
-  .studio-site-menu #studioMenuTools {
+  .studio-site-menu:not(.is-open) .site-menu__bar {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .studio-site-menu:not(.is-open) .site-menu__brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .studio-site-menu:not(.is-open) .site-menu__toggle {
+    flex: 0 0 auto;
+  }
+
+  .studio-site-menu:not(.is-open) .studio-site-menu-tools,
+  .studio-site-menu:not(.is-open) #studioMenuTools {
+    position: static;
+    top: auto;
+    right: auto;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    gap: 8px;
+    margin-left: 0;
+    z-index: auto;
+  }
+
+  /* When constellation is open, park tools in the fixed corner again */
+  .studio-site-menu.is-open .studio-site-menu-tools,
+  .studio-site-menu.is-open #studioMenuTools {
+    position: fixed;
     top: calc(18px + env(safe-area-inset-top, 0px));
-    right: var(--page-gutter-mobile, 20px);
+    right: var(--page-gutter-mobile, 24px);
     align-items: flex-start;
   }
 
@@ -7060,6 +7106,8 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
     min-height: 14px;
     min-width: 14px;
     justify-content: center;
+    /* Match title cap-height; lock's 44px hit area stays below via flex-start */
+    margin-top: 4px;
   }
 
   .studio-site-menu .studio-sync-label {
@@ -7112,6 +7160,9 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
   .studio-site-menu .studio-lock-btn {
     touch-action: manipulation;
     min-height: 44px;
+  }
+
+  .studio-site-menu .studio-lock-btn {
     min-width: 44px;
   }
 
