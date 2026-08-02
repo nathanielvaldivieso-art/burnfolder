@@ -523,11 +523,8 @@
     return null;
   }
 
-  /** Unique songs in open collection, music-page collapse rules. */
-  function collectionSongRows() {
-    var shared = window.BurnfolderStreamShared;
-    if (!shared || !openGroupId) return [];
-    var group = shared.findGroupById(openGroupId);
+  /** Unique songs in a collection, music-page collapse rules. */
+  function songRowsForGroup(group) {
     if (!group) return [];
     var api = versionsApi();
     var rows = [];
@@ -569,6 +566,33 @@
       }
     });
     return rows;
+  }
+
+  function collectionSongRows() {
+    var shared = window.BurnfolderStreamShared;
+    if (!shared || !openGroupId) return [];
+    return songRowsForGroup(shared.findGroupById(openGroupId));
+  }
+
+  /**
+   * Continuous listen from the open collection through every collection after it.
+   * Lock-screen advance needs this queue up front — DOM rebuild is unavailable while locked.
+   */
+  function collectionQueueFromOpen() {
+    var shared = window.BurnfolderStreamShared;
+    if (!shared || !openGroupId || typeof shared.loadGroups !== 'function') {
+      return collectionSongRows();
+    }
+    var groups = shared.loadGroups() || [];
+    var startIdx = groups.findIndex(function (g) {
+      return g && g.id === openGroupId;
+    });
+    if (startIdx < 0) return collectionSongRows();
+    var rows = [];
+    for (var i = startIdx; i < groups.length; i++) {
+      rows = rows.concat(songRowsForGroup(groups[i]));
+    }
+    return rows.length ? rows : collectionSongRows();
   }
 
   function unfiledAudioBlocks() {
@@ -1141,8 +1165,8 @@
   }
 
   function playCollectionFrom(index, startPlaybackId) {
-    var rows = collectionSongRows();
-    if (!rows.length) return;
+    var groupRows = collectionSongRows();
+    if (!groupRows.length) return;
     var player = window.BurnfolderStreamPlayer;
     var shell = window.BurnfolderStudioPlaybackShell;
     if (shell) {
@@ -1165,7 +1189,16 @@
       releaseClipKeyboardFocus();
       return;
     }
-    var tracks = rows.map(function (row) {
+    var startIndexInGroup = typeof index === 'number' ? index : 0;
+    if (startPlaybackId) {
+      var groupById = groupRows.findIndex(function (row) {
+        return row.playbackId === startPlaybackId;
+      });
+      if (groupById >= 0) startIndexInGroup = groupById;
+    }
+    var started = groupRows[startIndexInGroup] || groupRows[0];
+    var queueRows = collectionQueueFromOpen();
+    var tracks = queueRows.map(function (row) {
       return {
         title: row.title,
         displayTitle: row.title,
@@ -1174,17 +1207,19 @@
         passthrough: row.title
       };
     });
-    var idx = typeof index === 'number' ? index : 0;
-    if (startPlaybackId) {
-      var byId = tracks.findIndex(function (t) {
-        return t.playbackId === startPlaybackId;
+    var idx = 0;
+    if (started && started.playbackId) {
+      var inQueue = tracks.findIndex(function (t) {
+        return t.playbackId === started.playbackId;
       });
-      if (byId >= 0) idx = byId;
+      idx = inQueue >= 0 ? inQueue : 0;
+    } else {
+      idx = Math.min(startIndexInGroup, Math.max(0, tracks.length - 1));
     }
     var meta = openCollectionMeta();
     player.playQueue(tracks, idx, {
       coverArt: meta.coverArt || '',
-      startPlaybackId: (tracks[idx] && tracks[idx].playbackId) || startPlaybackId || ''
+      startPlaybackId: (started && started.playbackId) || startPlaybackId || ''
     });
     syncPlayingBlocks();
     releaseClipKeyboardFocus();
