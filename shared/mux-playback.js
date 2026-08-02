@@ -53,6 +53,7 @@
     let lastProgressAt = 0;
     let lastProgressTime = -1;
     let lastKnownDuration = 0;
+    let nativeEndedBound = false;
 
     function notify(extra) {
       const player = getPlayer();
@@ -642,8 +643,6 @@
         notify({ playing: false });
       }
     }
-
-    let nativeEndedBound = false;
 
     function bindNativeEnded(player) {
       if (!player || nativeEndedBound) return;
