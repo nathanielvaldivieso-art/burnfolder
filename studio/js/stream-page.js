@@ -1070,6 +1070,32 @@
     return (group.tracks || []).map(resolveStackTrackItem);
   }
 
+  /**
+   * Continuous studio listen: current album group + every group after it.
+   * Lock-screen advance needs the full queue up front — we cannot rebuild it
+   * from the DOM once the phone is locked.
+   */
+  function albumQueueFromGroup(startGroup) {
+    const groups = shared.loadGroups() || [];
+    if (!startGroup) return [];
+    const startId = startGroup.id || '';
+    let startIdx = groups.findIndex(function (g) {
+      return g && g.id === startId;
+    });
+    if (startIdx < 0) {
+      // Unsaved / transient group — still play its tracks alone.
+      return albumItemsForGroup(startGroup);
+    }
+    const items = [];
+    for (let i = startIdx; i < groups.length; i++) {
+      const groupItems = albumItemsForGroup(groups[i]);
+      for (let j = 0; j < groupItems.length; j++) {
+        items.push(groupItems[j]);
+      }
+    }
+    return items;
+  }
+
   function albumShareTracksForGroup(group) {
     return albumItemsForGroup(group)
       .filter(function (item) {
@@ -1088,36 +1114,47 @@
       setStatus('playback unavailable — reload the page', 'error');
       return;
     }
-    const items = albumItemsForGroup(group);
-    if (!items.length) return;
+    const groupItems = albumItemsForGroup(group);
+    if (!groupItems.length) return;
     if (expandedVideoId) closeExpandedVideo();
 
     const opts = typeof start === 'object' && start ? start : { startIndex: start || 0 };
     const startPlaybackId = opts.startPlaybackId || '';
     const fallbackId = opts.fallbackId || '';
-    let startIndex = typeof opts.startIndex === 'number' ? opts.startIndex : 0;
+    let startIndexInGroup = typeof opts.startIndex === 'number' ? opts.startIndex : 0;
 
     if (startPlaybackId || fallbackId) {
-      const byResolved = items.findIndex(function (item) {
+      const byResolved = groupItems.findIndex(function (item) {
         return item && item.playbackId === startPlaybackId;
       });
       if (byResolved >= 0) {
-        startIndex = byResolved;
+        startIndexInGroup = byResolved;
       } else if (fallbackId) {
         const byStack = (group.tracks || []).findIndex(function (track) {
           return track && track.playbackId === fallbackId;
         });
-        if (byStack >= 0) startIndex = byStack;
+        if (byStack >= 0) startIndexInGroup = byStack;
       }
     }
 
-    const started = items[startIndex] || items[0];
+    const started = groupItems[startIndexInGroup] || groupItems[0];
+    const queueItems = albumQueueFromGroup(group);
+    let startIndex = 0;
+    if (started && started.playbackId) {
+      const inQueue = queueItems.findIndex(function (item) {
+        return item && item.playbackId === started.playbackId;
+      });
+      startIndex = inQueue >= 0 ? inQueue : 0;
+    } else {
+      startIndex = Math.min(startIndexInGroup, Math.max(0, queueItems.length - 1));
+    }
+
     const playOpts = {
       coverArt: (group.meta && group.meta.coverArt) || '',
       startPlaybackId: (started && started.playbackId) || startPlaybackId || ''
     };
     if (started && started.playbackId) recordPlay(started.playbackId);
-    if (player.playQueue(items, startIndex, playOpts) === false) {
+    if (player.playQueue(queueItems.length ? queueItems : groupItems, startIndex, playOpts) === false) {
       setStatus('could not start playback', 'error');
       return;
     }

@@ -7052,9 +7052,9 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    align-items: flex-start;
+    align-items: baseline;
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
     box-sizing: border-box;
   }
 
@@ -7064,6 +7064,7 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
     min-width: 0;
     max-width: 100%;
     overflow: hidden;
+    align-items: baseline;
   }
 
   .studio-site-menu:not(.is-open) .site-menu__brand {
@@ -7076,6 +7077,8 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
 
   .studio-site-menu:not(.is-open) .site-menu__toggle {
     flex: 0 0 auto;
+    min-height: 0;
+    align-items: baseline;
   }
 
   .studio-site-menu:not(.is-open) .studio-site-menu-tools,
@@ -7084,13 +7087,13 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
     top: auto;
     right: auto;
     flex: 0 0 auto;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: baseline;
+    gap: 0;
     margin-left: 0;
     z-index: auto;
   }
 
-  /* When constellation is open, park tools in the fixed corner again */
+  /* When constellation is open, park lock in the fixed corner again */
   .studio-site-menu.is-open .studio-site-menu-tools,
   .studio-site-menu.is-open #studioMenuTools {
     position: fixed;
@@ -7099,18 +7102,12 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
     align-items: flex-start;
   }
 
-  /* Dot carries status on narrow screens; label was colliding with "— clips" */
+  /*
+   * Sync status is available via the status role / title attribute.
+   * Hiding the cluster on narrow screens frees the top-right for lock only —
+   * the previous dot+label layout kept colliding with “— clips”.
+   */
   .studio-site-menu .studio-sync {
-    position: relative;
-    gap: 0;
-    min-height: 14px;
-    min-width: 14px;
-    justify-content: center;
-    /* Match title cap-height; lock's 44px hit area stays below via flex-start */
-    margin-top: 4px;
-  }
-
-  .studio-site-menu .studio-sync-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -7159,11 +7156,22 @@ body.studio-music-only .studio-site-menu .studio-main-nav-link[data-nav]:not([da
   .studio-site-menu .site-menu__toggle,
   .studio-site-menu .studio-lock-btn {
     touch-action: manipulation;
-    min-height: 44px;
   }
 
+  /* Compact bordered lock; invisible hit area keeps a 44px target without crowding the title */
   .studio-site-menu .studio-lock-btn {
-    min-width: 44px;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    padding: 2px 7px;
+    line-height: 1.2;
+    align-self: baseline;
+  }
+
+  .studio-site-menu .studio-lock-btn::after {
+    content: '';
+    position: absolute;
+    inset: -12px -10px;
   }
 
   .studio-site-menu .site-menu__item {
