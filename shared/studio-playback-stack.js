@@ -22,7 +22,10 @@
     '<div class="song-title-wrap"><span class="song-title" id="streamNowPlayingTitle">—</span></div>' +
     '<div class="bottom-bar-controls">' +
     '<button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>' +
-    '<button type="button" class="bottom-playback-rate-btn" id="streamPlaybackRate" aria-label="Playback speed">1×</button>' +
+    '<div class="bottom-playback-rate" id="streamPlaybackRate">' +
+    '<input type="range" class="bottom-playback-rate-slider" min="0" max="200" step="1" value="100" aria-label="Playback speed">' +
+    '<button type="button" class="bottom-playback-rate-value" aria-label="Reset speed to 100%">100%</button>' +
+    '</div>' +
     '</div>' +
     '<div class="progress-bar-area" id="progressBarArea">' +
     '<div class="progress" id="progress"></div>' +

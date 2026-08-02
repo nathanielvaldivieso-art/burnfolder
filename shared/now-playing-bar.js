@@ -24,29 +24,10 @@
   const PAUSE_SVG =
     '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>';
 
-  const DEFAULT_PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
-  function formatPlaybackRate(rate) {
+  function formatPlaybackRatePercent(rate) {
     const n = Number(rate);
-    if (!Number.isFinite(n) || n <= 0) return '1×';
-    const rounded = Math.round(n * 100) / 100;
-    const label = Number.isInteger(rounded) ? String(rounded) : String(rounded);
-    return label + '×';
-  }
-
-  function nearestRateIndex(rates, rate) {
-    const n = Number(rate);
-    if (!Number.isFinite(n) || !rates.length) return 0;
-    let best = 0;
-    let bestDist = Math.abs(rates[0] - n);
-    for (let i = 1; i < rates.length; i++) {
-      const dist = Math.abs(rates[i] - n);
-      if (dist < bestDist) {
-        best = i;
-        bestDist = dist;
-      }
-    }
-    return best;
+    if (!Number.isFinite(n) || n < 0) return '100%';
+    return Math.round(n * 100) + '%';
   }
 
   function formatTimecode(totalSeconds) {
@@ -67,50 +48,92 @@
     const titleEl = opts.titleEl || document.getElementById('songTitle') || document.getElementById('streamNowPlayingTitle');
     const playBtn = opts.playBtnEl || document.getElementById('bottomPlayPause') || document.getElementById('streamPlayPause');
     const closeBtn = opts.closeBtnEl || document.getElementById('closeBtn') || document.getElementById('streamNowPlayingClose');
-    const rateBtn =
+    const rateEl =
+      opts.rateEl ||
       opts.rateBtnEl ||
-      (bar && (bar.querySelector('#streamPlaybackRate') || bar.querySelector('.bottom-playback-rate-btn'))) ||
+      (bar && (bar.querySelector('#streamPlaybackRate') || bar.querySelector('.bottom-playback-rate'))) ||
       document.getElementById('streamPlaybackRate');
-    const playbackRates =
-      Array.isArray(opts.playbackRates) && opts.playbackRates.length
-        ? opts.playbackRates.filter(function (r) {
-            return Number.isFinite(Number(r)) && Number(r) > 0;
-          })
-        : DEFAULT_PLAYBACK_RATES;
-    let resolvedRateBtn = rateBtn;
+    const rateMinPercent = Number.isFinite(Number(opts.playbackRateMinPercent))
+      ? Number(opts.playbackRateMinPercent)
+      : 0;
+    const rateMaxPercent = Number.isFinite(Number(opts.playbackRateMaxPercent))
+      ? Number(opts.playbackRateMaxPercent)
+      : 200;
+    let resolvedRateEl = rateEl;
+    let rateSlider = null;
+    let rateValueBtn = null;
+    let rateDragging = false;
     const rateEnabled =
       opts.enablePlaybackRate === true || typeof opts.onSetPlaybackRate === 'function';
 
-    function ensureRateButton() {
+    function ensureRateControl() {
       if (!rateEnabled || !bar) return null;
-      if (resolvedRateBtn && resolvedRateBtn.isConnected) return resolvedRateBtn;
+      if (resolvedRateEl && resolvedRateEl.isConnected) {
+        if (resolvedRateEl.matches && resolvedRateEl.matches('button.bottom-playback-rate-btn')) {
+          const wrap = document.createElement('div');
+          wrap.className = 'bottom-playback-rate';
+          wrap.id = resolvedRateEl.id || 'streamPlaybackRate';
+          resolvedRateEl.replaceWith(wrap);
+          resolvedRateEl = wrap;
+        }
+        rateSlider =
+          resolvedRateEl.querySelector('.bottom-playback-rate-slider') ||
+          resolvedRateEl.querySelector('input[type="range"]');
+        rateValueBtn =
+          resolvedRateEl.querySelector('.bottom-playback-rate-value') ||
+          resolvedRateEl.querySelector('button');
+        if (rateSlider && rateValueBtn) return resolvedRateEl;
+      }
       const controls =
         (playBtn && playBtn.parentElement) ||
         bar.querySelector('.bottom-bar-controls');
       if (!controls) return null;
       const existing =
         controls.querySelector('#streamPlaybackRate') ||
-        controls.querySelector('.bottom-playback-rate-btn');
-      if (existing) {
-        resolvedRateBtn = existing;
-        return resolvedRateBtn;
+        controls.querySelector('.bottom-playback-rate');
+      if (existing && !(existing.matches && existing.matches('button'))) {
+        resolvedRateEl = existing;
+        rateSlider =
+          existing.querySelector('.bottom-playback-rate-slider') ||
+          existing.querySelector('input[type="range"]');
+        rateValueBtn =
+          existing.querySelector('.bottom-playback-rate-value') ||
+          existing.querySelector('button');
+        if (rateSlider && rateValueBtn) return resolvedRateEl;
       }
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'bottom-playback-rate-btn';
-      btn.id = 'streamPlaybackRate';
-      btn.setAttribute('aria-label', 'Playback speed');
-      btn.textContent = '1×';
+      if (existing && existing.matches && existing.matches('button')) {
+        existing.remove();
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'bottom-playback-rate';
+      wrap.id = 'streamPlaybackRate';
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.className = 'bottom-playback-rate-slider';
+      slider.min = String(rateMinPercent);
+      slider.max = String(rateMaxPercent);
+      slider.step = '1';
+      slider.value = '100';
+      slider.setAttribute('aria-label', 'Playback speed');
+      const valueBtn = document.createElement('button');
+      valueBtn.type = 'button';
+      valueBtn.className = 'bottom-playback-rate-value';
+      valueBtn.setAttribute('aria-label', 'Reset speed to 100%');
+      valueBtn.textContent = '100%';
+      wrap.appendChild(slider);
+      wrap.appendChild(valueBtn);
       if (playBtn && playBtn.parentElement === controls) {
-        playBtn.insertAdjacentElement('afterend', btn);
+        playBtn.insertAdjacentElement('afterend', wrap);
       } else {
-        controls.appendChild(btn);
+        controls.appendChild(wrap);
       }
-      resolvedRateBtn = btn;
-      return resolvedRateBtn;
+      resolvedRateEl = wrap;
+      rateSlider = slider;
+      rateValueBtn = valueBtn;
+      return resolvedRateEl;
     }
 
-    if (rateEnabled) ensureRateButton();
+    if (rateEnabled) ensureRateControl();
 
     const progressBarArea =
       opts.progressEl ||
@@ -221,42 +244,66 @@
     function currentPlaybackRate() {
       if (typeof opts.getPlaybackRate === 'function') {
         const fromOpts = Number(opts.getPlaybackRate());
-        if (Number.isFinite(fromOpts) && fromOpts > 0) return fromOpts;
+        if (Number.isFinite(fromOpts) && fromOpts >= 0) return fromOpts;
       }
       const player = resolveMuxPlayer();
       const fromPlayer = player ? Number(player.playbackRate) : NaN;
-      return Number.isFinite(fromPlayer) && fromPlayer > 0 ? fromPlayer : 1;
+      return Number.isFinite(fromPlayer) && fromPlayer >= 0 ? fromPlayer : 1;
     }
 
-    function renderRateButton(rate) {
-      const btn = ensureRateButton();
-      if (!btn || !rateEnabled) return;
-      const value = Number.isFinite(Number(rate)) && Number(rate) > 0 ? Number(rate) : currentPlaybackRate();
-      btn.hidden = false;
-      btn.textContent = formatPlaybackRate(value);
-      btn.setAttribute('aria-label', 'Playback speed ' + formatPlaybackRate(value));
-      btn.title = 'Speed: ' + formatPlaybackRate(value) + ' (tap to change)';
+    function clampPercent(pct) {
+      const n = Math.round(Number(pct));
+      if (!Number.isFinite(n)) return 100;
+      return Math.max(rateMinPercent, Math.min(rateMaxPercent, n));
     }
 
-    function cyclePlaybackRate() {
-      if (!rateEnabled) return;
-      const idx = nearestRateIndex(playbackRates, currentPlaybackRate());
-      const next = playbackRates[(idx + 1) % playbackRates.length];
+    function applyRateFromPercent(pct, fromUi) {
+      const percent = clampPercent(pct);
+      const rate = percent / 100;
       if (typeof opts.onSetPlaybackRate === 'function') {
-        opts.onSetPlaybackRate(next);
+        opts.onSetPlaybackRate(rate);
       } else {
         const player = resolveMuxPlayer();
         if (player) {
           try {
-            player.playbackRate = next;
+            if ('preservesPitch' in player) player.preservesPitch = false;
+            if ('webkitPreservesPitch' in player) player.webkitPreservesPitch = false;
+            if ('mozPreservesPitch' in player) player.mozPreservesPitch = false;
+            if (rate === 0) player.pause();
+            else player.playbackRate = Math.max(0.0625, rate);
           } catch (err) {
             /* ignore */
           }
         }
       }
-      renderRateButton(next);
-      const btn = ensureRateButton();
-      if (btn && btn.blur) btn.blur();
+      if (!fromUi) renderRateControl(rate);
+      else if (rateValueBtn) {
+        rateValueBtn.textContent = percent + '%';
+        rateValueBtn.setAttribute('aria-label', 'Reset speed to 100% (now ' + percent + '%)');
+      }
+    }
+
+    function renderRateControl(rate) {
+      if (!rateEnabled || rateDragging) return;
+      const wrap = ensureRateControl();
+      if (!wrap || !rateSlider || !rateValueBtn) return;
+      const value =
+        Number.isFinite(Number(rate)) && Number(rate) >= 0 ? Number(rate) : currentPlaybackRate();
+      const percent = clampPercent(value * 100);
+      wrap.hidden = false;
+      rateSlider.min = String(rateMinPercent);
+      rateSlider.max = String(rateMaxPercent);
+      rateSlider.value = String(percent);
+      rateValueBtn.textContent = percent + '%';
+      rateValueBtn.setAttribute('aria-label', 'Reset speed to 100% (now ' + percent + '%)');
+      rateSlider.setAttribute('aria-valuetext', percent + ' percent');
+      wrap.title = 'Varispeed ' + percent + '% (pitch follows speed)';
+    }
+
+    function resetPlaybackRate() {
+      if (!rateEnabled) return;
+      applyRateFromPercent(100, false);
+      if (rateValueBtn && rateValueBtn.blur) rateValueBtn.blur();
     }
 
     function playingFromPlayer() {
@@ -373,7 +420,7 @@
       if (rateEnabled) {
         const rate =
           d.playbackRate !== undefined ? d.playbackRate : currentPlaybackRate();
-        renderRateButton(rate);
+        renderRateControl(rate);
       }
       if (pickerApi) pickerApi.render();
       updateProgress();
@@ -416,18 +463,41 @@
     }
 
     if (rateEnabled) {
-      const btn = ensureRateButton();
-      if (btn) {
-        renderRateButton(currentPlaybackRate());
+      const wrap = ensureRateControl();
+      if (wrap && rateSlider) {
+        renderRateControl(currentPlaybackRate());
+        const onSlide = function () {
+          applyRateFromPercent(rateSlider.value, true);
+        };
+        rateSlider.addEventListener('pointerdown', function () {
+          rateDragging = true;
+        });
+        rateSlider.addEventListener('pointerup', function () {
+          rateDragging = false;
+          renderRateControl(currentPlaybackRate());
+        });
+        rateSlider.addEventListener('pointercancel', function () {
+          rateDragging = false;
+          renderRateControl(currentPlaybackRate());
+        });
+        rateSlider.addEventListener('input', onSlide);
+        rateSlider.addEventListener('change', function () {
+          rateDragging = false;
+          applyRateFromPercent(rateSlider.value, false);
+        });
+        // Keep page from scrolling while dragging the speed slider on touch.
+        rateSlider.style.touchAction = 'none';
+      }
+      if (rateValueBtn) {
         const tap = globalRef.BurnfolderTouchTap || globalRef.BurnfolderStudioTap;
         if (tap && tap.bind) {
-          tap.bind(btn, cyclePlaybackRate);
+          tap.bind(rateValueBtn, resetPlaybackRate);
         } else {
-          btn.addEventListener('click', cyclePlaybackRate);
+          rateValueBtn.addEventListener('click', resetPlaybackRate);
         }
       }
-    } else if (rateBtn) {
-      rateBtn.hidden = true;
+    } else if (rateEl) {
+      rateEl.hidden = true;
     }
 
     if (closeBtn) {
@@ -528,7 +598,7 @@
     };
   }
 
-  return { mount: mount, formatTimecode: formatTimecode, formatPlaybackRate: formatPlaybackRate, playButtonHtml: function (playing) {
+  return { mount: mount, formatTimecode: formatTimecode, formatPlaybackRatePercent: formatPlaybackRatePercent, playButtonHtml: function (playing) {
     return playing ? PAUSE_SVG : PLAY_SVG;
   } };
 });

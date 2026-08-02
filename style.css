@@ -2061,28 +2061,88 @@ mux-player#activeMuxPlayer {
   touch-action: manipulation;
 }
 
-.bottom-playback-rate-btn {
+.bottom-playback-rate {
   position: relative;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: var(--now-playing-btn-size);
-  min-width: 2.75em;
   min-height: var(--now-playing-btn-size);
-  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.bottom-playback-rate-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 72px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  vertical-align: middle;
+}
+
+.bottom-playback-rate-slider:focus {
+  outline: none;
+}
+
+.bottom-playback-rate-slider:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.bottom-playback-rate-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: #000;
+  border: none;
+}
+
+.bottom-playback-rate-slider::-moz-range-track {
+  height: 2px;
+  background: #000;
+  border: none;
+}
+
+.bottom-playback-rate-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.bottom-playback-rate-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.bottom-playback-rate-value {
+  min-width: 2.8em;
+  height: var(--now-playing-btn-size);
+  min-height: var(--now-playing-btn-size);
+  padding: 0;
   border: none;
   background: transparent;
   color: #000;
   opacity: 1;
   cursor: pointer;
-  flex-shrink: 0;
-  outline: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   font-family: var(--font-site);
   font-size: 0.72em;
   font-weight: normal;
   letter-spacing: 0.04em;
   line-height: 1;
+  text-align: left;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
@@ -2100,7 +2160,7 @@ mux-player#activeMuxPlayer {
     opacity: 0.45;
   }
 
-  .bottom-playback-rate-btn:hover {
+  .bottom-playback-rate-value:hover {
     background: transparent;
     color: #000;
     opacity: 0.45;
@@ -2111,7 +2171,7 @@ mux-player#activeMuxPlayer {
   outline: none;
 }
 
-.bottom-playback-rate-btn:focus {
+.bottom-playback-rate-value:focus {
   outline: none;
 }
 
@@ -2120,7 +2180,7 @@ mux-player#activeMuxPlayer {
   outline-offset: 2px;
 }
 
-.bottom-playback-rate-btn:focus-visible {
+.bottom-playback-rate-value:focus-visible {
   outline: 2px solid #000;
   outline-offset: 2px;
 }
@@ -2133,18 +2193,22 @@ mux-player#activeMuxPlayer {
     opacity: 1;
   }
 
-  .bottom-playback-rate-btn:hover,
-  .bottom-playback-rate-btn:focus:not(:focus-visible) {
+  .bottom-playback-rate-value:hover,
+  .bottom-playback-rate-value:focus:not(:focus-visible) {
     background: transparent;
     color: #000;
     opacity: 1;
   }
 
   .bottom-play-pause-btn:active,
-  .bottom-playback-rate-btn:active {
+  .bottom-playback-rate-value:active {
     background: transparent;
     color: #000;
     opacity: 0.45;
+  }
+
+  .bottom-playback-rate-slider {
+    width: 64px;
   }
 }
 

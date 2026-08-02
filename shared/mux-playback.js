@@ -798,32 +798,88 @@
       }
     }
 
-    function applyPlaybackRate(player) {
-      const target = player || getPlayer();
-      if (!target) return;
+    function disablePitchPreservation(el) {
+      if (!el) return;
       try {
-        if (Math.abs((Number(target.playbackRate) || 1) - playbackRate) > 0.001) {
-          target.playbackRate = playbackRate;
-        }
+        if ('preservesPitch' in el) el.preservesPitch = false;
+        if ('webkitPreservesPitch' in el) el.webkitPreservesPitch = false;
+        if ('mozPreservesPitch' in el) el.mozPreservesPitch = false;
       } catch (e) {
         /* noop */
       }
     }
 
+    function mediaTargets(player) {
+      const targets = [];
+      if (!player) return targets;
+      targets.push(player);
+      try {
+        if (player.media) targets.push(player.media);
+      } catch (e) {
+        /* noop */
+      }
+      try {
+        if (player.nativeEl) targets.push(player.nativeEl);
+      } catch (e) {
+        /* noop */
+      }
+      try {
+        const nested =
+          typeof player.querySelector === 'function'
+            ? player.querySelector('audio, video')
+            : null;
+        if (nested) targets.push(nested);
+      } catch (e) {
+        /* noop */
+      }
+      return targets;
+    }
+
+    function applyPlaybackRate(player) {
+      const target = player || getPlayer();
+      if (!target) return;
+      const rate = Math.max(0, Math.min(2, Number(playbackRate) || 0));
+      playbackRate = rate;
+      const targets = mediaTargets(target);
+      let i;
+      for (i = 0; i < targets.length; i++) {
+        disablePitchPreservation(targets[i]);
+      }
+      // Browsers reject 0; treat 0% as paused. Floor tiny rates at the common min.
+      if (rate === 0) {
+        try {
+          target.pause();
+        } catch (e) {
+          /* noop */
+        }
+        return;
+      }
+      const effective = Math.max(0.0625, rate);
+      for (i = 0; i < targets.length; i++) {
+        try {
+          if (Math.abs((Number(targets[i].playbackRate) || 1) - effective) > 0.001) {
+            targets[i].playbackRate = effective;
+          }
+        } catch (e) {
+          /* noop */
+        }
+      }
+    }
+
     function setPlaybackRate(rate) {
       const next = Number(rate);
-      if (!Number.isFinite(next) || next <= 0) return playbackRate;
-      playbackRate = next;
+      if (!Number.isFinite(next)) return playbackRate;
+      playbackRate = Math.max(0, Math.min(2, next));
       applyPlaybackRate();
-      notify({ playbackRate: playbackRate });
+      const player = getPlayer();
+      notify({
+        playbackRate: playbackRate,
+        playing: !!(activeSong && player && !player.paused && playbackRate > 0)
+      });
       return playbackRate;
     }
 
     function getPlaybackRate() {
-      const player = getPlayer();
-      if (player && Number.isFinite(player.playbackRate) && player.playbackRate > 0) {
-        playbackRate = player.playbackRate;
-      }
       return playbackRate;
     }
 
