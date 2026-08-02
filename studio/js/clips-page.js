@@ -10,7 +10,11 @@
   var openGroupId = null;
   var openFolderId = null;
   var bound = false;
+  var boundRoot = null;
+  var windowEventsBound = false;
   var statusTimer = null;
+  var statusSticky = false;
+  var initGeneration = 0;
   var libraryCache = [];
   var coverFileInput = null;
   var uploadQueue = null;
@@ -25,12 +29,13 @@
     return document.getElementById(id);
   }
 
-  function setStatus(msg) {
+  function setStatus(msg, opts) {
     var node = el('clipsStatus');
     if (!node) return;
-    node.textContent = msg || '';
     if (statusTimer) clearTimeout(statusTimer);
-    if (msg) {
+    statusSticky = !!(opts && opts.sticky);
+    node.textContent = msg || '';
+    if (msg && !statusSticky) {
       statusTimer = setTimeout(function () {
         node.textContent = '';
       }, 4000);
@@ -3061,9 +3066,11 @@
   }
 
   function bindOnce() {
-    if (bound) return;
-    bound = true;
     var root = el('clipsRoot') || document.body;
+    // Soft-nav replaces #clipsRoot; rebind when the live root changes.
+    if (bound && boundRoot === root) return;
+    bound = true;
+    boundRoot = root;
 
     root.addEventListener('click', function (event) {
       var moreBtn = event.target.closest('[data-clip-more]');
@@ -3272,11 +3279,14 @@
       handleDrop(event);
     }, true);
 
-    window.addEventListener('burnfolder-stream-playback', syncPlayingBlocks);
-    window.addEventListener('burnfolder-stack-changed', function () {
-      if (!store || !state) return;
-      renderBoard();
-    });
+    if (!windowEventsBound) {
+      windowEventsBound = true;
+      window.addEventListener('burnfolder-stream-playback', syncPlayingBlocks);
+      window.addEventListener('burnfolder-stack-changed', function () {
+        if (!store || !state) return;
+        renderBoard();
+      });
+    }
   }
 
   function pruneLegacyFolders(next) {
@@ -3298,41 +3308,84 @@
     });
   }
 
+  function paintBootShell() {
+    var board = el('clipsBoard');
+    if (!board) return;
+    if (state) {
+      render();
+      return;
+    }
+    if (board.querySelector('[data-composer], .clips-composer, .clips-block')) return;
+    board.innerHTML = composerHtml();
+    wireComposerActions(board);
+  }
+
+  function importMuxLibrary(initId) {
+    var mux = window.BurnfolderStudioMux;
+    if (!mux || typeof mux.listMuxLibrary !== 'function') {
+      syncNowPlayingCatalog();
+      return Promise.resolve(null);
+    }
+    return mux
+      .listMuxLibrary({ force: true })
+      .then(function (assets) {
+        if (initId !== initGeneration) return null;
+        libraryCache = assets || [];
+        syncNowPlayingCatalog();
+        return store.importAudioLibrary(libraryCache);
+      })
+      .then(function () {
+        if (initId !== initGeneration) return null;
+        return refresh();
+      })
+      .catch(function () {
+        if (initId !== initGeneration) return null;
+        syncNowPlayingCatalog();
+        return null;
+      });
+  }
+
   function init() {
     store = window.BurnfolderClipsStore;
     if (!store) {
       setStatus('clips store missing');
       return;
     }
+
+    var initId = (initGeneration += 1);
     markNav();
+
+    // Soft-nav leaves drill-in flags / upload hosts pointing at detached DOM.
+    openGroupId = null;
+    openFolderId = null;
+    uploadQueue = null;
+    document.body.classList.remove(
+      'clips-folder-open',
+      'clips-collection-open',
+      'clips-lightbox-open'
+    );
+
     bindOnce();
-    setStatus('loading…');
+    paintBootShell();
+    setStatus('loading…', { sticky: true });
+
+    // Paint from the clips store first. Mux library import can be slow or hang
+    // on a cold network; blocking first paint on it left a blank board under
+    // the constellation menu until the user re-clicked clips.
     store
       .seedFromStudio()
       .then(function () {
-        var mux = window.BurnfolderStudioMux;
-        if (mux && typeof mux.listMuxLibrary === 'function') {
-          return mux
-            .listMuxLibrary({ force: true })
-            .then(function (assets) {
-              libraryCache = assets || [];
-              syncNowPlayingCatalog();
-              return store.importAudioLibrary(libraryCache);
-            })
-            .catch(function () {
-              return null;
-            });
-        }
-        return null;
-      })
-      .then(function () {
+        if (initId !== initGeneration) return null;
         syncNowPlayingCatalog();
         return refresh();
       })
       .then(function () {
+        if (initId !== initGeneration) return null;
         setStatus('');
+        return importMuxLibrary(initId);
       })
       .catch(function (err) {
+        if (initId !== initGeneration) return;
         setStatus((err && err.message) || 'failed to load clips');
       });
   }
