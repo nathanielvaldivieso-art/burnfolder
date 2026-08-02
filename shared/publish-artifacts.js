@@ -301,6 +301,7 @@
 <script src="spa-router.js"></script>
 <script src="shared/playback-prefetch.js?v=${version}"></script>
 <script src="shared/studio-tap.js?v=${version}"></script>
+<script src="shared/ios-playback-keepalive.js?v=${version}"></script>
 <script src="shared/mux-playback.js?v=${version}"></script>
 <script src="shared/playback-context.js?v=${version}"></script>
 <script src="shared/version-picker.js?v=${version}"></script>

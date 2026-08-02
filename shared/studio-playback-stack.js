@@ -9,6 +9,10 @@
   var PLAYER_ID = 'activeMuxPlayer';
   var PREVIEW_PLAYER_SELECTOR = '.studio-preview-player #activeMuxPlayer, .studio-preview-player mux-player';
 
+  var PLAYER_PIN_STYLE =
+    'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+  var STANDBY_ID = 'standbyMuxPlayer';
+
   var SHELL_MARKUP =
     '<div id="' +
     SHELL_ID +
@@ -18,7 +22,14 @@
     '<div class="bottom-bar-content">' +
     '<mux-player id="' +
     PLAYER_ID +
-    '" audio playsinline stream-type="on-demand" preload="metadata" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;"></mux-player>' +
+    '" audio playsinline stream-type="on-demand" preload="auto" style="' +
+    PLAYER_PIN_STYLE +
+    '"></mux-player>' +
+    '<mux-player id="' +
+    STANDBY_ID +
+    '" audio playsinline stream-type="on-demand" preload="auto" style="' +
+    PLAYER_PIN_STYLE +
+    '"></mux-player>' +
     '<div class="song-title-wrap"><span class="song-title" id="streamNowPlayingTitle">—</span></div>' +
     '<div class="bottom-bar-controls">' +
     '<button type="button" class="bottom-play-pause-btn" id="streamPlayPause" aria-label="Play/Pause">▶</button>' +
@@ -39,6 +50,7 @@
     '../shared/media-session.js',
     '../shared/playback-recall.js',
     '../shared/playback-prefetch.js',
+    '../shared/ios-playback-keepalive.js',
     '../shared/mux-playback.js',
     '../shared/playback-context.js',
     '../shared/version-picker.js',
@@ -53,10 +65,30 @@
     return !!(node && node.closest && node.closest('.studio-preview-player'));
   }
 
+  function ensureStandbyInShell(shell) {
+    if (!shell) return null;
+    var primary = shell.querySelector('#' + PLAYER_ID);
+    var standby = shell.querySelector('#' + STANDBY_ID) || root.document.getElementById(STANDBY_ID);
+    if (standby) return standby;
+    if (!primary || !primary.parentNode) return null;
+    standby = root.document.createElement('mux-player');
+    standby.id = STANDBY_ID;
+    standby.setAttribute('audio', '');
+    standby.setAttribute('playsinline', '');
+    standby.setAttribute('stream-type', 'on-demand');
+    standby.setAttribute('preload', 'auto');
+    standby.setAttribute('style', PLAYER_PIN_STYLE);
+    primary.parentNode.insertBefore(standby, primary.nextSibling);
+    return standby;
+  }
+
   function ensureShellMarkup() {
     if (!root.document || !root.document.body) return null;
     var existing = root.document.getElementById(SHELL_ID);
-    if (existing) return existing;
+    if (existing) {
+      ensureStandbyInShell(existing);
+      return existing;
+    }
     root.document.body.insertAdjacentHTML('beforeend', SHELL_MARKUP);
     return root.document.getElementById(SHELL_ID);
   }
@@ -64,6 +96,7 @@
   root.BurnfolderStudioPlaybackStack = {
     SHELL_ID: SHELL_ID,
     PLAYER_ID: PLAYER_ID,
+    STANDBY_ID: STANDBY_ID,
     SHELL_MARKUP: SHELL_MARKUP,
     CORE_SCRIPTS: CORE_SCRIPTS,
     isPreviewPlaybackNode: isPreviewPlaybackNode,

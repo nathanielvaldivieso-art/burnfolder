@@ -51,6 +51,14 @@
     let playbackRate = 1;
     let lastProgressAt = 0;
     let lastProgressTime = -1;
+    let standbyPrimedId = '';
+    let dualHandoffInFlight = false;
+    let keepaliveUnsub = null;
+    const STANDBY_ID = 'standbyMuxPlayer';
+    const PLAYER_PIN_STYLE =
+      'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+    /* Start next player before current ends so iOS still has a live audio session. */
+    const DUAL_HANDOFF_REMAINING_SEC = 0.22;
 
     function notify(extra) {
       const player = getPlayer();
@@ -316,6 +324,69 @@
       hiddenAdvanceTimer = null;
     }
 
+    function keepaliveApi() {
+      return root.BurnfolderIosPlaybackKeepalive || null;
+    }
+
+    function startKeepaliveSession() {
+      const api = keepaliveApi();
+      if (!api) return;
+      api.start({ force: true });
+      api.pulse();
+      if (!keepaliveUnsub && api.onTick) {
+        keepaliveUnsub = api.onTick(function () {
+          const livePlayer = getPlayer();
+          if (!livePlayer || !activeSong) return;
+          maybeAdvanceQueue(livePlayer);
+        });
+      }
+    }
+
+    function stopKeepaliveSession() {
+      if (keepaliveUnsub) {
+        try {
+          keepaliveUnsub();
+        } catch (e) {
+          /* noop */
+        }
+        keepaliveUnsub = null;
+      }
+      const api = keepaliveApi();
+      if (api && api.stop) api.stop();
+    }
+
+    function pinPlayerEl(el) {
+      if (!el) return;
+      el.setAttribute('audio', '');
+      el.setAttribute('playsinline', '');
+      el.setAttribute('stream-type', 'on-demand');
+      el.setAttribute('preload', 'auto');
+      if (el.style) el.style.cssText = PLAYER_PIN_STYLE;
+    }
+
+    function getStandbyPlayer() {
+      if (typeof document === 'undefined') return null;
+      let standby = document.getElementById(STANDBY_ID);
+      if (standby) {
+        pinPlayerEl(standby);
+        return standby;
+      }
+      const primary = getPlayer();
+      if (!primary || !primary.parentNode) return null;
+      standby = document.createElement('mux-player');
+      standby.id = STANDBY_ID;
+      pinPlayerEl(standby);
+      primary.parentNode.insertBefore(standby, primary.nextSibling);
+      if (typeof customElements !== 'undefined' && customElements.get('mux-player')) {
+        try {
+          customElements.upgrade(standby);
+        } catch (e) {
+          /* noop */
+        }
+      }
+      return standby;
+    }
+
     function markPlaybackProgress(player) {
       if (!player) return;
       const current = Number(player.currentTime);
@@ -326,39 +397,30 @@
       }
     }
 
+    function remainingSeconds(player) {
+      if (!player) return NaN;
+      const duration = Number(player.duration);
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
+        return NaN;
+      }
+      return duration - current;
+    }
+
     /**
      * Detect end-of-track for queue advance.
-     *
-     * Visible tabs wait for the native `ended` event only. Near-end duration
-     * checks chop outros on album queues — the main site always queues the next
-     * track after PHOTO NEGATIVE, so an early handoff is audible there.
-     *
-     * Hidden/lock-screen: iOS often skips `ended` and throttles timers. Do NOT
-     * advance early while audio is still playing (that cuts outros). Advance when:
-     *  - native ended fires
-     *  - playhead is within a tiny tail of duration while still playing
-     *  - media stopped / froze at the very end (locked-phone stall)
+     * Visible tabs: native ended only (avoid chopping outros).
+     * Hidden/lock-screen: also catch pause/stall at the true end.
      */
     function trackFinished(player) {
       if (!player) return false;
       if (player.ended) return true;
-      const duration = Number(player.duration);
-      const current = Number(player.currentTime);
-      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
-        return false;
-      }
+      const remaining = remainingSeconds(player);
+      if (!Number.isFinite(remaining)) return false;
       const hidden = typeof document !== 'undefined' && document.hidden;
       if (!hidden) return false;
-
-      const remaining = duration - current;
       if (remaining <= 0.15) return true;
-
-      /* Locked phone: track ended as pause without `ended` (common on iOS). */
-      if (player.paused && remaining <= 0.75) {
-        return true;
-      }
-
-      /* Locked phone: playhead froze at the end while still reporting playing. */
+      if (player.paused && remaining <= 0.75) return true;
       if (
         !player.paused &&
         remaining <= 0.75 &&
@@ -367,8 +429,155 @@
       ) {
         return true;
       }
-
       return false;
+    }
+
+    function armStandbyNext() {
+      const next = activeQueue[activeQueueIdx + 1];
+      if (!next || !next.playbackId) {
+        standbyPrimedId = '';
+        return null;
+      }
+      const standby = getStandbyPlayer();
+      if (!standby) return null;
+      pinPlayerEl(standby);
+      if ((standby.getAttribute('playback-id') || '') !== next.playbackId) {
+        try {
+          standby.pause();
+        } catch (e) {
+          /* noop */
+        }
+        standby.setAttribute('playback-id', next.playbackId);
+        standby.setAttribute('metadata-video-title', next.title || '');
+        try {
+          if (standby.readyState >= 1) standby.currentTime = 0;
+        } catch (e) {
+          /* noop */
+        }
+      }
+      standbyPrimedId = next.playbackId;
+      applyPlaybackRate(standby);
+      return standby;
+    }
+
+    function swapPlayerRoles(oldPrimary, newPrimary) {
+      if (!oldPrimary || !newPrimary || oldPrimary === newPrimary) return;
+      oldPrimary.id = STANDBY_ID;
+      newPrimary.id = 'activeMuxPlayer';
+      pinPlayerEl(oldPrimary);
+      pinPlayerEl(newPrimary);
+      if (root.BurnfolderPlaybackPrefetch && root.BurnfolderPlaybackPrefetch.setActivePlayer) {
+        root.BurnfolderPlaybackPrefetch.setActivePlayer(newPrimary);
+      }
+    }
+
+    /**
+     * Dual-player handoff: play the already-loaded standby BEFORE pausing the
+     * current player. Same-element playback-id swaps drop iOS background audio.
+     */
+    function promoteStandbyHandoff() {
+      if (queueAdvanceLock || dualHandoffInFlight) return false;
+      const nextIdx = activeQueueIdx + 1;
+      if (nextIdx >= activeQueue.length) return false;
+      const next = activeQueue[nextIdx];
+      const primary = getPlayer();
+      const standby = armStandbyNext();
+      if (!next || !primary || !standby) return false;
+
+      dualHandoffInFlight = true;
+      queueAdvanceLock = true;
+      handoffStartedAt = Date.now();
+      window.clearTimeout(recallTimer);
+      recallTimer = null;
+      startKeepaliveSession();
+
+      if ((standby.getAttribute('playback-id') || '') !== next.playbackId) {
+        standby.setAttribute('playback-id', next.playbackId);
+      }
+      try {
+        if (standby.readyState >= 1 && (Number(standby.currentTime) || 0) > 0.05) {
+          standby.currentTime = 0;
+        }
+      } catch (e) {
+        /* noop */
+      }
+      applyPlaybackRate(standby);
+
+      function finishSwap() {
+        swapPlayerRoles(primary, standby);
+        try {
+          primary.pause();
+        } catch (e) {
+          /* noop */
+        }
+        try {
+          primary.removeAttribute('playback-id');
+        } catch (e) {
+          /* noop */
+        }
+
+        activeSong = next;
+        activeQueueIdx = nextIdx;
+        lastProgressAt = Date.now();
+        lastProgressTime = Number(standby.currentTime) || 0;
+        endedBound = false;
+        endedPlayer = null;
+        positionBound = false;
+        bindEnded(standby);
+        bindMediaSessionActions();
+
+        dualHandoffInFlight = false;
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+        standbyPrimedId = '';
+        armStandbyNext();
+        startQueueMonitorPoll(standby);
+        if (typeof document !== 'undefined' && document.hidden) {
+          startHiddenAdvancePoll(standby);
+        }
+        if (root.BurnfolderPlaybackPrefetch) {
+          root.BurnfolderPlaybackPrefetch.prefetchUpcoming(activeQueue, activeQueueIdx);
+          root.BurnfolderPlaybackPrefetch.warmArtwork(next.playbackId, next.coverArt);
+        }
+        notify();
+        persistRecall();
+      }
+
+      function failToSinglePlayer() {
+        dualHandoffInFlight = false;
+        queueAdvanceLock = false;
+        handoffStartedAt = 0;
+        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
+      }
+
+      // Never pause primary before standby.play() — that kills iOS media permission.
+      let playPromise;
+      try {
+        playPromise = standby.play();
+      } catch (e) {
+        failToSinglePlayer();
+        return true;
+      }
+
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.then(finishSwap).catch(function () {
+          // One retry with keepalive pulse, then fall back.
+          startKeepaliveSession();
+          try {
+            const retry = standby.play();
+            if (retry && typeof retry.then === 'function') {
+              retry.then(finishSwap).catch(failToSinglePlayer);
+              return;
+            }
+            finishSwap();
+          } catch (e) {
+            failToSinglePlayer();
+          }
+        });
+      } else {
+        finishSwap();
+      }
+      return true;
     }
 
     function ensureQueueHandoffPlaying(player, normalized, immediatePlay) {
@@ -388,12 +597,13 @@
     }
 
     function ensureQueueHandoffComplete(player) {
-      if (!queueAdvanceLock || !player || !activeSong) return;
+      if ((!queueAdvanceLock && !dualHandoffInFlight) || !player || !activeSong) return;
       const elapsed = handoffStartedAt ? Date.now() - handoffStartedAt : 0;
       const liveId = player.getAttribute('playback-id') || '';
       const matches = liveId === activeSong.playbackId;
       if (matches && !player.paused) {
         queueAdvanceLock = false;
+        dualHandoffInFlight = false;
         handoffStartedAt = 0;
         return;
       }
@@ -403,6 +613,7 @@
       }
       if (elapsed >= 6000) {
         queueAdvanceLock = false;
+        dualHandoffInFlight = false;
         handoffStartedAt = 0;
       }
     }
@@ -416,23 +627,20 @@
           return;
         }
         markPlaybackProgress(livePlayer);
+        armStandbyNext();
         const hasNext = activeQueueIdx + 1 < activeQueue.length;
-        if (!hasNext && !queueAdvanceLock) {
+        if (!hasNext && !queueAdvanceLock && !dualHandoffInFlight) {
           stopQueueMonitorPoll();
           return;
         }
-        if (queueAdvanceLock) {
+        if (queueAdvanceLock || dualHandoffInFlight) {
           ensureQueueHandoffComplete(livePlayer);
           return;
         }
         maybeAdvanceQueue(livePlayer);
-      }, 500);
+      }, 250);
     }
 
-    /**
-     * Extra lock-screen poll. iOS throttles timeupdate while hidden; this keeps
-     * album advance alive without depending on the foreground monitor alone.
-     */
     function startHiddenAdvancePoll(player) {
       if (hiddenAdvanceTimer !== null || !player) return;
       hiddenAdvanceTimer = window.setInterval(function () {
@@ -442,8 +650,10 @@
         }
         const livePlayer = getPlayer() || player;
         if (!activeSong || !livePlayer) return;
+        startKeepaliveSession();
         markPlaybackProgress(livePlayer);
-        if (queueAdvanceLock) {
+        armStandbyNext();
+        if (queueAdvanceLock || dualHandoffInFlight) {
           ensureQueueHandoffComplete(livePlayer);
           return;
         }
@@ -452,7 +662,7 @@
           return;
         }
         maybeAdvanceQueue(livePlayer);
-      }, 400);
+      }, 200);
       startQueueMonitorPoll(player);
     }
 
@@ -468,28 +678,48 @@
       ) {
         return;
       }
-      /* If we stalled at the end while locked, advance instead of replaying the tail. */
       if (trackFinished(player) && activeQueueIdx + 1 < activeQueue.length) {
         advanceQueueAfterEnd(player);
         return;
       }
+      startKeepaliveSession();
       retryPlay(player, activeSong, false);
     }
 
     function maybeAdvanceQueue(player) {
-      if (queueAdvanceLock || !player || !activeSong) return false;
+      if (queueAdvanceLock || dualHandoffInFlight || !player || !activeSong) return false;
       markPlaybackProgress(player);
-      if (trackFinished(player)) {
-        advanceQueueAfterEnd(player);
-        return true;
+      armStandbyNext();
+
+      const hasNext = activeQueueIdx + 1 < activeQueue.length;
+      if (!hasNext) return false;
+
+      if (trackFinished(player) || player.ended) {
+        return promoteStandbyHandoff() || advanceQueueAfterEnd(player);
       }
+
+      const remaining = remainingSeconds(player);
+      if (!Number.isFinite(remaining)) return false;
+
+      /*
+       * Dual-player early arm only while backgrounded/locked. Start the
+       * preloaded next track while current is still playing — once iOS pauses
+       * at end, play() on a new source is often rejected. Keep this off while
+       * visible so outros are not chopped on the open PWA / desktop.
+       */
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      if (hidden && !player.paused && remaining <= DUAL_HANDOFF_REMAINING_SEC) {
+        return promoteStandbyHandoff();
+      }
+
       return false;
     }
 
     function advanceQueueAfterEnd(player) {
-      if (queueAdvanceLock) return;
+      if (queueAdvanceLock || dualHandoffInFlight) return false;
       const nextIdx = activeQueueIdx + 1;
       if (nextIdx < activeQueue.length) {
+        if (promoteStandbyHandoff()) return true;
         window.clearTimeout(recallTimer);
         recallTimer = null;
         queueAdvanceLock = true;
@@ -501,11 +731,13 @@
         if (typeof document !== 'undefined' && document.hidden) {
           startHiddenAdvancePoll(player || getPlayer());
         }
-      } else {
-        stopQueueMonitorPoll();
-        stopHiddenAdvancePoll();
-        notify({ playing: false });
+        return true;
       }
+      stopQueueMonitorPoll();
+      stopHiddenAdvancePoll();
+      stopKeepaliveSession();
+      notify({ playing: false });
+      return false;
     }
 
     function bindEnded(player) {
@@ -528,8 +760,11 @@
       });
       player.addEventListener('play', function () {
         queueAdvanceLock = false;
+        dualHandoffInFlight = false;
         handoffStartedAt = 0;
         markPlaybackProgress(player);
+        startKeepaliveSession();
+        armStandbyNext();
         startQueueMonitorPoll(getPlayer());
         if (typeof document !== 'undefined' && document.hidden) {
           startHiddenAdvancePoll(getPlayer());
@@ -539,6 +774,7 @@
       player.addEventListener('pause', function () {
         /* Lock-screen end often arrives as pause without ended — try advance. */
         if (typeof document !== 'undefined' && document.hidden) {
+          startKeepaliveSession();
           maybeAdvanceQueue(player);
         }
         notify();
@@ -552,6 +788,8 @@
           if (!livePlayer) return;
           if (document.hidden) {
             persistRecall();
+            startKeepaliveSession();
+            armStandbyNext();
             startHiddenAdvancePoll(livePlayer);
             maybeAdvanceQueue(livePlayer);
             return;
@@ -657,6 +895,7 @@
 
       bindEnded(player);
       bindMediaSessionActions();
+      if (immediatePlay) startKeepaliveSession();
 
       const wasPlayingBeforeSwap = !player.paused;
       // Queue handoffs must NOT pause when already playing — iOS drops background
@@ -673,6 +912,7 @@
         }
         player.setAttribute('playback-id', normalized.playbackId);
       }
+      armStandbyNext();
 
       /* Fresh track / queue handoff: start at 0 unless recalling THIS song.
        * Same-source with an established playhead must never yank to 0 — soft nav
@@ -979,16 +1219,29 @@
 
     function stop() {
       const player = getPlayer();
+      const standby = typeof document !== 'undefined' ? document.getElementById(STANDBY_ID) : null;
       activeSong = null;
       activeQueue = [];
       activeQueueIdx = 0;
       queueAdvanceLock = false;
+      dualHandoffInFlight = false;
       handoffStartedAt = 0;
+      standbyPrimedId = '';
       stopQueueMonitorPoll();
+      stopHiddenAdvancePoll();
       stopZeroGuard();
+      stopKeepaliveSession();
       if (player) {
         player.pause();
         player.removeAttribute('playback-id');
+      }
+      if (standby) {
+        try {
+          standby.pause();
+          standby.removeAttribute('playback-id');
+        } catch (e) {
+          /* noop */
+        }
       }
       if (recallApi && opts.recall !== false) recallApi.clear();
       notify();

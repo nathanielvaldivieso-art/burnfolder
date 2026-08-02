@@ -22,6 +22,7 @@
     '../shared/media-session.js',
     '../shared/playback-recall.js',
     '../shared/playback-prefetch.js',
+    '../shared/ios-playback-keepalive.js',
     '../shared/mux-playback.js',
     '../shared/playback-context.js',
     '../shared/version-picker.js',
