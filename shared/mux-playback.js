@@ -322,6 +322,16 @@
 
       player.addEventListener('timeupdate', function () {
         if (!activeSong) return;
+        // A fresh track's underlying <audio>/<video> element doesn't exist yet
+        // the moment startPlayback() sets playback-id, so the rate applied
+        // there can land on nothing and get lost once mux-player finishes
+        // swapping to the new source (audible as "speed resets to 100% every
+        // song"). Re-assert it here too — cheap (no-op once it already
+        // matches) and it also keeps Media Session's reported rate honest,
+        // which is what the lock-screen scrubber uses to interpolate
+        // position between updates (a stale rate there looks like the
+        // progress bar drifting out of sync with the actual audio).
+        applyPlaybackRate(player);
         // Safety net for the rare case Mux/iOS skips `ended` while backgrounded.
         if (!advancePending && isNearEnd(player)) {
           advanceAfterEnd();
@@ -469,6 +479,17 @@
         // repeating) safety net for the genuine inherited-playhead case.
         player.setAttribute('playback-id', normalized.playbackId);
         if (!recallAt) correctInheritedPlayhead(player, normalized.playbackId, generation);
+        // The rate applied a few lines down can land before the new track's
+        // underlying media element exists and get lost when mux-player
+        // finishes swapping sources. Reassert once metadata is in (the
+        // timeupdate listener keeps reasserting after that as a backstop).
+        player.addEventListener(
+          'loadedmetadata',
+          function () {
+            applyPlaybackRate(player);
+          },
+          { once: true }
+        );
       }
 
       player.setAttribute('metadata-video-title', normalized.title);
