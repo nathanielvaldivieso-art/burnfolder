@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
 
-  var SITE_SCRIPT_VERSION = '20260804lockfix3';
+  var SITE_SCRIPT_VERSION = '20260804lockfix4';
 
   if (root) {
     root.BurnfolderSiteVersion = SITE_SCRIPT_VERSION;
