@@ -44,6 +44,11 @@
    *  don't trigger a needless retry. */
   const STALL_TICKS_BEFORE_RETRY = 4;
 
+  /** No-op when shared/playback-debug.js isn't loaded on a given page. */
+  function dbg(event, data) {
+    if (root.BurnfolderPlaybackDebug) root.BurnfolderPlaybackDebug.log(event, data);
+  }
+
   function resolvePlayer(playerOrId) {
     if (!playerOrId) return null;
     if (typeof playerOrId === 'string') return document.getElementById(playerOrId);
@@ -206,26 +211,42 @@
      */
     function playMedia(player) {
       if (!player || !activeSong) return;
+      const id = activeSong.playbackId;
       upgradePlayer(player);
       if (typeof player.play !== 'function') {
+        dbg('play:not-upgraded', { id: id });
         if (typeof customElements !== 'undefined') {
           customElements.whenDefined('mux-player').then(function () {
             upgradePlayer(player);
             if (wantPlaying && activeSong && typeof player.play === 'function') {
-              player.play().catch(function () {});
+              player.play().then(
+                function () {
+                  dbg('play:resolved', { id: id, via: 'whenDefined' });
+                },
+                function (err) {
+                  dbg('play:rejected', { id: id, via: 'whenDefined', name: err && err.name, message: err && err.message });
+                }
+              );
             }
           });
         }
         return;
       }
+      dbg('play:call', { id: id, readyState: player.readyState, paused: player.paused });
       const playPromise = player.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(function () {
-          /* Watchdog retries while wantPlaying. Optional page hook for UI. */
-          if (typeof opts.onPlayBlocked === 'function') {
-            opts.onPlayBlocked(player, activeSong);
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.then(
+          function () {
+            dbg('play:resolved', { id: id });
+          },
+          function (err) {
+            dbg('play:rejected', { id: id, name: err && err.name, message: err && err.message });
+            /* Watchdog retries while wantPlaying. Optional page hook for UI. */
+            if (typeof opts.onPlayBlocked === 'function') {
+              opts.onPlayBlocked(player, activeSong);
+            }
           }
-        });
+        );
       }
     }
 
@@ -244,6 +265,12 @@
       if (advancePending) return;
       advancePending = true;
       const nextIdx = activeQueueIdx + 1;
+      dbg('advance', {
+        fromIdx: activeQueueIdx,
+        toIdx: nextIdx,
+        queueLen: activeQueue.length,
+        hasNext: nextIdx < activeQueue.length
+      });
       if (nextIdx < activeQueue.length) {
         playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
         return;
@@ -261,6 +288,7 @@
       // `timeupdate`. Check on a plain interval so this doesn't depend on
       // events that stop firing exactly when you need them.
       if (!advancePending && isNearEnd(player)) {
+        dbg('watchdog:near-end-advance', { id: activeSong.playbackId, currentTime: player.currentTime, duration: player.duration });
         advanceAfterEnd();
         return;
       }
@@ -274,6 +302,7 @@
       if (player.paused) {
         lastWatchedTime = null;
         stallTicks = 0;
+        dbg('watchdog:paused-retry', { id: activeSong.playbackId, readyState: player.readyState });
         playMedia(player);
         return;
       }
@@ -287,6 +316,7 @@
         stallTicks += 1;
         if (stallTicks >= STALL_TICKS_BEFORE_RETRY) {
           stallTicks = 0;
+          dbg('watchdog:stall-retry', { id: activeSong.playbackId, currentTime: t, readyState: player.readyState });
           playMedia(player);
         }
       } else {
@@ -311,6 +341,7 @@
       boundPlayer = player;
 
       function onEnded() {
+        dbg('event:ended', { id: activeSong && activeSong.playbackId });
         advanceAfterEnd();
       }
 
@@ -334,6 +365,7 @@
         applyPlaybackRate(player);
         // Safety net for the rare case Mux/iOS skips `ended` while backgrounded.
         if (!advancePending && isNearEnd(player)) {
+          dbg('timeupdate:near-end-advance', { id: activeSong.playbackId, currentTime: player.currentTime, duration: player.duration });
           advanceAfterEnd();
           return;
         }
@@ -348,11 +380,19 @@
       // cellular): give it one bounded retry instead of leaving the queue
       // stuck on a track that will never recover on its own.
       player.addEventListener('error', function () {
+        const errObj = (player.media && player.media.error) || player.error || null;
+        dbg('event:error', {
+          id: activeSong && activeSong.playbackId,
+          wantPlaying: wantPlaying,
+          code: errObj && errObj.code,
+          message: errObj && errObj.message
+        });
         if (!activeSong || !wantPlaying) return;
         const id = activeSong.playbackId;
         window.setTimeout(function () {
           const live = getPlayer();
           if (!live || !activeSong || activeSong.playbackId !== id || !wantPlaying) return;
+          dbg('event:error-retry', { id: id });
           playMedia(live);
         }, 500);
       });
@@ -366,23 +406,32 @@
       if (lifecycleBound || typeof document === 'undefined') return;
       lifecycleBound = true;
 
-      function recover() {
+      function recover(source) {
         const live = getPlayer();
         if (!live || !activeSong) return;
         if (live.ended || isNearEnd(live)) {
+          dbg('lifecycle:recover-advance', { source: source, id: activeSong.playbackId });
           advanceAfterEnd();
           return;
         }
-        if (wantPlaying && live.paused) playMedia(live);
+        if (wantPlaying && live.paused) {
+          dbg('lifecycle:recover-play', { source: source, id: activeSong.playbackId });
+          playMedia(live);
+        }
       }
 
       document.addEventListener('visibilitychange', function () {
+        dbg('lifecycle:visibilitychange', { hidden: document.hidden });
         persistRecall();
-        if (!document.hidden) recover();
+        if (!document.hidden) recover('visibilitychange');
       });
-      window.addEventListener('pagehide', persistRecall);
+      window.addEventListener('pagehide', function () {
+        dbg('lifecycle:pagehide', null);
+        persistRecall();
+      });
       window.addEventListener('pageshow', function (event) {
-        if (event.persisted) recover();
+        dbg('lifecycle:pageshow', { persisted: event.persisted });
+        if (event.persisted) recover('pageshow');
       });
     }
 
@@ -422,7 +471,16 @@
       const startOpts = playbackOpts || {};
       const isQueueHandoff =
         startOpts.queueHandoff === true || startOpts.seamlessAdvance === true;
-      if (!player || !normalized) return false;
+      if (!player || !normalized) {
+        dbg('startPlayback:no-op', { hasPlayer: !!player, hasSong: !!normalized });
+        return false;
+      }
+      dbg('startPlayback', {
+        id: normalized.playbackId,
+        queueIdx: queueIdx,
+        isQueueHandoff: isQueueHandoff,
+        immediatePlay: startOpts.immediatePlay !== false
+      });
 
       if (!player.getAttribute('audio')) player.setAttribute('audio', '');
       if (!player.getAttribute('playsinline')) player.setAttribute('playsinline', '');

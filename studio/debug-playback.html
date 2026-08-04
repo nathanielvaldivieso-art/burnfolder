@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>playback debug log — burnfolder</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: #0b0b0b;
+    color: #eee;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  h1 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  p.hint {
+    font-size: 12px;
+    color: #999;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #1b1b1b;
+    color: #eee;
+    cursor: pointer;
+  }
+  button:active { background: #2a2a2a; }
+  button.primary { background: #2d6cdf; border-color: #2d6cdf; }
+  #status {
+    font-size: 12px;
+    color: #7ad67a;
+    min-height: 16px;
+    margin-bottom: 8px;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.6;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+</style>
+</head>
+<body>
+  <h1>playback debug log</h1>
+  <p class="hint">
+    A rolling on-device record of what the playback engine actually did (play() calls,
+    ended/error events, watchdog recoveries, background/foreground transitions).
+    Open this page any time after autoplay misbehaves — it survives reloading, closing the
+    PWA, and locking the phone. Tap "Copy" and send the text over.
+  </p>
+  <div class="actions">
+    <button id="refreshBtn" class="primary" type="button">Refresh</button>
+    <button id="copyBtn" type="button">Copy to clipboard</button>
+    <button id="clearBtn" type="button">Clear log</button>
+  </div>
+  <div id="status"></div>
+  <pre id="log">loading…</pre>
+
+  <script src="../shared/playback-debug.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var logEl = document.getElementById('log');
+      var statusEl = document.getElementById('status');
+
+      function setStatus(msg) {
+        statusEl.textContent = msg || '';
+        if (msg) window.setTimeout(function () { statusEl.textContent = ''; }, 2000);
+      }
+
+      function render() {
+        var api = window.BurnfolderPlaybackDebug;
+        logEl.textContent = api ? api.getText() : 'playback-debug.js did not load';
+      }
+
+      document.getElementById('refreshBtn').addEventListener('click', render);
+
+      document.getElementById('copyBtn').addEventListener('click', function () {
+        var text = logEl.textContent || '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(
+            function () { setStatus('copied'); },
+            function () { setStatus('copy failed — select the text manually'); }
+          );
+          return;
+        }
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(logEl);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          document.execCommand('copy');
+          setStatus('copied');
+        } catch (e) {
+          setStatus('select the text manually and copy');
+        }
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', function () {
+        if (window.BurnfolderPlaybackDebug) window.BurnfolderPlaybackDebug.clear();
+        render();
+        setStatus('cleared');
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
