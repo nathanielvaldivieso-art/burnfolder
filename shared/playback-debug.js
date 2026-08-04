@@ -17,8 +17,8 @@
  *
  * View the recorded log at /studio/debug-playback.html (or open it and tap
  * "Copy" after a failure happens) — no phone access needed either way, since
- * installed-PWA sessions also beacon new entries to /api/playback-debug-log
- * in the background (see enableAutoUpload below), which can be fetched from
+ * every session also beacons new entries to /api/playback-debug-log in the
+ * background (see enableAutoUpload below), which can be fetched from
  * anywhere with the shared key baked into that function.
  */
 (function (root) {
@@ -88,14 +88,20 @@
     }
   }
 
-  // ---- Auto-upload (installed-PWA sessions only) ----------------------
+  // ---- Auto-upload ------------------------------------------------------
   //
   // Lets a failure be inspected without needing hands-on access to the
   // phone: beacon new entries to the server as they're logged, so the run
   // that just happened on the lock screen can be fetched from anywhere.
-  // Scoped to standalone/installed-PWA display mode so regular site
-  // visitors (who aren't hitting this bug and outnumber testers by a lot)
-  // never generate this traffic.
+  //
+  // NOTE: this used to be gated to `display-mode: standalone` on the theory
+  // that only installed-PWA sessions matter here. That assumption was wrong —
+  // the public listening pages (music.html, album.html, etc., where the
+  // actual lock-screen bug happens) have no manifest / apple-mobile-web-app-
+  // capable meta tag, so "Add to Home Screen" on iOS opens them as a plain
+  // Safari bookmark, never as `standalone`. The gate silently discarded
+  // every upload. Uploading unconditionally instead — payloads are tiny and
+  // capped (see MAX_ENTRIES_PER_POST server-side).
 
   // Tracked by timestamp, not array index — the local log trims its oldest
   // entries once it hits MAX_ENTRIES, which would silently shift indices
@@ -103,17 +109,6 @@
   let lastUploadedT = 0;
   let flushTimer = null;
   let lastFlushAt = 0;
-
-  function isStandalone() {
-    try {
-      return (
-        (root.matchMedia && root.matchMedia('(display-mode: standalone)').matches) ||
-        (root.navigator && root.navigator.standalone === true)
-      );
-    } catch (e) {
-      return false;
-    }
-  }
 
   function deviceId() {
     const ls = storage();
@@ -132,7 +127,6 @@
 
   function flush(force) {
     try {
-      if (!isStandalone()) return;
       const now = Date.now();
       if (!force && now - lastFlushAt < MIN_FLUSH_INTERVAL_MS) return;
       const entries = readLog();
