@@ -16,13 +16,19 @@
  * call site checks it's present first.
  *
  * View the recorded log at /studio/debug-playback.html (or open it and tap
- * "Copy" after a failure happens).
+ * "Copy" after a failure happens) — no phone access needed either way, since
+ * installed-PWA sessions also beacon new entries to /api/playback-debug-log
+ * in the background (see enableAutoUpload below), which can be fetched from
+ * anywhere with the shared key baked into that function.
  */
 (function (root) {
   'use strict';
 
   const KEY = 'burnfolderPlaybackDebugLog';
   const MAX_ENTRIES = 300;
+  const UPLOAD_URL = '/api/playback-debug-log';
+  const DEVICE_KEY = 'burnfolderPlaybackDebugDeviceId';
+  const MIN_FLUSH_INTERVAL_MS = 2000;
 
   function storage() {
     try {
@@ -65,6 +71,7 @@
         data: data === undefined ? null : data
       });
       writeLog(entries);
+      scheduleFlush();
     } catch (e) {
       /* noop — diagnostics must never break playback */
     }
@@ -75,10 +82,117 @@
     if (!ls) return;
     try {
       ls.removeItem(KEY);
+      lastUploadedT = 0;
     } catch (e) {
       /* noop */
     }
   }
+
+  // ---- Auto-upload (installed-PWA sessions only) ----------------------
+  //
+  // Lets a failure be inspected without needing hands-on access to the
+  // phone: beacon new entries to the server as they're logged, so the run
+  // that just happened on the lock screen can be fetched from anywhere.
+  // Scoped to standalone/installed-PWA display mode so regular site
+  // visitors (who aren't hitting this bug and outnumber testers by a lot)
+  // never generate this traffic.
+
+  // Tracked by timestamp, not array index — the local log trims its oldest
+  // entries once it hits MAX_ENTRIES, which would silently shift indices
+  // out from under a plain counter and either re-send or drop entries.
+  let lastUploadedT = 0;
+  let flushTimer = null;
+  let lastFlushAt = 0;
+
+  function isStandalone() {
+    try {
+      return (
+        (root.matchMedia && root.matchMedia('(display-mode: standalone)').matches) ||
+        (root.navigator && root.navigator.standalone === true)
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function deviceId() {
+    const ls = storage();
+    if (!ls) return '';
+    try {
+      let id = ls.getItem(DEVICE_KEY);
+      if (!id) {
+        id = Math.random().toString(36).slice(2, 8);
+        ls.setItem(DEVICE_KEY, id);
+      }
+      return id;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function flush(force) {
+    try {
+      if (!isStandalone()) return;
+      const now = Date.now();
+      if (!force && now - lastFlushAt < MIN_FLUSH_INTERVAL_MS) return;
+      const entries = readLog();
+      const pending = entries.filter(function (entry) { return entry.t > lastUploadedT; });
+      if (!pending.length) return;
+      const payload = JSON.stringify({ device: deviceId(), entries: pending });
+      const sent = sendPayload(payload);
+      if (sent) {
+        lastUploadedT = pending[pending.length - 1].t;
+        lastFlushAt = now;
+      }
+    } catch (e) {
+      /* noop — uploading diagnostics must never break playback */
+    }
+  }
+
+  function sendPayload(payload) {
+    try {
+      if (root.navigator && typeof root.navigator.sendBeacon === 'function') {
+        const blob = new root.Blob([payload], { type: 'application/json' });
+        return root.navigator.sendBeacon(UPLOAD_URL, blob);
+      }
+    } catch (e) {
+      /* fall through to fetch */
+    }
+    try {
+      if (typeof root.fetch === 'function') {
+        root.fetch(UPLOAD_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true
+        }).catch(function () {});
+        return true;
+      }
+    } catch (e) {
+      /* noop */
+    }
+    return false;
+  }
+
+  function scheduleFlush() {
+    if (flushTimer) return;
+    flushTimer = root.setTimeout(function () {
+      flushTimer = null;
+      flush(false);
+    }, 1000);
+  }
+
+  function enableAutoUpload() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) flush(true);
+    });
+    root.addEventListener('pagehide', function () {
+      flush(true);
+    });
+  }
+
+  enableAutoUpload();
 
   function pad(n, width) {
     const s = String(n);
@@ -115,6 +229,7 @@
     log: log,
     clear: clear,
     getLog: readLog,
-    getText: getText
+    getText: getText,
+    flushNow: function () { flush(true); }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

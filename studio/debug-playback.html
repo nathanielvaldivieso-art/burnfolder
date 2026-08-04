@@ -69,10 +69,15 @@
     ended/error events, watchdog recoveries, background/foreground transitions).
     Open this page any time after autoplay misbehaves — it survives reloading, closing the
     PWA, and locking the phone. Tap "Copy" and send the text over.
+    <br><br>
+    While installed as a home-screen app, this also beacons new entries to the server in
+    the background, so the log from a lock-screen repro can be pulled up remotely without
+    touching this phone at all. "Force upload" pushes whatever hasn't gone out yet.
   </p>
   <div class="actions">
     <button id="refreshBtn" class="primary" type="button">Refresh</button>
     <button id="copyBtn" type="button">Copy to clipboard</button>
+    <button id="uploadBtn" type="button">Force upload</button>
     <button id="clearBtn" type="button">Clear log</button>
   </div>
   <div id="status"></div>
@@ -117,6 +122,11 @@
         } catch (e) {
           setStatus('select the text manually and copy');
         }
+      });
+
+      document.getElementById('uploadBtn').addEventListener('click', function () {
+        if (window.BurnfolderPlaybackDebug) window.BurnfolderPlaybackDebug.flushNow();
+        setStatus('uploaded (installed app only)');
       });
 
       document.getElementById('clearBtn').addEventListener('click', function () {
