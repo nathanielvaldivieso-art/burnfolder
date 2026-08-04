@@ -8,11 +8,21 @@
  *    background media session on pause, which kills lock-screen autoplay.
  * 4. Media Session (lock screen / Control Center) mirrors whatever the element
  *    is actually doing. It never drives playback itself beyond play/pause/next/prev.
- * 5. Exactly one timer (the watchdog) exists, and it only does one job: notice
- *    the element stopped playing while we still want it playing, and resume it.
- *    Anything fancier than that is where the old stutter-on-advance bug came from
- *    (a second timer kept yanking currentTime back to 0 while the next track was
- *    still buffering, which looks like the first second repeating on a loop).
+ * 5. Exactly one timer (the watchdog) exists. It has three jobs, run on a
+ *    plain interval so none of them depend on events that can stop firing
+ *    (`timeupdate` stops the moment a track stalls, which is exactly when
+ *    you need a backstop):
+ *      a. Resume playback if we still want to be playing but the element is
+ *         unexpectedly paused.
+ *      b. Notice a track that stalled a hair before its real end (network
+ *         hiccup on the last chunk) and advance the queue anyway, instead of
+ *         hanging forever waiting for an `ended` that will never come.
+ *      c. Notice a track that reports "playing" but whose clock has stopped
+ *         moving (silent stall) and nudge `play()` again.
+ *    None of these ever touch currentTime — that was the old stutter-on-advance
+ *    bug (a second timer kept yanking currentTime back to 0 while the next
+ *    track was still buffering, which looks like the first second repeating
+ *    on a loop).
  *
  * Do not call player.load() after changing playback-id; mux-player updates itself.
  */
@@ -22,13 +32,17 @@
   const recallApi = root.BurnfolderPlaybackRecall;
   const mediaSessionApi = root.BurnfolderMediaSession;
 
-  /** Single watchdog tick: recover a stalled/paused player while we want it playing. */
+  /** Watchdog tick — recovers a stalled/paused player while we want it playing. */
   const WATCHDOG_MS = 500;
   /** Near-end slack — the safety net for the rare case Mux skips `ended` in the background. */
   const END_SLACK_SECONDS = 0.2;
   /** A fresh track's clock should read ~0 the moment metadata loads; anything past this
    *  means the element inherited the previous track's playhead — correct it once. */
   const INHERITED_PLAYHEAD_SECONDS = 0.4;
+  /** Ticks of a frozen clock while nominally playing before we treat it as a
+   *  silent stall and retry play() — a few seconds, so real buffering blips
+   *  don't trigger a needless retry. */
+  const STALL_TICKS_BEFORE_RETRY = 4;
 
   function resolvePlayer(playerOrId) {
     if (!playerOrId) return null;
@@ -73,6 +87,9 @@
     let recallTimer = null;
     let lifecycleBound = false;
     let startGeneration = 0;
+    /** Silent-stall tracking for the watchdog — reset whenever a new track starts. */
+    let lastWatchedTime = null;
+    let stallTicks = 0;
 
     function notify(extra) {
       const player = getPlayer();
@@ -235,18 +252,52 @@
       notify({ playing: false });
     }
 
+    function watchdogTick() {
+      const player = getPlayer();
+      if (!player || !activeSong) return;
+
+      // A track can stall a hair before its real end (last chunk slow to
+      // arrive while backgrounded) and never fire `ended` or another
+      // `timeupdate`. Check on a plain interval so this doesn't depend on
+      // events that stop firing exactly when you need them.
+      if (!advancePending && isNearEnd(player)) {
+        advanceAfterEnd();
+        return;
+      }
+
+      if (!wantPlaying) {
+        lastWatchedTime = null;
+        stallTicks = 0;
+        return;
+      }
+
+      if (player.paused) {
+        lastWatchedTime = null;
+        stallTicks = 0;
+        playMedia(player);
+        return;
+      }
+
+      // Silent stall: the element reports "playing" but its clock isn't
+      // moving (seen on iOS during flaky background network conditions).
+      // Retrying play() is a harmless no-op if it's actually fine.
+      const t = Number(player.currentTime);
+      if (!Number.isFinite(t)) return;
+      if (lastWatchedTime !== null && t === lastWatchedTime) {
+        stallTicks += 1;
+        if (stallTicks >= STALL_TICKS_BEFORE_RETRY) {
+          stallTicks = 0;
+          playMedia(player);
+        }
+      } else {
+        stallTicks = 0;
+      }
+      lastWatchedTime = t;
+    }
+
     function startWatchdog() {
       if (watchdogTimer !== null) return;
-      watchdogTimer = window.setInterval(function () {
-        const player = getPlayer();
-        if (!player || !activeSong) return;
-        // The only job of this loop: if we intend to be playing and the
-        // element is unexpectedly paused (common right after a lock-screen
-        // handoff while the next asset buffers), nudge it once. It never
-        // touches currentTime — that responsibility belongs to the one-shot
-        // correction in bindPlayerListeners, not a recurring timer.
-        if (wantPlaying && player.paused) playMedia(player);
-      }, WATCHDOG_MS);
+      watchdogTimer = window.setInterval(watchdogTick, WATCHDOG_MS);
     }
 
     function stopWatchdog() {
@@ -282,6 +333,19 @@
 
       player.addEventListener('play', notify);
       player.addEventListener('pause', notify);
+
+      // Transient network hiccup mid-track (common on flaky background
+      // cellular): give it one bounded retry instead of leaving the queue
+      // stuck on a track that will never recover on its own.
+      player.addEventListener('error', function () {
+        if (!activeSong || !wantPlaying) return;
+        const id = activeSong.playbackId;
+        window.setTimeout(function () {
+          const live = getPlayer();
+          if (!live || !activeSong || activeSong.playbackId !== id || !wantPlaying) return;
+          playMedia(live);
+        }, 500);
+      });
 
       startWatchdog();
       bindLifecycleRecovery();
@@ -354,8 +418,11 @@
       if (!player.getAttribute('playsinline')) player.setAttribute('playsinline', '');
       if (!player.getAttribute('stream-type')) player.setAttribute('stream-type', 'on-demand');
 
-      // A fresh startPlayback means any in-flight advance has resolved.
+      // A fresh startPlayback means any in-flight advance has resolved, and
+      // any stall tracking from the previous track no longer applies.
       advancePending = false;
+      lastWatchedTime = null;
+      stallTicks = 0;
 
       const immediatePlay =
         startOpts.immediatePlay !== false &&
@@ -394,12 +461,13 @@
             /* noop */
           }
         }
+        // Don't force currentTime here — the source change itself resets it
+        // in the normal case, and writing to it before metadata exists is
+        // one more thing that can race with mux-player/hls.js's own load on
+        // a given track's timing and occasionally swallow the play() that
+        // follows. correctInheritedPlayhead below is the (one-shot, not
+        // repeating) safety net for the genuine inherited-playhead case.
         player.setAttribute('playback-id', normalized.playbackId);
-        try {
-          player.currentTime = 0;
-        } catch (e) {
-          /* noop */
-        }
         if (!recallAt) correctInheritedPlayhead(player, normalized.playbackId, generation);
       }
 
@@ -615,6 +683,8 @@
       activeQueueIdx = 0;
       wantPlaying = false;
       advancePending = false;
+      lastWatchedTime = null;
+      stallTicks = 0;
       stopWatchdog();
       if (player) {
         try {
