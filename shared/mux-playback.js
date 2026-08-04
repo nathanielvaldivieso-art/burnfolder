@@ -1,13 +1,28 @@
 /**
- * Shared Mux audio playback — continuous session like Spotify / Apple Music.
+ * Shared Mux audio playback — one continuous session, like Spotify / Apple Music.
  *
- * Lock-screen / PWA rules:
- * 1. One in-DOM media element stays alive (never tear down on nav).
- * 2. User gesture → play() immediately (do not wait for canplay).
- * 3. Queue advance → never pause() before swapping playback-id (iOS drops
- *    the background media session on pause).
- * 4. One watchdog owns end-of-track advance + "should be playing" recovery.
- * 5. Media Session is the lock-screen / Control Center transport.
+ * Lock-screen / PWA rules (do not break these):
+ * 1. One in-DOM media element stays alive for the whole visit (never torn down on nav).
+ * 2. User taps play() the same turn as the gesture — never wait on `canplay` first.
+ * 3. Queue advance never pause()s before swapping playback-id — iOS drops the
+ *    background media session on pause, which kills lock-screen autoplay.
+ * 4. Media Session (lock screen / Control Center) mirrors whatever the element
+ *    is actually doing. It never drives playback itself beyond play/pause/next/prev.
+ * 5. Exactly one timer (the watchdog) exists. It has three jobs, run on a
+ *    plain interval so none of them depend on events that can stop firing
+ *    (`timeupdate` stops the moment a track stalls, which is exactly when
+ *    you need a backstop):
+ *      a. Resume playback if we still want to be playing but the element is
+ *         unexpectedly paused.
+ *      b. Notice a track that stalled a hair before its real end (network
+ *         hiccup on the last chunk) and advance the queue anyway, instead of
+ *         hanging forever waiting for an `ended` that will never come.
+ *      c. Notice a track that reports "playing" but whose clock has stopped
+ *         moving (silent stall) and nudge `play()` again.
+ *    None of these ever touch currentTime — that was the old stutter-on-advance
+ *    bug (a second timer kept yanking currentTime back to 0 while the next
+ *    track was still buffering, which looks like the first second repeating
+ *    on a loop).
  *
  * Do not call player.load() after changing playback-id; mux-player updates itself.
  */
@@ -17,13 +32,17 @@
   const recallApi = root.BurnfolderPlaybackRecall;
   const mediaSessionApi = root.BurnfolderMediaSession;
 
-  /** How long after a start/handoff before the watchdog may call play() again. */
-  const PLAY_GRACE_MS = 400;
-  /** Watchdog tick — also the near-end poll when Mux skips `ended` on lock screen. */
+  /** Watchdog tick — recovers a stalled/paused player while we want it playing. */
   const WATCHDOG_MS = 500;
-  /** Near-end slack: keep tiny so outros aren't chopped when a next track exists. */
-  const END_SLACK_VISIBLE = 0.08;
-  const END_SLACK_HIDDEN = 0.15;
+  /** Near-end slack — the safety net for the rare case Mux skips `ended` in the background. */
+  const END_SLACK_SECONDS = 0.2;
+  /** A fresh track's clock should read ~0 the moment metadata loads; anything past this
+   *  means the element inherited the previous track's playhead — correct it once. */
+  const INHERITED_PLAYHEAD_SECONDS = 0.4;
+  /** Ticks of a frozen clock while nominally playing before we treat it as a
+   *  silent stall and retry play() — a few seconds, so real buffering blips
+   *  don't trigger a needless retry. */
+  const STALL_TICKS_BEFORE_RETRY = 4;
 
   function resolvePlayer(playerOrId) {
     if (!playerOrId) return null;
@@ -53,23 +72,24 @@
     let activeSong = null;
     let activeQueue = [];
     let activeQueueIdx = 0;
-    let endedBound = false;
-    let positionBound = false;
-    let endedPlayer = null;
-    let recallTimer = null;
-    let mediaActionsBound = false;
-    let lifecycleBound = false;
-    let watchdogTimer = null;
-    let startGeneration = 0;
     let playbackRate = 1;
 
     /** Intentional play state — same idea as a native player's "isPlaying" flag. */
     let wantPlaying = false;
-    /** True while swapping to the next queue track (blocks double-advance). */
-    let advancing = false;
-    /** Timestamp of last startPlayback / playMedia — grace before watchdog retries. */
-    let lastPlayAttemptAt = 0;
-    let zeroGuardTimer = null;
+    /** True from the moment an end-of-track advance starts until the next
+     *  startPlayback() runs — guards against `ended` + the near-end fallback
+     *  both firing for the same track boundary. */
+    let advancePending = false;
+
+    let boundPlayer = null;
+    let mediaActionsBound = false;
+    let watchdogTimer = null;
+    let recallTimer = null;
+    let lifecycleBound = false;
+    let startGeneration = 0;
+    /** Silent-stall tracking for the watchdog — reset whenever a new track starts. */
+    let lastWatchedTime = null;
+    let stallTicks = 0;
 
     function notify(extra) {
       const player = getPlayer();
@@ -118,61 +138,6 @@
       });
     }
 
-    function stopZeroGuard() {
-      if (zeroGuardTimer !== null) {
-        window.clearInterval(zeroGuardTimer);
-        zeroGuardTimer = null;
-      }
-    }
-
-    function seekToZero(player) {
-      if (!player) return;
-      try {
-        player.currentTime = 0;
-      } catch (e) {
-        /* noop */
-      }
-    }
-
-    /**
-     * Queue handoffs must not inherit the previous track's playhead.
-     * One short reassert window — not a long yank loop that fights live audio.
-     */
-    function forceStartAtZero(player, playbackId, generation) {
-      if (!player || !playbackId) return;
-      stopZeroGuard();
-      seekToZero(player);
-
-      function stillCurrent() {
-        return (
-          generation === startGeneration &&
-          activeSong &&
-          activeSong.playbackId === playbackId &&
-          (player.getAttribute('playback-id') || '') === playbackId
-        );
-      }
-
-      function reassert() {
-        if (!stillCurrent()) return;
-        const t = Number(player.currentTime) || 0;
-        // Only yank inherited mid-track starts, not intentional seeks.
-        if (t > 0.35 && t < 3) seekToZero(player);
-      }
-
-      player.addEventListener('loadedmetadata', reassert, { once: true });
-      player.addEventListener('canplay', reassert, { once: true });
-
-      let ticks = 0;
-      zeroGuardTimer = window.setInterval(function () {
-        ticks += 1;
-        if (!stillCurrent() || ticks > 12) {
-          stopZeroGuard();
-          return;
-        }
-        reassert();
-      }, 100);
-    }
-
     function syncMediaSession(detail) {
       if (!mediaSessionApi) return;
       const player = getPlayer();
@@ -191,6 +156,8 @@
     function bindMediaSessionActions() {
       if (!mediaSessionApi || mediaActionsBound) return;
       mediaActionsBound = true;
+      // Only play/pause/next/previous — seek handlers are omitted on purpose
+      // (adding them breaks native next/prev on iOS lock screen).
       mediaSessionApi.bindActions({
         play: function () {
           togglePlayPause(true);
@@ -205,26 +172,19 @@
           }
           const player = getPlayer();
           if (player) {
-            seekToZero(player);
+            try {
+              player.currentTime = 0;
+            } catch (e) {
+              /* noop */
+            }
             notify();
           }
         },
         nexttrack: function () {
           if (activeQueueIdx + 1 < activeQueue.length) {
-            advanceTo(activeQueueIdx + 1);
+            playQueuedTrack(activeQueueIdx + 1, { queueHandoff: true });
           }
-        },
-      });
-    }
-
-    function bindPositionUpdates(player) {
-      if (!player || positionBound || !mediaSessionApi) return;
-      if (endedPlayer !== player) return;
-      positionBound = true;
-      player.addEventListener('timeupdate', function () {
-        if (!activeSong) return;
-        mediaSessionApi.setPositionState(player);
-        scheduleRecallSave();
+        }
       });
     }
 
@@ -241,7 +201,7 @@
     }
 
     /**
-     * Single play entry. Call from user gestures and from the watchdog.
+     * Single play entry. Call from user gestures, queue advances, and the watchdog.
      * Never stacks competing retries — the watchdog is the only retry loop.
      */
     function playMedia(player) {
@@ -252,14 +212,12 @@
           customElements.whenDefined('mux-player').then(function () {
             upgradePlayer(player);
             if (wantPlaying && activeSong && typeof player.play === 'function') {
-              lastPlayAttemptAt = Date.now();
               player.play().catch(function () {});
             }
           });
         }
         return;
       }
-      lastPlayAttemptAt = Date.now();
       const playPromise = player.play();
       if (playPromise && typeof playPromise.catch === 'function') {
         playPromise.catch(function () {
@@ -271,7 +229,7 @@
       }
     }
 
-    function trackFinished(player) {
+    function isNearEnd(player) {
       if (!player) return false;
       if (player.ended) return true;
       const duration = Number(player.duration);
@@ -279,9 +237,67 @@
       if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
         return false;
       }
-      const hidden = typeof document !== 'undefined' && document.hidden;
-      const slack = hidden ? END_SLACK_HIDDEN : END_SLACK_VISIBLE;
-      return current >= duration - slack;
+      return current >= duration - END_SLACK_SECONDS;
+    }
+
+    function advanceAfterEnd() {
+      if (advancePending) return;
+      advancePending = true;
+      const nextIdx = activeQueueIdx + 1;
+      if (nextIdx < activeQueue.length) {
+        playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
+        return;
+      }
+      wantPlaying = false;
+      notify({ playing: false });
+    }
+
+    function watchdogTick() {
+      const player = getPlayer();
+      if (!player || !activeSong) return;
+
+      // A track can stall a hair before its real end (last chunk slow to
+      // arrive while backgrounded) and never fire `ended` or another
+      // `timeupdate`. Check on a plain interval so this doesn't depend on
+      // events that stop firing exactly when you need them.
+      if (!advancePending && isNearEnd(player)) {
+        advanceAfterEnd();
+        return;
+      }
+
+      if (!wantPlaying) {
+        lastWatchedTime = null;
+        stallTicks = 0;
+        return;
+      }
+
+      if (player.paused) {
+        lastWatchedTime = null;
+        stallTicks = 0;
+        playMedia(player);
+        return;
+      }
+
+      // Silent stall: the element reports "playing" but its clock isn't
+      // moving (seen on iOS during flaky background network conditions).
+      // Retrying play() is a harmless no-op if it's actually fine.
+      const t = Number(player.currentTime);
+      if (!Number.isFinite(t)) return;
+      if (lastWatchedTime !== null && t === lastWatchedTime) {
+        stallTicks += 1;
+        if (stallTicks >= STALL_TICKS_BEFORE_RETRY) {
+          stallTicks = 0;
+          playMedia(player);
+        }
+      } else {
+        stallTicks = 0;
+      }
+      lastWatchedTime = t;
+    }
+
+    function startWatchdog() {
+      if (watchdogTimer !== null) return;
+      watchdogTimer = window.setInterval(watchdogTick, WATCHDOG_MS);
     }
 
     function stopWatchdog() {
@@ -290,66 +306,9 @@
       watchdogTimer = null;
     }
 
-    function startWatchdog() {
-      if (watchdogTimer !== null) return;
-      watchdogTimer = window.setInterval(watchdogTick, WATCHDOG_MS);
-    }
-
-    function watchdogTick() {
-      const player = getPlayer();
-      if (!player || !activeSong) {
-        stopWatchdog();
-        return;
-      }
-
-      const liveId = player.getAttribute('playback-id') || '';
-      const matches = liveId === activeSong.playbackId;
-
-      if (advancing && matches && !player.paused) {
-        advancing = false;
-      }
-
-      if (!advancing && trackFinished(player)) {
-        advanceAfterEnd();
-        return;
-      }
-
-      // Intentional play + unexpectedly paused (common during lock-screen handoffs
-      // while the next Mux asset buffers). One play() per grace window.
-      if (
-        wantPlaying &&
-        matches &&
-        player.paused &&
-        Date.now() - lastPlayAttemptAt >= PLAY_GRACE_MS
-      ) {
-        playMedia(player);
-      }
-    }
-
-    function advanceTo(nextIdx) {
-      if (nextIdx < 0 || nextIdx >= activeQueue.length) return false;
-      advancing = true;
-      return playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
-    }
-
-    function advanceAfterEnd() {
-      const nextIdx = activeQueueIdx + 1;
-      if (nextIdx < activeQueue.length) {
-        advanceTo(nextIdx);
-        return;
-      }
-      advancing = false;
-      wantPlaying = false;
-      stopWatchdog();
-      notify({ playing: false });
-    }
-
-    function bindEnded(player) {
-      if (opts.bindEnded === false || !player) return;
-      if (endedPlayer === player && endedBound) return;
-      endedPlayer = player;
-      endedBound = true;
-      positionBound = false;
+    function bindPlayerListeners(player) {
+      if (!player || boundPlayer === player) return;
+      boundPlayer = player;
 
       function onEnded() {
         advanceAfterEnd();
@@ -361,68 +320,100 @@
         nativeMedia.addEventListener('ended', onEnded);
       }
 
-      // Safety net when Mux skips `ended` (common on lock screen).
       player.addEventListener('timeupdate', function () {
-        if (!advancing && trackFinished(player)) advanceAfterEnd();
+        if (!activeSong) return;
+        // A fresh track's underlying <audio>/<video> element doesn't exist yet
+        // the moment startPlayback() sets playback-id, so the rate applied
+        // there can land on nothing and get lost once mux-player finishes
+        // swapping to the new source (audible as "speed resets to 100% every
+        // song"). Re-assert it here too — cheap (no-op once it already
+        // matches) and it also keeps Media Session's reported rate honest,
+        // which is what the lock-screen scrubber uses to interpolate
+        // position between updates (a stale rate there looks like the
+        // progress bar drifting out of sync with the actual audio).
+        applyPlaybackRate(player);
+        // Safety net for the rare case Mux/iOS skips `ended` while backgrounded.
+        if (!advancePending && isNearEnd(player)) {
+          advanceAfterEnd();
+          return;
+        }
+        if (mediaSessionApi) mediaSessionApi.setPositionState(player);
+        scheduleRecallSave();
       });
 
-      player.addEventListener('play', function () {
-        if (wantPlaying) advancing = false;
-        notify();
-      });
-      player.addEventListener('pause', function () {
-        // User/OS pause — don't clear wantPlaying here; togglePlayPause owns that.
-        // Media Session pause and our toggle set wantPlaying=false first.
-        notify();
-      });
-      bindPositionUpdates(player);
+      player.addEventListener('play', notify);
+      player.addEventListener('pause', notify);
 
-      if (typeof document !== 'undefined' && !lifecycleBound) {
-        lifecycleBound = true;
-        document.addEventListener('visibilitychange', function () {
+      // Transient network hiccup mid-track (common on flaky background
+      // cellular): give it one bounded retry instead of leaving the queue
+      // stuck on a track that will never recover on its own.
+      player.addEventListener('error', function () {
+        if (!activeSong || !wantPlaying) return;
+        const id = activeSong.playbackId;
+        window.setTimeout(function () {
           const live = getPlayer();
-          if (!live) return;
-          persistRecall();
-          startWatchdog();
-          if (document.hidden) return;
-          // Returning from lock screen / Control Center / app switcher.
-          if (live.ended || trackFinished(live)) {
-            advanceAfterEnd();
-            return;
-          }
-          if (wantPlaying && live.paused) playMedia(live);
-        });
-        window.addEventListener('pagehide', persistRecall);
-        window.addEventListener('pageshow', function (event) {
-          if (!event.persisted) return;
-          const live = getPlayer();
-          if (!live) return;
-          startWatchdog();
-          if (live.ended || trackFinished(live)) {
-            advanceAfterEnd();
-            return;
-          }
-          if (wantPlaying && live.paused) playMedia(live);
-        });
-      }
+          if (!live || !activeSong || activeSong.playbackId !== id || !wantPlaying) return;
+          playMedia(live);
+        }, 500);
+      });
+
+      startWatchdog();
+      bindLifecycleRecovery();
     }
 
-    function applyRecallPosition(player, recall, playbackId) {
-      if (!player || !recall) return;
-      const recallId = recall.song && recall.song.playbackId;
-      if (recallId && playbackId && recallId !== playbackId) return;
-      const t = Number(recall.currentTime);
-      if (!Number.isFinite(t) || t <= 0) return;
-      const seek = function () {
-        try {
-          if (playbackId && (player.getAttribute('playback-id') || '') !== playbackId) return;
-          player.currentTime = t;
-        } catch (e) {
-          /* noop */
+    /** Recover playback after returning from the lock screen / app switcher / bfcache. */
+    function bindLifecycleRecovery() {
+      if (lifecycleBound || typeof document === 'undefined') return;
+      lifecycleBound = true;
+
+      function recover() {
+        const live = getPlayer();
+        if (!live || !activeSong) return;
+        if (live.ended || isNearEnd(live)) {
+          advanceAfterEnd();
+          return;
         }
-      };
-      if (player.readyState >= 1) seek();
-      else player.addEventListener('loadedmetadata', seek, { once: true });
+        if (wantPlaying && live.paused) playMedia(live);
+      }
+
+      document.addEventListener('visibilitychange', function () {
+        persistRecall();
+        if (!document.hidden) recover();
+      });
+      window.addEventListener('pagehide', persistRecall);
+      window.addEventListener('pageshow', function (event) {
+        if (event.persisted) recover();
+      });
+    }
+
+    /**
+     * One-shot correction for a stale playhead inherited from the previous
+     * track. Fires at most once per track, right when the new source's
+     * metadata is available — never a repeating timer, so it can't fight
+     * legitimate buffering (that fight is what caused the old "first second
+     * repeats 5 times" stutter on lock-screen advances).
+     */
+    function correctInheritedPlayhead(player, playbackId, generation) {
+      function stillCurrent() {
+        return (
+          generation === startGeneration &&
+          activeSong &&
+          activeSong.playbackId === playbackId &&
+          (player.getAttribute('playback-id') || '') === playbackId
+        );
+      }
+      function correctOnce() {
+        if (!stillCurrent()) return;
+        const t = Number(player.currentTime) || 0;
+        if (t > INHERITED_PLAYHEAD_SECONDS) {
+          try {
+            player.currentTime = 0;
+          } catch (e) {
+            /* noop */
+          }
+        }
+      }
+      player.addEventListener('loadedmetadata', correctOnce, { once: true });
     }
 
     function startPlayback(song, queueSongs, queueIdx, playbackOpts) {
@@ -431,21 +422,21 @@
       const startOpts = playbackOpts || {};
       const isQueueHandoff =
         startOpts.queueHandoff === true || startOpts.seamlessAdvance === true;
-      if (!player || !normalized) {
-        if (!isQueueHandoff) advancing = false;
-        return false;
-      }
+      if (!player || !normalized) return false;
 
       if (!player.getAttribute('audio')) player.setAttribute('audio', '');
       if (!player.getAttribute('playsinline')) player.setAttribute('playsinline', '');
       if (!player.getAttribute('stream-type')) player.setAttribute('stream-type', 'on-demand');
 
-      if (!isQueueHandoff) advancing = false;
+      // A fresh startPlayback means any in-flight advance has resolved, and
+      // any stall tracking from the previous track no longer applies.
+      advancePending = false;
+      lastWatchedTime = null;
+      stallTicks = 0;
 
       const immediatePlay =
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
-
       wantPlaying = !!immediatePlay;
 
       const prevId = player.getAttribute('playback-id') || '';
@@ -459,7 +450,6 @@
 
       startGeneration += 1;
       const generation = startGeneration;
-      stopZeroGuard();
 
       activeSong = normalized;
       activeQueue =
@@ -468,39 +458,38 @@
           : [normalized];
       activeQueueIdx = typeof queueIdx === 'number' ? queueIdx : 0;
 
-      bindEnded(player);
+      bindPlayerListeners(player);
       bindMediaSessionActions();
 
-      const wasPlayingBeforeSwap = !player.paused;
-      // CRITICAL: never pause() during a live queue handoff — iOS drops the
-      // background media permission and album autoplay dies on the lock screen.
       if (!sameSource) {
-        if (!isQueueHandoff || !wasPlayingBeforeSwap) {
+        // CRITICAL: never pause() during a live queue handoff — iOS drops the
+        // background media session and album autoplay dies on the lock screen.
+        if (!isQueueHandoff) {
           try {
             player.pause();
           } catch (e) {
             /* noop */
           }
-          seekToZero(player);
         }
+        // Don't force currentTime here — the source change itself resets it
+        // in the normal case, and writing to it before metadata exists is
+        // one more thing that can race with mux-player/hls.js's own load on
+        // a given track's timing and occasionally swallow the play() that
+        // follows. correctInheritedPlayhead below is the (one-shot, not
+        // repeating) safety net for the genuine inherited-playhead case.
         player.setAttribute('playback-id', normalized.playbackId);
-      }
-
-      const keepPlayhead =
-        sameSource &&
-        !startOpts.forceRestart &&
-        (Number(player.currentTime) || 0) > 0.35;
-      if (!recallAt && !keepPlayhead) {
-        forceStartAtZero(player, normalized.playbackId, generation);
-        if (recallApi && opts.recall !== false) {
-          recallApi.save({
-            song: normalized,
-            queue: activeQueue,
-            queueIdx: activeQueueIdx,
-            currentTime: 0,
-            wasPlaying: !!immediatePlay
-          });
-        }
+        if (!recallAt) correctInheritedPlayhead(player, normalized.playbackId, generation);
+        // The rate applied a few lines down can land before the new track's
+        // underlying media element exists and get lost when mux-player
+        // finishes swapping sources. Reassert once metadata is in (the
+        // timeupdate listener keeps reasserting after that as a backstop).
+        player.addEventListener(
+          'loadedmetadata',
+          function () {
+            applyPlaybackRate(player);
+          },
+          { once: true }
+        );
       }
 
       player.setAttribute('metadata-video-title', normalized.title);
@@ -511,10 +500,18 @@
       }
 
       notify();
-      startWatchdog();
 
       if (recallAt) {
-        applyRecallPosition(player, recall, normalized.playbackId);
+        const seek = function () {
+          if ((player.getAttribute('playback-id') || '') !== normalized.playbackId) return;
+          try {
+            player.currentTime = recallAt;
+          } catch (e) {
+            /* noop */
+          }
+        };
+        if (player.readyState >= 1) seek();
+        else player.addEventListener('loadedmetadata', seek, { once: true });
       }
 
       if (recall && recall.wasPlaying === false) {
@@ -595,7 +592,6 @@
       if (shouldPlay) {
         notify({ playing: true });
         playMedia(player);
-        startWatchdog();
       } else {
         try {
           player.pause();
@@ -707,9 +703,10 @@
       activeQueue = [];
       activeQueueIdx = 0;
       wantPlaying = false;
-      advancing = false;
+      advancePending = false;
+      lastWatchedTime = null;
+      stallTicks = 0;
       stopWatchdog();
-      stopZeroGuard();
       if (player) {
         try {
           player.pause();
