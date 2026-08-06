@@ -3435,18 +3435,38 @@ body.page-listen {
   cursor: default;
 }
 
-body.page-about .about-face-sheet {
-  list-style: disc;
+body.page-about .page-wrap,
+body.page-contact .page-wrap {
+  max-width: none;
   margin: 0;
-  padding: 0 0 0 1.15em;
-  max-width: 360px;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+body.page-about .about-identity,
+body.page-contact .contact-identity {
+  margin: 0;
+  max-width: 28em;
+  padding: 0 24px;
+  text-align: center;
   font-size: 0.88em;
   line-height: 1.9;
   letter-spacing: 0.01em;
 }
 
-body.page-about .about-face-sheet li + li {
-  margin-top: 0.35em;
+body.page-contact .contact-identity a {
+  color: inherit;
+  text-decoration: none;
+}
+
+body.page-contact .contact-identity a:hover,
+body.page-contact .contact-identity a:focus {
+  opacity: 0.55;
 }
 
 body.page-press .press-section {
