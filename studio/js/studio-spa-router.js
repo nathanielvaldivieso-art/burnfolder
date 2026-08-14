@@ -69,6 +69,7 @@
     ]),
     dashboard: PLAYBACK_CORE.concat(['js/dashboard-page.js', 'js/studio-ai-panel.js']),
     entry: PLAYBACK_CORE.concat([
+      'js/studio-dnd.js',
       'js/cloud-store-kit.js',
       'js/drafts.js',
       'js/studio-hub.js',
