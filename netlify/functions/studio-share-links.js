@@ -16,14 +16,20 @@ function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
 }
 
-function listenUrl(event, token) {
+function isVideoShare(share) {
+  if (share.scope === 'video') return true;
+  return !!(share.tracks && share.tracks[0] && share.tracks[0].kind === 'video');
+}
+
+function shareUrl(event, share) {
   const host = event.headers.host || event.headers.Host || 'burnfolder.com';
   let proto = (event.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   if (!proto) {
     proto =
       /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host) ? 'http' : 'https';
   }
-  return proto + '://' + host + '/listen.html?t=' + encodeURIComponent(token);
+  const page = isVideoShare(share) ? 'watch.html' : 'listen.html';
+  return proto + '://' + host + '/' + page + '?t=' + encodeURIComponent(share.token);
 }
 
 exports.handler = async function (event) {
@@ -57,7 +63,7 @@ exports.handler = async function (event) {
         albumId: qs.albumId || ''
       });
       const rows = shares.map(function (share) {
-        return Object.assign({}, share, { url: listenUrl(event, share.token) });
+        return Object.assign({}, share, { url: shareUrl(event, share) });
       });
       return { statusCode: 200, headers, body: JSON.stringify({ shares: rows }) };
     } catch (error) {
@@ -102,7 +108,8 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Unknown action' }) };
   }
 
-  const scope = body.scope === 'version' || body.scope === 'album' ? body.scope : 'song';
+  const scopeOptions = ['version', 'album', 'video'];
+  const scope = scopeOptions.indexOf(body.scope) > -1 ? body.scope : 'song';
   const tracks = Array.isArray(body.tracks) ? body.tracks : [];
   if (!tracks.length) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'tracks required' }) };
@@ -113,7 +120,7 @@ exports.handler = async function (event) {
     token: token,
     scope: scope,
     groupKey: body.groupKey || '',
-    playbackId: body.playbackId || (scope === 'version' ? tracks[0].playbackId : ''),
+    playbackId: body.playbackId || (scope === 'version' || scope === 'video' ? tracks[0].playbackId : ''),
     albumId: body.albumId || '',
     title: body.title || tracks[0].title || 'untitled',
     subtitle: body.subtitle || '',
@@ -122,7 +129,9 @@ exports.handler = async function (event) {
     createdAt: new Date().toISOString(),
     revokedAt: null,
     playCount: 0,
-    lastPlayedAt: null
+    lastPlayedAt: null,
+    downloadCount: 0,
+    lastDownloadedAt: null
   });
 
   try {
@@ -135,7 +144,7 @@ exports.handler = async function (event) {
       headers,
       body: JSON.stringify({
         ok: true,
-        share: Object.assign({}, share, { url: listenUrl(event, share.token) })
+        share: Object.assign({}, share, { url: shareUrl(event, share) })
       })
     };
   } catch (error) {

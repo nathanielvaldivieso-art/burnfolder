@@ -23,15 +23,23 @@
     return Promise.resolve();
   }
 
-  function listenPageUrl(token) {
+  function sitePageUrl(page, token) {
     const loc = root.location;
-    if (!loc) return '/listen.html?t=' + encodeURIComponent(token);
+    if (!loc) return '/' + page + '?t=' + encodeURIComponent(token);
     let origin = loc.origin || '';
     if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') {
       origin = 'http://' + loc.host;
     }
     const prefix = String(origin).indexOf('/studio') > -1 ? origin.replace(/\/studio\/?$/, '') : origin;
-    return (prefix || '') + '/listen.html?t=' + encodeURIComponent(token);
+    return (prefix || '') + '/' + page + '?t=' + encodeURIComponent(token);
+  }
+
+  function listenPageUrl(token) {
+    return sitePageUrl('listen.html', token);
+  }
+
+  function watchPageUrl(token) {
+    return sitePageUrl('watch.html', token);
   }
 
   function apiFetch(path, options) {
@@ -103,11 +111,11 @@
     });
   }
 
-  function trackPlay(token) {
+  function trackPlay(token, type) {
     return fetch(getApiBase() + '/share-listen?t=' + encodeURIComponent(token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}'
+      body: JSON.stringify({ type: type === 'download' ? 'download' : 'play' })
     }).then(function (res) {
       if (!res.ok) return null;
       return res.json();
@@ -144,6 +152,7 @@
     resolveShare: resolveShare,
     trackPlay: trackPlay,
     listenPageUrl: listenPageUrl,
+    watchPageUrl: watchPageUrl,
     copyText: copyText
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

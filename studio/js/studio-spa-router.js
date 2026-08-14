@@ -51,6 +51,7 @@
     'js/upload-queue.js',
     'js/cloud-ui.js',
     'js/vault-upload.js',
+    'js/share-links.js',
     'js/clips-store.js',
     'js/clips-page.js'
   ]);

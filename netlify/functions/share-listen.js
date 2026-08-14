@@ -38,13 +38,29 @@ exports.handler = async function (event) {
     }
 
     if (event.httpMethod === 'POST') {
-      share.playCount = (share.playCount || 0) + 1;
-      share.lastPlayedAt = new Date().toISOString();
+      let body = {};
+      try {
+        body = JSON.parse(event.body || '{}');
+      } catch {
+        body = {};
+      }
+      const isDownload = body && body.type === 'download';
+      if (isDownload) {
+        share.downloadCount = (share.downloadCount || 0) + 1;
+        share.lastDownloadedAt = new Date().toISOString();
+      } else {
+        share.playCount = (share.playCount || 0) + 1;
+        share.lastPlayedAt = new Date().toISOString();
+      }
       await putShare(store, share);
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ ok: true, playCount: share.playCount })
+        body: JSON.stringify({
+          ok: true,
+          playCount: share.playCount,
+          downloadCount: share.downloadCount || 0
+        })
       };
     }
 

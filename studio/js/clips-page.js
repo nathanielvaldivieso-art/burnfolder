@@ -399,16 +399,86 @@
       });
   }
 
+  function canShareClip(block) {
+    return !!(block && block.kind === 'video' && block.playbackId);
+  }
+
+  function shareGroupKeyForBlock(block) {
+    return 'clip:' + block.playbackId;
+  }
+
+  /** Reuse an existing active link for this clip instead of piling up duplicates. */
+  function findActiveVideoShare(block) {
+    var api = window.BurnfolderShareLinks;
+    if (!api || !api.listShares) return Promise.resolve(null);
+    return api
+      .listShares({ groupKey: shareGroupKeyForBlock(block) })
+      .then(function (shares) {
+        return (
+          (shares || []).find(function (s) {
+            return !s.revokedAt;
+          }) || null
+        );
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  function shareClip(block) {
+    var api = window.BurnfolderShareLinks;
+    if (!api || !canShareClip(block)) {
+      setStatus('nothing to share');
+      return Promise.resolve();
+    }
+    setStatus('creating share link…');
+    return findActiveVideoShare(block)
+      .then(function (existing) {
+        if (existing) return existing;
+        return api
+          .createShare({
+            scope: 'video',
+            groupKey: shareGroupKeyForBlock(block),
+            title: block.title || 'clip',
+            tracks: [
+              {
+                title: block.title || 'clip',
+                playbackId: block.playbackId,
+                kind: 'video',
+                filename: clipDownloadName(block)
+              }
+            ]
+          })
+          .then(function (data) {
+            return data && data.share;
+          });
+      })
+      .then(function (share) {
+        if (!share) throw new Error('could not create share link');
+        var url = (api.watchPageUrl && api.watchPageUrl(share.token)) || share.url;
+        return api.copyText(url).then(function () {
+          setStatus('share link copied');
+        });
+      })
+      .catch(function (err) {
+        setStatus((err && err.message) || 'could not create share link');
+      });
+  }
+
   function blockActionsMenuHtml(block, opts) {
     var o = opts || {};
     var removeAttr = o.folderItem ? 'data-folder-item-remove="1"' : 'data-remove="1"';
     var downloadItem = canDownloadClip(block)
       ? '<button type="button" class="clips-block-menu-item" data-download="1" role="menuitem">Download</button>'
       : '';
+    var shareItem = canShareClip(block)
+      ? '<button type="button" class="clips-block-menu-item" data-share="1" role="menuitem">Share link</button>'
+      : '';
     return (
       '<div class="clips-block-menu">' +
       '<button type="button" class="clips-block-more" data-clip-more="1" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" title="more">⋯</button>' +
       '<div class="clips-block-menu-panel" role="menu" hidden>' +
+      shareItem +
       downloadItem +
       '<button type="button" class="clips-block-menu-item" ' +
       removeAttr +
@@ -3103,6 +3173,31 @@
           return;
         }
         downloadClip(findBlock(dlBlockEl.getAttribute('data-block-id')));
+        return;
+      }
+      var shareBtn = event.target.closest('[data-share]');
+      if (shareBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeAllClipMenus();
+        var shareBlockEl = shareBtn.closest('.clips-block');
+        if (!shareBlockEl) return;
+        var shareFolderItemId = shareBlockEl.getAttribute('data-folder-item-id');
+        if (shareFolderItemId) {
+          var shareFolder = findBlock(openFolderId);
+          var shareItem =
+            store.findFolderItem && state
+              ? store.findFolderItem(state, openFolderId, shareFolderItemId)
+              : null;
+          if (!shareItem && shareFolder) {
+            shareItem = (shareFolder.items || []).find(function (row) {
+              return row && row.id === shareFolderItemId;
+            });
+          }
+          shareClip(folderItemAsBlock(shareItem));
+          return;
+        }
+        shareClip(findBlock(shareBlockEl.getAttribute('data-block-id')));
         return;
       }
       var removeBtn = event.target.closest('[data-remove]');
