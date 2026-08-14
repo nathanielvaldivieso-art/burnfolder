@@ -4,6 +4,36 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "8.14.26": {
+    "date": "8.14.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "",
+        "textSize": "md"
+      },
+      {
+        "type": "audio",
+        "title": "SOMETIMES 8.1.26 v3",
+        "playbackId": "UqMqW3H9nFGMcSjgeirnDcu58Sv8PRcB7vAKcyZhE6Q"
+      },
+      {
+        "type": "audio",
+        "title": "FIRE ESCAPE 8.1.26",
+        "playbackId": "4RUMGG400gdvePmkBPK700avWSCnXl4pXjP02lfEQVvw4A"
+      },
+      {
+        "type": "audio",
+        "title": "PHOTO NEGATIVE 7.8.26",
+        "playbackId": "cLHw2U5QnTrJhn14E6ISMNF4eT602f02svbYCJPZZ02S3I"
+      },
+      {
+        "type": "audio",
+        "title": "IT DOESNT MATTER 7.5.26",
+        "playbackId": "hCls02k6rr2jI02Wy5Q7fcwK00RBT9QCkonzp00ipUMmDaY"
+      }
+    ]
+  },
   "7.24.26": {
     "date": "7.24.26",
     "blocks": [
@@ -244,7 +274,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["7.24.26","7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["8.14.26","7.24.26","7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
