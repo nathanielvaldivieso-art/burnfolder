@@ -27,11 +27,11 @@
     });
   }
 
-  function trackPlay(token) {
+  function trackPlay(token, type) {
     return fetch(getApiBase() + '/share-listen?t=' + encodeURIComponent(token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}'
+      body: JSON.stringify({ type: type === 'download' ? 'download' : 'play' })
     }).then(function (res) {
       if (!res.ok) return null;
       return res.json();

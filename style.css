@@ -3149,6 +3149,7 @@ body.page-listen {
 }
 
 .listen-title {
+  display: block;
   margin: 0;
   font-size: 1.35em;
   letter-spacing: 0.06em;
@@ -3242,6 +3243,113 @@ body.page-listen {
 
 .listen-state {
   max-width: 420px;
+  margin: 80px auto;
+  padding: 0 24px;
+  font-family: var(--font-site);
+  font-size: 0.9em;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  text-align: center;
+  opacity: 0.6;
+}
+
+/* ── private watch page (video share links) ── */
+
+body.page-watch {
+  min-height: 100vh;
+}
+
+.watch-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 120px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.watch-eyebrow {
+  margin: 0 0 12px;
+  font-family: var(--font-site);
+  font-size: 0.72em;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  opacity: 0.45;
+}
+
+.watch-title {
+  display: block;
+  margin: 0;
+  font-size: 1.35em;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  font-weight: normal;
+  line-height: 1.25;
+}
+
+.watch-subtitle {
+  margin: 10px 0 0;
+  font-family: var(--font-site);
+  font-size: 0.82em;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  opacity: 0.55;
+}
+
+.watch-stage {
+  margin: 28px auto 0;
+  max-width: 640px;
+}
+
+mux-player.watch-video {
+  max-width: 640px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+}
+
+.watch-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.watch-download-btn {
+  text-decoration: none;
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+.watch-tracklist {
+  margin-top: 32px;
+  text-align: left;
+  border-top: 1px solid #000;
+}
+
+.watch-track-row {
+  display: block;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: var(--font-site);
+  font-size: 0.85em;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  text-align: left;
+  padding: 12px 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.watch-track-row.is-active {
+  background: #000;
+  color: #fff;
+}
+
+.watch-state {
+  max-width: 640px;
   margin: 80px auto;
   padding: 0 24px;
   font-family: var(--font-site);
