@@ -640,17 +640,29 @@
 
   function attach(el, spec) {
     if (!el || el.dataset.studioDndBound === '1') return;
-    el.dataset.studioDndBound = '1';
 
     const handleSelector =
       spec.handle || '.studio-track-grip, .studio-stream-album-track-handle';
     const handles = el.querySelectorAll(handleSelector);
-    if (!handles.length) return;
+
+    // Optional wider grab area for mouse/pen only — never touch, so the
+    // narrow grip stays the sole touch handle (preserves row tap-to-insert
+    // and vertical-scroll behavior on mobile).
+    const wideHandles = spec.wideHandle ? el.querySelectorAll(spec.wideHandle) : [];
+    const extraWideHandles = [];
+    wideHandles.forEach(function (candidate) {
+      if (Array.prototype.indexOf.call(handles, candidate) === -1) {
+        extraWideHandles.push(candidate);
+      }
+    });
+
+    if (!handles.length && !extraWideHandles.length) return;
+    el.dataset.studioDndBound = '1';
 
     el.draggable = false;
 
-    function bindHandle(handle) {
-      handle.style.touchAction = 'none';
+    function bindHandle(handle, touchCapable) {
+      if (touchCapable) handle.style.touchAction = 'none';
 
       const TOUCH_HOLD_MS = 400;
       const MOUSE_DRAG_PX = 6;
@@ -663,11 +675,12 @@
         if (!e.isPrimary || e.button > 0) return;
         if (e.target.closest('.studio-stream-track-delete')) return;
         if (active) return;
+        const touchPointer = e.pointerType === 'touch';
+        if (touchPointer && !touchCapable) return;
 
         const rect = el.getBoundingClientRect();
         const grab = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         const start = { x: e.clientX, y: e.clientY };
-        const touchPointer = e.pointerType === 'touch';
         let dragging = false;
         let canceled = false;
         const pointerId = e.pointerId;
@@ -774,7 +787,12 @@
       });
     }
 
-    handles.forEach(bindHandle);
+    handles.forEach(function (handle) {
+      bindHandle(handle, true);
+    });
+    extraWideHandles.forEach(function (handle) {
+      bindHandle(handle, false);
+    });
   }
 
   root.BurnfolderStudioDnD = {

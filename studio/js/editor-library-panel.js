@@ -126,6 +126,7 @@
           kind: 'library',
           zone: 'editor',
           handle: '.studio-track-grip',
+          wideHandle: '.music-track-row',
           getId: function () {
             return id || '';
           },

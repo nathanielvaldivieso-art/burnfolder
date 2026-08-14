@@ -4839,7 +4839,8 @@ body.studio-dnd-active .studio-dnd-lift-wrap .studio-stream-album-track {
   -webkit-tap-highlight-color: transparent;
 }
 
-.studio-stream-page .studio-track-grip {
+.studio-stream-page .studio-track-grip,
+.studio-editor-page .studio-track-grip {
   opacity: 1;
   color: #bbb;
 }
