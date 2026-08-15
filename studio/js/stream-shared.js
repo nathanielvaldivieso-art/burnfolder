@@ -387,6 +387,8 @@
     if (mountEl) {
       mountEl.innerHTML = '';
       mountEl.hidden = true;
+      var wrap = mountEl.closest ? mountEl.closest('.clips-video-stage-wrap') : null;
+      if (wrap) wrap.hidden = true;
     }
     setHiddenAudioPlayer(true);
   }
@@ -398,6 +400,9 @@
     const player = document.createElement('mux-player');
     player.setAttribute('playback-id', item.playbackId);
     player.setAttribute('metadata-video-title', label);
+    player.setAttribute('playsinline', '');
+    player.setAttribute('stream-type', 'on-demand');
+    player.setAttribute('preload', 'metadata');
     player.setAttribute('playbackrates', '1 1.5 2');
     player.setAttribute('noairplay', '');
     player.className = 'page-inline-video';
@@ -436,9 +441,12 @@
       setHiddenAudioPlayer(true);
     }
 
+    var wrap = mountEl.closest ? mountEl.closest('.clips-video-stage-wrap') : null;
+
     if (streamVideoEl && streamVideoPlaybackId === item.playbackId) {
       if (!streamVideoEl.parentNode) mountEl.appendChild(streamVideoEl);
       mountEl.hidden = false;
+      if (wrap) wrap.hidden = false;
       if (options.autoplay) playStreamVideo(streamVideoEl);
       return streamVideoEl;
     }
@@ -448,6 +456,7 @@
     streamVideoPlaybackId = item.playbackId;
     mountEl.appendChild(streamVideoEl);
     mountEl.hidden = false;
+    if (wrap) wrap.hidden = false;
     if (options.autoplay) playStreamVideo(streamVideoEl);
     return streamVideoEl;
   }

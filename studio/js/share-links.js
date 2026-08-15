@@ -145,6 +145,38 @@
     });
   }
 
+  /** Prefer OS share sheet on phones; fall back to clipboard copy. */
+  function shareOrCopy(text, opts) {
+    const options = opts || {};
+    const url = String(text || '').trim();
+    if (!url) return Promise.reject(new Error('nothing to share'));
+    const nav = root.navigator;
+    if (nav && typeof nav.share === 'function') {
+      const payload = { url: url };
+      if (options.title) payload.title = options.title;
+      if (options.text) payload.text = options.text;
+      return Promise.resolve()
+        .then(function () {
+          return nav.share(payload);
+        })
+        .then(function () {
+          return { method: 'share' };
+        })
+        .catch(function (err) {
+          // User dismissed the sheet — not an error to surface.
+          if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) {
+            return { method: 'cancelled' };
+          }
+          return copyText(url).then(function () {
+            return { method: 'copy' };
+          });
+        });
+    }
+    return copyText(url).then(function () {
+      return { method: 'copy' };
+    });
+  }
+
   root.BurnfolderShareLinks = {
     listShares: listShares,
     createShare: createShare,
@@ -153,6 +185,7 @@
     trackPlay: trackPlay,
     listenPageUrl: listenPageUrl,
     watchPageUrl: watchPageUrl,
-    copyText: copyText
+    copyText: copyText,
+    shareOrCopy: shareOrCopy
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

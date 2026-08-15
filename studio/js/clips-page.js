@@ -456,7 +456,23 @@
       .then(function (share) {
         if (!share) throw new Error('could not create share link');
         var url = (api.watchPageUrl && api.watchPageUrl(share.token)) || share.url;
-        return api.copyText(url).then(function () {
+        var title = block.title || 'clip';
+        var deliver =
+          typeof api.shareOrCopy === 'function'
+            ? api.shareOrCopy(url, { title: title, text: title })
+            : api.copyText(url).then(function () {
+                return { method: 'copy' };
+              });
+        return deliver.then(function (result) {
+          var method = result && result.method;
+          if (method === 'cancelled') {
+            setStatus('');
+            return;
+          }
+          if (method === 'share') {
+            setStatus('shared');
+            return;
+          }
           setStatus('share link copied');
         });
       })
@@ -472,7 +488,7 @@
       ? '<button type="button" class="clips-block-menu-item" data-download="1" role="menuitem">Download</button>'
       : '';
     var shareItem = canShareClip(block)
-      ? '<button type="button" class="clips-block-menu-item" data-share="1" role="menuitem">Share link</button>'
+      ? '<button type="button" class="clips-block-menu-item" data-share="1" role="menuitem">Share</button>'
       : '';
     return (
       '<div class="clips-block-menu">' +
@@ -1514,9 +1530,10 @@
       '<article class="clips-block clips-block--composer" data-composer="1" tabindex="-1">' +
       '<label class="clips-composer-label" for="clipsComposerInput">new</label>' +
       '<textarea id="clipsComposerInput" class="clips-composer-input" rows="4" ' +
-      'placeholder="write, paste a link, or drop a file" spellcheck="true"></textarea>' +
+      'placeholder="write, paste a link, or add video" spellcheck="true"></textarea>' +
       '<div class="clips-composer-actions">' +
       '<button type="button" class="clips-composer-submit" id="clipsComposerSubmit" aria-label="Add note">add</button>' +
+      '<button type="button" class="clips-composer-video" id="clipsComposerVideo" aria-label="Add video" title="add video">video</button>' +
       '<button type="button" class="clips-composer-files" id="clipsComposerFiles" aria-label="Add files" title="add files">+</button>' +
       '<button type="button" class="clips-composer-folder" id="clipsComposerFolder" aria-label="Add files from a folder" title="add from folder">folder</button>' +
       '</div>' +
@@ -1683,6 +1700,15 @@
     if (fileInput) fileInput.click();
   }
 
+  function openClipsVideoPicker() {
+    var videoInput = el('clipsVideoInput');
+    if (videoInput) {
+      videoInput.click();
+      return;
+    }
+    openClipsFilePicker();
+  }
+
   function openClipsFolderPicker() {
     var folderPickerInput = el('clipsFolderInput');
     if (folderPickerInput) folderPickerInput.click();
@@ -1691,6 +1717,7 @@
   function wireComposerActions(board) {
     if (!board) return;
     var submit = board.querySelector('#clipsComposerSubmit');
+    var video = board.querySelector('#clipsComposerVideo');
     var files = board.querySelector('#clipsComposerFiles');
     var folder = board.querySelector('#clipsComposerFolder');
     if (submit && submit.dataset.bound !== '1') {
@@ -1700,6 +1727,14 @@
         event.stopPropagation();
         var submitInput = el('clipsComposerInput');
         commitComposerValue(submitInput && submitInput.value);
+      });
+    }
+    if (video && video.dataset.bound !== '1') {
+      video.dataset.bound = '1';
+      video.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openClipsVideoPicker();
       });
     }
     if (files && files.dataset.bound !== '1') {
@@ -1753,7 +1788,7 @@
               (event &&
                 event.target &&
                 event.target.closest(
-                  '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play, .clips-composer-submit, .clips-composer-files, .clips-composer-folder'
+                  '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play, .clips-composer-submit, .clips-composer-video, .clips-composer-files, .clips-composer-folder'
                 )) ||
               node.dataset.studioJustDragged === '1'
             );
@@ -2037,7 +2072,7 @@
       if (
         event.target &&
         event.target.closest(
-          '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-composer-files, .clips-composer-folder, .clips-composer-submit, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play'
+          '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-composer-video, .clips-composer-files, .clips-composer-folder, .clips-composer-submit, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play'
         )
       ) {
         return;
@@ -2074,6 +2109,26 @@
       return;
     }
     window.location.href = href;
+  }
+
+  function setVideoStageTitle(block) {
+    var titleEl = el('clipsVideoStageTitle');
+    if (!titleEl) return;
+    titleEl.textContent = blockDisplayTitle(block) || 'video';
+  }
+
+  function closeVideoStage() {
+    var stage = el('clipsVideoStage');
+    var wrap = el('clipsVideoStageWrap');
+    var shared = window.BurnfolderStreamShared;
+    if (shared && typeof shared.clearStreamVideo === 'function') {
+      shared.clearStreamVideo(stage);
+    } else if (stage) {
+      stage.innerHTML = '';
+      stage.hidden = true;
+    }
+    if (wrap) wrap.hidden = true;
+    document.body.classList.remove('clips-video-open');
   }
 
   function playMuxBlock(block) {
@@ -2115,11 +2170,16 @@
 
     if (block.kind === 'video') {
       var stage = el('clipsVideoStage');
+      var wrap = el('clipsVideoStageWrap');
       var shared = window.BurnfolderStreamShared;
       if (stage && shared && typeof shared.mountStreamVideo === 'function') {
+        setVideoStageTitle(block);
+        if (wrap) wrap.hidden = false;
+        document.body.classList.add('clips-video-open');
         shared.mountStreamVideo(item, stage, { autoplay: true });
-        if (typeof stage.scrollIntoView === 'function') {
-          stage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        var scrollTarget = wrap || stage;
+        if (typeof scrollTarget.scrollIntoView === 'function') {
+          scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         syncPlayingBlocks();
         releaseClipKeyboardFocus();
@@ -2680,6 +2740,14 @@
     }
   }
 
+  function openUploadedVideo(block) {
+    if (!block || block.kind !== 'video' || !block.playbackId) return;
+    // Leave folder/collection drill-in so the stage is visible on the board.
+    if (openFolderId) closeFolder();
+    else if (openGroupId) closeCollection();
+    playMuxBlock(block);
+  }
+
   function uploadMuxFile(file, kind, opts) {
     return uploadMuxPayload(file, kind, opts).then(function (payload) {
       rememberUploadedAsset(payload);
@@ -2840,8 +2908,15 @@
       return uploadVaultFile(file, kind, { skipQueueRow: true });
     })
       .then(function (results) {
+        var lastVideo = null;
         (results || []).forEach(function (result) {
-          if (result && result.ok) return;
+          if (result && result.ok) {
+            var block = result.value;
+            if (block && block.kind === 'video' && block.playbackId) {
+              lastVideo = block;
+            }
+            return;
+          }
           failed += 1;
         });
         setStatus(
@@ -2851,7 +2926,19 @@
               ? 'added'
               : 'added ' + total
         );
-        return refresh();
+        return refresh().then(function () {
+          if (lastVideo) {
+            // Prefer the board's live block (ids/titles may normalize on save).
+            var live =
+              (state &&
+                state.blocks &&
+                state.blocks.find(function (b) {
+                  return b && b.playbackId === lastVideo.playbackId;
+                })) ||
+              lastVideo;
+            openUploadedVideo(live);
+          }
+        });
       })
       .catch(function (err) {
         setStatus((err && err.message) || 'upload failed');
@@ -3230,6 +3317,12 @@
         commitComposerValue(submitInput && submitInput.value);
         return;
       }
+      if (event.target.closest('#clipsComposerVideo')) {
+        event.preventDefault();
+        event.stopPropagation();
+        openClipsVideoPicker();
+        return;
+      }
       if (event.target.closest('#clipsComposerFiles')) {
         event.preventDefault();
         event.stopPropagation();
@@ -3248,7 +3341,7 @@
           composer &&
           event.target !== composer &&
           !event.target.closest(
-            '#clipsComposerFiles, #clipsComposerSubmit, #clipsComposerFolder, .clips-composer-actions'
+            '#clipsComposerVideo, #clipsComposerFiles, #clipsComposerSubmit, #clipsComposerFolder, .clips-composer-actions'
           )
         ) {
           composer.focus();
@@ -3279,6 +3372,12 @@
         if (box && !box.hidden) {
           event.preventDefault();
           closeLightbox();
+          return;
+        }
+        var videoWrap = el('clipsVideoStageWrap');
+        if (videoWrap && !videoWrap.hidden) {
+          event.preventDefault();
+          closeVideoStage();
           return;
         }
       }
@@ -3338,18 +3437,38 @@
     });
 
     var input = el('clipsFileInput');
-    if (input) {
+    if (input && input.dataset.bound !== '1') {
+      input.dataset.bound = '1';
       input.addEventListener('change', function () {
         handleFiles(input.files);
         input.value = '';
       });
     }
 
+    var videoInput = el('clipsVideoInput');
+    if (videoInput && videoInput.dataset.bound !== '1') {
+      videoInput.dataset.bound = '1';
+      videoInput.addEventListener('change', function () {
+        handleFiles(videoInput.files);
+        videoInput.value = '';
+      });
+    }
+
     var folderInput = el('clipsFolderInput');
-    if (folderInput) {
+    if (folderInput && folderInput.dataset.bound !== '1') {
+      folderInput.dataset.bound = '1';
       folderInput.addEventListener('change', function () {
         handleFolderFileList(folderInput.files);
         folderInput.value = '';
+      });
+    }
+
+    var videoClose = el('clipsVideoStageClose');
+    if (videoClose && videoClose.dataset.bound !== '1') {
+      videoClose.dataset.bound = '1';
+      videoClose.addEventListener('click', function (event) {
+        event.preventDefault();
+        closeVideoStage();
       });
     }
 
