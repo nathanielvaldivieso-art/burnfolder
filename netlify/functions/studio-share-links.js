@@ -3,6 +3,8 @@ const {
   shareStore,
   newToken,
   normalizeShareRecord,
+  normalizeMaxPlays,
+  normalizeExpiresAt,
   readIndex,
   writeIndex,
   indexAdd,
@@ -12,18 +14,42 @@ const {
   listShares
 } = require('./lib/share-links-store');
 
+function resolveExpiresAt(body, scope) {
+  if (body && body.expiresAt) return normalizeExpiresAt(body.expiresAt);
+  var expiresIn = body && body.expiresIn != null ? String(body.expiresIn).trim().toLowerCase() : '';
+  if (expiresIn === 'never' || expiresIn === '0' || expiresIn === 'none') return null;
+  var days = null;
+  if (expiresIn === '24h' || expiresIn === '1d') days = 1;
+  else if (expiresIn === '7d' || expiresIn === 'week') days = 7;
+  else if (expiresIn === '30d' || expiresIn === 'month') days = 30;
+  else if (/^\d+d$/.test(expiresIn)) days = parseInt(expiresIn, 10);
+  else if (body && body.expiresInDays != null) days = Number(body.expiresInDays);
+  // Video links expire in 7 days by default so shared clips don't live forever.
+  if (!Number.isFinite(days) || days <= 0) {
+    if (scope === 'video') days = 7;
+    else return null;
+  }
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
 }
 
-function listenUrl(event, token) {
+function isVideoShare(share) {
+  if (share.scope === 'video') return true;
+  return !!(share.tracks && share.tracks[0] && share.tracks[0].kind === 'video');
+}
+
+function shareUrl(event, share) {
   const host = event.headers.host || event.headers.Host || 'burnfolder.com';
   let proto = (event.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   if (!proto) {
     proto =
       /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host) ? 'http' : 'https';
   }
-  return proto + '://' + host + '/listen.html?t=' + encodeURIComponent(token);
+  const page = isVideoShare(share) ? 'watch.html' : 'listen.html';
+  return proto + '://' + host + '/' + page + '?t=' + encodeURIComponent(share.token);
 }
 
 exports.handler = async function (event) {
@@ -57,7 +83,7 @@ exports.handler = async function (event) {
         albumId: qs.albumId || ''
       });
       const rows = shares.map(function (share) {
-        return Object.assign({}, share, { url: listenUrl(event, share.token) });
+        return Object.assign({}, share, { url: shareUrl(event, share) });
       });
       return { statusCode: 200, headers, body: JSON.stringify({ shares: rows }) };
     } catch (error) {
@@ -102,27 +128,35 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'Unknown action' }) };
   }
 
-  const scope = body.scope === 'version' || body.scope === 'album' ? body.scope : 'song';
+  const scopeOptions = ['version', 'album', 'video'];
+  const scope = scopeOptions.indexOf(body.scope) > -1 ? body.scope : 'song';
   const tracks = Array.isArray(body.tracks) ? body.tracks : [];
   if (!tracks.length) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'tracks required' }) };
   }
 
   const token = newToken();
+  const oneTime = !!(body.oneTime || body.maxPlays === 1);
+  const maxPlays = oneTime ? 1 : normalizeMaxPlays(body.maxPlays);
   const share = normalizeShareRecord({
     token: token,
     scope: scope,
     groupKey: body.groupKey || '',
-    playbackId: body.playbackId || (scope === 'version' ? tracks[0].playbackId : ''),
+    playbackId: body.playbackId || (scope === 'version' || scope === 'video' ? tracks[0].playbackId : ''),
     albumId: body.albumId || '',
     title: body.title || tracks[0].title || 'untitled',
     subtitle: body.subtitle || '',
     coverArt: body.coverArt || '',
     tracks: tracks,
     createdAt: new Date().toISOString(),
+    expiresAt: resolveExpiresAt(body, scope),
+    maxPlays: maxPlays,
+    oneTime: oneTime,
     revokedAt: null,
     playCount: 0,
-    lastPlayedAt: null
+    lastPlayedAt: null,
+    downloadCount: 0,
+    lastDownloadedAt: null
   });
 
   try {
@@ -135,7 +169,7 @@ exports.handler = async function (event) {
       headers,
       body: JSON.stringify({
         ok: true,
-        share: Object.assign({}, share, { url: listenUrl(event, share.token) })
+        share: Object.assign({}, share, { url: shareUrl(event, share) })
       })
     };
   } catch (error) {

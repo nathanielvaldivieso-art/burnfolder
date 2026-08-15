@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
 
-  var SITE_SCRIPT_VERSION = '20260815dnd1';
+  var SITE_SCRIPT_VERSION = '20260815videopass2';
 
   if (root) {
     root.BurnfolderSiteVersion = SITE_SCRIPT_VERSION;

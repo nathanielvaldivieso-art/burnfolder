@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>watch — burnfolder</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://stream.mux.com" crossorigin>
+  <link rel="preconnect" href="https://image.mux.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.mux.com">
+  <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <link rel="stylesheet" href="style.css?v=20260815videopass2">
+  <script src="shared/site-menu.js?v=20260815videopass2" defer></script>
+</head>
+<body class="page-watch">
+  <div id="siteMenu"></div>
+  <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
+
+  <main class="watch-wrap" id="watchMain" hidden>
+    <p class="watch-eyebrow">private link</p>
+    <h1 class="watch-title" id="watchTitle">—</h1>
+    <p class="watch-subtitle" id="watchSubtitle" hidden></p>
+
+    <div class="watch-stage" id="watchStage"></div>
+
+    <div class="watch-actions">
+      <button type="button" class="icon-btn watch-share-btn" id="watchShareBtn" hidden>share</button>
+      <a class="icon-btn watch-download-btn" id="watchDownloadBtn" href="#" download rel="noopener noreferrer" target="_blank" hidden>download</a>
+    </div>
+
+    <div class="watch-tracklist" id="watchTracklist" hidden></div>
+  </main>
+
+  <p class="watch-state" id="watchState">loading…</p>
+
+  <script src="shared/share-links-public.js?v=20260815videopass2"></script>
+  <script src="watch.js?v=20260815videopass2"></script>
+  <script src="shared/site-version.js"></script>
+  <script src="shared/register-sw.js"></script>
+  <script src="shared/analytics-config.js"></script>
+  <script src="shared/analytics-beacon.js"></script>
+</body>
+</html>

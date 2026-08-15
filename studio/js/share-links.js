@@ -23,15 +23,23 @@
     return Promise.resolve();
   }
 
-  function listenPageUrl(token) {
+  function sitePageUrl(page, token) {
     const loc = root.location;
-    if (!loc) return '/listen.html?t=' + encodeURIComponent(token);
+    if (!loc) return '/' + page + '?t=' + encodeURIComponent(token);
     let origin = loc.origin || '';
     if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') {
       origin = 'http://' + loc.host;
     }
     const prefix = String(origin).indexOf('/studio') > -1 ? origin.replace(/\/studio\/?$/, '') : origin;
-    return (prefix || '') + '/listen.html?t=' + encodeURIComponent(token);
+    return (prefix || '') + '/' + page + '?t=' + encodeURIComponent(token);
+  }
+
+  function listenPageUrl(token) {
+    return sitePageUrl('listen.html', token);
+  }
+
+  function watchPageUrl(token) {
+    return sitePageUrl('watch.html', token);
   }
 
   function apiFetch(path, options) {
@@ -103,11 +111,11 @@
     });
   }
 
-  function trackPlay(token) {
+  function trackPlay(token, type) {
     return fetch(getApiBase() + '/share-listen?t=' + encodeURIComponent(token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}'
+      body: JSON.stringify({ type: type === 'download' ? 'download' : 'play' })
     }).then(function (res) {
       if (!res.ok) return null;
       return res.json();
@@ -137,6 +145,38 @@
     });
   }
 
+  /** Prefer OS share sheet on phones; fall back to clipboard copy. */
+  function shareOrCopy(text, opts) {
+    const options = opts || {};
+    const url = String(text || '').trim();
+    if (!url) return Promise.reject(new Error('nothing to share'));
+    const nav = root.navigator;
+    if (nav && typeof nav.share === 'function') {
+      const payload = { url: url };
+      if (options.title) payload.title = options.title;
+      if (options.text) payload.text = options.text;
+      return Promise.resolve()
+        .then(function () {
+          return nav.share(payload);
+        })
+        .then(function () {
+          return { method: 'share' };
+        })
+        .catch(function (err) {
+          // User dismissed the sheet — not an error to surface.
+          if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) {
+            return { method: 'cancelled' };
+          }
+          return copyText(url).then(function () {
+            return { method: 'copy' };
+          });
+        });
+    }
+    return copyText(url).then(function () {
+      return { method: 'copy' };
+    });
+  }
+
   root.BurnfolderShareLinks = {
     listShares: listShares,
     createShare: createShare,
@@ -144,6 +184,8 @@
     resolveShare: resolveShare,
     trackPlay: trackPlay,
     listenPageUrl: listenPageUrl,
-    copyText: copyText
+    watchPageUrl: watchPageUrl,
+    copyText: copyText,
+    shareOrCopy: shareOrCopy
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

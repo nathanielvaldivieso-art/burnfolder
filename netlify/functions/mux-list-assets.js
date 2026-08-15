@@ -47,6 +47,8 @@ function inferKindMeta(asset, fileName) {
 function inferKindFromName(name) {
   const lower = String(name || '').toLowerCase();
   if (/\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?|$)/i.test(lower)) return 'video';
+  // Canon / camera clip stems (MVI_5884, MOV_0001) — often stored without extension.
+  if (/(?:^|[^a-z0-9])(mvi|mov)_\d+/i.test(lower)) return 'video';
   if (/\.(mp3|wav|flac|aiff|aif|m4a|ogg|aac)(\?|$)/i.test(lower)) return 'audio';
   return '';
 }
@@ -99,10 +101,18 @@ async function listAllMuxAssets(auth, maxPages) {
       );
 
       const kindMeta = inferKindMeta(row, resolved.muxFileName);
-      const kindFromName = inferKindFromName(resolved.muxFileName);
-      if (kindFromName === 'audio') {
-        kindMeta.kind = 'audio';
-        kindMeta.hasVideoTrack = false;
+      const kindFromName = inferKindFromName(
+        resolved.muxFileName || resolved.passthrough || resolved.displayTitle || ''
+      );
+      // Filename wins only when Mux track metadata is missing/ambiguous.
+      // Never demote a real video track to audio because a label looks musical.
+      if (!kindMeta.hasVideoTrack) {
+        if (kindFromName === 'video') {
+          kindMeta.kind = 'video';
+        } else if (kindFromName === 'audio') {
+          kindMeta.kind = 'audio';
+          kindMeta.hasVideoTrack = false;
+        }
       }
 
       assets.push({

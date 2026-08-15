@@ -44,8 +44,14 @@
     const name = String(file.name || '').toLowerCase();
     const mime = String(file.type || '').toLowerCase();
 
-    if (mime.indexOf('audio/') === 0 || /\.(wav|mp3|flac|aiff|aif|m4a|ogg)$/.test(name)) return 'audio';
-    if (mime.indexOf('video/') === 0 || /\.(mp4|mov|webm|mkv)$/.test(name)) return 'video';
+    if (mime.indexOf('video/') === 0 || /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)$/.test(name)) {
+      return 'video';
+    }
+    // Canon / camera clip stems often arrive without an extension.
+    if (/(?:^|[^a-z0-9])(mvi|mov)_\d+/.test(name)) return 'video';
+    if (mime.indexOf('audio/') === 0 || /\.(wav|mp3|flac|aiff|aif|m4a|ogg|aac)$/.test(name)) {
+      return 'audio';
+    }
     if (mime.indexOf('image/') === 0 || /\.(jpg|jpeg|png|gif|webp)$/.test(name)) return 'image';
     if (/session|stem|logicx|band|ptx|als|flp|zip|rar/.test(name)) return 'session';
     return 'other';

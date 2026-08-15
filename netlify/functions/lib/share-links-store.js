@@ -5,6 +5,8 @@ const { getStore, connectLambda } = require('@netlify/blobs');
 
 const INDEX_KEY = '__index__';
 const TOKEN_PREFIX = 'sl_';
+const MUX_STREAM_BASE = 'https://stream.mux.com';
+const MUX_IMAGE_BASE = 'https://image.mux.com';
 
 function shareStore(event) {
   connectLambda(event);
@@ -15,8 +17,63 @@ function newToken() {
   return TOKEN_PREFIX + crypto.randomBytes(12).toString('base64url');
 }
 
+function normalizeTrackKind(kind) {
+  return kind === 'video' ? 'video' : 'audio';
+}
+
+/** Public Mux static-rendition download URL — same shape used by the studio clips board. */
+function muxDownloadUrl(playbackId, filename, kind) {
+  const isVideo = normalizeTrackKind(kind) === 'video';
+  const safeName = filename || (isVideo ? 'clip.mp4' : 'clip.m4a');
+  const rendition = isVideo ? 'highest.mp4' : 'audio.m4a';
+  return (
+    MUX_STREAM_BASE +
+    '/' +
+    encodeURIComponent(playbackId) +
+    '/' +
+    rendition +
+    '?download=' +
+    encodeURIComponent(safeName)
+  );
+}
+
+function muxPosterUrl(playbackId) {
+  return MUX_IMAGE_BASE + '/' + encodeURIComponent(playbackId) + '/thumbnail.jpg?time=1&width=960&fit_mode=smartcrop';
+}
+
+function normalizeMaxPlays(value) {
+  if (value == null || value === '') return null;
+  var n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(1000, Math.floor(n));
+}
+
+function normalizeExpiresAt(value) {
+  if (!value) return null;
+  var ms = Date.parse(String(value));
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
+/** Returns a 410-style reason when the share should no longer open. */
+function shareUnavailableReason(share) {
+  if (!share) return 'Link not found';
+  if (share.revokedAt) return 'This link has been revoked';
+  if (share.expiresAt) {
+    var exp = Date.parse(share.expiresAt);
+    if (Number.isFinite(exp) && Date.now() > exp) return 'This link has expired';
+  }
+  if (share.maxPlays != null && share.playCount >= share.maxPlays) {
+    return 'This link has reached its play limit';
+  }
+  return null;
+}
+
 function normalizeShareRecord(raw) {
   if (!raw || typeof raw !== 'object' || !raw.token) return null;
+  var maxPlays = normalizeMaxPlays(raw.maxPlays);
+  var oneTime = !!(raw.oneTime || maxPlays === 1);
+  if (oneTime && maxPlays == null) maxPlays = 1;
   return {
     token: String(raw.token),
     scope: raw.scope || 'song',
@@ -34,14 +91,21 @@ function normalizeShareRecord(raw) {
           .map(function (t) {
             return {
               title: String(t.title || 'untitled'),
-              playbackId: String(t.playbackId)
+              playbackId: String(t.playbackId),
+              kind: normalizeTrackKind(t.kind),
+              filename: t.filename ? String(t.filename) : ''
             };
           })
       : [],
     createdAt: raw.createdAt || new Date().toISOString(),
+    expiresAt: normalizeExpiresAt(raw.expiresAt),
+    maxPlays: maxPlays,
+    oneTime: oneTime,
     revokedAt: raw.revokedAt || null,
     playCount: typeof raw.playCount === 'number' ? raw.playCount : 0,
-    lastPlayedAt: raw.lastPlayedAt || null
+    lastPlayedAt: raw.lastPlayedAt || null,
+    downloadCount: typeof raw.downloadCount === 'number' ? raw.downloadCount : 0,
+    lastDownloadedAt: raw.lastDownloadedAt || null
   };
 }
 
@@ -142,9 +206,21 @@ function publicSharePayload(share) {
     title: share.title,
     subtitle: share.subtitle,
     coverArt: share.coverArt || '',
-    tracks: share.tracks,
+    tracks: (share.tracks || []).map(function (t) {
+      return {
+        title: t.title,
+        playbackId: t.playbackId,
+        kind: normalizeTrackKind(t.kind),
+        downloadUrl: muxDownloadUrl(t.playbackId, t.filename, t.kind),
+        posterUrl: normalizeTrackKind(t.kind) === 'video' ? muxPosterUrl(t.playbackId) : ''
+      };
+    }),
     playCount: share.playCount,
-    createdAt: share.createdAt
+    downloadCount: share.downloadCount || 0,
+    createdAt: share.createdAt,
+    expiresAt: share.expiresAt || null,
+    maxPlays: share.maxPlays,
+    oneTime: !!share.oneTime
   };
 }
 
@@ -152,6 +228,9 @@ module.exports = {
   shareStore: shareStore,
   newToken: newToken,
   normalizeShareRecord: normalizeShareRecord,
+  normalizeMaxPlays: normalizeMaxPlays,
+  normalizeExpiresAt: normalizeExpiresAt,
+  shareUnavailableReason: shareUnavailableReason,
   readIndex: readIndex,
   writeIndex: writeIndex,
   indexAdd: indexAdd,
@@ -161,5 +240,7 @@ module.exports = {
   deleteShare: deleteShare,
   listShares: listShares,
   publicSharePayload: publicSharePayload,
+  muxDownloadUrl: muxDownloadUrl,
+  muxPosterUrl: muxPosterUrl,
   TOKEN_PREFIX: TOKEN_PREFIX
 };
