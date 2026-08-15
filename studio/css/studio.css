@@ -7274,6 +7274,80 @@ body.clips-lightbox-open {
   opacity: 0.55;
 }
 
+.clips-status-action {
+  appearance: none;
+  display: inline;
+  margin: 0 0 0 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  opacity: 0.9;
+  touch-action: manipulation;
+}
+
+.clips-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+}
+
+.clips-filter-chip,
+.clips-batch-share,
+.clips-batch-once,
+.clips-batch-clear {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  border-radius: 0;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+  touch-action: manipulation;
+}
+
+.clips-filter-chip.is-active,
+.clips-batch-share,
+.clips-batch-once {
+  opacity: 1;
+  border-color: #000;
+}
+
+.clips-batch-clear {
+  opacity: 0.55;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .clips-filter-chip,
+  .clips-batch-share,
+  .clips-batch-once,
+  .clips-batch-clear,
+  .clips-status-action {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 12px;
+    opacity: 0.85;
+  }
+}
+
 .clips-folders {
   display: flex;
   flex-wrap: wrap;
@@ -7393,6 +7467,35 @@ body.clips-lightbox-open {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   transition: transform 0.08s ease, background 0.08s ease;
+}
+
+.clips-block.is-selected {
+  outline: 2px solid #000;
+  outline-offset: -2px;
+}
+
+.clips-block-select-mark {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  background: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+}
+
+.clips-block.is-selected .clips-block-select-mark::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .clips-block:active {
@@ -7877,7 +7980,8 @@ body.clips-clip-dragging .clips-block {
   opacity: 0.7;
 }
 
-.clips-video-stage-close {
+.clips-video-stage-close,
+.clips-video-stage-fullscreen {
   appearance: none;
   flex: 0 0 auto;
   height: 28px;
@@ -7896,9 +8000,37 @@ body.clips-clip-dragging .clips-block {
 }
 
 .clips-video-stage-close:hover,
-.clips-video-stage-close:focus-visible {
+.clips-video-stage-close:focus-visible,
+.clips-video-stage-fullscreen:hover,
+.clips-video-stage-fullscreen:focus-visible {
   opacity: 1;
   border-color: #000;
+}
+
+.clips-video-stage-wrap:fullscreen,
+.clips-video-stage-wrap:-webkit-full-screen {
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.clips-video-stage-wrap:fullscreen .clips-video-stage-chrome,
+.clips-video-stage-wrap:-webkit-full-screen .clips-video-stage-chrome {
+  color: #fff;
+}
+
+.clips-video-stage-wrap:fullscreen .clips-video-stage,
+.clips-video-stage-wrap:-webkit-full-screen .clips-video-stage,
+.clips-video-stage-wrap:fullscreen mux-player,
+.clips-video-stage-wrap:-webkit-full-screen mux-player,
+.clips-video-stage-wrap:fullscreen .page-inline-video,
+.clips-video-stage-wrap:-webkit-full-screen .page-inline-video {
+  max-height: none;
+  height: 100%;
+  width: 100%;
 }
 
 @media (hover: none), (pointer: coarse) {
@@ -7910,7 +8042,8 @@ body.clips-clip-dragging .clips-block {
     background: rgba(255, 255, 255, 0.96);
   }
 
-  .clips-video-stage-close {
+  .clips-video-stage-close,
+  .clips-video-stage-fullscreen {
     min-height: 44px;
     min-width: 44px;
     opacity: 0.85;

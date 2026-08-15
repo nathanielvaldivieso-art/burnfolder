@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v75-videopass',
+  cacheName: 'burnfolder-stream-v76-videopass2',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',

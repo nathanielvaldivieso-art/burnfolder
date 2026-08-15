@@ -771,7 +771,54 @@
     });
   }
 
-  /** Import mux library audio as one clip per song (stack versions; upgrade to newest). */
+  function assetLooksLikeVideo(asset) {
+    if (!asset) return false;
+    var kind = String(asset.kind || '').toLowerCase();
+    if (kind === 'video' || asset.isVideo || asset.hasVideoTrack === true) return true;
+    var shared = window.BurnfolderStreamShared;
+    if (shared && typeof shared.isVideoItem === 'function') {
+      return shared.isVideoItem(asset);
+    }
+    var name = String(
+      asset.passthrough || asset.muxFileName || asset.name || asset.displayTitle || ''
+    );
+    return /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?|$)/i.test(name) ||
+      /(?:^|[^a-z0-9])(mvi|mov)_\d+/i.test(name);
+  }
+
+  function videoTitleFromAsset(asset) {
+    var raw =
+      (asset &&
+        (asset.displayTitle ||
+          asset.title ||
+          asset.passthrough ||
+          asset.name)) ||
+      'video';
+    return String(raw).replace(/\.[^.]+$/, '').trim() || 'video';
+  }
+
+  /** Promote a mis-filed audio tile to video and drop it from music collections. */
+  function promoteBlockToVideo(state, block, asset) {
+    if (!state || !block || block.kind === 'video') return false;
+    var title = videoTitleFromAsset(asset) || block.title || 'video';
+    block.kind = 'video';
+    block.title = title;
+    block.filename = (asset && (asset.name || asset.passthrough)) || block.filename || '';
+    block.passthrough = (asset && asset.passthrough) || block.passthrough || '';
+    block.updatedAt = new Date().toISOString();
+    var shared = window.BurnfolderStreamShared;
+    if (shared && block.playbackId && typeof shared.removeFromStack === 'function') {
+      shared.removeFromStack(block.playbackId);
+    }
+    return true;
+  }
+
+  /**
+   * Import mux library onto the clips board:
+   * - audio → one clip per song (stack versions; upgrade to newest)
+   * - video → one video clip per playback id
+   * Also repairs audio tiles that Mux now reports as video (e.g. MVI_ camera files).
+   */
   function importAudioLibrary(assets) {
     return load().then(function (state) {
       var changed = false;
@@ -779,9 +826,49 @@
 
       (assets || []).forEach(function (asset) {
         if (!asset || !asset.playbackId) return;
-        var kind = String(asset.kind || '').toLowerCase();
-        if (kind === 'video' || asset.isVideo) return;
-        if (findBlockByPlaybackId(state, asset.playbackId)) return;
+        var isVideo = assetLooksLikeVideo(asset);
+        var existing = findBlockByPlaybackId(state, asset.playbackId);
+
+        if (isVideo) {
+          if (existing) {
+            if (existing.kind !== 'video' && promoteBlockToVideo(state, existing, asset)) {
+              changed = true;
+            } else if (existing.kind === 'video') {
+              var nextTitle = videoTitleFromAsset(asset);
+              var nextFile = asset.name || asset.passthrough || existing.filename;
+              var nextPass = asset.passthrough || existing.passthrough;
+              if (
+                (nextTitle && existing.title !== nextTitle) ||
+                (nextFile && existing.filename !== nextFile) ||
+                (nextPass && existing.passthrough !== nextPass)
+              ) {
+                existing.title = nextTitle || existing.title;
+                existing.filename = nextFile || existing.filename;
+                existing.passthrough = nextPass || existing.passthrough;
+                existing.updatedAt = new Date().toISOString();
+                changed = true;
+              }
+            }
+            return;
+          }
+
+          state.blocks.unshift(
+            normalizeBlock({
+              id: makeId('block'),
+              kind: 'video',
+              title: videoTitleFromAsset(asset),
+              playbackId: asset.playbackId,
+              filename: asset.name || asset.passthrough || '',
+              passthrough: asset.passthrough || '',
+              order: nextOrder(state.blocks),
+              createdAt: new Date().toISOString()
+            })
+          );
+          changed = true;
+          return;
+        }
+
+        if (existing) return;
 
         var rawTitle =
           asset.displayTitle ||
@@ -791,20 +878,20 @@
           'track';
         var title = String(rawTitle).replace(/\.[^.]+$/, '').trim() || 'track';
         var key = groupKeyForTitle(title);
-        var existing = key ? findAudioBlockByGroupKey(state, key) : null;
-        if (existing) {
-          if (isNewerSong(songLikeFromAsset(asset, title), songLikeFromBlock(existing))) {
-            existing.playbackId = asset.playbackId;
-            existing.title = baseTitleForLabel(title) || existing.title;
-            existing.filename = asset.name || asset.passthrough || existing.filename;
-            existing.passthrough = asset.passthrough || existing.passthrough;
-            existing.updatedAt = new Date().toISOString();
+        var existingSong = key ? findAudioBlockByGroupKey(state, key) : null;
+        if (existingSong) {
+          if (isNewerSong(songLikeFromAsset(asset, title), songLikeFromBlock(existingSong))) {
+            existingSong.playbackId = asset.playbackId;
+            existingSong.title = baseTitleForLabel(title) || existingSong.title;
+            existingSong.filename = asset.name || asset.passthrough || existingSong.filename;
+            existingSong.passthrough = asset.passthrough || existingSong.passthrough;
+            existingSong.updatedAt = new Date().toISOString();
             changed = true;
           } else {
-            var base = baseTitleForLabel(existing.title || title);
-            if (base && existing.title !== base) {
-              existing.title = base;
-              existing.updatedAt = new Date().toISOString();
+            var base = baseTitleForLabel(existingSong.title || title);
+            if (base && existingSong.title !== base) {
+              existingSong.title = base;
+              existingSong.updatedAt = new Date().toISOString();
               changed = true;
             }
           }

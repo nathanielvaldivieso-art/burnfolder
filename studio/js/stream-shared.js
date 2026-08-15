@@ -223,19 +223,30 @@
 
   const VIDEO_NAME_RE = /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?.*)?$/i;
   const AUDIO_NAME_RE = /\.(mp3|wav|flac|aiff|aif|m4a|ogg|aac)(\?.*)?$/i;
+  // Canon / camera clip stems often land without an extension (MVI_5884, MOV_0001).
+  const CAMERA_VIDEO_STEM_RE = /(?:^|[^a-z0-9])(mvi|mov)_\d+/i;
 
   function resolveMediaKind(item) {
     if (!item) return 'audio';
     if (item.hasVideoTrack === true) return 'video';
-    if (item.hasVideoTrack === false) return 'audio';
 
     const declared = String(item.kind || '').toLowerCase();
-    if (declared === 'audio') return 'audio';
     if (declared === 'video') return 'video';
 
-    const name = String(item.passthrough || item.displayTitle || item.name || '');
+    const name = String(
+      item.passthrough ||
+        item.muxFileName ||
+        item.filename ||
+        item.displayTitle ||
+        item.name ||
+        item.title ||
+        ''
+    );
+    // Camera stems / video extensions beat a missing-tracks "audio" default.
+    if (VIDEO_NAME_RE.test(name) || CAMERA_VIDEO_STEM_RE.test(name)) return 'video';
+    if (item.hasVideoTrack === false) return 'audio';
     if (AUDIO_NAME_RE.test(name)) return 'audio';
-    if (VIDEO_NAME_RE.test(name)) return 'video';
+    if (declared === 'audio') return 'audio';
 
     return 'audio';
   }
@@ -247,7 +258,8 @@
   function canPlayAsVideo(item) {
     if (!item || !item.playbackId) return false;
     if (item.hasVideoTrack === true) return true;
-    if (item.hasVideoTrack === false) return false;
+    // Still open the video stage for kind/filename video even when the Mux
+    // list omitted track metadata (hasVideoTrack: false).
     return isVideoItem(item);
   }
 

@@ -3,6 +3,8 @@ const {
   shareStore,
   newToken,
   normalizeShareRecord,
+  normalizeMaxPlays,
+  normalizeExpiresAt,
   readIndex,
   writeIndex,
   indexAdd,
@@ -11,6 +13,24 @@ const {
   deleteShare,
   listShares
 } = require('./lib/share-links-store');
+
+function resolveExpiresAt(body, scope) {
+  if (body && body.expiresAt) return normalizeExpiresAt(body.expiresAt);
+  var expiresIn = body && body.expiresIn != null ? String(body.expiresIn).trim().toLowerCase() : '';
+  if (expiresIn === 'never' || expiresIn === '0' || expiresIn === 'none') return null;
+  var days = null;
+  if (expiresIn === '24h' || expiresIn === '1d') days = 1;
+  else if (expiresIn === '7d' || expiresIn === 'week') days = 7;
+  else if (expiresIn === '30d' || expiresIn === 'month') days = 30;
+  else if (/^\d+d$/.test(expiresIn)) days = parseInt(expiresIn, 10);
+  else if (body && body.expiresInDays != null) days = Number(body.expiresInDays);
+  // Video links expire in 7 days by default so shared clips don't live forever.
+  if (!Number.isFinite(days) || days <= 0) {
+    if (scope === 'video') days = 7;
+    else return null;
+  }
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
 
 function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
@@ -116,6 +136,8 @@ exports.handler = async function (event) {
   }
 
   const token = newToken();
+  const oneTime = !!(body.oneTime || body.maxPlays === 1);
+  const maxPlays = oneTime ? 1 : normalizeMaxPlays(body.maxPlays);
   const share = normalizeShareRecord({
     token: token,
     scope: scope,
@@ -127,6 +149,9 @@ exports.handler = async function (event) {
     coverArt: body.coverArt || '',
     tracks: tracks,
     createdAt: new Date().toISOString(),
+    expiresAt: resolveExpiresAt(body, scope),
+    maxPlays: maxPlays,
+    oneTime: oneTime,
     revokedAt: null,
     playCount: 0,
     lastPlayedAt: null,

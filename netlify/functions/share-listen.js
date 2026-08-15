@@ -1,5 +1,11 @@
 const { studioCorsHeaders } = require('./lib/studio-auth');
-const { shareStore, getShare, putShare, publicSharePayload } = require('./lib/share-links-store');
+const {
+  shareStore,
+  getShare,
+  putShare,
+  publicSharePayload,
+  shareUnavailableReason
+} = require('./lib/share-links-store');
 
 function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
@@ -33,8 +39,19 @@ exports.handler = async function (event) {
     if (!share) {
       return { statusCode: 404, headers, body: JSON.stringify({ message: 'Link not found' }) };
     }
-    if (share.revokedAt) {
-      return { statusCode: 410, headers, body: JSON.stringify({ message: 'This link has been revoked' }) };
+
+    const unavailable = shareUnavailableReason(share);
+    if (unavailable) {
+      if (!share.revokedAt && unavailable.indexOf('revoked') === -1) {
+        // Soft-close exhausted/expired links so later GETs stay 410.
+        share.revokedAt = new Date().toISOString();
+        try {
+          await putShare(store, share);
+        } catch (e) {
+          /* best-effort */
+        }
+      }
+      return { statusCode: 410, headers, body: JSON.stringify({ message: unavailable }) };
     }
 
     if (event.httpMethod === 'POST') {
@@ -51,6 +68,12 @@ exports.handler = async function (event) {
       } else {
         share.playCount = (share.playCount || 0) + 1;
         share.lastPlayedAt = new Date().toISOString();
+        if (
+          share.oneTime ||
+          (share.maxPlays != null && share.playCount >= share.maxPlays)
+        ) {
+          share.revokedAt = new Date().toISOString();
+        }
       }
       await putShare(store, share);
       return {
@@ -59,7 +82,8 @@ exports.handler = async function (event) {
         body: JSON.stringify({
           ok: true,
           playCount: share.playCount,
-          downloadCount: share.downloadCount || 0
+          downloadCount: share.downloadCount || 0,
+          revoked: !!share.revokedAt
         })
       };
     }

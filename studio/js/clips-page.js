@@ -9,6 +9,10 @@
   var state = null;
   var openGroupId = null;
   var openFolderId = null;
+  var boardKindFilter = 'all'; // 'all' | 'video'
+  var selectMode = false;
+  var selectedBlockIds = {};
+  var lastUploadedVideoId = null;
   var bound = false;
   var boundRoot = null;
   var windowEventsBound = false;
@@ -24,9 +28,16 @@
   var IMAGE_RE = /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i;
   var AUDIO_RE = /\.(mp3|wav|flac|aiff|aif|m4a|ogg|aac)(\?.*)?$/i;
   var VIDEO_RE = /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?.*)?$/i;
+  var CAMERA_VIDEO_STEM_RE = /(?:^|[^a-z0-9])(mvi|mov)_\d+/i;
 
   function el(id) {
     return document.getElementById(id);
+  }
+
+  function haptic(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern || 12);
+    } catch (e) {}
   }
 
   function setStatus(msg, opts) {
@@ -34,7 +45,23 @@
     if (!node) return;
     if (statusTimer) clearTimeout(statusTimer);
     statusSticky = !!(opts && opts.sticky);
-    node.textContent = msg || '';
+    node.textContent = '';
+    if (msg) node.appendChild(document.createTextNode(msg));
+    var action = opts && opts.action;
+    if (action && action.label) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'clipsStatusAction';
+      btn.className = 'clips-status-action';
+      btn.textContent = action.label;
+      btn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof action.onClick === 'function') action.onClick();
+      });
+      node.appendChild(document.createTextNode(' '));
+      node.appendChild(btn);
+    }
     if (msg && !statusSticky) {
       statusTimer = setTimeout(function () {
         node.textContent = '';
@@ -147,9 +174,52 @@
     var name = (file && file.name) || '';
     var type = (file && file.type) || '';
     if (type.indexOf('image/') === 0 || IMAGE_RE.test(name)) return 'image';
-    if (type.indexOf('video/') === 0 || VIDEO_RE.test(name)) return 'video';
+    if (type.indexOf('video/') === 0 || VIDEO_RE.test(name) || CAMERA_VIDEO_STEM_RE.test(name)) {
+      return 'video';
+    }
     if (type.indexOf('audio/') === 0 || AUDIO_RE.test(name)) return 'audio';
     return 'file';
+  }
+
+  function libraryAssetForBlock(block) {
+    if (!block || !block.playbackId || !libraryCache || !libraryCache.length) return null;
+    var id = block.playbackId;
+    for (var i = 0; i < libraryCache.length; i++) {
+      var row = libraryCache[i];
+      if (row && (row.playbackId === id || row.muxAssetId === id)) return row;
+    }
+    return null;
+  }
+
+  /** Prefer live Mux/library kind so mis-filed camera clips still open as video. */
+  function effectiveBlockKind(block) {
+    if (!block) return '';
+    if (block.kind !== 'audio' && block.kind !== 'video') return block.kind;
+    var shared = window.BurnfolderStreamShared;
+    var asset = libraryAssetForBlock(block);
+    var probe = {
+      kind: block.kind,
+      playbackId: block.playbackId,
+      passthrough: block.passthrough || (asset && asset.passthrough) || '',
+      filename: block.filename || (asset && asset.name) || '',
+      name: block.filename || block.title || '',
+      displayTitle: block.title || '',
+      title: block.title || '',
+      hasVideoTrack: asset ? asset.hasVideoTrack : undefined,
+      isVideo: asset && (asset.isVideo || asset.kind === 'video')
+    };
+    if (asset && asset.kind) probe.kind = asset.kind;
+    if (shared && typeof shared.resolveMediaKind === 'function') {
+      return shared.resolveMediaKind(probe);
+    }
+    if (probe.hasVideoTrack === true || probe.isVideo) return 'video';
+    if (
+      VIDEO_RE.test(probe.passthrough || probe.filename || probe.name) ||
+      CAMERA_VIDEO_STEM_RE.test(probe.passthrough || probe.filename || probe.name || probe.title)
+    ) {
+      return 'video';
+    }
+    return block.kind;
   }
 
   function isMuxable(kind) {
@@ -400,23 +470,34 @@
   }
 
   function canShareClip(block) {
-    return !!(block && block.kind === 'video' && block.playbackId);
+    return !!(block && effectiveBlockKind(block) === 'video' && block.playbackId);
   }
 
   function shareGroupKeyForBlock(block) {
     return 'clip:' + block.playbackId;
   }
 
+  function shareIsInactive(share) {
+    if (!share) return true;
+    if (share.revokedAt) return true;
+    if (share.expiresAt && Date.parse(share.expiresAt) < Date.now()) return true;
+    if (share.maxPlays != null && share.playCount >= share.maxPlays) return true;
+    return false;
+  }
+
   /** Reuse an existing active link for this clip instead of piling up duplicates. */
-  function findActiveVideoShare(block) {
+  function findActiveVideoShare(block, shareOpts) {
     var api = window.BurnfolderShareLinks;
+    var opts = shareOpts || {};
     if (!api || !api.listShares) return Promise.resolve(null);
     return api
       .listShares({ groupKey: shareGroupKeyForBlock(block) })
       .then(function (shares) {
         return (
           (shares || []).find(function (s) {
-            return !s.revokedAt;
+            if (shareIsInactive(s)) return false;
+            if (!!s.oneTime !== !!opts.oneTime) return false;
+            return true;
           }) || null
         );
       })
@@ -425,29 +506,63 @@
       });
   }
 
-  function shareClip(block) {
+  function deliverShareLink(share, title) {
     var api = window.BurnfolderShareLinks;
+    if (!share || !api) return Promise.reject(new Error('could not create share link'));
+    var url = (api.watchPageUrl && api.watchPageUrl(share.token)) || share.url;
+    var deliver =
+      typeof api.shareOrCopy === 'function'
+        ? api.shareOrCopy(url, { title: title, text: title })
+        : api.copyText(url).then(function () {
+            return { method: 'copy' };
+          });
+    return deliver.then(function (result) {
+      var method = result && result.method;
+      if (method === 'cancelled') {
+        setStatus('');
+        return;
+      }
+      if (method === 'share') {
+        setStatus('shared');
+        return;
+      }
+      setStatus('share link copied');
+    });
+  }
+
+  function shareClip(block, shareOpts) {
+    var api = window.BurnfolderShareLinks;
+    var opts = shareOpts || {};
     if (!api || !canShareClip(block)) {
       setStatus('nothing to share');
       return Promise.resolve();
     }
     setStatus('creating share link…');
-    return findActiveVideoShare(block)
+    var reuse =
+      opts.tracks || opts.groupKey
+        ? Promise.resolve(null)
+        : findActiveVideoShare(block, opts);
+    return reuse
       .then(function (existing) {
         if (existing) return existing;
+        var tracks =
+          opts.tracks ||
+          [
+            {
+              title: opts.title || block.title || 'clip',
+              playbackId: block.playbackId,
+              kind: 'video',
+              filename: clipDownloadName(block)
+            }
+          ];
         return api
           .createShare({
             scope: 'video',
-            groupKey: shareGroupKeyForBlock(block),
-            title: block.title || 'clip',
-            tracks: [
-              {
-                title: block.title || 'clip',
-                playbackId: block.playbackId,
-                kind: 'video',
-                filename: clipDownloadName(block)
-              }
-            ]
+            groupKey: opts.groupKey || shareGroupKeyForBlock(block),
+            title: opts.title || block.title || 'clip',
+            expiresIn: opts.expiresIn || '7d',
+            oneTime: !!opts.oneTime,
+            tracks: tracks
           })
           .then(function (data) {
             return data && data.share;
@@ -455,30 +570,83 @@
       })
       .then(function (share) {
         if (!share) throw new Error('could not create share link');
-        var url = (api.watchPageUrl && api.watchPageUrl(share.token)) || share.url;
-        var title = block.title || 'clip';
-        var deliver =
-          typeof api.shareOrCopy === 'function'
-            ? api.shareOrCopy(url, { title: title, text: title })
-            : api.copyText(url).then(function () {
-                return { method: 'copy' };
-              });
-        return deliver.then(function (result) {
-          var method = result && result.method;
-          if (method === 'cancelled') {
-            setStatus('');
-            return;
-          }
-          if (method === 'share') {
-            setStatus('shared');
-            return;
-          }
-          setStatus('share link copied');
-        });
+        return deliverShareLink(share, opts.title || block.title || 'clip');
       })
       .catch(function (err) {
         setStatus((err && err.message) || 'could not create share link');
       });
+  }
+
+  function shareBlocks(blocks, shareOpts) {
+    var videos = (blocks || []).filter(canShareClip);
+    if (!videos.length) {
+      setStatus('nothing to share');
+      return Promise.resolve();
+    }
+    if (videos.length === 1) return shareClip(videos[0], shareOpts);
+    var opts = shareOpts || {};
+    var api = window.BurnfolderShareLinks;
+    if (!api || typeof api.createShare !== 'function') {
+      setStatus('sharing unavailable');
+      return Promise.resolve();
+    }
+    setStatus('creating share link…');
+    return api
+      .createShare({
+        scope: 'video',
+        groupKey:
+          opts.groupKey ||
+          ('batch:' +
+            videos
+              .map(function (b) {
+                return b.playbackId;
+              })
+              .sort()
+              .join(',')),
+        title: opts.title || videos.length + ' clips',
+        expiresIn: opts.expiresIn || '7d',
+        oneTime: !!opts.oneTime,
+        tracks: videos.map(function (b) {
+          return {
+            title: b.title || 'clip',
+            playbackId: b.playbackId,
+            kind: 'video',
+            filename: clipDownloadName(b)
+          };
+        })
+      })
+      .then(function (data) {
+        var share = data && data.share;
+        if (!share) throw new Error('could not create share link');
+        return deliverShareLink(share, opts.title || videos.length + ' clips');
+      })
+      .catch(function (err) {
+        setStatus((err && err.message) || 'could not create share link');
+      });
+  }
+
+  function selectedBlocks() {
+    var blocks = (state && state.blocks) || [];
+    return blocks.filter(function (block) {
+      return block && selectedBlockIds[block.id] && canShareClip(block);
+    });
+  }
+
+  function selectedCount() {
+    return Object.keys(selectedBlockIds).filter(function (id) {
+      return !!selectedBlockIds[id];
+    }).length;
+  }
+
+  function clearSelection() {
+    selectedBlockIds = {};
+  }
+
+  function toggleBlockSelected(blockId) {
+    if (!blockId) return;
+    if (selectedBlockIds[blockId]) delete selectedBlockIds[blockId];
+    else selectedBlockIds[blockId] = true;
+    renderBoard();
   }
 
   function blockActionsMenuHtml(block, opts) {
@@ -488,7 +656,8 @@
       ? '<button type="button" class="clips-block-menu-item" data-download="1" role="menuitem">Download</button>'
       : '';
     var shareItem = canShareClip(block)
-      ? '<button type="button" class="clips-block-menu-item" data-share="1" role="menuitem">Share</button>'
+      ? '<button type="button" class="clips-block-menu-item" data-share="1" role="menuitem">Share (7d)</button>' +
+        '<button type="button" class="clips-block-menu-item" data-share-once="1" role="menuitem">Share once</button>'
       : '';
     return (
       '<div class="clips-block-menu">' +
@@ -1056,14 +1225,15 @@
   }
 
   /** Body under the title — media/text when useful, else a blank field for density marks. */
-  function blockBodyHtml(block) {
+  function blockBodyHtml(block, playKind) {
+    var kind = playKind || (block && block.kind) || '';
     var html = '';
-    if (block.kind === 'image' || block.kind === 'video' || block.kind === 'folder') {
-      html = blockPreview(block);
-    } else if (block.kind === 'text' || block.kind === 'link' || block.kind === 'file') {
-      html = blockPreview(block);
-    } else if (block.kind === 'album' || block.kind === 'audio' || block.kind === 'tool') {
-      html = blockPreview(block);
+    if (kind === 'image' || kind === 'video' || kind === 'folder') {
+      html = blockPreview(block, kind);
+    } else if (kind === 'text' || kind === 'link' || kind === 'file') {
+      html = blockPreview(block, kind);
+    } else if (kind === 'album' || kind === 'audio' || kind === 'tool') {
+      html = blockPreview(block, kind);
     } else {
       html = '<div class="clips-block-media clips-block-media--blank" aria-hidden="true"></div>';
     }
@@ -1071,19 +1241,29 @@
   }
 
   function boardBlockHtml(block) {
+    var playKind = effectiveBlockKind(block) || block.kind;
     var itemCount = blockItemCount(block);
     var title =
-      block.kind === 'audio' ? blockDisplayTitle(block) : block.title || defaultTitle(block);
+      block.kind === 'audio' || playKind === 'audio'
+        ? blockDisplayTitle(block)
+        : block.title || defaultTitle(block);
     var songKey =
-      block.kind === 'audio' && groupKeyForBlock(block) ? groupKeyForBlock(block) : '';
+      playKind === 'audio' && groupKeyForBlock(block) ? groupKeyForBlock(block) : '';
+    var showDensity = playKind !== 'video' && playKind !== 'image' && itemCount > 0;
+    var isSelected = !!(selectMode && selectedBlockIds[block.id]);
+    var selectMark =
+      selectMode && playKind === 'video'
+        ? '<span class="clips-block-select-mark" aria-hidden="true"></span>'
+        : '';
     return (
       '<article class="clips-block clips-block--' +
-      escapeHtml(block.kind) +
-      (itemCount > 0 ? ' has-density' : '') +
+      escapeHtml(playKind || block.kind) +
+      (showDensity ? ' has-density' : '') +
+      (isSelected ? ' is-selected' : '') +
       '" data-block-id="' +
       escapeHtml(block.id) +
       '" data-kind="' +
-      escapeHtml(block.kind) +
+      escapeHtml(playKind || block.kind) +
       '"' +
       (block.kind === 'album' && block.groupId
         ? ' data-group-id="' + escapeHtml(block.groupId) + '"'
@@ -1092,9 +1272,10 @@
       ' data-item-count="' +
       itemCount +
       '" tabindex="0">' +
+      selectMark +
       blockActionsMenuHtml(block) +
-      densityMarksHtml(block.id || block.groupId || title, itemCount) +
-      blockBodyHtml(block) +
+      (showDensity ? densityMarksHtml(block.id || block.groupId || title, itemCount) : '') +
+      blockBodyHtml(block, playKind) +
       '<h3 class="clips-block-title">' +
       escapeHtml(title) +
       '</h3>' +
@@ -1412,15 +1593,18 @@
   function folderItemTileHtml(item) {
     var asBlock = folderItemAsBlock(item);
     if (!asBlock) return '';
+    var playKind = effectiveBlockKind(asBlock) || asBlock.kind;
     var title = asBlock.title || asBlock.filename || 'file';
     return (
-      '<article class="clips-block" data-folder-item-id="' +
+      '<article class="clips-block clips-block--' +
+      escapeHtml(playKind) +
+      '" data-folder-item-id="' +
       escapeHtml(item.id) +
       '" data-kind="' +
-      escapeHtml(asBlock.kind) +
+      escapeHtml(playKind) +
       '" tabindex="0">' +
       blockActionsMenuHtml(asBlock, { folderItem: true }) +
-      blockBodyHtml(asBlock) +
+      blockBodyHtml(asBlock, playKind) +
       '<h3 class="clips-block-title">' +
       escapeHtml(title) +
       '</h3>' +
@@ -1505,7 +1689,7 @@
               event &&
               event.target &&
               event.target.closest(
-                '[data-folder-item-remove], [data-download], [data-clip-more], .clips-block-menu'
+                '[data-folder-item-remove], [data-download], [data-share], [data-share-once], [data-clip-more], .clips-block-menu'
               )
             );
           }
@@ -1514,7 +1698,7 @@
         node.addEventListener('click', function (event) {
           if (
             event.target.closest(
-              '[data-folder-item-remove], [data-download], [data-clip-more], .clips-block-menu'
+              '[data-folder-item-remove], [data-download], [data-share], [data-share-once], [data-clip-more], .clips-block-menu'
             )
           ) {
             return;
@@ -1542,16 +1726,17 @@
   }
 
 
-  function blockPreview(block) {
-    if (block.kind === 'image' && block.vaultKey) {
+  function blockPreview(block, playKind) {
+    var kind = playKind || (block && block.kind) || '';
+    if (kind === 'image' && block.vaultKey) {
       return (
         '<div class="clips-block-media clips-block-media--image" data-vault-preview="' +
         escapeHtml(block.vaultKey) +
         '"></div>'
       );
     }
-    if ((block.kind === 'video' || block.kind === 'audio') && block.playbackId) {
-      if (block.kind === 'video') {
+    if ((kind === 'video' || kind === 'audio') && block.playbackId) {
+      if (kind === 'video') {
         return (
           '<div class="clips-block-media clips-block-media--video" style="background-image:url(\'' +
           escapeHtml(muxThumb(block.playbackId)) +
@@ -1560,7 +1745,7 @@
       }
       return '<div class="clips-block-media clips-block-media--audio" aria-hidden="true">♪</div>';
     }
-    if (block.kind === 'album') {
+    if (kind === 'album') {
       var coverMeta = albumCoverMeta(block);
       if (coverMeta.coverArt || coverMeta.coverAssetId) {
         return (
@@ -1571,7 +1756,7 @@
       }
       return '<div class="clips-block-media clips-block-media--album clips-block-media--empty">playlist</div>';
     }
-    if (block.kind === 'folder') {
+    if (kind === 'folder') {
       var coverItem = firstFolderImage(block);
       if (coverItem && coverItem.vaultKey) {
         return (
@@ -1587,17 +1772,17 @@
         '</div>'
       );
     }
-    if (block.kind === 'tool') {
+    if (kind === 'tool') {
       return '<div class="clips-block-media clips-block-media--tool">' + escapeHtml(block.title || 'tool') + '</div>';
     }
-    if (block.kind === 'link') {
+    if (kind === 'link') {
       return (
         '<div class="clips-block-body clips-block-body--link">' +
         escapeHtml(block.href || block.title || 'link') +
         '</div>'
       );
     }
-    if (block.kind === 'file') {
+    if (kind === 'file') {
       return (
         '<div class="clips-block-body clips-block-body--file">' +
         escapeHtml(block.filename || block.title || 'file') +
@@ -1647,8 +1832,37 @@
     var blocks = (state && state.blocks) || [];
     var membership = housedMembership();
     return blocks.filter(function (block) {
-      return !isAudioHoused(block, membership);
+      if (isAudioHoused(block, membership)) return false;
+      if (boardKindFilter === 'video') {
+        return effectiveBlockKind(block) === 'video';
+      }
+      return true;
     });
+  }
+
+  function filterBarHtml() {
+    var count = selectedCount();
+    var html =
+      '<div class="clips-filter-bar" id="clipsFilterBar">' +
+      '<button type="button" class="clips-filter-chip' +
+      (boardKindFilter === 'all' ? ' is-active' : '') +
+      '" data-filter="all">all</button>' +
+      '<button type="button" class="clips-filter-chip' +
+      (boardKindFilter === 'video' ? ' is-active' : '') +
+      '" data-filter="video">video</button>' +
+      '<button type="button" class="clips-filter-chip clips-filter-select' +
+      (selectMode ? ' is-active' : '') +
+      '" data-select-toggle="1">select</button>';
+    if (selectMode && count > 0) {
+      html +=
+        '<button type="button" class="clips-batch-share" id="clipsBatchShare">share ' +
+        count +
+        '</button>' +
+        '<button type="button" class="clips-batch-once" id="clipsBatchOnce">share once</button>' +
+        '<button type="button" class="clips-batch-clear" id="clipsBatchClear">clear</button>';
+    }
+    html += '</div>';
+    return html;
   }
 
   function renderBoard() {
@@ -1669,7 +1883,7 @@
     board.classList.remove('clips-board--collection');
     board.classList.remove('clips-board--folder');
     var blocks = visibleBoardBlocks();
-    var html = composerHtml();
+    var html = filterBarHtml() + composerHtml();
     html += blocks
       .map(function (block) {
         return boardBlockHtml(block);
@@ -1777,7 +1991,16 @@
           return;
         }
         if (openGroupId && node.getAttribute('data-collection-track') === '1') {
-          playCollectionFrom(0, node.getAttribute('data-playback-id') || '');
+          var trackPlaybackId = node.getAttribute('data-playback-id') || '';
+          var trackBlock =
+            (store && state && store.findBlockByPlaybackId
+              ? store.findBlockByPlaybackId(state, trackPlaybackId)
+              : null) || { kind: 'audio', playbackId: trackPlaybackId, title: node.textContent || '' };
+          if (effectiveBlockKind(trackBlock) === 'video') {
+            playMuxBlock(trackBlock);
+          } else {
+            playCollectionFrom(0, trackPlaybackId);
+          }
           if (node.blur) node.blur();
         }
       }
@@ -1788,7 +2011,7 @@
               (event &&
                 event.target &&
                 event.target.closest(
-                  '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play, .clips-composer-submit, .clips-composer-video, .clips-composer-files, .clips-composer-folder'
+                  '.clips-block-edit, .clips-block-menu, .clips-block-more, .clips-block-menu-item, .clips-collection-name, .clips-collection-cover, .clips-collection-cover-clear, .clips-collection-play, .clips-composer-submit, .clips-composer-video, .clips-composer-files, .clips-composer-folder, .clips-filter-chip, .clips-batch-share, .clips-batch-once, .clips-batch-clear, #clipsFilterBar'
                 )) ||
               node.dataset.studioJustDragged === '1'
             );
@@ -2117,7 +2340,47 @@
     titleEl.textContent = blockDisplayTitle(block) || 'video';
   }
 
+  function requestVideoFullscreen() {
+    var wrap = el('clipsVideoStageWrap');
+    var stage = el('clipsVideoStage');
+    var player =
+      (stage && (stage.querySelector('mux-player') || stage.querySelector('video'))) || null;
+    var target = wrap || player;
+    if (!target) return;
+    if (typeof target.requestFullscreen === 'function') {
+      try {
+        var result = target.requestFullscreen();
+        if (result && typeof result.catch === 'function') result.catch(function () {});
+      } catch (e) {}
+      return;
+    }
+    if (typeof target.webkitRequestFullscreen === 'function') {
+      try {
+        target.webkitRequestFullscreen();
+      } catch (e) {}
+      return;
+    }
+    if (player && typeof player.webkitEnterFullscreen === 'function') {
+      try {
+        player.webkitEnterFullscreen();
+      } catch (e) {}
+    }
+  }
+
+  function exitVideoFullscreen() {
+    var doc = document;
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement) return;
+    var exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+    if (typeof exit === 'function') {
+      try {
+        var result = exit.call(doc);
+        if (result && typeof result.catch === 'function') result.catch(function () {});
+      } catch (e) {}
+    }
+  }
+
   function closeVideoStage() {
+    exitVideoFullscreen();
     var stage = el('clipsVideoStage');
     var wrap = el('clipsVideoStageWrap');
     var shared = window.BurnfolderStreamShared;
@@ -2144,8 +2407,11 @@
       if (shell.mountBar) shell.mountBar();
     }
 
+    var playKind = effectiveBlockKind(block) || block.kind;
+    var isVideo = playKind === 'video';
+
     // Same clip already active → pause/resume. Different mix of same song → switch.
-    if (player && block.kind !== 'video' && typeof player.togglePause === 'function') {
+    if (player && !isVideo && typeof player.togglePause === 'function') {
       var sameClip =
         typeof player.isActivePlaybackId === 'function' && player.isActivePlaybackId(block.playbackId);
       if (sameClip) {
@@ -2164,11 +2430,16 @@
       name: block.filename || title,
       passthrough: block.passthrough || block.filename || title,
       playbackId: block.playbackId,
-      kind: block.kind === 'video' ? 'video' : 'audio',
-      hasVideoTrack: block.kind === 'video'
+      kind: isVideo ? 'video' : 'audio',
+      hasVideoTrack: isVideo
     };
 
-    if (block.kind === 'video') {
+    if (isVideo) {
+      // Leave playlist drill-in so the video stage isn't buried under collection chrome.
+      if (openGroupId) {
+        openGroupId = null;
+        renderBoard();
+      }
       var stage = el('clipsVideoStage');
       var wrap = el('clipsVideoStageWrap');
       var shared = window.BurnfolderStreamShared;
@@ -2482,7 +2753,12 @@
 
   function activateBlock(block) {
     if (!block) return;
-    switch (block.kind) {
+    var playKind = effectiveBlockKind(block) || block.kind;
+    if (selectMode && playKind === 'video') {
+      toggleBlockSelected(block.id);
+      return;
+    }
+    switch (playKind) {
       case 'audio':
         if (openGroupId) {
           playCollectionFrom(0, block.playbackId);
@@ -2564,6 +2840,26 @@
       });
   }
 
+  function maybeCompressVideo(file, kind) {
+    if (kind !== 'video') return Promise.resolve(file);
+    var compress = window.BurnfolderVideoCompress;
+    if (!compress || typeof compress.compressIfNeeded !== 'function') {
+      return Promise.resolve(file);
+    }
+    return compress.compressIfNeeded(file, {
+      onProgress: function (pct) {
+        var percent = Math.round((pct || 0) * 100);
+        setStatus('compressing ' + percent + '%');
+        updateUploadRow(file, {
+          percent: percent,
+          status: 'working',
+          phase: 'compressing',
+          message: 'compressing ' + percent + '%'
+        });
+      }
+    });
+  }
+
   function uploadMuxPayload(file, kind, opts) {
     var options = opts || {};
     var cloud = window.BurnfolderAssetCloud;
@@ -2571,41 +2867,43 @@
       return Promise.reject(new Error('mux upload unavailable'));
     }
     if (!options.skipQueueRow) beginUploadRow(file);
-    return cloud
-      .addFiles([file], {
-        onProgress: function (_file, pct, phase) {
-          var percent = Math.round(pct || 0);
-          var label = phase || 'uploading';
-          setStatus(label + ' ' + percent + '%');
-          updateUploadRow(file, {
-            percent: percent,
-            status: 'working',
-            phase: label,
-            message: label + ' ' + percent + '%'
-          });
-        }
-      })
-      .then(function (assets) {
-        var asset = assets && assets[0];
-        var playbackId = asset && (asset.muxPlaybackId || asset.playbackId);
-        if (!playbackId) {
-          throw new Error(
-            (assets && assets.length === 0
-              ? 'mux upload failed'
-              : 'mux upload failed — no playback id')
-          );
-        }
-        finishUploadRow(file, true);
-        return {
-          kind: kind,
-          title: asset.displayTitle || asset.name || file.name.replace(/\.[^.]+$/, ''),
-          playbackId: playbackId,
-          filename: file.name,
-          passthrough: asset.muxPassthrough || file.name,
-          contentType: file.type || '',
-          size: file.size || 0
-        };
-      })
+    return maybeCompressVideo(file, kind).then(function (uploadFile) {
+      return cloud
+        .addFiles([uploadFile], {
+          onProgress: function (_file, pct, phase) {
+            var percent = Math.round(pct || 0);
+            var label = phase || 'uploading';
+            setStatus(label + ' ' + percent + '%');
+            updateUploadRow(file, {
+              percent: percent,
+              status: 'working',
+              phase: label,
+              message: label + ' ' + percent + '%'
+            });
+          }
+        })
+        .then(function (assets) {
+          var asset = assets && assets[0];
+          var playbackId = asset && (asset.muxPlaybackId || asset.playbackId);
+          if (!playbackId) {
+            throw new Error(
+              (assets && assets.length === 0
+                ? 'mux upload failed'
+                : 'mux upload failed — no playback id')
+            );
+          }
+          finishUploadRow(file, true);
+          return {
+            kind: kind,
+            title: asset.displayTitle || asset.name || file.name.replace(/\.[^.]+$/, ''),
+            playbackId: playbackId,
+            filename: file.name,
+            passthrough: asset.muxPassthrough || file.name,
+            contentType: file.type || '',
+            size: file.size || 0
+          };
+        });
+    })
       .catch(function (err) {
         finishUploadRow(file, false, (err && err.message) || 'failed');
         throw err;
@@ -2741,7 +3039,8 @@
   }
 
   function openUploadedVideo(block) {
-    if (!block || block.kind !== 'video' || !block.playbackId) return;
+    if (!block || !block.playbackId) return;
+    if (effectiveBlockKind(block) !== 'video' && block.kind !== 'video') return;
     // Leave folder/collection drill-in so the stage is visible on the board.
     if (openFolderId) closeFolder();
     else if (openGroupId) closeCollection();
@@ -2936,6 +3235,17 @@
                   return b && b.playbackId === lastVideo.playbackId;
                 })) ||
               lastVideo;
+            lastUploadedVideoId = live.id || lastUploadedVideoId;
+            haptic([12, 40, 12]);
+            setStatus('ready — share', {
+              sticky: true,
+              action: {
+                label: 'share',
+                onClick: function () {
+                  shareClip(live);
+                }
+              }
+            });
             openUploadedVideo(live);
           }
         });
@@ -3262,6 +3572,31 @@
         downloadClip(findBlock(dlBlockEl.getAttribute('data-block-id')));
         return;
       }
+      var shareOnceBtn = event.target.closest('[data-share-once]');
+      if (shareOnceBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeAllClipMenus();
+        var shareOnceBlockEl = shareOnceBtn.closest('.clips-block');
+        if (!shareOnceBlockEl) return;
+        var shareOnceFolderItemId = shareOnceBlockEl.getAttribute('data-folder-item-id');
+        if (shareOnceFolderItemId) {
+          var shareOnceFolder = findBlock(openFolderId);
+          var shareOnceItem =
+            store.findFolderItem && state
+              ? store.findFolderItem(state, openFolderId, shareOnceFolderItemId)
+              : null;
+          if (!shareOnceItem && shareOnceFolder) {
+            shareOnceItem = (shareOnceFolder.items || []).find(function (row) {
+              return row && row.id === shareOnceFolderItemId;
+            });
+          }
+          shareClip(folderItemAsBlock(shareOnceItem), { oneTime: true });
+          return;
+        }
+        shareClip(findBlock(shareOnceBlockEl.getAttribute('data-block-id')), { oneTime: true });
+        return;
+      }
       var shareBtn = event.target.closest('[data-share]');
       if (shareBtn) {
         event.preventDefault();
@@ -3285,6 +3620,42 @@
           return;
         }
         shareClip(findBlock(shareBlockEl.getAttribute('data-block-id')));
+        return;
+      }
+      var filterBtn = event.target.closest('[data-filter]');
+      if (filterBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        boardKindFilter = filterBtn.getAttribute('data-filter') || 'all';
+        renderBoard();
+        return;
+      }
+      var selectToggle = event.target.closest('[data-select-toggle]');
+      if (selectToggle) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectMode = !selectMode;
+        if (!selectMode) clearSelection();
+        renderBoard();
+        return;
+      }
+      if (event.target.closest('#clipsBatchShare')) {
+        event.preventDefault();
+        event.stopPropagation();
+        shareBlocks(selectedBlocks());
+        return;
+      }
+      if (event.target.closest('#clipsBatchOnce')) {
+        event.preventDefault();
+        event.stopPropagation();
+        shareBlocks(selectedBlocks(), { oneTime: true });
+        return;
+      }
+      if (event.target.closest('#clipsBatchClear')) {
+        event.preventDefault();
+        event.stopPropagation();
+        clearSelection();
+        renderBoard();
         return;
       }
       var removeBtn = event.target.closest('[data-remove]');
@@ -3469,6 +3840,15 @@
       videoClose.addEventListener('click', function (event) {
         event.preventDefault();
         closeVideoStage();
+      });
+    }
+
+    var videoFullscreen = el('clipsVideoStageFullscreen');
+    if (videoFullscreen && videoFullscreen.dataset.bound !== '1') {
+      videoFullscreen.dataset.bound = '1';
+      videoFullscreen.addEventListener('click', function (event) {
+        event.preventDefault();
+        requestVideoFullscreen();
       });
     }
 

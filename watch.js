@@ -199,8 +199,17 @@
 
     if (titleEl) titleEl.textContent = share.title || 'untitled';
     if (subtitleEl) {
-      if (share.subtitle) {
-        subtitleEl.textContent = share.subtitle;
+      var notes = [];
+      if (share.subtitle) notes.push(share.subtitle);
+      if (share.oneTime) notes.push('one-time link');
+      if (share.expiresAt) {
+        var expiresMs = Date.parse(share.expiresAt);
+        if (!isNaN(expiresMs)) {
+          notes.push('expires ' + new Date(expiresMs).toLocaleString());
+        }
+      }
+      if (notes.length) {
+        subtitleEl.textContent = notes.join(' · ');
         subtitleEl.hidden = false;
       } else {
         subtitleEl.hidden = true;
