@@ -756,62 +756,64 @@
         row.appendChild(fields);
         row.appendChild(removeBtn);
 
-        row.addEventListener('dragstart', function (event) {
-          studioPlaylistTrackDragId = track.id;
-          event.dataTransfer.setData(STUDIO_PLAYLIST_TRACK_MIME, track.id);
-          event.dataTransfer.setData('text/plain', track.id);
-          event.dataTransfer.effectAllowed = 'move';
-          row.classList.add('is-dragging');
-        });
-
-        row.addEventListener('dragend', function () {
-          studioPlaylistTrackDragId = null;
-          row.classList.remove('is-dragging');
-          wrap.querySelectorAll('.studio-playlist-track-row').forEach(function (el) {
-            el.classList.remove('is-drop-before', 'is-drop-after');
-          });
-        });
-
-        row.addEventListener('dragover', function (event) {
-          if (Array.from(event.dataTransfer.types).indexOf(STUDIO_PLAYLIST_TRACK_MIME) < 0) {
-            return;
-          }
-          event.preventDefault();
-          event.dataTransfer.dropEffect = 'move';
-
-          const draggedId = studioPlaylistTrackDragId;
-          if (!draggedId || draggedId === track.id) return;
-
-          wrap.querySelectorAll('.studio-playlist-track-row').forEach(function (el) {
-            el.classList.remove('is-drop-before', 'is-drop-after');
+        if (!wirePointerPlaylistTrackReorder(row, block, wrap)) {
+          row.addEventListener('dragstart', function (event) {
+            studioPlaylistTrackDragId = track.id;
+            event.dataTransfer.setData(STUDIO_PLAYLIST_TRACK_MIME, track.id);
+            event.dataTransfer.setData('text/plain', track.id);
+            event.dataTransfer.effectAllowed = 'move';
+            row.classList.add('is-dragging');
           });
 
-          const rect = row.getBoundingClientRect();
-          const before = event.clientY < rect.top + rect.height / 2;
-          row.classList.add(before ? 'is-drop-before' : 'is-drop-after');
-        });
+          row.addEventListener('dragend', function () {
+            studioPlaylistTrackDragId = null;
+            row.classList.remove('is-dragging');
+            wrap.querySelectorAll('.studio-playlist-track-row').forEach(function (el) {
+              el.classList.remove('is-drop-before', 'is-drop-after');
+            });
+          });
 
-        row.addEventListener('dragleave', function (event) {
-          if (row.contains(event.relatedTarget)) return;
-          row.classList.remove('is-drop-before', 'is-drop-after');
-        });
+          row.addEventListener('dragover', function (event) {
+            if (Array.from(event.dataTransfer.types).indexOf(STUDIO_PLAYLIST_TRACK_MIME) < 0) {
+              return;
+            }
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
 
-        row.addEventListener('drop', function (event) {
-          if (Array.from(event.dataTransfer.types).indexOf(STUDIO_PLAYLIST_TRACK_MIME) < 0) {
-            return;
-          }
-          event.preventDefault();
+            const draggedId = studioPlaylistTrackDragId;
+            if (!draggedId || draggedId === track.id) return;
 
-          const draggedId = event.dataTransfer.getData(STUDIO_PLAYLIST_TRACK_MIME);
-          if (!draggedId || draggedId === track.id) return;
+            wrap.querySelectorAll('.studio-playlist-track-row').forEach(function (el) {
+              el.classList.remove('is-drop-before', 'is-drop-after');
+            });
 
-          const rect = row.getBoundingClientRect();
-          const before = event.clientY < rect.top + rect.height / 2;
-          let finalIndex = index;
-          if (!before) finalIndex += 1;
+            const rect = row.getBoundingClientRect();
+            const before = event.clientY < rect.top + rect.height / 2;
+            row.classList.add(before ? 'is-drop-before' : 'is-drop-after');
+          });
 
-          reorderBlockTrackToFinalIndex(block.id, draggedId, finalIndex);
-        });
+          row.addEventListener('dragleave', function (event) {
+            if (row.contains(event.relatedTarget)) return;
+            row.classList.remove('is-drop-before', 'is-drop-after');
+          });
+
+          row.addEventListener('drop', function (event) {
+            if (Array.from(event.dataTransfer.types).indexOf(STUDIO_PLAYLIST_TRACK_MIME) < 0) {
+              return;
+            }
+            event.preventDefault();
+
+            const draggedId = event.dataTransfer.getData(STUDIO_PLAYLIST_TRACK_MIME);
+            if (!draggedId || draggedId === track.id) return;
+
+            const rect = row.getBoundingClientRect();
+            const before = event.clientY < rect.top + rect.height / 2;
+            let finalIndex = index;
+            if (!before) finalIndex += 1;
+
+            reorderBlockTrackToFinalIndex(block.id, draggedId, finalIndex);
+          });
+        }
 
         wrap.appendChild(row);
       });
@@ -1558,7 +1560,6 @@ ${tracks.join(',\n')}
           const track = tracksWithPlayback[index];
           if (!track) return;
           item.dataset.trackId = track.id;
-          item.draggable = true;
           item.classList.add('studio-playlist-track-item');
 
           if (!item.querySelector('.studio-playlist-track-delete')) {
@@ -1578,21 +1579,26 @@ ${tracks.join(',\n')}
             item.appendChild(deleteBtn);
           }
 
-          item.addEventListener('dragstart', function (event) {
-            event.stopPropagation();
-            studioPlaylistTrackDragId = track.id;
-            event.dataTransfer.setData(STUDIO_PLAYLIST_TRACK_MIME, track.id);
-            event.dataTransfer.setData('text/plain', track.id);
-            event.dataTransfer.effectAllowed = 'move';
-            item.classList.add('is-dragging');
-            list.classList.add('is-playlist-track-drag');
-          });
+          if (!wirePointerPlaylistTrackReorder(item, block, container)) {
+            item.draggable = true;
+            item.addEventListener('dragstart', function (event) {
+              event.stopPropagation();
+              studioPlaylistTrackDragId = track.id;
+              event.dataTransfer.setData(STUDIO_PLAYLIST_TRACK_MIME, track.id);
+              event.dataTransfer.setData('text/plain', track.id);
+              event.dataTransfer.effectAllowed = 'move';
+              item.classList.add('is-dragging');
+              list.classList.add('is-playlist-track-drag');
+            });
 
-          item.addEventListener('dragend', function () {
-            studioPlaylistTrackDragId = null;
-            item.classList.remove('is-dragging');
-            clearPlaylistTrackDropMarkers(container);
-          });
+            item.addEventListener('dragend', function () {
+              studioPlaylistTrackDragId = null;
+              item.classList.remove('is-dragging');
+              clearPlaylistTrackDropMarkers(container);
+            });
+          } else {
+            item.draggable = false;
+          }
         });
       });
     }
@@ -2222,6 +2228,171 @@ ${tracks.join(',\n')}
     const STUDIO_PLAYLIST_TRACK_MIME = 'application/x-burnfolder-playlist-track';
     let studioPlaylistTrackDragId = null;
 
+    function studioDndApi() {
+      return window.BurnfolderStudioDnD || null;
+    }
+
+    function clearPlaylistRowMarkers(root) {
+      if (!root) return;
+      root
+        .querySelectorAll('.is-drop-before, .is-drop-after, .is-drop-target, .is-merge-target')
+        .forEach(function (el) {
+          el.classList.remove('is-drop-before', 'is-drop-after', 'is-drop-target', 'is-merge-target');
+        });
+    }
+
+    function hitFromPoint(clientX, clientY, skip) {
+      const api = studioDndApi();
+      if (api && typeof api.hitElementsFromPoint === 'function') {
+        return api.hitElementsFromPoint(clientX, clientY, skip || []);
+      }
+      return document.elementFromPoint(clientX, clientY);
+    }
+
+    function wirePointerPlaylistTrackReorder(row, block, listRoot) {
+      const api = studioDndApi();
+      if (!api || typeof api.attachGhostDrag !== 'function') return false;
+
+      row.draggable = false;
+      api.attachGhostDrag(row, {
+        handle: row.classList.contains('studio-playlist-track-row')
+          ? '.studio-playlist-track-drag'
+          : '.studio-playlist-track-item',
+        shouldIgnore: function (event) {
+          return !!(
+            event.target &&
+            event.target.closest(
+              'input, textarea, button:not(.studio-playlist-track-drag), a, select, .studio-playlist-track-remove, .studio-playlist-track-delete'
+            )
+          );
+        },
+        onDragStart: function () {
+          studioPlaylistTrackDragId = row.dataset.trackId || '';
+        },
+        onDragMove: function (clientX, clientY) {
+          clearPlaylistRowMarkers(listRoot);
+          const hit = hitFromPoint(clientX, clientY, [row]);
+          if (!hit) return;
+          const target =
+            hit.closest('.studio-playlist-track-row') ||
+            hit.closest('.studio-playlist-track-item') ||
+            hit.closest('.studio-track-drop-end');
+          if (!target || target === row) return;
+          if (target.classList.contains('studio-track-drop-end')) {
+            target.classList.add('is-drop-before');
+            return;
+          }
+          const rect = target.getBoundingClientRect();
+          const before = clientY < rect.top + rect.height / 2;
+          target.classList.add(before ? 'is-drop-before' : 'is-drop-after');
+        },
+        onDragEnd: function () {
+          clearPlaylistRowMarkers(listRoot);
+          studioPlaylistTrackDragId = null;
+        },
+        onDrop: function (clientX, clientY) {
+          const draggedId = row.dataset.trackId;
+          if (!draggedId) return;
+          const hit = hitFromPoint(clientX, clientY, [row]);
+          clearPlaylistRowMarkers(listRoot);
+          if (!hit) return;
+          const dropEnd = hit.closest('.studio-track-drop-end');
+          if (dropEnd) {
+            reorderBlockTrackToFinalIndex(block.id, draggedId, block.tracks.length);
+            return;
+          }
+          const target =
+            hit.closest('.studio-playlist-track-row') ||
+            hit.closest('.studio-playlist-track-item');
+          if (!target || target === row) return;
+          const targetId = target.dataset.trackId;
+          if (!targetId || targetId === draggedId) return;
+          const targetIndex = block.tracks.findIndex(function (t) {
+            return t.id === targetId;
+          });
+          if (targetIndex < 0) return;
+          const rect = target.getBoundingClientRect();
+          let finalIndex = targetIndex;
+          if (clientY >= rect.top + rect.height / 2) finalIndex += 1;
+          reorderBlockTrackToFinalIndex(block.id, draggedId, finalIndex);
+        }
+      });
+      return true;
+    }
+
+    function wirePointerPreviewBlockReorder(shell, wrap) {
+      const api = studioDndApi();
+      if (!api || typeof api.attachGhostDrag !== 'function') return false;
+      const handle = shell.querySelector('.studio-bubble-drag');
+      if (!handle) return false;
+
+      handle.draggable = false;
+      api.attachGhostDrag(shell, {
+        handle: '.studio-bubble-drag',
+        onDragStart: function () {
+          draggingBlockId = shell.dataset.blockId;
+          shell.classList.add('is-dragging');
+        },
+        onDragMove: function (clientX, clientY) {
+          clearStudioDropMarkers(wrap, draggingBlockId);
+          const hit = hitFromPoint(clientX, clientY, [shell]);
+          if (!hit) return;
+          const target = hit.closest('.studio-preview-bubble');
+          if (!target || target === shell) return;
+          const draggedBlock = entryBlocks.find(function (b) {
+            return b.id === draggingBlockId;
+          });
+          const targetBlock = entryBlocks.find(function (b) {
+            return b.id === target.dataset.blockId;
+          });
+          const mergeDrop =
+            isPlaylistMergeDrop({ clientX: clientX, clientY: clientY }, target) &&
+            canMergeIntoPlaylist(draggedBlock, targetBlock);
+          target.classList.add('is-drop-target');
+          target.classList.toggle('is-merge-target', mergeDrop);
+          const rect = target.getBoundingClientRect();
+          const before = clientY < rect.top + rect.height / 2;
+          target.classList.toggle('is-drop-before', !mergeDrop && before);
+          target.classList.toggle('is-drop-after', !mergeDrop && !before);
+        },
+        onDragEnd: function () {
+          draggingBlockId = null;
+          clearStudioDropMarkers(wrap);
+        },
+        onDrop: function (clientX, clientY) {
+          const draggedId = shell.dataset.blockId;
+          clearStudioDropMarkers(wrap);
+          draggingBlockId = null;
+          if (!draggedId) return;
+          const hit = hitFromPoint(clientX, clientY, [shell]);
+          if (!hit) return;
+          const target = hit.closest('.studio-preview-bubble');
+          if (!target || target.dataset.blockId === draggedId) return;
+
+          if (
+            isPlaylistMergeDrop({ clientX: clientX, clientY: clientY }, target) &&
+            mergeIntoPlaylist(target.dataset.blockId, draggedId)
+          ) {
+            return;
+          }
+
+          const fromIndex = entryBlocks.findIndex(function (b) {
+            return b.id === draggedId;
+          });
+          let toIndex = entryBlocks.findIndex(function (b) {
+            return b.id === target.dataset.blockId;
+          });
+          if (fromIndex < 0 || toIndex < 0) return;
+          const rect = target.getBoundingClientRect();
+          const insertBefore = clientY < rect.top + rect.height / 2;
+          if (!insertBefore) toIndex += 1;
+          if (fromIndex < toIndex) toIndex -= 1;
+          moveBlock(fromIndex, toIndex);
+        }
+      });
+      return true;
+    }
+
     function renderStudioBlockInspector(blockId) {
       const root = document.getElementById('studioBlockInspector');
       if (!root || !isStudioEditor()) return;
@@ -2575,6 +2746,8 @@ ${tracks.join(',\n')}
 
     function attachStudioPreviewReorder(wrap) {
       studioPreviewBubbles(wrap).forEach(function (shell) {
+        if (wirePointerPreviewBlockReorder(shell, wrap)) return;
+
         const handle = shell.querySelector('.studio-bubble-drag');
         if (!handle) return;
 
@@ -2593,6 +2766,8 @@ ${tracks.join(',\n')}
       });
 
       studioPreviewBubbles(wrap).forEach(function (shell) {
+        if (shell.dataset.studioGhostDndBound === '1') return;
+
         shell.addEventListener('dragover', function (event) {
           if (!isStudioBlockDrag(event)) return;
           event.preventDefault();

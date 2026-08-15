@@ -48,6 +48,7 @@
     'js/journal-contributions.js',
     'js/cloud-state.js',
     'js/stream-shared.js',
+    'js/studio-dnd.js',
     'js/upload-queue.js',
     'js/cloud-ui.js',
     'js/vault-upload.js',

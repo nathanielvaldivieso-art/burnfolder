@@ -3472,10 +3472,13 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
 .studio-playlist-track-drag {
   font-size: 14px;
   line-height: 1;
-  opacity: 0.35;
-  padding-top: 10px;
+  opacity: 0.55;
+  padding: 10px 6px 0;
   letter-spacing: 0;
   cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .studio-playlist-track-thumb {
@@ -4569,7 +4572,7 @@ body.studio-dnd-active {
   cursor: grabbing;
   -webkit-user-select: none;
   user-select: none;
-  overflow: hidden;
+  /* Do not lock overflow — auto-scroll must move scrollports while dragging. */
   overscroll-behavior: none;
   touch-action: none;
 }
@@ -4683,6 +4686,27 @@ body.studio-dnd-active[data-dnd-kind='album'] .studio-stream-library-shelf {
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+.studio-ghost-dnd-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483646;
+  margin: 0;
+  pointer-events: none;
+  opacity: 0.92;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  transition: none !important;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  cursor: grabbing;
+  background: #fff;
+  overflow: hidden;
+}
+
+body.studio-ghost-dnd-active {
+  cursor: grabbing;
 }
 
 .studio-dnd-lift-wrap {
@@ -7436,10 +7460,48 @@ body.clips-clip-dragging {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  overscroll-behavior: none;
 }
 
 body.clips-clip-dragging .clips-block {
   cursor: grabbing;
+}
+
+.clips-block.is-drop-before,
+.clips-block.is-drop-after {
+  box-shadow: none;
+  background: inherit;
+}
+
+.clips-block.is-drop-before::before,
+.clips-block.is-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  background: #000;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.clips-block.is-drop-before::before {
+  top: 0;
+}
+
+.clips-block.is-drop-after::after {
+  bottom: 0;
+}
+
+.clips-collection-drop.is-drop-target,
+.clips-unfiled-shelf.is-drop-target {
+  box-shadow: 0 0 0 2px #000 inset;
+  background: #f7f7f7;
+}
+
+.clips-block.studio-dnd-hold-ready {
+  outline: 2px solid #000;
+  outline-offset: 2px;
 }
 
 .clips-block:focus-visible {

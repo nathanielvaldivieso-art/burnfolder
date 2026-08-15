@@ -14,6 +14,30 @@
   let dragListeners = null;
   let rafId = null;
 
+  /** Edge band (px) that triggers auto-scroll while dragging. */
+  const AUTO_SCROLL_EDGE_PX = 56;
+  /** Max px/frame when the pointer is at the extreme edge. */
+  const AUTO_SCROLL_MAX_PX = 26;
+  /** Known studio scrollports — included even when the pointer is over a sibling pane. */
+  const AUTO_SCROLL_HINTS = [
+    '.studio-editor-mux-list',
+    '.studio-entry-sidebar',
+    '.studio-stream-list',
+    '.studio-preview-frame',
+    '#entryPreview',
+    '.studio-entry-preview',
+    '#clipsBoard',
+    '.clips-board',
+    '.clips-unfiled-shelf',
+    '.clips-unfiled-grid',
+    '.clips-collection-grid',
+    '.studio-playlist-track-list',
+    '.studio-inspector-panel',
+    '#studioInspector',
+    '.page-wrap',
+    'main.page-wrap'
+  ];
+
   function albumGroupFromEl(el) {
     return el && el.closest ? el.closest('.studio-stream-album-group') : null;
   }
@@ -48,6 +72,129 @@
     return document.querySelectorAll(
       '.studio-stream-library-drop, .studio-stream-library-shelf, .studio-dnd-eject-zone'
     );
+  }
+
+  function canScrollAxis(el, axis) {
+    if (!el) return false;
+    const style = root.getComputedStyle ? root.getComputedStyle(el) : null;
+    if (!style) return false;
+    if (axis === 'y') {
+      const oy = style.overflowY;
+      if (oy !== 'auto' && oy !== 'scroll' && oy !== 'overlay') return false;
+      return el.scrollHeight > el.clientHeight + 1;
+    }
+    const ox = style.overflowX;
+    if (ox !== 'auto' && ox !== 'scroll' && ox !== 'overlay') return false;
+    return el.scrollWidth > el.clientWidth + 1;
+  }
+
+  function collectScrollPorts(clientX, clientY) {
+    const ports = [];
+    const seen = typeof root.Set === 'function' ? new Set() : null;
+
+    function add(el) {
+      if (!el || (seen && seen.has(el))) return;
+      if (seen) seen.add(el);
+      if (ports.indexOf(el) >= 0) return;
+      ports.push(el);
+    }
+
+    const hit = hitElementAt(clientX, clientY);
+    let node = hit;
+    while (node && node !== document.documentElement) {
+      if (canScrollAxis(node, 'y') || canScrollAxis(node, 'x')) add(node);
+      node = node.parentElement;
+    }
+
+    for (let i = 0; i < AUTO_SCROLL_HINTS.length; i += 1) {
+      const found = document.querySelectorAll(AUTO_SCROLL_HINTS[i]);
+      for (let j = 0; j < found.length; j += 1) {
+        const el = found[j];
+        if (canScrollAxis(el, 'y') || canScrollAxis(el, 'x')) add(el);
+      }
+    }
+
+    const scrolling = document.scrollingElement || document.documentElement;
+    if (scrolling) add(scrolling);
+    return ports;
+  }
+
+  function edgeScrollDelta(pointer, start, end, edge) {
+    if (pointer < start + edge) {
+      const t = Math.max(0, Math.min(1, 1 - (pointer - start) / edge));
+      return -Math.ceil(AUTO_SCROLL_MAX_PX * t);
+    }
+    if (pointer > end - edge) {
+      const t = Math.max(0, Math.min(1, 1 - (end - pointer) / edge));
+      return Math.ceil(AUTO_SCROLL_MAX_PX * t);
+    }
+    return 0;
+  }
+
+  /**
+   * Scroll the nearest scrollports when the pointer sits in an edge band.
+   * Returns true if any scrollTop/scrollLeft changed (caller should re-hit-test).
+   */
+  function autoScrollAtPoint(clientX, clientY) {
+    if (typeof clientX !== 'number' || typeof clientY !== 'number') return false;
+    let scrolled = false;
+    const vw = root.innerWidth || document.documentElement.clientWidth || 0;
+    const vh = root.innerHeight || document.documentElement.clientHeight || 0;
+    const ports = collectScrollPorts(clientX, clientY);
+
+    for (let i = 0; i < ports.length; i += 1) {
+      const el = ports[i];
+      const isDoc =
+        el === document.scrollingElement ||
+        el === document.documentElement ||
+        el === document.body;
+      const rect = isDoc
+        ? { top: 0, left: 0, bottom: vh, right: vw, width: vw, height: vh }
+        : el.getBoundingClientRect();
+
+      // Only drive a port when the pointer is over (or just outside) it —
+      // except the document, which always tracks viewport edges.
+      if (!isDoc) {
+        const pad = AUTO_SCROLL_EDGE_PX;
+        if (
+          clientX < rect.left - pad ||
+          clientX > rect.right + pad ||
+          clientY < rect.top - pad ||
+          clientY > rect.bottom + pad
+        ) {
+          continue;
+        }
+      }
+
+      if (canScrollAxis(el, 'y') || isDoc) {
+        const dy = edgeScrollDelta(clientY, rect.top, rect.bottom, AUTO_SCROLL_EDGE_PX);
+        if (dy) {
+          const before = el.scrollTop;
+          el.scrollTop = before + dy;
+          if (el.scrollTop !== before) scrolled = true;
+        }
+      }
+      if (canScrollAxis(el, 'x')) {
+        const dx = edgeScrollDelta(clientX, rect.left, rect.right, AUTO_SCROLL_EDGE_PX);
+        if (dx) {
+          const before = el.scrollLeft;
+          el.scrollLeft = before + dx;
+          if (el.scrollLeft !== before) scrolled = true;
+        }
+      }
+    }
+
+    // Window scroll fallback when scrollingElement is quirky (older WebKit).
+    if (!scrolled && typeof root.scrollBy === 'function') {
+      const dy = edgeScrollDelta(clientY, 0, vh, AUTO_SCROLL_EDGE_PX);
+      const dx = edgeScrollDelta(clientX, 0, vw, AUTO_SCROLL_EDGE_PX);
+      if (dy || dx) {
+        root.scrollBy(dx, dy);
+        scrolled = true;
+      }
+    }
+
+    return scrolled;
   }
 
   function entryPreviewDropAt(clientX, clientY, hit) {
@@ -214,6 +361,11 @@
         return;
       }
       syncGhostPosition();
+      if (autoScrollAtPoint(active.clientX, active.clientY)) {
+        if (dragMoveDistance(active.clientX, active.clientY) >= MIN_DROP_MOVE_PX) {
+          highlightDrop(resolveDrop(active.clientX, active.clientY));
+        }
+      }
       rafId = requestAnimationFrame(tick);
     }
     rafId = requestAnimationFrame(tick);
@@ -508,6 +660,7 @@
     active.clientX = clientX;
     active.clientY = clientY;
     syncGhostPosition();
+    autoScrollAtPoint(clientX, clientY);
     if (dragMoveDistance(clientX, clientY) < MIN_DROP_MOVE_PX) {
       clearTargets();
       return;
@@ -746,10 +899,20 @@
             if (active) moveDrag(clientX, clientY);
             return;
           }
-          if (!touchPointer) {
-            const dist = Math.hypot(clientX - start.x, clientY - start.y);
-            if (dist >= MOUSE_DRAG_PX) beginDrag(clientX, clientY);
+          const dist = Math.hypot(clientX - start.x, clientY - start.y);
+          if (touchPointer) {
+            // Moved before hold completed → user is scrolling; abort drag arming.
+            if (holdTimer && dist > 10) {
+              canceled = true;
+              cleanup();
+              window.removeEventListener('pointerup', onUp, true);
+              window.removeEventListener('pointercancel', onUp, true);
+              window.removeEventListener('touchend', onUp, true);
+              window.removeEventListener('touchcancel', onUp, true);
+            }
+            return;
           }
+          if (dist >= MOUSE_DRAG_PX) beginDrag(clientX, clientY);
         }
 
         function onPointerMove(ev) {
@@ -795,13 +958,251 @@
     });
   }
 
+  /**
+   * Ghost-clone pointer drag for list reorder / custom drops.
+   * Does not lift the source out of the DOM (safe for inputs / contenteditable).
+   * Sensors match attach(): 400ms hold on touch, 6px move on mouse/pen.
+   */
+  function attachGhostDrag(el, spec) {
+    if (!el || !spec || el.dataset.studioGhostDndBound === '1') return;
+    const handleSelector = spec.handle || null;
+    let handle = el;
+    if (handleSelector) {
+      if (el.matches && el.matches(handleSelector)) {
+        handle = el;
+      } else {
+        handle = el.querySelector(handleSelector);
+      }
+    }
+    if (!handle) return;
+    el.dataset.studioGhostDndBound = '1';
+    el.draggable = false;
+
+    const TOUCH_HOLD_MS = typeof spec.holdMs === 'number' ? spec.holdMs : 400;
+    const MOUSE_DRAG_PX = typeof spec.dragPx === 'number' ? spec.dragPx : 6;
+    const touchCapable = spec.touch !== false;
+    const gripOnly = !!(handleSelector && handle !== el);
+
+    // Narrow grips can claim touch immediately; wide/row handles must stay
+    // pan-scrollable until the hold completes or the mouse drag threshold hits.
+    if (gripOnly && touchCapable) handle.style.touchAction = 'none';
+
+    handle.addEventListener('pointerdown', function (e) {
+      if (!e.isPrimary || e.button > 0) return;
+      if (active) return;
+      if (typeof spec.shouldIgnore === 'function' && spec.shouldIgnore(e)) return;
+
+      const touchPointer = e.pointerType === 'touch';
+      if (touchPointer && !touchCapable) return;
+
+      const rect = el.getBoundingClientRect();
+      const grab = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      const start = { x: e.clientX, y: e.clientY };
+      let dragging = false;
+      let canceled = false;
+      const pointerId = e.pointerId;
+      let holdTimer = null;
+      let lastX = e.clientX;
+      let lastY = e.clientY;
+      let ghost = null;
+      let raf = null;
+
+      function clearHoldState() {
+        if (holdTimer) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
+        el.classList.remove('studio-dnd-hold-ready');
+        document.body.classList.remove('studio-dnd-pending');
+      }
+
+      function syncGhost() {
+        raf = null;
+        if (!ghost) return;
+        ghost.style.transform =
+          'translate3d(' + (lastX - grab.x) + 'px, ' + (lastY - grab.y) + 'px, 0)';
+      }
+
+      function scheduleGhost() {
+        if (raf != null) return;
+        raf = requestAnimationFrame(syncGhost);
+      }
+
+      function cleanupDragUi() {
+        clearHoldState();
+        if (raf != null) {
+          cancelAnimationFrame(raf);
+          raf = null;
+        }
+        document.body.classList.remove('studio-dnd-active', 'studio-ghost-dnd-active');
+        el.classList.remove('is-dragging');
+        delete el.dataset.studioDragging;
+        if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+        ghost = null;
+        if (typeof spec.onDragEnd === 'function') spec.onDragEnd();
+        try {
+          if (handle.releasePointerCapture && pointerId != null) {
+            handle.releasePointerCapture(pointerId);
+          }
+        } catch (_) {}
+        window.removeEventListener('pointermove', onPointerMove, true);
+        window.removeEventListener('touchmove', onTouchMove, true);
+        window.removeEventListener('pointerup', onUp, true);
+        window.removeEventListener('pointercancel', onUp, true);
+        window.removeEventListener('touchend', onUp, true);
+        window.removeEventListener('touchcancel', onUp, true);
+      }
+
+      function beginDrag(clientX, clientY) {
+        if (dragging || canceled) return;
+        dragging = true;
+        clearHoldState();
+        lastX = clientX;
+        lastY = clientY;
+        try {
+          if (handle.setPointerCapture && pointerId != null) {
+            handle.setPointerCapture(pointerId);
+          }
+        } catch (_) {}
+
+        document.body.classList.add('studio-dnd-active', 'studio-ghost-dnd-active');
+        el.classList.add('is-dragging');
+        el.dataset.studioDragging = '1';
+        if (!gripOnly) handle.style.touchAction = 'none';
+        ghost = el.cloneNode(true);
+        ghost.classList.add('studio-ghost-dnd-ghost');
+        ghost.removeAttribute('id');
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.style.width = Math.max(rect.width, 1) + 'px';
+        ghost.style.height = Math.max(rect.height, 1) + 'px';
+        ghost.style.pointerEvents = 'none';
+        document.body.appendChild(ghost);
+        syncGhost();
+        if (typeof spec.onDragStart === 'function') spec.onDragStart(clientX, clientY);
+        if (typeof spec.onDragMove === 'function') spec.onDragMove(clientX, clientY);
+      }
+
+      function onHoldComplete() {
+        holdTimer = null;
+        if (canceled || dragging) return;
+        el.classList.add('studio-dnd-hold-ready');
+        if (root.navigator && root.navigator.vibrate) {
+          try {
+            root.navigator.vibrate(12);
+          } catch (_) {}
+        }
+        beginDrag(lastX, lastY);
+      }
+
+      if (touchPointer) {
+        document.body.classList.add('studio-dnd-pending');
+        holdTimer = setTimeout(onHoldComplete, TOUCH_HOLD_MS);
+      }
+
+      function onMove(clientX, clientY) {
+        lastX = clientX;
+        lastY = clientY;
+        if (canceled) return;
+        if (!dragging) {
+          const dist = Math.hypot(clientX - start.x, clientY - start.y);
+          if (touchPointer) {
+            if (holdTimer && dist > 10) {
+              canceled = true;
+              cleanupDragUi();
+            }
+            return;
+          }
+          if (dist >= MOUSE_DRAG_PX) beginDrag(clientX, clientY);
+          return;
+        }
+        scheduleGhost();
+        autoScrollAtPoint(clientX, clientY);
+        if (typeof spec.onDragMove === 'function') spec.onDragMove(clientX, clientY);
+      }
+
+      function onPointerMove(ev) {
+        if (dragging && ev.cancelable) ev.preventDefault();
+        onMove(ev.clientX, ev.clientY);
+      }
+
+      function onTouchMove(ev) {
+        if (dragging) ev.preventDefault();
+        const t = ev.touches[0];
+        if (t) onMove(t.clientX, t.clientY);
+      }
+
+      function onUp(ev) {
+        const wasDragging = dragging;
+        let x = lastX;
+        let y = lastY;
+        if (ev && ev.type && ev.type.indexOf('touch') === 0) {
+          const t = ev.changedTouches && ev.changedTouches[0];
+          if (t) {
+            x = t.clientX;
+            y = t.clientY;
+          }
+        } else if (ev && typeof ev.clientX === 'number') {
+          x = ev.clientX;
+          y = ev.clientY;
+        }
+        const wasHold = touchPointer && !wasDragging;
+        cleanupDragUi();
+        if (wasHold) {
+          el.dataset.studioDragHold = '1';
+          setTimeout(function () {
+            delete el.dataset.studioDragHold;
+          }, 120);
+          return;
+        }
+        if (!wasDragging) return;
+        el.dataset.studioJustDragged = '1';
+        setTimeout(function () {
+          delete el.dataset.studioJustDragged;
+        }, 450);
+        if (typeof spec.onDrop === 'function') spec.onDrop(x, y);
+      }
+
+      window.addEventListener('pointermove', onPointerMove, true);
+      window.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+      window.addEventListener('pointerup', onUp, true);
+      window.addEventListener('pointercancel', onUp, true);
+      window.addEventListener('touchend', onUp, true);
+      window.addEventListener('touchcancel', onUp, true);
+    });
+  }
+
+  function hitElementsFromPoint(clientX, clientY, skipEls) {
+    const skip = skipEls || [];
+    const stack = document.elementsFromPoint(clientX, clientY);
+    for (let i = 0; i < stack.length; i += 1) {
+      const node = stack[i];
+      let skipped = false;
+      for (let j = 0; j < skip.length; j += 1) {
+        const s = skip[j];
+        if (s && (node === s || (s.contains && s.contains(node)))) {
+          skipped = true;
+          break;
+        }
+      }
+      if (skipped) continue;
+      if (node.classList && node.classList.contains('studio-dnd-ghost')) continue;
+      if (node.classList && node.classList.contains('clips-drag-ghost')) continue;
+      if (node.classList && node.classList.contains('studio-ghost-dnd-ghost')) continue;
+      return node;
+    }
+    return null;
+  }
+
   root.BurnfolderStudioDnD = {
     attach: attach,
+    attachGhostDrag: attachGhostDrag,
     setDropHandler: setDropHandler,
     registerDropHandler: registerDropHandler,
     unregisterDropHandler: unregisterDropHandler,
     begin: begin,
     end: end,
-    clearTargets: clearTargets
+    clearTargets: clearTargets,
+    autoScrollAtPoint: autoScrollAtPoint,
+    hitElementsFromPoint: hitElementsFromPoint
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -13,6 +13,7 @@
     'js/mux-client.js',
     'js/studio-mux-lib.js',
     'js/stream-shared.js',
+    'js/studio-dnd.js',
     '../shared/playback-context.js',
     '../shared/version-picker.js',
     '../stripe-publishable.js',

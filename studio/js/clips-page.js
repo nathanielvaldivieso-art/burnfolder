@@ -1266,12 +1266,17 @@
    * (version clusters move as one) and never A–Z sorts — photonegative keeps
    * curated order unless you drag it.
    */
-  function reorderOpenCollection(fromId, ontoId) {
+  function reorderOpenCollection(fromId, ontoId, before) {
     var shared = window.BurnfolderStreamShared;
     if (!shared || !openGroupId || !fromId || !ontoId) return false;
     if (fromId === ontoId) return false;
     if (!shared.reorderUniqueSongs) return false;
-    var result = shared.reorderUniqueSongs(fromId, ontoId, openGroupId, true);
+    var result = shared.reorderUniqueSongs(
+      fromId,
+      ontoId,
+      openGroupId,
+      before !== false
+    );
     return !!(result && result.ok);
   }
 
@@ -1762,6 +1767,8 @@
     if (node.dataset.dragBound === '1') return;
     node.dataset.dragBound = '1';
 
+    var TOUCH_HOLD_MS = 400;
+    var MOUSE_DRAG_PX = 8;
     var startX = 0;
     var startY = 0;
     var dragging = false;
@@ -1773,23 +1780,51 @@
     var lastClientY = 0;
     var rafId = null;
     var dropTargetEl = null;
+    var dropBefore = true;
     var captured = false;
+    var holdTimer = null;
+    var pointerType = 'mouse';
+    var scrollRaf = null;
 
-    function setDropTarget(el) {
-      if (dropTargetEl === el) return;
-      if (dropTargetEl) dropTargetEl.classList.remove('is-drop-target');
+    function dndApi() {
+      return window.BurnfolderStudioDnD || null;
+    }
+
+    function clearHoldState() {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      node.classList.remove('studio-dnd-hold-ready');
+      document.body.classList.remove('studio-dnd-pending');
+    }
+
+    function setDropTarget(el, before) {
+      var nextBefore = before !== false;
+      if (dropTargetEl === el && dropBefore === nextBefore) return;
+      if (dropTargetEl) {
+        dropTargetEl.classList.remove('is-drop-target', 'is-drop-before', 'is-drop-after');
+      }
       dropTargetEl = el || null;
-      if (dropTargetEl) dropTargetEl.classList.add('is-drop-target');
+      dropBefore = nextBefore;
+      if (!dropTargetEl) return;
+      dropTargetEl.classList.add('is-drop-target');
+      if (
+        dropTargetEl.classList.contains('clips-block') &&
+        dropTargetEl.getAttribute('data-collection-track') === '1'
+      ) {
+        dropTargetEl.classList.add(dropBefore ? 'is-drop-before' : 'is-drop-after');
+      }
     }
 
     function clearDropTargets() {
       setDropTarget(null);
       document
         .querySelectorAll(
-          '.clips-block.is-drop-target, .clips-collection-drop.is-drop-target, .clips-unfiled-shelf.is-drop-target'
+          '.clips-block.is-drop-target, .clips-block.is-drop-before, .clips-block.is-drop-after, .clips-collection-drop.is-drop-target, .clips-unfiled-shelf.is-drop-target'
         )
         .forEach(function (el) {
-          el.classList.remove('is-drop-target');
+          el.classList.remove('is-drop-target', 'is-drop-before', 'is-drop-after');
         });
     }
 
@@ -1809,17 +1844,52 @@
       rafId = requestAnimationFrame(syncGhost);
     }
 
+    function hitAt(clientX, clientY) {
+      var api = dndApi();
+      if (api && typeof api.hitElementsFromPoint === 'function') {
+        return api.hitElementsFromPoint(clientX, clientY, [ghost, node]);
+      }
+      var stack = document.elementsFromPoint
+        ? document.elementsFromPoint(clientX, clientY)
+        : [document.elementFromPoint(clientX, clientY)];
+      for (var i = 0; i < stack.length; i++) {
+        var el = stack[i];
+        if (!el) continue;
+        if (ghost && (el === ghost || (ghost.contains && ghost.contains(el)))) continue;
+        if (el === node || (node.contains && node.contains(el))) continue;
+        if (el.classList && el.classList.contains('clips-drag-ghost')) continue;
+        return el;
+      }
+      return null;
+    }
+
     function resolveDropTarget(clientX, clientY) {
-      var hit = document.elementFromPoint(clientX, clientY);
+      var hit = hitAt(clientX, clientY);
       if (!hit) return null;
       if (openGroupId) {
         var shelf = hit.closest('#clipsUnfiledShelf');
         var grid = hit.closest('#clipsCollectionGrid');
         var trackTarget = hit.closest('.clips-block[data-collection-track="1"]');
-        if (isCollectionTrack && shelf) return shelf;
-        if (isUnfiled && trackTarget) return trackTarget;
-        if (isUnfiled && grid) return grid;
-        if (isCollectionTrack && trackTarget && trackTarget !== node) return trackTarget;
+        if (isCollectionTrack && shelf) {
+          return { el: shelf, before: true };
+        }
+        if (isUnfiled && trackTarget && trackTarget !== node) {
+          var tRect = trackTarget.getBoundingClientRect();
+          return {
+            el: trackTarget,
+            before: clientY < tRect.top + tRect.height / 2
+          };
+        }
+        if (isUnfiled && grid) {
+          return { el: grid, before: true };
+        }
+        if (isCollectionTrack && trackTarget && trackTarget !== node) {
+          var rect = trackTarget.getBoundingClientRect();
+          return {
+            el: trackTarget,
+            before: clientY < rect.top + rect.height / 2
+          };
+        }
         return null;
       }
       var target = hit.closest('.clips-block[data-block-id]');
@@ -1830,19 +1900,32 @@
         ((block && block.kind === 'audio' && tBlock.kind === 'audio') ||
           (block && block.kind === 'audio' && tBlock.kind === 'album'))
       ) {
-        return target;
+        return { el: target, before: true };
       }
       return null;
     }
 
+    function tickAutoScroll() {
+      scrollRaf = null;
+      if (!dragging) return;
+      var api = dndApi();
+      if (api && typeof api.autoScrollAtPoint === 'function') {
+        api.autoScrollAtPoint(lastClientX, lastClientY);
+      }
+      var resolved = resolveDropTarget(lastClientX, lastClientY);
+      setDropTarget(resolved && resolved.el, resolved && resolved.before);
+      scrollRaf = requestAnimationFrame(tickAutoScroll);
+    }
+
     function beginDrag(event) {
       dragging = true;
+      clearHoldState();
       var rect = node.getBoundingClientRect();
       grabOffsetX = startX - rect.left;
       grabOffsetY = startY - rect.top;
-      lastClientX = event.clientX;
-      lastClientY = event.clientY;
-      document.body.classList.add('clips-clip-dragging');
+      lastClientX = event.clientX != null ? event.clientX : lastClientX;
+      lastClientY = event.clientY != null ? event.clientY : lastClientY;
+      document.body.classList.add('clips-clip-dragging', 'studio-dnd-active');
       ghost = node.cloneNode(true);
       ghost.classList.add('clips-drag-ghost');
       ghost.removeAttribute('data-block-id');
@@ -1862,12 +1945,18 @@
           captured = false;
         }
       }
+      if (scrollRaf == null) scrollRaf = requestAnimationFrame(tickAutoScroll);
     }
 
     function cleanup() {
+      clearHoldState();
       if (rafId != null) {
         cancelAnimationFrame(rafId);
         rafId = null;
+      }
+      if (scrollRaf != null) {
+        cancelAnimationFrame(scrollRaf);
+        scrollRaf = null;
       }
       if (captured && pointerId != null && typeof node.releasePointerCapture === 'function') {
         try {
@@ -1882,12 +1971,25 @@
       dragging = false;
       pointerId = null;
       clearDropTargets();
-      document.body.classList.remove('clips-clip-dragging');
+      document.body.classList.remove('clips-clip-dragging', 'studio-dnd-active');
       if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
       ghost = null;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
+    }
+
+    function resolveLooseBlock() {
+      var loose = findBlock(blockId);
+      if (loose) return loose;
+      if (!playbackId) return null;
+      return {
+        id: blockId || '',
+        kind: 'audio',
+        title: (node.querySelector('.clips-block-title') || {}).textContent || 'track',
+        playbackId: playbackId,
+        passthrough: songKey || ''
+      };
     }
 
     function onMove(event) {
@@ -1897,18 +1999,34 @@
       if (!dragging) {
         var dx = lastClientX - startX;
         var dy = lastClientY - startY;
-        if (Math.hypot(dx, dy) < 8) return;
+        var dist = Math.hypot(dx, dy);
+        if (pointerType === 'touch') {
+          // Finger moved before hold completed → treat as scroll, cancel drag arming.
+          if (holdTimer && dist > 10) {
+            clearHoldState();
+            cleanup();
+            return;
+          }
+          return;
+        }
+        if (dist < MOUSE_DRAG_PX) return;
         beginDrag(event);
       } else {
         scheduleGhost();
+        var api = dndApi();
+        if (api && typeof api.autoScrollAtPoint === 'function') {
+          api.autoScrollAtPoint(lastClientX, lastClientY);
+        }
       }
-      setDropTarget(resolveDropTarget(lastClientX, lastClientY));
+      var resolved = resolveDropTarget(lastClientX, lastClientY);
+      setDropTarget(resolved && resolved.el, resolved && resolved.before);
       if (event.cancelable) event.preventDefault();
     }
 
     function onUp(event) {
       if (pointerId != null && event.pointerId !== pointerId) return;
       var wasDragging = dragging;
+      var wasHold = pointerType === 'touch' && !wasDragging;
       var dropBlock =
         dropTargetEl && dropTargetEl.classList.contains('clips-block') ? dropTargetEl : null;
       var dropShelf =
@@ -1919,8 +2037,16 @@
         dropTargetEl && dropTargetEl.classList.contains('clips-collection-drop')
           ? dropTargetEl
           : null;
+      var insertBefore = dropBefore;
       node.classList.remove('is-dragging');
       cleanup();
+      if (wasHold) {
+        node.dataset.studioDragHold = '1';
+        setTimeout(function () {
+          delete node.dataset.studioDragHold;
+        }, 120);
+        return;
+      }
       if (!wasDragging) return;
       setTimeout(function () {
         delete node.dataset.studioJustDragged;
@@ -1931,9 +2057,37 @@
           unfileFromOpenCollection(playbackId, songKey);
           return;
         }
-        if (isUnfiled && (dropGrid || (dropBlock && dropBlock.getAttribute('data-collection-track') === '1'))) {
-          var looseBlock = findBlock(blockId);
-          if (looseBlock) fileIntoOpenCollection(looseBlock);
+        if (
+          isUnfiled &&
+          (dropGrid || (dropBlock && dropBlock.getAttribute('data-collection-track') === '1'))
+        ) {
+          var looseBlock = resolveLooseBlock();
+          if (looseBlock) {
+            fileIntoOpenCollection(looseBlock).then(function (ok) {
+              if (!ok) return;
+              if (
+                dropBlock &&
+                dropBlock.getAttribute('data-collection-track') === '1' &&
+                typeof window.BurnfolderStreamShared !== 'undefined' &&
+                window.BurnfolderStreamShared.reorderUniqueSongs
+              ) {
+                var ontoKey =
+                  dropBlock.getAttribute('data-song-key') ||
+                  dropBlock.getAttribute('data-playback-id') ||
+                  '';
+                var fromKey = songKey || playbackId;
+                if (fromKey && ontoKey && fromKey !== ontoKey) {
+                  window.BurnfolderStreamShared.reorderUniqueSongs(
+                    fromKey,
+                    ontoKey,
+                    openGroupId,
+                    insertBefore
+                  );
+                  refresh();
+                }
+              }
+            });
+          }
           return;
         }
         if (
@@ -1942,12 +2096,12 @@
           dropBlock.getAttribute('data-collection-track') === '1' &&
           dropBlock !== node
         ) {
-          var ontoKey =
+          var onto =
             dropBlock.getAttribute('data-song-key') ||
             dropBlock.getAttribute('data-playback-id') ||
             '';
-          var fromKey = songKey || playbackId;
-          if (reorderOpenCollection(fromKey, ontoKey)) {
+          var from = songKey || playbackId;
+          if (reorderOpenCollection(from, onto, insertBefore)) {
             setStatus('sorted');
             refresh();
           }
@@ -1977,10 +2131,29 @@
       lastClientX = event.clientX;
       lastClientY = event.clientY;
       pointerId = event.pointerId;
+      pointerType = event.pointerType || 'mouse';
       dragging = false;
+      clearHoldState();
       window.addEventListener('pointermove', onMove, { passive: false });
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onUp);
+
+      if (pointerType === 'touch') {
+        document.body.classList.add('studio-dnd-pending');
+        holdTimer = setTimeout(function () {
+          holdTimer = null;
+          if (dragging) return;
+          node.classList.add('studio-dnd-hold-ready');
+          if (navigator.vibrate) {
+            try {
+              navigator.vibrate(12);
+            } catch (err) {
+              /* ignore */
+            }
+          }
+          beginDrag({ clientX: lastClientX, clientY: lastClientY });
+        }, TOUCH_HOLD_MS);
+      }
     });
   }
 

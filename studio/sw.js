@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v74',
+  cacheName: 'burnfolder-stream-v75',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',
@@ -15,6 +15,7 @@ self.createBurnfolderServiceWorker({
     '/studio/js/studio-site-menu.js',
     '/studio/js/clips-page.js',
     '/studio/js/clips-store.js',
+    '/studio/js/studio-dnd.js',
     '/studio/js/studio-playback-shell.js',
     '/studio/js/studio-version.js',
     '/studio/js/stream-album-page.js',

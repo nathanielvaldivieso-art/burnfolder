@@ -44,8 +44,10 @@ See also: `.cursor/rules/studio-stream-playback.mdc` for mux-player HTML + mount
 
 ## Scroll vs tap
 
-- Page scroll: never block except during active drag (`body.studio-dnd-active`).
+- Page scroll: never block except during active drag (`body.studio-dnd-active` uses `touch-action: none` + `preventDefault`, not `overflow: hidden`).
+- While dragging, `BurnfolderStudioDnD.autoScrollAtPoint` scrolls nearest scrollports when the pointer sits in an edge band — required for long lists.
 - `body.studio-dnd-pending` (hold timer): do not set `overflow: hidden` — only the grip hold state.
+- Movement > 10px during hold arming cancels the drag (treat as scroll).
 - Movement > 10px (`TAP_SLOP_PX`) = scroll/drag, not tap.
 - After drag: honor `dataset.studioJustDragged`, `studioDragging`, `studioDragHold` — skip play.
 
