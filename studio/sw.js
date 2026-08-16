@@ -2,12 +2,16 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v76-videopass2',
+  cacheName: 'burnfolder-stream-v77-sharefix',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',
     '/songs.js',
     '/shared/site-version.js',
+    '/shared/share-hub-ui.js',
+    '/studio/js/share-links.js',
+    '/studio/js/stream-song-page.js',
+    '/studio/js/song-designer-page.js',
     '/shared/mux-playback.js',
     '/shared/playback-debug.js',
     '/shared/playback-recall.js',

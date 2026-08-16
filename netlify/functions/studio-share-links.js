@@ -134,6 +134,22 @@ exports.handler = async function (event) {
   if (!tracks.length) {
     return { statusCode: 400, headers, body: JSON.stringify({ message: 'tracks required' }) };
   }
+  const cleanedTracks = tracks
+    .filter(function (t) {
+      return t && t.playbackId;
+    })
+    .map(function (t) {
+      return {
+        title: String(t.title || 'untitled'),
+        playbackId: String(t.playbackId)
+      };
+    });
+  if (!cleanedTracks.length) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: 'tracks need playbackId' }) };
+  }
+  if ((scope === 'version' || scope === 'video') && cleanedTracks.length !== 1) {
+    return { statusCode: 400, headers, body: JSON.stringify({ message: scope + ' shares need exactly one track' }) };
+  }
 
   const token = newToken();
   const oneTime = !!(body.oneTime || body.maxPlays === 1);
@@ -142,12 +158,14 @@ exports.handler = async function (event) {
     token: token,
     scope: scope,
     groupKey: body.groupKey || '',
-    playbackId: body.playbackId || (scope === 'version' || scope === 'video' ? tracks[0].playbackId : ''),
+    playbackId:
+      body.playbackId ||
+      (scope === 'version' || scope === 'video' ? cleanedTracks[0].playbackId : ''),
     albumId: body.albumId || '',
-    title: body.title || tracks[0].title || 'untitled',
+    title: body.title || cleanedTracks[0].title || 'untitled',
     subtitle: body.subtitle || '',
     coverArt: body.coverArt || '',
-    tracks: tracks,
+    tracks: cleanedTracks,
     createdAt: new Date().toISOString(),
     expiresAt: resolveExpiresAt(body, scope),
     maxPlays: maxPlays,
@@ -158,6 +176,17 @@ exports.handler = async function (event) {
     downloadCount: 0,
     lastDownloadedAt: null
   });
+  if (
+    (scope === 'version' || scope === 'video') &&
+    share.playbackId &&
+    share.playbackId !== cleanedTracks[0].playbackId
+  ) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ message: 'playbackId must match the shared track' })
+    };
+  }
 
   try {
     await putShare(store, share);

@@ -32,12 +32,18 @@
     const rows = [];
 
     if (options.context === 'album' && tracks.length) {
-      rows.push({ scope: 'album', label: 'Full album (' + tracks.length + ' tracks)', tracks: tracks });
+      rows.push({
+        key: 'album:all',
+        scope: 'album',
+        label: 'Full album (' + tracks.length + ' tracks)',
+        tracks: tracks
+      });
       return rows;
     }
 
     if (versions.length) {
       rows.push({
+        key: 'song:all',
         scope: 'song',
         label: 'All versions (' + versions.length + ')',
         tracks: versions.map(function (song) {
@@ -50,6 +56,7 @@
             ? root.BurnfolderSongVersions.displayTitleForSong(song)
             : song.title;
         rows.push({
+          key: 'version:' + song.playbackId,
           scope: 'version',
           label: label,
           playbackId: song.playbackId,
@@ -59,6 +66,21 @@
     }
 
     return rows;
+  }
+
+  function rowKey(row, idx) {
+    if (row && row.key) return row.key;
+    return (row && row.scope ? row.scope : 'row') + ':' + idx;
+  }
+
+  // Second line of defense: even if the API ever returns a wider set than asked for,
+  // only render links that belong to this song/album so copy can't send someone
+  // else's clip.
+  function belongsToScope(share, options) {
+    if (!share) return false;
+    if (options.albumId) return share.albumId === options.albumId;
+    if (options.groupKey) return share.groupKey === options.groupKey;
+    return true;
   }
 
   function mount(container, opts) {
@@ -123,13 +145,24 @@
 
     function paintCreateOptions() {
       const rows = buildCreateOptions(options);
+      const previous = createSelect.value;
       createSelect.innerHTML = '';
       rows.forEach(function (row, idx) {
         const opt = document.createElement('option');
-        opt.value = String(idx);
+        // Keyed by identity, not list position, so a rebuild between paint and
+        // click can never point at a different item.
+        opt.value = rowKey(row, idx);
         opt.textContent = row.label;
         createSelect.appendChild(opt);
       });
+      if (
+        previous &&
+        rows.some(function (row, idx) {
+          return rowKey(row, idx) === previous;
+        })
+      ) {
+        createSelect.value = previous;
+      }
       createRow.hidden = !rows.length;
     }
 
@@ -152,8 +185,12 @@
 
         const title = document.createElement('p');
         title.className = 'hub-share-item-title';
-        title.textContent = scopeLabel(share.scope);
-        if (share.subtitle) title.textContent += ' · ' + share.subtitle;
+        // Name what the link actually plays — a wrong link is then visible before sending.
+        const what = share.title || scopeLabel(share.scope);
+        title.textContent = what + ' · ' + scopeLabel(share.scope);
+        if (share.subtitle && share.subtitle !== what) {
+          title.textContent += ' · ' + share.subtitle;
+        }
 
         const stats = document.createElement('p');
         stats.className = 'hub-share-item-stats';
@@ -217,7 +254,9 @@
       return api
         .listShares(filters)
         .then(function (rows) {
-          shares = rows;
+          shares = (rows || []).filter(function (share) {
+            return belongsToScope(share, options);
+          });
           paintToggle();
           paintCreateOptions();
           paintList();
@@ -237,9 +276,14 @@
     createBtn.addEventListener('click', function () {
       if (busy) return;
       const rows = buildCreateOptions(options);
-      const idx = parseInt(createSelect.value, 10);
-      const pick = rows[idx];
-      if (!pick || !pick.tracks || !pick.tracks.length) return;
+      const selectedKey = createSelect.value;
+      const pick = rows.filter(function (row, idx) {
+        return rowKey(row, idx) === selectedKey;
+      })[0];
+      if (!pick || !pick.tracks || !pick.tracks.length) {
+        setStatus('pick what to share', 'error');
+        return;
+      }
 
       busy = true;
       createBtn.disabled = true;

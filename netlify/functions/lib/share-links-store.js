@@ -184,13 +184,18 @@ async function deleteShare(store, token) {
 
 async function listShares(store, filters) {
   const index = await readIndex(store);
-  let tokens = index.tokens.slice();
   const f = filters || {};
-  if (f.groupKey && index.byGroup[f.groupKey]) {
-    tokens = index.byGroup[f.groupKey].slice();
-  } else if (f.albumId && index.byAlbum[f.albumId]) {
-    tokens = index.byAlbum[f.albumId].slice();
+  let tokens = index.tokens.slice();
+
+  // Unknown group/album must return [] — never fall through to the global list.
+  // Otherwise a first-time share panel for e.g. "rehearsal" shows every existing
+  // link (including unrelated clips like "adventure"), and copy sends the wrong token.
+  if (f.groupKey) {
+    tokens = index.byGroup[f.groupKey] ? index.byGroup[f.groupKey].slice() : [];
+  } else if (f.albumId) {
+    tokens = index.byAlbum[f.albumId] ? index.byAlbum[f.albumId].slice() : [];
   }
+
   const shares = [];
   for (let i = 0; i < tokens.length; i += 1) {
     const share = await getShare(store, tokens[i]);

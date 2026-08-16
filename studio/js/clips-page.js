@@ -373,18 +373,30 @@
     return false;
   }
 
+  // Never build a stream.mux.com URL by hand: assets without that exact rendition
+  // answer with a tiny error body that the browser saves as the "download".
+  // The server confirms a ready rendition and real media bytes first.
   function muxDownloadUrl(playbackId, filename, kind) {
-    var safeName = filename || (kind === 'audio' ? 'clip.m4a' : 'clip.mp4');
-    // New uploads use static_renditions; audio-only assets expose audio.m4a.
-    var rendition = kind === 'audio' ? 'audio.m4a' : 'highest.mp4';
-    return (
-      'https://stream.mux.com/' +
-      encodeURIComponent(playbackId) +
-      '/' +
-      rendition +
-      '?download=' +
-      encodeURIComponent(safeName)
-    );
+    var params = new URLSearchParams();
+    params.set('playbackId', playbackId);
+    if (filename) params.set('filename', filename);
+    if (kind) params.set('kind', kind);
+    return fetch(getApiBase() + '/mux-download?' + params.toString(), {
+      headers: authHeaders()
+    }).then(function (res) {
+      return res
+        .json()
+        .catch(function () {
+          return null;
+        })
+        .then(function (data) {
+          if (res.ok && data && data.url) return data.url;
+          var message = (data && data.message) || 'download unavailable';
+          var err = new Error(message);
+          err.downloadStatus = (data && data.status) || '';
+          throw err;
+        });
+    });
   }
 
   function saveUrlAsFile(url, filename) {
@@ -403,9 +415,7 @@
     if (!block) return Promise.reject(new Error('nothing to download'));
     var name = clipDownloadName(block);
     if (block.vaultKey) return fetchDownloadUrl(block.vaultKey, name);
-    if (block.playbackId) {
-      return Promise.resolve(muxDownloadUrl(block.playbackId, name, block.kind));
-    }
+    if (block.playbackId) return muxDownloadUrl(block.playbackId, name, block.kind);
     return Promise.reject(new Error('nothing to download'));
   }
 
@@ -424,28 +434,37 @@
       return Promise.resolve();
     }
     var index = 0;
+    var saved = 0;
+    var failures = [];
     var chain = Promise.resolve();
     items.forEach(function (item) {
       chain = chain.then(function () {
         index += 1;
         setStatus('downloading ' + index + '/' + items.length + '…');
+        // One unavailable clip must not abort the rest of the folder.
         return resolveClipDownloadUrl(item)
           .then(function (url) {
             if (!url) throw new Error('no url');
             return saveUrlAsFile(url, clipDownloadName(item));
           })
           .then(function () {
+            saved += 1;
+          })
+          .catch(function (err) {
+            failures.push((item.title || item.filename || 'clip') + ': ' + ((err && err.message) || 'failed'));
+          })
+          .then(function () {
             return downloadDelay(350);
           });
       });
     });
-    return chain
-      .then(function () {
-        setStatus('downloaded ' + items.length);
-      })
-      .catch(function (err) {
-        setStatus((err && err.message) || 'download failed');
-      });
+    return chain.then(function () {
+      if (!failures.length) {
+        setStatus('downloaded ' + saved);
+        return;
+      }
+      setStatus('downloaded ' + saved + ' of ' + items.length + ' — ' + failures[0]);
+    });
   }
 
   function downloadClip(block) {

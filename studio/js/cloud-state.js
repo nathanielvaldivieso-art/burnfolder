@@ -5,11 +5,43 @@
  *
  * Model: last-write-wins. Each key holds one JSON document. Reads return the
  * stored value (or null); writes are debounced per key.
+ *
+ * Local testing against live board data:
+ *   /studio/clips.html?cloud=live
+ * Reads studio-state from burnfolder.com; writes stay on local netlify blobs
+ * so a local experiment cannot overwrite production.
  */
 (function () {
   'use strict';
 
-  function getApiBase() {
+  const LIVE_FUNCTIONS = 'https://burnfolder.com/.netlify/functions';
+  const MIRROR_KEY = 'burnfolder_studio_cloud_mirror';
+
+  function isLocalHost() {
+    const host = location.hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+  }
+
+  function isLiveMirror() {
+    if (!isLocalHost()) return false;
+    try {
+      const params = new URLSearchParams(location.search);
+      const q = String(params.get('cloud') || '').toLowerCase();
+      if (q === 'live' || q === '1') {
+        localStorage.setItem(MIRROR_KEY, 'live');
+        return true;
+      }
+      if (q === 'local' || q === '0') {
+        localStorage.removeItem(MIRROR_KEY);
+        return false;
+      }
+      return localStorage.getItem(MIRROR_KEY) === 'live';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function localFunctionsBase() {
     const cfg = window.BurnfolderStudioConfig || {};
     if (cfg.muxApiBase) return String(cfg.muxApiBase).replace(/\/$/, '');
     const host = location.hostname;
@@ -17,6 +49,13 @@
       (host === 'localhost' || host === '127.0.0.1') && location.port && location.port !== '8888';
     if (isLocalDevServer) return 'http://localhost:8888/.netlify/functions';
     return '/.netlify/functions';
+  }
+
+  function getApiBase(opts) {
+    const options = opts || {};
+    // Mirror reads only — keep writes local so testing cannot clobber live.
+    if (!options.forWrite && isLiveMirror()) return LIVE_FUNCTIONS;
+    return localFunctionsBase();
   }
 
   function whenReady() {
@@ -64,7 +103,11 @@
   function get(key) {
     return whenReady().then(function () {
       begin();
-      return fetch(getApiBase() + '/studio-state?key=' + encodeURIComponent(key))
+      return fetch(getApiBase() + '/studio-state?key=' + encodeURIComponent(key), {
+        headers: (window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.authHeaders
+          ? window.BurnfolderStudioAuth.authHeaders()
+          : {})
+      })
         .then(function (res) {
           if (!res.ok) {
             return res.text().then(function (txt) {
@@ -93,7 +136,7 @@
   function pushNow(key, value, keepalive) {
     return whenReady().then(function () {
       begin();
-      return fetch(getApiBase() + '/studio-state', {
+      return fetch(getApiBase({ forWrite: true }) + '/studio-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: key, value: value }),
@@ -171,6 +214,23 @@
     offline: 'offline'
   };
 
+  function statusLabel(status) {
+    if (isLiveMirror()) {
+      if (status === 'synced') return 'live mirror';
+      if (status === 'syncing') return 'live…';
+      if (status === 'offline') return 'live offline';
+      return 'live mirror';
+    }
+    return STATUS_LABELS[status] || STATUS_LABELS.idle;
+  }
+
+  function statusTitle(status) {
+    if (isLiveMirror()) {
+      return 'reading live studio cloud (writes stay local)';
+    }
+    return 'personal cloud: ' + (STATUS_LABELS[status] || STATUS_LABELS.idle);
+  }
+
   // Small "cloud" indicator in the studio header so you can trust your data is
   // saved before closing the app on the go.
   function ensureNavTools() {
@@ -210,8 +270,8 @@
       el.classList.remove('is-idle', 'is-syncing', 'is-synced', 'is-offline');
       el.classList.add('is-' + known);
       const label = el.querySelector('.studio-sync-label');
-      if (label) label.textContent = STATUS_LABELS[known];
-      el.setAttribute('title', 'personal cloud: ' + STATUS_LABELS[known]);
+      if (label) label.textContent = statusLabel(known);
+      el.setAttribute('title', statusTitle(known));
     }
 
     if (!syncListenerBound) {
@@ -224,8 +284,8 @@
         node.classList.remove('is-idle', 'is-syncing', 'is-synced', 'is-offline');
         node.classList.add('is-' + known);
         const label = node.querySelector('.studio-sync-label');
-        if (label) label.textContent = STATUS_LABELS[known];
-        node.setAttribute('title', 'personal cloud: ' + STATUS_LABELS[known]);
+        if (label) label.textContent = statusLabel(known);
+        node.setAttribute('title', statusTitle(known));
       });
     }
     render(currentStatus);
@@ -247,6 +307,7 @@
     pushNow: pushNow,
     flush: flush,
     remountChrome: remountChrome,
+    isLiveMirror: isLiveMirror,
     getStatus: function () {
       return currentStatus;
     },
