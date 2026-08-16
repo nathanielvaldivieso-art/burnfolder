@@ -5,7 +5,6 @@ const { getStore, connectLambda } = require('@netlify/blobs');
 
 const INDEX_KEY = '__index__';
 const TOKEN_PREFIX = 'sl_';
-const MUX_STREAM_BASE = 'https://stream.mux.com';
 const MUX_IMAGE_BASE = 'https://image.mux.com';
 
 function shareStore(event) {
@@ -21,19 +20,16 @@ function normalizeTrackKind(kind) {
   return kind === 'video' ? 'video' : 'audio';
 }
 
-/** Public Mux static-rendition download URL — same shape used by the studio clips board. */
-function muxDownloadUrl(playbackId, filename, kind) {
-  const isVideo = normalizeTrackKind(kind) === 'video';
-  const safeName = filename || (isVideo ? 'clip.mp4' : 'clip.m4a');
-  const rendition = isVideo ? 'highest.mp4' : 'audio.m4a';
+/**
+ * Token-gated download route. Resolving the rendition server-side (rather than
+ * guessing highest.mp4 / audio.m4a from the sender's stored kind) is what keeps a
+ * video from arriving as audio, or as a tiny Mux error body.
+ */
+function shareDownloadUrl(token, playbackId) {
   return (
-    MUX_STREAM_BASE +
-    '/' +
-    encodeURIComponent(playbackId) +
-    '/' +
-    rendition +
-    '?download=' +
-    encodeURIComponent(safeName)
+    '/.netlify/functions/share-download?t=' +
+    encodeURIComponent(token) +
+    (playbackId ? '&p=' + encodeURIComponent(playbackId) : '')
   );
 }
 
@@ -216,8 +212,8 @@ function publicSharePayload(share) {
         title: t.title,
         playbackId: t.playbackId,
         kind: normalizeTrackKind(t.kind),
-        downloadUrl: muxDownloadUrl(t.playbackId, t.filename, t.kind),
-        posterUrl: normalizeTrackKind(t.kind) === 'video' ? muxPosterUrl(t.playbackId) : ''
+        downloadUrl: shareDownloadUrl(share.token, t.playbackId),
+        posterUrl: muxPosterUrl(t.playbackId)
       };
     }),
     playCount: share.playCount,
@@ -245,7 +241,7 @@ module.exports = {
   deleteShare: deleteShare,
   listShares: listShares,
   publicSharePayload: publicSharePayload,
-  muxDownloadUrl: muxDownloadUrl,
+  shareDownloadUrl: shareDownloadUrl,
   muxPosterUrl: muxPosterUrl,
   TOKEN_PREFIX: TOKEN_PREFIX
 };

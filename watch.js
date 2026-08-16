@@ -25,10 +25,6 @@
     stateEl.hidden = !msg;
   }
 
-  function safeFilename(name, fallback) {
-    var raw = String(name || fallback || 'video').trim();
-    return raw || fallback || 'video';
-  }
 
   function ensurePlayer() {
     if (playerEl) return playerEl;
@@ -57,7 +53,9 @@
     }
     downloadBtn.hidden = false;
     downloadBtn.href = track.downloadUrl;
-    downloadBtn.setAttribute('download', safeFilename(track.title, 'video'));
+    // No download attribute: the server names the file so its extension always
+    // matches the rendition it actually serves.
+    downloadBtn.removeAttribute('download');
   }
 
   function syncTracklist() {
