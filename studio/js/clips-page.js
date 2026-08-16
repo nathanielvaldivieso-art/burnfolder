@@ -16,6 +16,7 @@
   var bound = false;
   var boundRoot = null;
   var windowEventsBound = false;
+  var pageFileDragDepth = 0;
   var statusTimer = null;
   var statusSticky = false;
   var initGeneration = 0;
@@ -1772,10 +1773,15 @@
     if (kind === 'album') {
       var coverMeta = albumCoverMeta(block);
       if (coverMeta.coverArt || coverMeta.coverAssetId) {
+        var coverStyle = coverMeta.coverArt
+          ? ' style="background-image:url(\'' + escapeHtml(coverMeta.coverArt) + '\')"'
+          : '';
         return (
           '<div class="clips-block-media clips-block-media--album" data-album-cover="1" data-group-id="' +
           escapeHtml(block.groupId || '') +
-          '" aria-hidden="true"></div>'
+          '"' +
+          coverStyle +
+          ' aria-hidden="true"></div>'
         );
       }
       return '<div class="clips-block-media clips-block-media--album clips-block-media--empty">playlist</div>';
@@ -1927,6 +1933,8 @@
           /* leave empty */
         });
     });
+
+    resolveAlbumCoverPreviews(board);
 
     wireComposerActions(board);
     wireBlockTaps(board);
@@ -3471,6 +3479,25 @@
     if (input) input.value = '';
   }
 
+  function isClipsPageActive() {
+    return !!(document.body && document.body.classList.contains('studio-clips-page'));
+  }
+
+  function clearClipsFileDragState() {
+    pageFileDragDepth = 0;
+    if (document.body) document.body.classList.remove('clips-drag-over');
+  }
+
+  /** True when the OS is dragging files (Finder / Explorer), not in-page text. */
+  function isOsFileDrag(dt) {
+    if (!dt || !dt.types) return false;
+    try {
+      return Array.prototype.indexOf.call(dt.types, 'Files') !== -1;
+    } catch (err) {
+      return false;
+    }
+  }
+
   /** Safari drops on textareas often leave dt.files empty unless dragover was prevented early. */
   function collectDroppedFiles(dt) {
     if (!dt) return [];
@@ -3490,7 +3517,7 @@
   function handleDrop(event) {
     event.preventDefault();
     event.stopPropagation();
-    document.body.classList.remove('clips-drag-over');
+    clearClipsFileDragState();
     var dt = event.dataTransfer;
     if (!dt) return;
 
@@ -4044,24 +4071,20 @@
       });
     }
 
+    // Link/text drops still land on the board/composer; OS file drops are handled
+    // document-wide below so empty chrome / side margins work too.
     root.addEventListener('dragenter', function (event) {
-      if (!event.dataTransfer) return;
+      if (!event.dataTransfer || isOsFileDrag(event.dataTransfer)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
-      document.body.classList.add('clips-drag-over');
     }, true);
     root.addEventListener('dragover', function (event) {
-      if (!event.dataTransfer) return;
+      if (!event.dataTransfer || isOsFileDrag(event.dataTransfer)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
-      document.body.classList.add('clips-drag-over');
-    }, true);
-    root.addEventListener('dragleave', function (event) {
-      if (!root.contains(event.relatedTarget)) {
-        document.body.classList.remove('clips-drag-over');
-      }
     }, true);
     root.addEventListener('drop', function (event) {
+      if (event.dataTransfer && isOsFileDrag(event.dataTransfer)) return;
       handleDrop(event);
     }, true);
 
@@ -4072,6 +4095,55 @@
         if (!store || !state) return;
         renderBoard();
       });
+
+      // Capture-phase on document so a file can be dropped anywhere on the clips page
+      // (not only inside the centered #clipsRoot / page-wrap).
+      document.addEventListener(
+        'dragenter',
+        function (event) {
+          if (!isClipsPageActive() || !isOsFileDrag(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+          pageFileDragDepth += 1;
+          document.body.classList.add('clips-drag-over');
+        },
+        true
+      );
+      document.addEventListener(
+        'dragover',
+        function (event) {
+          if (!isClipsPageActive() || !isOsFileDrag(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+          document.body.classList.add('clips-drag-over');
+        },
+        true
+      );
+      document.addEventListener(
+        'dragleave',
+        function (event) {
+          if (!isClipsPageActive()) return;
+          if (!isOsFileDrag(event.dataTransfer) && pageFileDragDepth === 0) return;
+          pageFileDragDepth = Math.max(0, pageFileDragDepth - 1);
+          if (pageFileDragDepth === 0) {
+            document.body.classList.remove('clips-drag-over');
+          }
+        },
+        true
+      );
+      document.addEventListener(
+        'drop',
+        function (event) {
+          if (!isClipsPageActive() || !isOsFileDrag(event.dataTransfer)) {
+            clearClipsFileDragState();
+            return;
+          }
+          handleDrop(event);
+        },
+        true
+      );
+      window.addEventListener('dragend', clearClipsFileDragState);
+      window.addEventListener('blur', clearClipsFileDragState);
     }
   }
 

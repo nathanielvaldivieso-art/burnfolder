@@ -8288,9 +8288,23 @@ body.clips-clip-dragging .clips-block {
   }
 }
 
+body.clips-drag-over.studio-clips-page {
+  cursor: copy;
+}
+
 body.clips-drag-over .clips-block--composer {
   border-color: rgba(0, 0, 0, 0.85);
   background: rgba(0, 0, 0, 0.03);
+}
+
+body.clips-drag-over.studio-clips-page .studio-clips-layout::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.03);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
 }
 
 .clips-board--folder {
