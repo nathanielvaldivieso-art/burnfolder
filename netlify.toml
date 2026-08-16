@@ -3,6 +3,16 @@
   functions = "netlify/functions"
   publish = "."
 
+# share-page injects per-link preview metadata into these templates
+[functions]
+  included_files = ["watch.html", "listen.html"]
+
+# Private share links: served by a function so link previews show the actual clip
+[[redirects]]
+  from = "/w"
+  to = "/.netlify/functions/share-page"
+  status = 200
+
 [[redirects]]
   from = "/studio/today.html"
   to = "/studio/dashboard.html"

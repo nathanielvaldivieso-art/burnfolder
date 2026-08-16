@@ -36,11 +36,6 @@ function corsHeaders() {
   return studioCorsHeaders('GET, POST, OPTIONS');
 }
 
-function isVideoShare(share) {
-  if (share.scope === 'video') return true;
-  return !!(share.tracks && share.tracks[0] && share.tracks[0].kind === 'video');
-}
-
 function shareUrl(event, share) {
   const host = event.headers.host || event.headers.Host || 'burnfolder.com';
   let proto = (event.headers['x-forwarded-proto'] || '').split(',')[0].trim();
@@ -48,8 +43,8 @@ function shareUrl(event, share) {
     proto =
       /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host) ? 'http' : 'https';
   }
-  const page = isVideoShare(share) ? 'watch.html' : 'listen.html';
-  return proto + '://' + host + '/' + page + '?t=' + encodeURIComponent(share.token);
+  // /w renders the right page for the share and carries its preview metadata.
+  return proto + '://' + host + '/w?t=' + encodeURIComponent(share.token);
 }
 
 exports.handler = async function (event) {

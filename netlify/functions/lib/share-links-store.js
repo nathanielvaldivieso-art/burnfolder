@@ -37,6 +37,17 @@ function muxPosterUrl(playbackId) {
   return MUX_IMAGE_BASE + '/' + encodeURIComponent(playbackId) + '/thumbnail.jpg?time=1&width=960&fit_mode=smartcrop';
 }
 
+/** Wider frame for link previews (iMessage/Slack want ~1200px). */
+function muxPreviewImageUrl(playbackId) {
+  return MUX_IMAGE_BASE + '/' + encodeURIComponent(playbackId) + '/thumbnail.jpg?time=1&width=1200&fit_mode=preserve';
+}
+
+function isVideoShare(share) {
+  if (!share) return false;
+  if (share.scope === 'video') return true;
+  return !!(share.tracks && share.tracks[0] && share.tracks[0].kind === 'video');
+}
+
 function normalizeMaxPlays(value) {
   if (value == null || value === '') return null;
   var n = Number(value);
@@ -243,5 +254,7 @@ module.exports = {
   publicSharePayload: publicSharePayload,
   shareDownloadUrl: shareDownloadUrl,
   muxPosterUrl: muxPosterUrl,
+  muxPreviewImageUrl: muxPreviewImageUrl,
+  isVideoShare: isVideoShare,
   TOKEN_PREFIX: TOKEN_PREFIX
 };

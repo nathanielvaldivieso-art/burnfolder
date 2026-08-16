@@ -34,12 +34,13 @@
     return (prefix || '') + '/' + page + '?t=' + encodeURIComponent(token);
   }
 
+  // /w picks the right page for the share and carries its link-preview metadata.
   function listenPageUrl(token) {
-    return sitePageUrl('listen.html', token);
+    return sitePageUrl('w', token);
   }
 
   function watchPageUrl(token) {
-    return sitePageUrl('watch.html', token);
+    return sitePageUrl('w', token);
   }
 
   function apiFetch(path, options) {
