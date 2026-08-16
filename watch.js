@@ -10,7 +10,6 @@
   var subtitleEl = document.getElementById('watchSubtitle');
   var stageEl = document.getElementById('watchStage');
   var downloadBtn = document.getElementById('watchDownloadBtn');
-  var shareBtn = document.getElementById('watchShareBtn');
   var tracklistEl = document.getElementById('watchTracklist');
 
   var api = window.BurnfolderShareLinks;
@@ -123,69 +122,6 @@
     });
   }
 
-  function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-      return navigator.clipboard.writeText(text);
-    }
-    return new Promise(function (resolve, reject) {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'absolute';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        resolve();
-      } catch (e) {
-        document.body.removeChild(ta);
-        reject(e);
-      }
-    });
-  }
-
-  function bindShare() {
-    if (!shareBtn) return;
-    shareBtn.hidden = false;
-    shareBtn.addEventListener('click', function () {
-      var url = window.location.href;
-      var title = (titleEl && titleEl.textContent) || 'video';
-      var done = function (msg) {
-        setState(msg);
-        window.setTimeout(function () {
-          if (stateEl && stateEl.textContent === msg) setState('');
-        }, 1600);
-      };
-      if (navigator.share) {
-        navigator
-          .share({ title: title, text: title, url: url })
-          .then(function () {
-            done('shared');
-          })
-          .catch(function (err) {
-            if (err && err.name === 'AbortError') return;
-            copyText(url)
-              .then(function () {
-                done('link copied');
-              })
-              .catch(function () {
-                done('could not share');
-              });
-          });
-        return;
-      }
-      copyText(url)
-        .then(function () {
-          done('link copied');
-        })
-        .catch(function () {
-          done('could not share');
-        });
-    });
-  }
-
   function boot(share) {
     tracks = (share.tracks || []).filter(function (t) {
       return t && t.playbackId;
@@ -216,7 +152,6 @@
 
     renderTracklist();
     bindDownloadTracking();
-    bindShare();
     loadTrack(0, { autoplay: false });
     if (mainEl) mainEl.hidden = false;
     setState('');
