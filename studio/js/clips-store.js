@@ -128,7 +128,11 @@
       return a.order - b.order || a.title.localeCompare(b.title);
     });
     blocks.sort(function (a, b) {
-      return a.order - b.order || String(b.createdAt).localeCompare(String(a.createdAt));
+      var orderDelta = a.order - b.order;
+      if (orderDelta) return orderDelta;
+      var api = versionsApi();
+      if (api && api.compareUploadsByRecency) return api.compareUploadsByRecency(a, b);
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
     });
     return {
       folders: folders,
@@ -379,7 +383,7 @@
     return {
       title: dated || blockLabel(block),
       playbackId: block && block.playbackId,
-      createdAt: block && (block.updatedAt || block.createdAt)
+      createdAt: block && block.createdAt
     };
   }
 
@@ -391,15 +395,30 @@
     };
   }
 
+  function assetCreatedAt(asset, fallback) {
+    var api = versionsApi();
+    var raw = asset && (asset.createdAt || asset.created_at);
+    if (api && api.normalizeUploadTimeIso) {
+      return api.normalizeUploadTimeIso(raw) || fallback || new Date().toISOString();
+    }
+    return raw || fallback || new Date().toISOString();
+  }
+
   function isNewerSong(candidate, current) {
     var api = versionsApi();
-    if (!api || !api.parseTrackDateValue) {
-      return String((candidate && candidate.createdAt) || '') > String((current && current.createdAt) || '');
+    if (api && api.isNewerSong) return api.isNewerSong(candidate, current);
+    if (api && api.compareSongsBySortMode) {
+      return api.compareSongsBySortMode(candidate, current, 'newest') < 0;
     }
-    var a = api.parseTrackDateValue(candidate);
-    var b = api.parseTrackDateValue(current);
-    if (a !== b) return a > b;
     return String((candidate && candidate.createdAt) || '') > String((current && current.createdAt) || '');
+  }
+
+  function sortByUploadRecency(items) {
+    var api = versionsApi();
+    if (api && api.sortUploadsNewestFirst) return api.sortUploadsNewestFirst(items);
+    return (items || []).slice().sort(function (a, b) {
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
   }
 
   function findAudioBlockByGroupKey(state, groupKey) {
@@ -490,6 +509,7 @@
         existing.passthrough = payload.passthrough || existing.passthrough;
         existing.contentType = payload.contentType || existing.contentType;
         existing.size = payload.size != null ? payload.size : existing.size;
+        existing.createdAt = assetCreatedAt(payload, existing.createdAt);
         existing.updatedAt = now;
         existing = normalizeBlock(existing);
         state.blocks = state.blocks.map(function (b) {
@@ -509,7 +529,7 @@
           kind: 'audio',
           title: baseTitleForLabel(title) || title,
           order: typeof payload.order === 'number' ? payload.order : nextOrder(state.blocks),
-          createdAt: payload.createdAt || now,
+          createdAt: assetCreatedAt(payload, now),
           updatedAt: now
         })
       );
@@ -824,7 +844,7 @@
       var changed = false;
       if (collapseAudioVersionStacks(state)) changed = true;
 
-      (assets || []).forEach(function (asset) {
+      sortByUploadRecency(assets || []).forEach(function (asset) {
         if (!asset || !asset.playbackId) return;
         var isVideo = assetLooksLikeVideo(asset);
         var existing = findBlockByPlaybackId(state, asset.playbackId);
@@ -861,7 +881,7 @@
               filename: asset.name || asset.passthrough || '',
               passthrough: asset.passthrough || '',
               order: nextOrder(state.blocks),
-              createdAt: new Date().toISOString()
+              createdAt: assetCreatedAt(asset)
             })
           );
           changed = true;
@@ -885,8 +905,18 @@
             existingSong.title = baseTitleForLabel(title) || existingSong.title;
             existingSong.filename = asset.name || asset.passthrough || existingSong.filename;
             existingSong.passthrough = asset.passthrough || existingSong.passthrough;
+            existingSong.createdAt = assetCreatedAt(asset, existingSong.createdAt);
             existingSong.updatedAt = new Date().toISOString();
             changed = true;
+            var sharedUpgrade = window.BurnfolderStreamShared;
+            if (sharedUpgrade && typeof sharedUpgrade.upgradeTracksBySongKey === 'function' && key) {
+              sharedUpgrade.upgradeTracksBySongKey(key, {
+                playbackId: asset.playbackId,
+                title: existingSong.title,
+                passthrough: existingSong.passthrough,
+                filename: existingSong.filename
+              });
+            }
           } else {
             var base = baseTitleForLabel(existingSong.title || title);
             if (base && existingSong.title !== base) {
@@ -907,7 +937,7 @@
             filename: asset.name || asset.passthrough || '',
             passthrough: asset.passthrough || '',
             order: nextOrder(state.blocks),
-            createdAt: new Date().toISOString()
+            createdAt: assetCreatedAt(asset)
           })
         );
         changed = true;
@@ -977,6 +1007,8 @@
     var sortBy = block.sortBy || 'name';
     items.sort(function (a, b) {
       if (sortBy === 'newest') {
+        var api = versionsApi();
+        if (api && api.compareUploadsByRecency) return api.compareUploadsByRecency(a, b);
         return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
       }
       if (sortBy === 'type') {

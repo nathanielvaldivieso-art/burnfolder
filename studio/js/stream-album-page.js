@@ -132,18 +132,19 @@
 
       const existing = byKey.get(key);
       existing.members.push(track);
-      if (!versionsApi || !versionsApi.parseTrackDateValue) {
-        existing.track = track;
-        existing.resolved = resolved;
-        return;
-      }
-      const aSong = versionsApi.libraryItemToSong
+      const aSong = versionsApi && versionsApi.libraryItemToSong
         ? versionsApi.libraryItemToSong(existing.resolved, itemLabel(existing.resolved))
-        : { title: itemLabel(existing.resolved) };
-      const bSong = versionsApi.libraryItemToSong
+        : { title: itemLabel(existing.resolved), createdAt: existing.resolved && existing.resolved.createdAt };
+      const bSong = versionsApi && versionsApi.libraryItemToSong
         ? versionsApi.libraryItemToSong(resolved, itemLabel(resolved))
-        : { title: itemLabel(resolved) };
-      if (versionsApi.parseTrackDateValue(bSong) > versionsApi.parseTrackDateValue(aSong)) {
+        : { title: itemLabel(resolved), createdAt: resolved.createdAt };
+      const newer =
+        versionsApi && versionsApi.isNewerSong
+          ? versionsApi.isNewerSong(bSong, aSong)
+          : versionsApi && versionsApi.compareSongsBySortMode
+            ? versionsApi.compareSongsBySortMode(bSong, aSong, 'newest') < 0
+            : true;
+      if (newer) {
         existing.track = track;
         existing.resolved = resolved;
       }

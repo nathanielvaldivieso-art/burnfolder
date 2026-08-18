@@ -1,4 +1,5 @@
 const naming = require('../../shared/mux-display-name.js');
+const songVersions = require('../../shared/song-versions.js');
 const { studioCorsHeaders, requireWorkspaceAccess } = require('./lib/workspace-auth');
 const { muxAuthHeader, muxGet, muxPatch, publicPlaybackId } = require('./lib/mux-client');
 
@@ -125,7 +126,7 @@ async function listAllMuxAssets(auth, maxPages) {
         hasVideoTrack: kindMeta.hasVideoTrack,
         duration: row.duration || null,
         aspectRatio: row.aspect_ratio || null,
-        createdAt: row.created_at || null,
+        createdAt: songVersions.normalizeUploadTimeIso(row.created_at) || row.created_at || null,
         nameSource: resolved.nameSource
       });
     });
@@ -179,10 +180,12 @@ async function listAllMuxAssets(auth, maxPages) {
     }
   });
 
+  if (songVersions.sortUploadsNewestFirst) {
+    return songVersions.sortUploadsNewestFirst(assets);
+  }
   assets.sort(function (a, b) {
     return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
   });
-
   return assets;
 }
 

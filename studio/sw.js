@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v78-lockaudio',
+  cacheName: 'burnfolder-stream-v79-upload1',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',
@@ -21,6 +21,7 @@ self.createBurnfolderServiceWorker({
     '/studio/js/clips-store.js',
     '/studio/js/studio-playback-shell.js',
     '/studio/js/studio-version.js',
+    '/shared/song-versions.js',
     '/studio/js/stream-album-page.js',
     '/studio/js/stream-page.js',
     '/studio/js/stream-player.js',

@@ -274,7 +274,10 @@
   }
 
   function normalizeLibrary(assets) {
-    return (assets || []).map(normalizeStreamItem);
+    const list = (assets || []).map(normalizeStreamItem);
+    const sv = window.BurnfolderSongVersions;
+    if (sv && sv.sortUploadsNewestFirst) return sv.sortUploadsNewestFirst(list);
+    return list;
   }
 
   function formatDuration(seconds) {

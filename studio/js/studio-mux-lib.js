@@ -69,6 +69,8 @@
       }
     });
     return Array.from(byPlayback.values()).sort(function (a, b) {
+      const sv = window.BurnfolderSongVersions;
+      if (sv && sv.compareUploadsByRecency) return sv.compareUploadsByRecency(a, b);
       return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
     });
   }

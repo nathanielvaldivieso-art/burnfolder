@@ -3100,7 +3100,8 @@
             filename: file.name,
             passthrough: asset.muxPassthrough || file.name,
             contentType: file.type || '',
-            size: file.size || 0
+            size: file.size || 0,
+            createdAt: asset.createdAt || new Date().toISOString()
           };
         });
     })
@@ -3161,6 +3162,7 @@
       existing.name = payload.filename || existing.name;
       existing.displayTitle = payload.title || existing.displayTitle;
       existing.kind = payload.kind || existing.kind;
+      existing.createdAt = payload.createdAt || existing.createdAt;
     } else {
       libraryCache = [
         {
@@ -3169,9 +3171,13 @@
           name: payload.filename || payload.title || '',
           displayTitle: payload.title || '',
           kind: payload.kind || 'audio',
-          createdAt: new Date().toISOString()
+          createdAt: payload.createdAt || new Date().toISOString()
         }
       ].concat(libraryCache || []);
+    }
+    var sv = versionsApi();
+    if (sv && sv.sortUploadsNewestFirst) {
+      libraryCache = sv.sortUploadsNewestFirst(libraryCache);
     }
     syncNowPlayingCatalog();
   }

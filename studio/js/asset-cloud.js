@@ -241,6 +241,8 @@
             })
             .map(mapAssetRow);
           rows.sort(function (a, b) {
+            const sv = window.BurnfolderSongVersions;
+            if (sv && sv.compareUploadsByRecency) return sv.compareUploadsByRecency(a, b);
             return new Date(b.createdAt) - new Date(a.createdAt);
           });
           resolve(rows);

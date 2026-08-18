@@ -1,6 +1,7 @@
 /**
  * Shared song grouping / version sorting for burnfolder.com and studio stream.
- * Groups tracks by worded base title (date stripped), sorts by embedded date.
+ * Groups tracks by worded base title (date stripped).
+ * Newest = most recently uploaded (Mux created_at), then title date, then id.
  */
 (function (root, factory) {
   const api = factory();
@@ -71,14 +72,13 @@
     const fromTitle = extractDateFromText(song && song.title);
     if (fromTitle) return fromTitle;
     if (song && /^\d+\.\d+\.\d+$/.test(song.page || '')) return song.page;
-    if (song && song.createdAt) {
-      const d = new Date(song.createdAt);
-      if (!Number.isNaN(d.getTime())) {
-        const m = d.getMonth() + 1;
-        const day = d.getDate();
-        const y = String(d.getFullYear()).slice(-2);
-        return m + '.' + day + '.' + y;
-      }
+    const uploaded = parseUploadTimeMs(song && (song.createdAt || song.created_at || song.uploadedAt));
+    if (Number.isFinite(uploaded) && uploaded > 0) {
+      const d = new Date(uploaded);
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      const y = String(d.getFullYear()).slice(-2);
+      return m + '.' + day + '.' + y;
     }
     return '';
   }
@@ -95,6 +95,86 @@
 
     const year = 2000 + yearRaw;
     return new Date(year, monthRaw - 1, dayRaw).getTime();
+  }
+
+  /**
+   * Parse Mux unix seconds, JS ms, ISO strings, or Date objects into epoch ms.
+   * Mux `created_at` is a unix-seconds string; `new Date("1755554400")` is invalid.
+   */
+  function parseUploadTimeMs(value) {
+    if (value == null || value === '') return NaN;
+    if (value instanceof Date) {
+      const t = value.getTime();
+      return Number.isNaN(t) ? NaN : t;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value <= 0) return NaN;
+      return value < 1e12 ? Math.round(value * 1000) : Math.round(value);
+    }
+    const s = String(value).trim();
+    if (!s) return NaN;
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      const n = Number(s);
+      if (!Number.isFinite(n) || n <= 0) return NaN;
+      return n < 1e12 ? Math.round(n * 1000) : Math.round(n);
+    }
+    const t = Date.parse(s);
+    return Number.isNaN(t) ? NaN : t;
+  }
+
+  function normalizeUploadTimeIso(value) {
+    const ms = parseUploadTimeMs(value);
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    return new Date(ms).toISOString();
+  }
+
+  function rawUploadTimestamp(item) {
+    if (!item || typeof item !== 'object') return item;
+    return item.createdAt != null
+      ? item.createdAt
+      : item.created_at != null
+        ? item.created_at
+        : item.uploadedAt;
+  }
+
+  /** Upload time when known; otherwise the date in the title/page (day precision). */
+  function getSongRecencyMs(song) {
+    const uploaded = parseUploadTimeMs(rawUploadTimestamp(song));
+    if (Number.isFinite(uploaded) && uploaded > 0) return uploaded;
+    const titled = parseTrackDateValue(song);
+    return Number.isFinite(titled) && titled !== -Infinity && titled > 0 ? titled : 0;
+  }
+
+  function uploadIdentity(item) {
+    if (!item || typeof item !== 'object') return '';
+    return String(item.playbackId || item.muxAssetId || item.id || '');
+  }
+
+  /** Newest first. Same recency → stable id so sort never flips. */
+  function compareUploadsByRecency(a, b) {
+    const aTime = getSongRecencyMs(a);
+    const bTime = getSongRecencyMs(b);
+    if (aTime !== bTime) return bTime - aTime;
+    return uploadIdentity(b).localeCompare(uploadIdentity(a));
+  }
+
+  function sortUploadsNewestFirst(items) {
+    return (items || []).slice().sort(compareUploadsByRecency);
+  }
+
+  function laterCreatedAt(a, b) {
+    const am = parseUploadTimeMs(a);
+    const bm = parseUploadTimeMs(b);
+    if (Number.isFinite(am) && Number.isFinite(bm)) return am >= bm ? a : b;
+    if (Number.isFinite(am)) return a;
+    if (Number.isFinite(bm)) return b;
+    return a || b || null;
+  }
+
+  function isNewerSong(candidate, current) {
+    if (!candidate) return false;
+    if (!current) return true;
+    return compareSongsBySortMode(candidate, current, 'newest') < 0;
   }
 
   function stripTrailingDate(title) {
@@ -252,15 +332,16 @@
         sensitivity: 'base'
       });
       if (base) return base;
-      return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+      const titleCmp = String(a.title || '').localeCompare(String(b.title || ''), undefined, {
+        sensitivity: 'base'
+      });
+      if (titleCmp) return titleCmp;
+      return compareUploadsByRecency(a, b);
     }
 
-    const aDate = parseTrackDateValue(a);
-    const bDate = parseTrackDateValue(b);
-    if (aDate === bDate) {
-      return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
-    }
-    return sortMode === 'oldest' ? aDate - bDate : bDate - aDate;
+    const recency = compareUploadsByRecency(a, b);
+    if (sortMode === 'oldest') return -recency;
+    return recency;
   }
 
   function getSiteCatalog(windowRef) {
@@ -309,7 +390,7 @@
       playbackId: item.playbackId,
       page: item.page || '',
       muxAssetId: item.muxAssetId || null,
-      createdAt: item.createdAt || null,
+      createdAt: normalizeUploadTimeIso(rawUploadTimestamp(item)) || item.createdAt || null,
       kind: item.kind || null,
       hasVideoTrack: item.hasVideoTrack
     };
@@ -359,7 +440,10 @@
             muxTitle: muxTitle,
             siteTitle: existing.siteTitle || existing.title,
             muxAssetId: item.muxAssetId || existing.muxAssetId,
-            createdAt: item.createdAt || existing.createdAt,
+            createdAt:
+              normalizeUploadTimeIso(laterCreatedAt(item.createdAt, existing.createdAt)) ||
+              existing.createdAt ||
+              item.createdAt,
             kind: item.kind != null ? item.kind : existing.kind,
             hasVideoTrack:
               item.hasVideoTrack != null ? item.hasVideoTrack : existing.hasVideoTrack
@@ -552,21 +636,14 @@
       const versions = versionsForSong(song);
       if (!versions.length) return song;
 
-      const explicitId = song && song.playbackId ? String(song.playbackId).trim() : '';
-      if (explicitId) {
-        const pinned = versions.find(function (v) {
-          return v.playbackId === explicitId;
-        });
-        if (pinned) return pinned;
-        if (song.title) return song;
-      }
-
       const key = groupKeyFor(song);
       const id = selectedByGroup.get(key);
-      if (!id) return versions[0];
-      return versions.find(function (v) {
-        return v.playbackId === id;
-      }) || versions[0];
+      if (id) {
+        return versions.find(function (v) {
+          return v.playbackId === id;
+        }) || versions[0];
+      }
+      return versions[0];
     }
 
     function cycle(song) {
@@ -727,6 +804,12 @@
     extractDateFromText: extractDateFromText,
     getTrackDateLabel: getTrackDateLabel,
     parseTrackDateValue: parseTrackDateValue,
+    parseUploadTimeMs: parseUploadTimeMs,
+    normalizeUploadTimeIso: normalizeUploadTimeIso,
+    getSongRecencyMs: getSongRecencyMs,
+    compareUploadsByRecency: compareUploadsByRecency,
+    sortUploadsNewestFirst: sortUploadsNewestFirst,
+    isNewerSong: isNewerSong,
     normalizeTrackTitle: normalizeTrackTitle,
     isGenericMuxTitle: isGenericMuxTitle,
     titleFromCatalog: titleFromCatalog,

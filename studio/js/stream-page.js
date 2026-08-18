@@ -297,9 +297,13 @@
         byName.set(base, row);
         return;
       }
-      const a = versionsApi.parseTrackDateValue(existing.song);
-      const b = versionsApi.parseTrackDateValue(row.song);
-      if (b > a) byName.set(base, row);
+      if (
+        versionsApi.isNewerSong
+          ? versionsApi.isNewerSong(row.song, existing.song)
+          : versionsApi.compareSongsBySortMode(row.song, existing.song, 'newest') < 0
+      ) {
+        byName.set(base, row);
+      }
     });
 
     return Array.from(byName.values()).map(function (row) {
