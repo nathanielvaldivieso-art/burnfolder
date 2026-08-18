@@ -14,12 +14,12 @@ window.burnfolderAlbumPages = {
     "tracks": [
       {
         "title": "SOMETIMES",
-        "playbackId": "4MY1eOPKNpR3492qFO4ihLM4rzhwsOZ4lThYRHZpz02U",
+        "playbackId": "ZYxHkuw1ZboyCh7XVFBFwZe6qJKzPGY00YaSPGbZQmvw",
         "groupKey": "sometimes"
       },
       {
         "title": "FIRE ESCAPE",
-        "playbackId": "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc",
+        "playbackId": "9bqF2dAhnI00xVraf7LIY44q2R8sdQtchp00XgYWqG7fY",
         "groupKey": "fire-escape"
       },
       {
@@ -35,6 +35,6 @@ window.burnfolderAlbumPages = {
     ],
     "heroVideoPlaybackId": "",
     "media": [],
-    "updatedAt": "2026-07-09T00:00:00.000Z"
+    "updatedAt": "2026-07-24T00:00:00.000Z"
   }
 };
