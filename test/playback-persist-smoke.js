@@ -76,6 +76,8 @@ assert.strictEqual(
 assert.ok(stackSrc.includes('activeMuxPlayer'), 'shell markup includes active mux-player');
 assert.ok(!stackSrc.includes('bridgeMuxPlayer'), 'bridge/ping-pong player removed');
 assert.ok(muxSrc.includes('wantPlaying'), 'intentional play state present');
+assert.ok(muxSrc.includes('activeLiveAudio'), 'native live audio element for iOS HLS');
+assert.ok(muxSrc.includes('muxHlsUrl') || muxSrc.includes('stream.mux.com'), 'HLS source for native audio');
 assert.ok(muxSrc.includes('watchdogTick') || muxSrc.includes('startWatchdog'), 'watchdog present');
 assert.ok(
   muxSrc.includes('never pause() during a live queue handoff'),

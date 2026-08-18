@@ -165,7 +165,13 @@
     return upgradeMuxPlayer(keeper);
   }
 
+  function getLiveAudio() {
+    return document.getElementById('activeLiveAudio');
+  }
+
   function getShellPlayer() {
+    const live = getLiveAudio();
+    if (live) return live;
     return upgradeMuxPlayer(dedupeGlobalPlayer());
   }
 
@@ -292,7 +298,12 @@
     const player = getShellPlayer();
     if (!song || !player) return;
     barApi.setBarVisible(true);
-    barApi.update({ song: song, playing: !player.paused });
+    const playing = !!(
+      eng.isPlayingPlaybackId && song && song.playbackId
+        ? eng.isPlayingPlaybackId(song.playbackId)
+        : player && !player.paused
+    );
+    barApi.update({ song: song, playing: playing });
   }
 
   function boot() {

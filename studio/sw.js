@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v77-sharefix',
+  cacheName: 'burnfolder-stream-v78-lockaudio',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',

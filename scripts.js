@@ -65,10 +65,15 @@ function refreshPlaybackChromeRefs() {
   closeBtn = document.getElementById('closeBtn');
   loadingSpinner = document.getElementById('loadingSpinner');
   activeMuxPlayer = document.getElementById('activeMuxPlayer');
-  if (window.globalMuxPlayer !== activeMuxPlayer) {
-    window.globalMuxPlayer = activeMuxPlayer;
+  const live = liveMediaElement();
+  if (window.globalMuxPlayer !== live) {
+    window.globalMuxPlayer = live;
   }
   return bottomBar;
+}
+
+function liveMediaElement() {
+  return document.getElementById('activeLiveAudio') || activeMuxPlayer;
 }
 
 // Never move focus to the fixed bottom bar: browsers scroll to focused fixed
@@ -847,14 +852,14 @@ function syncTracklistPlayback() {
   const activeSong = getActiveSong();
   document.querySelectorAll('.music-track-row').forEach((row) => {
     const isActive = !!(activeSong && row.dataset.playbackId === activeSong.playbackId);
-    const playing = isActive && activeMuxPlayer && !activeMuxPlayer.paused;
+    const playing = isActive && !!(liveMediaElement() && !liveMediaElement().paused);
     row.classList.toggle('is-active', isActive);
     row.classList.toggle('is-playing', playing);
   });
 
   document.querySelectorAll('.home-music__song[data-playback-id]').forEach((el) => {
     const isActive = !!(activeSong && el.dataset.playbackId === activeSong.playbackId);
-    const playing = isActive && activeMuxPlayer && !activeMuxPlayer.paused;
+    const playing = isActive && !!(liveMediaElement() && !liveMediaElement().paused);
     el.classList.toggle('is-active', isActive);
     el.classList.toggle('is-playing', playing);
   });
@@ -869,7 +874,7 @@ function syncTracklistPlayback() {
         Array.from(portfolio.querySelectorAll('.music-track-row')).some(
           (row) => row.dataset.playbackId === activeSong.playbackId
         );
-      const playing = !!(onThisRelease && activeMuxPlayer && !activeMuxPlayer.paused);
+      const playing = !!(onThisRelease && liveMediaElement() && !liveMediaElement().paused);
       applyHubPlayButton(playBtn, playing, 'album');
     }
   }
@@ -896,7 +901,7 @@ function syncSongHubPlayButton() {
   const onThisSong =
     activeSong &&
     Array.from(rows).some((row) => row.dataset.playbackId === activeSong.playbackId);
-  const playing = !!(onThisSong && activeMuxPlayer && !activeMuxPlayer.paused);
+  const playing = !!(onThisSong && liveMediaElement() && !liveMediaElement().paused);
   applyHubPlayButton(hubPlayBtn, playing, 'song');
 }
 
@@ -986,14 +991,8 @@ function renderMusicPage() {
     const activeSong = getActiveSong();
     const onRelease =
       activeSong && release.tracks.some((t) => t.playbackId === activeSong.playbackId);
-    if (onRelease && !activeMuxPlayer.paused) {
-      activeMuxPlayer.pause();
-      updateUI();
-      syncTracklistPlayback();
-      return;
-    }
-    if (onRelease && activeMuxPlayer.paused) {
-      activeMuxPlayer.play();
+    if (onRelease) {
+      togglePlayPause();
       updateUI();
       syncTracklistPlayback();
       return;
@@ -1178,12 +1177,8 @@ function renderSongHubPage() {
         const active = getActiveSong();
         const onHub = active && sorted.some((item) => item.playbackId === active.playbackId);
         if (onHub) {
-          if (activeMuxPlayer && !activeMuxPlayer.paused) {
-            togglePlayPause();
-          } else if (activeMuxPlayer) {
-            activeMuxPlayer.play().catch(() => {});
-            updateUI();
-          }
+          togglePlayPause();
+          updateUI();
           return;
         }
         playSongHubQueue(sorted, startSong, hubRoot, page, renderApi);
@@ -1243,7 +1238,7 @@ function syncAlbumHubPlayButton() {
   const onThisAlbum =
     activeSong &&
     Array.from(rows).some((row) => row.dataset.playbackId === activeSong.playbackId);
-  const playing = !!(onThisAlbum && activeMuxPlayer && !activeMuxPlayer.paused);
+  const playing = !!(onThisAlbum && liveMediaElement() && !liveMediaElement().paused);
   applyHubPlayButton(hubPlayBtn, playing, 'album');
 }
 
@@ -2273,14 +2268,14 @@ function getActiveSong() {
 }
 
 function playerHasPlaybackSession() {
-  refreshPlaybackChromeRefs();
-  if (!activeMuxPlayer) return false;
-  return !!activeMuxPlayer.getAttribute('playback-id');
+  const player = liveMediaElement();
+  if (!player) return false;
+  return !!player.getAttribute('playback-id');
 }
 
 function playerIsAudiblyPlaying() {
-  refreshPlaybackChromeRefs();
-  return !!(activeMuxPlayer && !activeMuxPlayer.paused && playerHasPlaybackSession());
+  const player = liveMediaElement();
+  return !!(player && !player.paused && playerHasPlaybackSession());
 }
 
 function setNowPlayingBarVisible(show) {
@@ -2300,8 +2295,9 @@ function persistPlaybackState() {
 
 function preservePlaybackAcrossNavigation() {
   refreshPlaybackChromeRefs();
-  if (!activeMuxPlayer) return;
-  const playbackId = activeMuxPlayer.getAttribute('playback-id');
+  const player = liveMediaElement();
+  if (!player) return;
+  const playbackId = player.getAttribute('playback-id');
   if (!playbackId) {
     if (playerIsAudiblyPlaying()) setNowPlayingBarVisible(true);
     return;
@@ -2326,7 +2322,7 @@ function preservePlaybackAcrossNavigation() {
       song = {
         playbackId: playbackId,
         title:
-          (activeMuxPlayer && activeMuxPlayer.getAttribute('metadata-video-title')) ||
+          (player && player.getAttribute('metadata-video-title')) ||
           (activeSongOverride && activeSongOverride.title) ||
           'Track',
       };
@@ -2343,12 +2339,16 @@ function preservePlaybackAcrossNavigation() {
 
 window.preservePlaybackAcrossNavigation = preservePlaybackAcrossNavigation;
 
+if (!isIndexGatePage()) {
+  getSiteMuxPlayback();
+}
 mountNowPlayingBar();
 
 function bindPlaybackBarWatchdog() {
   refreshPlaybackChromeRefs();
-  if (!activeMuxPlayer || activeMuxPlayer.dataset.bfBarWatchdog === '1') return;
-  activeMuxPlayer.dataset.bfBarWatchdog = '1';
+  const player = liveMediaElement();
+  if (!player || player.dataset.bfBarWatchdog === '1') return;
+  player.dataset.bfBarWatchdog = '1';
   const sync = function () {
     if (typeof window.preservePlaybackAcrossNavigation === 'function') {
       if (playerHasPlaybackSession()) {
@@ -2359,9 +2359,9 @@ function bindPlaybackBarWatchdog() {
       syncPlaybackChromeState();
     }
   };
-  activeMuxPlayer.addEventListener('play', sync);
-  activeMuxPlayer.addEventListener('playing', sync);
-  activeMuxPlayer.addEventListener('timeupdate', function () {
+  player.addEventListener('play', sync);
+  player.addEventListener('playing', sync);
+  player.addEventListener('timeupdate', function () {
     if (playerIsAudiblyPlaying()) setNowPlayingBarVisible(true);
   });
 }
@@ -2385,7 +2385,7 @@ window.addEventListener('pageshow', bootHubPages);
 
 // Store reference to active player globally
 if (!window.globalMuxPlayer) {
-  window.globalMuxPlayer = activeMuxPlayer;
+  window.globalMuxPlayer = liveMediaElement() || activeMuxPlayer;
 }
 
 // Playback resume is owned by BurnfolderMuxPlayback recall (burnfolderPlaybackRecall).
@@ -2395,9 +2395,6 @@ try {
   sessionStorage.removeItem('playbackState');
 } catch (e) {
   /* noop */
-}
-if (!isIndexGatePage()) {
-  getSiteMuxPlayback();
 }
 
 // Render song list — only when spa-router hasn't already populated it
@@ -2438,11 +2435,12 @@ function updateUI() {
     bar.setExtraSongs(Array.isArray(window.currentSongs) ? window.currentSongs : []);
     bar.update({
       song: activeSong || null,
-      playing: !!(sessionActive && activeMuxPlayer && !activeMuxPlayer.paused)
+      playing: !!(sessionActive && liveMediaElement() && !liveMediaElement().paused)
     });
   } else if (activeSong && bottomPlayBtn && songTitleEl) {
     // Fallback only if the shared bar module failed to load.
-    bottomPlayBtn.innerHTML = !activeMuxPlayer.paused
+    const live = liveMediaElement();
+    bottomPlayBtn.innerHTML = live && !live.paused
       ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>'
       : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>';
     songTitleEl.textContent =
@@ -2463,7 +2461,8 @@ function syncPlaybackChromeState() {
   const barOn = bottomBar && bottomBar.style.display === 'flex';
   const sessionActive = !!(activeSong && activeSong.playbackId) || playerHasPlaybackSession();
   const active = sessionActive && (barOn || playerIsAudiblyPlaying());
-  const playing = !!(active && activeMuxPlayer && !activeMuxPlayer.paused);
+  const player = liveMediaElement();
+  const playing = !!(active && player && !player.paused);
   document.body.classList.toggle('playback-active', !!active);
   document.body.classList.toggle('playback-playing', !!playing);
   // If audio is playing but the bar somehow closed, force it back open.
@@ -2475,9 +2474,9 @@ function syncPlaybackChromeState() {
 window.syncPlaybackChromeState = syncPlaybackChromeState;
 
 function getSiteMuxPlayback() {
-  if (!siteMuxPlayback && activeMuxPlayer && window.BurnfolderMuxPlayback) {
+  if (!siteMuxPlayback && window.BurnfolderMuxPlayback) {
     siteMuxPlayback = window.BurnfolderMuxPlayback.create({
-      getPlayer: () => activeMuxPlayer,
+      getPlayer: () => liveMediaElement() || activeMuxPlayer,
       recall: true,
       restoreRecall: true,
       artist: 'burnfolder',
@@ -2519,7 +2518,8 @@ function mountNowPlayingBar() {
     titleEl: songTitleEl,
     playBtnEl: bottomPlayBtn,
     closeBtnEl: closeBtn,
-    muxPlayerEl: activeMuxPlayer,
+    muxPlayerEl: liveMediaElement() || activeMuxPlayer,
+    getMuxPlayer: liveMediaElement,
     bodyActiveClass: '',
     getActiveSong: getActiveSong,
     onTogglePlay: togglePlayPause,
@@ -2701,9 +2701,10 @@ function showLoading() {
 // shared/now-playing-bar.js, which is mounted via mountNowPlayingBar().
 
 function applyVolumeToPlayer() {
-  if (!activeMuxPlayer) return;
+  const player = liveMediaElement();
+  if (!player) return;
   try {
-    const mediaElement = activeMuxPlayer.media || activeMuxPlayer;
+    const mediaElement = player.media || player;
     if (mediaElement) {
       mediaElement.volume = 1;
       mediaElement.muted = false;

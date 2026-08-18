@@ -274,6 +274,7 @@
     }
 
     function updateProgress() {
+      bindPlayerEvents();
       const player = resolveMuxPlayer();
       if (!player || !progressFill || !player.duration || Number.isNaN(player.duration)) {
         updatePlaybackTime();
@@ -283,6 +284,30 @@
       progressFill.style.width = pct + '%';
       if (playheadEl) playheadEl.style.left = pct + '%';
       updatePlaybackTime();
+    }
+
+    let boundPlayer = null;
+    function onBoundPlay() {
+      renderPlayButton(true);
+    }
+    function onBoundPause() {
+      const player = resolveMuxPlayer();
+      renderPlayButton(!!(player && !player.paused));
+    }
+    function bindPlayerEvents() {
+      const player = resolveMuxPlayer();
+      if (!player || player === boundPlayer) return;
+      if (boundPlayer) {
+        boundPlayer.removeEventListener('timeupdate', updateProgress);
+        boundPlayer.removeEventListener('loadedmetadata', updateProgress);
+        boundPlayer.removeEventListener('play', onBoundPlay);
+        boundPlayer.removeEventListener('pause', onBoundPause);
+      }
+      boundPlayer = player;
+      player.addEventListener('timeupdate', updateProgress);
+      player.addEventListener('loadedmetadata', updateProgress);
+      player.addEventListener('play', onBoundPlay);
+      player.addEventListener('pause', onBoundPause);
     }
 
     function renderPlayButton(playing) {
@@ -723,19 +748,7 @@
       window.addEventListener('blur', endDrag);
     }
 
-    const boundPlayer = resolveMuxPlayer();
-    if (boundPlayer) {
-      boundPlayer.addEventListener('timeupdate', updateProgress);
-      boundPlayer.addEventListener('loadedmetadata', updateProgress);
-      boundPlayer.addEventListener('play', function () {
-        renderPlayButton(true);
-      });
-      boundPlayer.addEventListener('pause', function () {
-        renderPlayButton(false);
-      });
-      // No buffering spinner: it shifted the play/close buttons each time a track
-      // started. Intentionally not bound — see COPILOT.md "No-jump rule".
-    }
+    bindPlayerEvents();
 
     if (opts.playbackEventName) {
       globalRef.addEventListener(opts.playbackEventName, function (event) {

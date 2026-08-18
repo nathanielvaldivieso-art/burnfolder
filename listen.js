@@ -37,11 +37,15 @@
     }
   }
 
+  function livePlayer() {
+    return document.getElementById('activeLiveAudio') || activeMuxPlayer;
+  }
+
   function getEngine() {
-    if (!engine && activeMuxPlayer && window.BurnfolderMuxPlayback) {
+    if (!engine && window.BurnfolderMuxPlayback) {
       engine = window.BurnfolderMuxPlayback.create({
         getPlayer: function () {
-          return activeMuxPlayer;
+          return livePlayer();
         },
         bindEnded: true,
         recall: false,
@@ -75,7 +79,8 @@
       titleEl: songTitleEl,
       playBtnEl: bottomPlayBtn,
       closeBtnEl: closeBtn,
-      muxPlayerEl: activeMuxPlayer,
+      muxPlayerEl: livePlayer() || activeMuxPlayer,
+      getMuxPlayer: livePlayer,
       bodyActiveClass: '',
       getActiveSong: getActiveSong,
       onTogglePlay: function () {
@@ -100,7 +105,8 @@
   // BurnfolderNowPlayingBar; updateUI keeps only the listen-page chrome (body + hero button).
   function updateUI() {
     const active = getActiveSong();
-    const playing = !!(active && activeMuxPlayer && !activeMuxPlayer.paused);
+    const player = livePlayer();
+    const playing = !!(active && player && !player.paused);
     const bar = nowPlayingBar || mountBar();
     if (bar) bar.update({ song: active || null, playing: playing });
     if (!active) return;
@@ -114,7 +120,7 @@
     const active = getActiveSong();
     tracklistEl.querySelectorAll('.listen-track-row').forEach(function (row) {
       const isActive = !!(active && row.dataset.playbackId === active.playbackId);
-      const playing = isActive && activeMuxPlayer && !activeMuxPlayer.paused;
+      const playing = isActive && livePlayer() && !livePlayer().paused;
       row.classList.toggle('is-active', isActive);
       row.classList.toggle('is-playing', playing);
     });

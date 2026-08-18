@@ -345,6 +345,8 @@
         shell.getEngine();
       }
     }
+    const live = document.getElementById('activeLiveAudio');
+    if (live) return live;
     const shellNode = document.getElementById('studioGlobalPlayback');
     if (shellNode) {
       const inShell = shellNode.querySelector('#activeMuxPlayer');

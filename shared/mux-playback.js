@@ -1,30 +1,23 @@
 /**
  * Shared Mux audio playback — one continuous session, like Spotify / Apple Music.
  *
- * Lock-screen / PWA rules (do not break these):
- * 1. One in-DOM media element stays alive for the whole visit (never torn down on nav).
- * 2. User taps play() the same turn as the gesture — never wait on `canplay` first.
- * 3. Queue advance never pause()s before swapping playback-id — iOS drops the
- *    background media session on pause, which kills lock-screen autoplay.
- * 4. Media Session (lock screen / Control Center) mirrors whatever the element
- *    is actually doing. It never drives playback itself beyond play/pause/next/prev.
- * 5. Exactly one timer (the watchdog) exists. It has three jobs, run on a
- *    plain interval so none of them depend on events that can stop firing
- *    (`timeupdate` stops the moment a track stalls, which is exactly when
- *    you need a backstop):
- *      a. Resume playback if we still want to be playing but the element is
- *         unexpectedly paused.
- *      b. Notice a track that stalled a hair before its real end (network
- *         hiccup on the last chunk) and advance the queue anyway, instead of
- *         hanging forever waiting for an `ended` that will never come.
- *      c. Notice a track that reports "playing" but whose clock has stopped
- *         moving (silent stall) and nudge `play()` again.
- *    None of these ever touch currentTime — that was the old stutter-on-advance
- *    bug (a second timer kept yanking currentTime back to 0 while the next
- *    track was still buffering, which looks like the first second repeating
- *    on a loop).
+ * Lock-screen contract (one path, every collection):
+ * 1. One persistent media element for the whole visit. Never torn down on nav.
+ * 2. On Safari / iOS (native HLS) that element is a real <audio> playing
+ *    https://stream.mux.com/{id}.m3u8. mux-player recreates/pauses its inner
+ *    media when playback-id changes, which drops the iOS background session
+ *    after a few advances — native <audio> does not.
+ * 3. Queue advance is one move: ended → set next source → play(), same turn,
+ *    never pause(). wantPlaying stays true until the queue is actually done.
+ * 4. Media Session reports wantPlaying, not element.paused (source changes
+ *    fire pause internally; telling iOS we paused kills lock-screen autoplay).
+ * 5. Do not treat a track as finished until it has started. Leftover
+ *    `ended === true` after a source swap must not skip the next song.
+ * 6. The watchdog only retries play() while we want to be playing, and only
+ *    uses near-end as a backstop for a track that already started.
  *
- * Do not call player.load() after changing playback-id; mux-player updates itself.
+ * User taps play() the same turn as the gesture. Do not call .load() after
+ * changing source — it extra-pauses the element and can drop the session.
  */
 (function (root) {
   'use strict';
@@ -32,21 +25,85 @@
   const recallApi = root.BurnfolderPlaybackRecall;
   const mediaSessionApi = root.BurnfolderMediaSession;
 
-  /** Watchdog tick — recovers a stalled/paused player while we want it playing. */
+  const LIVE_AUDIO_ID = 'activeLiveAudio';
   const WATCHDOG_MS = 500;
-  /** Near-end slack — the safety net for the rare case Mux skips `ended` in the background. */
-  const END_SLACK_SECONDS = 0.2;
-  /** A fresh track's clock should read ~0 the moment metadata loads; anything past this
-   *  means the element inherited the previous track's playhead — correct it once. */
+  const END_SLACK_SECONDS = 0.25;
   const INHERITED_PLAYHEAD_SECONDS = 0.4;
-  /** Ticks of a frozen clock while nominally playing before we treat it as a
-   *  silent stall and retry play() — a few seconds, so real buffering blips
-   *  don't trigger a needless retry. */
   const STALL_TICKS_BEFORE_RETRY = 4;
+  const LIVE_AUDIO_STYLE =
+    'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
 
-  /** No-op when shared/playback-debug.js isn't loaded on a given page. */
   function dbg(event, data) {
     if (root.BurnfolderPlaybackDebug) root.BurnfolderPlaybackDebug.log(event, data);
+  }
+
+  function muxHlsUrl(playbackId) {
+    const id = String(playbackId || '').trim();
+    if (!id) return '';
+    return 'https://stream.mux.com/' + encodeURIComponent(id) + '.m3u8';
+  }
+
+  function nativeHlsAudioSupported() {
+    try {
+      if (!root.document || typeof root.document.createElement !== 'function') return false;
+      const probe = root.document.createElement('audio');
+      if (!probe || typeof probe.canPlayType !== 'function') return false;
+      const type =
+        probe.canPlayType('application/vnd.apple.mpegurl') ||
+        probe.canPlayType('audio/mpegurl');
+      return type === 'probably' || type === 'maybe';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isAudioElement(el) {
+    if (!el) return false;
+    const name = el.tagName || el.nodeName || '';
+    return String(name).toUpperCase() === 'AUDIO';
+  }
+
+  function currentPlaybackId(player) {
+    if (!player) return '';
+    if (typeof player.getAttribute === 'function') {
+      return String(
+        player.getAttribute('playback-id') || player.getAttribute('data-playback-id') || ''
+      ).trim();
+    }
+    return '';
+  }
+
+  function sourceContainsId(player, playbackId) {
+    if (!player || !playbackId) return false;
+    const src = String(
+      (typeof player.getAttribute === 'function' && player.getAttribute('src')) ||
+        player.src ||
+        ''
+    );
+    return src.indexOf(playbackId) !== -1;
+  }
+
+  function ensureLiveAudio() {
+    if (!root.document) return null;
+    let el = root.document.getElementById(LIVE_AUDIO_ID);
+    if (el) return el;
+    el = root.document.createElement('audio');
+    el.id = LIVE_AUDIO_ID;
+    el.setAttribute('playsinline', '');
+    el.setAttribute('webkit-playsinline', '');
+    el.setAttribute('preload', 'auto');
+    el.controls = false;
+    el.style.cssText = LIVE_AUDIO_STYLE;
+    const shell = root.document.getElementById('studioGlobalPlayback');
+    const bar = root.document.getElementById('bottomBar');
+    if (shell) {
+      shell.appendChild(el);
+    } else if (bar) {
+      bar.insertBefore(el, bar.firstChild);
+    } else if (root.document.body) {
+      root.document.body.appendChild(el);
+    }
+    return el;
   }
 
   function resolvePlayer(playerOrId) {
@@ -68,31 +125,38 @@
 
   function create(options) {
     const opts = options || {};
-    const getPlayer =
+    const requestedGetPlayer =
       opts.getPlayer ||
       function () {
         return resolvePlayer(opts.playerId || 'activeMuxPlayer');
       };
+    const useNativeAudio = nativeHlsAudioSupported();
+    if (useNativeAudio) ensureLiveAudio();
+
+    function getPlayer() {
+      if (useNativeAudio) return ensureLiveAudio();
+      return requestedGetPlayer();
+    }
 
     let activeSong = null;
     let activeQueue = [];
     let activeQueueIdx = 0;
     let playbackRate = 1;
 
-    /** Intentional play state — same idea as a native player's "isPlaying" flag. */
+    /** Intentional play state — lock screen and auto-advance follow this, not element.paused. */
     let wantPlaying = false;
-    /** True from the moment an end-of-track advance starts until the next
-     *  startPlayback() runs — guards against `ended` + the near-end fallback
-     *  both firing for the same track boundary. */
+    /** True from advance start until the new track actually starts playing. */
     let advancePending = false;
+    /** True after this generation has received a playing/timeupdate with a moving clock. */
+    let trackStarted = false;
 
     let boundPlayer = null;
+    let innerEndedMedia = null;
     let mediaActionsBound = false;
     let watchdogTimer = null;
     let recallTimer = null;
     let lifecycleBound = false;
     let startGeneration = 0;
-    /** Silent-stall tracking for the watchdog — reset whenever a new track starts. */
     let lastWatchedTime = null;
     let stallTicks = 0;
 
@@ -101,7 +165,7 @@
       const detail = Object.assign(
         {
           song: activeSong,
-          playing: !!(activeSong && player && !player.paused),
+          playing: !!(activeSong && wantPlaying),
           queue: activeQueue.slice(),
           queueIdx: activeQueueIdx,
           playbackRate: playbackRate
@@ -130,7 +194,7 @@
       if (opts.recall === false || !recallApi || !activeSong) return;
       const player = getPlayer();
       if (!player) return;
-      const liveId = player.getAttribute('playback-id') || '';
+      const liveId = currentPlaybackId(player);
       if (liveId && liveId !== activeSong.playbackId) return;
       let t = Number(player.currentTime) || 0;
       if (!Number.isFinite(t) || t < 0) t = 0;
@@ -155,6 +219,7 @@
         album: opts.album,
         artworkForSong: opts.artworkForSong
       });
+      mediaSessionApi.setPlaybackState(!!wantPlaying);
       mediaSessionApi.setPositionState(player);
     }
 
@@ -172,7 +237,7 @@
         },
         previoustrack: function () {
           if (activeQueueIdx > 0) {
-            playQueuedTrack(activeQueueIdx - 1);
+            playQueuedTrack(activeQueueIdx - 1, { queueHandoff: true });
             return;
           }
           const player = getPlayer();
@@ -195,6 +260,7 @@
 
     function upgradePlayer(player) {
       if (!player || typeof player.play === 'function') return;
+      if (isAudioElement(player)) return;
       if (typeof customElements === 'undefined') return;
       if (customElements.get('mux-player')) {
         try {
@@ -203,6 +269,20 @@
           /* noop */
         }
       }
+    }
+
+    function applySource(player, playbackId) {
+      const id = String(playbackId || '').trim();
+      if (!player || !id) return;
+      if (typeof player.setAttribute === 'function') {
+        player.setAttribute('playback-id', id);
+        player.setAttribute('data-playback-id', id);
+      }
+      if (!isAudioElement(player)) return;
+      const url = muxHlsUrl(id);
+      if (!url) return;
+      if (sourceContainsId(player, id)) return;
+      player.src = url;
     }
 
     /**
@@ -215,7 +295,7 @@
       upgradePlayer(player);
       if (typeof player.play !== 'function') {
         dbg('play:not-upgraded', { id: id });
-        if (typeof customElements !== 'undefined') {
+        if (typeof customElements !== 'undefined' && !isAudioElement(player)) {
           customElements.whenDefined('mux-player').then(function () {
             upgradePlayer(player);
             if (wantPlaying && activeSong && typeof player.play === 'function') {
@@ -224,7 +304,12 @@
                   dbg('play:resolved', { id: id, via: 'whenDefined' });
                 },
                 function (err) {
-                  dbg('play:rejected', { id: id, via: 'whenDefined', name: err && err.name, message: err && err.message });
+                  dbg('play:rejected', {
+                    id: id,
+                    via: 'whenDefined',
+                    name: err && err.name,
+                    message: err && err.message
+                  });
                 }
               );
             }
@@ -240,8 +325,11 @@
             dbg('play:resolved', { id: id });
           },
           function (err) {
-            dbg('play:rejected', { id: id, name: err && err.name, message: err && err.message });
-            /* Watchdog retries while wantPlaying. Optional page hook for UI. */
+            dbg('play:rejected', {
+              id: id,
+              name: err && err.name,
+              message: err && err.message
+            });
             if (typeof opts.onPlayBlocked === 'function') {
               opts.onPlayBlocked(player, activeSong);
             }
@@ -250,32 +338,55 @@
       }
     }
 
-    function isNearEnd(player) {
+    function markTrackStarted() {
+      trackStarted = true;
+      advancePending = false;
+    }
+
+    /** True when the playhead is in this track, not parked at the previous ending. */
+    function clockIsInTrackBody(player) {
       if (!player) return false;
+      const t = Number(player.currentTime);
+      const d = Number(player.duration);
+      if (!Number.isFinite(t) || t < 0) return false;
+      if (t < 1) return true;
+      if (!Number.isFinite(d) || d <= 1) return t > 0.15;
+      return t < d - 0.5;
+    }
+
+    function isNearEnd(player) {
+      if (!player || !activeSong || advancePending || !trackStarted) return false;
+      if (currentPlaybackId(player) !== activeSong.playbackId) return false;
       if (player.ended) return true;
       const duration = Number(player.duration);
       const current = Number(player.currentTime);
-      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) {
+      if (!Number.isFinite(duration) || duration <= 1 || !Number.isFinite(current)) {
         return false;
       }
+      // A freshly swapped source can still carry the previous track's clock
+      // for a moment. Never treat the first second as "finished."
+      if (current < 1) return false;
       return current >= duration - END_SLACK_SECONDS;
     }
 
     function advanceAfterEnd() {
       if (advancePending) return;
       advancePending = true;
+      trackStarted = false;
       const nextIdx = activeQueueIdx + 1;
       dbg('advance', {
         fromIdx: activeQueueIdx,
         toIdx: nextIdx,
         queueLen: activeQueue.length,
-        hasNext: nextIdx < activeQueue.length
+        hasNext: nextIdx < activeQueue.length,
+        nativeAudio: useNativeAudio
       });
       if (nextIdx < activeQueue.length) {
         playQueuedTrack(nextIdx, { immediatePlay: true, queueHandoff: true });
         return;
       }
       wantPlaying = false;
+      advancePending = false;
       notify({ playing: false });
     }
 
@@ -283,12 +394,12 @@
       const player = getPlayer();
       if (!player || !activeSong) return;
 
-      // A track can stall a hair before its real end (last chunk slow to
-      // arrive while backgrounded) and never fire `ended` or another
-      // `timeupdate`. Check on a plain interval so this doesn't depend on
-      // events that stop firing exactly when you need them.
       if (!advancePending && isNearEnd(player)) {
-        dbg('watchdog:near-end-advance', { id: activeSong.playbackId, currentTime: player.currentTime, duration: player.duration });
+        dbg('watchdog:near-end-advance', {
+          id: activeSong.playbackId,
+          currentTime: player.currentTime,
+          duration: player.duration
+        });
         advanceAfterEnd();
         return;
       }
@@ -302,21 +413,28 @@
       if (player.paused) {
         lastWatchedTime = null;
         stallTicks = 0;
-        dbg('watchdog:paused-retry', { id: activeSong.playbackId, readyState: player.readyState });
+        dbg('watchdog:paused-retry', {
+          id: activeSong.playbackId,
+          readyState: player.readyState
+        });
         playMedia(player);
         return;
       }
 
-      // Silent stall: the element reports "playing" but its clock isn't
-      // moving (seen on iOS during flaky background network conditions).
-      // Retrying play() is a harmless no-op if it's actually fine.
       const t = Number(player.currentTime);
       if (!Number.isFinite(t)) return;
+      if (clockIsInTrackBody(player) && currentPlaybackId(player) === activeSong.playbackId) {
+        markTrackStarted();
+      }
       if (lastWatchedTime !== null && t === lastWatchedTime) {
         stallTicks += 1;
         if (stallTicks >= STALL_TICKS_BEFORE_RETRY) {
           stallTicks = 0;
-          dbg('watchdog:stall-retry', { id: activeSong.playbackId, currentTime: t, readyState: player.readyState });
+          dbg('watchdog:stall-retry', {
+            id: activeSong.playbackId,
+            currentTime: t,
+            readyState: player.readyState
+          });
           playMedia(player);
         }
       } else {
@@ -336,36 +454,50 @@
       watchdogTimer = null;
     }
 
+    function onEnded() {
+      dbg('event:ended', { id: activeSong && activeSong.playbackId });
+      advanceAfterEnd();
+    }
+
+    function bindInnerEnded(player) {
+      if (!player || isAudioElement(player)) return;
+      const inner = player.media;
+      if (!inner || inner === player || typeof inner.addEventListener !== 'function') return;
+      if (innerEndedMedia === inner) return;
+      inner.addEventListener('ended', onEnded);
+      innerEndedMedia = inner;
+    }
+
     function bindPlayerListeners(player) {
-      if (!player || boundPlayer === player) return;
+      if (!player || boundPlayer === player) {
+        bindInnerEnded(player);
+        return;
+      }
       boundPlayer = player;
 
-      function onEnded() {
-        dbg('event:ended', { id: activeSong && activeSong.playbackId });
-        advanceAfterEnd();
-      }
-
       player.addEventListener('ended', onEnded);
-      const nativeMedia = player.media;
-      if (nativeMedia && nativeMedia !== player && typeof nativeMedia.addEventListener === 'function') {
-        nativeMedia.addEventListener('ended', onEnded);
-      }
+
+      player.addEventListener('playing', function () {
+        if (!activeSong) return;
+        if (currentPlaybackId(player) && currentPlaybackId(player) !== activeSong.playbackId) {
+          return;
+        }
+        if (clockIsInTrackBody(player)) markTrackStarted();
+        if (mediaSessionApi) mediaSessionApi.setPlaybackState(!!wantPlaying);
+        notify();
+      });
 
       player.addEventListener('timeupdate', function () {
         if (!activeSong) return;
-        // A fresh track's underlying <audio>/<video> element doesn't exist yet
-        // the moment startPlayback() sets playback-id, so the rate applied
-        // there can land on nothing and get lost once mux-player finishes
-        // swapping to the new source (audible as "speed resets to 100% every
-        // song"). Re-assert it here too — cheap (no-op once it already
-        // matches) and it also keeps Media Session's reported rate honest,
-        // which is what the lock-screen scrubber uses to interpolate
-        // position between updates (a stale rate there looks like the
-        // progress bar drifting out of sync with the actual audio).
         applyPlaybackRate(player);
-        // Safety net for the rare case Mux/iOS skips `ended` while backgrounded.
+        if (clockIsInTrackBody(player)) markTrackStarted();
+        bindInnerEnded(player);
         if (!advancePending && isNearEnd(player)) {
-          dbg('timeupdate:near-end-advance', { id: activeSong.playbackId, currentTime: player.currentTime, duration: player.duration });
+          dbg('timeupdate:near-end-advance', {
+            id: activeSong.playbackId,
+            currentTime: player.currentTime,
+            duration: player.duration
+          });
           advanceAfterEnd();
           return;
         }
@@ -374,11 +506,17 @@
       });
 
       player.addEventListener('play', notify);
-      player.addEventListener('pause', notify);
+      player.addEventListener('pause', function () {
+        // Source swaps fire pause internally. If we still want to play, keep
+        // the lock-screen session alive and let the watchdog / in-flight play()
+        // continue. Reporting paused here is what kills iOS auto-advance.
+        if (wantPlaying) {
+          if (mediaSessionApi) mediaSessionApi.setPlaybackState(true);
+          return;
+        }
+        notify();
+      });
 
-      // Transient network hiccup mid-track (common on flaky background
-      // cellular): give it one bounded retry instead of leaving the queue
-      // stuck on a track that will never recover on its own.
       player.addEventListener('error', function () {
         const errObj = (player.media && player.media.error) || player.error || null;
         dbg('event:error', {
@@ -399,6 +537,7 @@
 
       startWatchdog();
       bindLifecycleRecovery();
+      bindInnerEnded(player);
     }
 
     /** Recover playback after returning from the lock screen / app switcher / bfcache. */
@@ -437,18 +576,17 @@
 
     /**
      * One-shot correction for a stale playhead inherited from the previous
-     * track. Fires at most once per track, right when the new source's
-     * metadata is available — never a repeating timer, so it can't fight
-     * legitimate buffering (that fight is what caused the old "first second
-     * repeats 5 times" stutter on lock-screen advances).
+     * mux-player source. Native <audio> resets on src change, so this is only
+     * for the mux-player fallback.
      */
     function correctInheritedPlayhead(player, playbackId, generation) {
+      if (isAudioElement(player)) return;
       function stillCurrent() {
         return (
           generation === startGeneration &&
           activeSong &&
           activeSong.playbackId === playbackId &&
-          (player.getAttribute('playback-id') || '') === playbackId
+          currentPlaybackId(player) === playbackId
         );
       }
       function correctOnce() {
@@ -479,31 +617,37 @@
         id: normalized.playbackId,
         queueIdx: queueIdx,
         isQueueHandoff: isQueueHandoff,
-        immediatePlay: startOpts.immediatePlay !== false
+        immediatePlay: startOpts.immediatePlay !== false,
+        nativeAudio: useNativeAudio
       });
 
-      if (!player.getAttribute('audio')) player.setAttribute('audio', '');
-      if (!player.getAttribute('playsinline')) player.setAttribute('playsinline', '');
-      if (!player.getAttribute('stream-type')) player.setAttribute('stream-type', 'on-demand');
+      if (!isAudioElement(player)) {
+        if (!player.getAttribute('audio')) player.setAttribute('audio', '');
+        if (!player.getAttribute('playsinline')) player.setAttribute('playsinline', '');
+        if (!player.getAttribute('stream-type')) player.setAttribute('stream-type', 'on-demand');
+      }
 
-      // A fresh startPlayback means any in-flight advance has resolved, and
-      // any stall tracking from the previous track no longer applies.
-      advancePending = false;
       lastWatchedTime = null;
       stallTicks = 0;
+      trackStarted = false;
+      if (!isQueueHandoff) advancePending = false;
 
       const immediatePlay =
         startOpts.immediatePlay !== false &&
         !(startOpts.recall && startOpts.recall.wasPlaying === false);
       wantPlaying = !!immediatePlay;
 
-      const prevId = player.getAttribute('playback-id') || '';
-      const sameSource = prevId === normalized.playbackId;
+      const prevId = currentPlaybackId(player);
+      const sameSource =
+        prevId === normalized.playbackId &&
+        (!isAudioElement(player) || sourceContainsId(player, normalized.playbackId));
       const recall = startOpts.recall || null;
       const recallForThisSong =
         recall &&
         Number(recall.currentTime) > 0 &&
-        (!recall.song || !recall.song.playbackId || recall.song.playbackId === normalized.playbackId);
+        (!recall.song ||
+          !recall.song.playbackId ||
+          recall.song.playbackId === normalized.playbackId);
       const recallAt = recallForThisSong ? Number(recall.currentTime) : 0;
 
       startGeneration += 1;
@@ -529,28 +673,22 @@
             /* noop */
           }
         }
-        // Don't force currentTime here — the source change itself resets it
-        // in the normal case, and writing to it before metadata exists is
-        // one more thing that can race with mux-player/hls.js's own load on
-        // a given track's timing and occasionally swallow the play() that
-        // follows. correctInheritedPlayhead below is the (one-shot, not
-        // repeating) safety net for the genuine inherited-playhead case.
-        player.setAttribute('playback-id', normalized.playbackId);
+        applySource(player, normalized.playbackId);
+        bindInnerEnded(player);
         if (!recallAt) correctInheritedPlayhead(player, normalized.playbackId, generation);
-        // The rate applied a few lines down can land before the new track's
-        // underlying media element exists and get lost when mux-player
-        // finishes swapping sources. Reassert once metadata is in (the
-        // timeupdate listener keeps reasserting after that as a backstop).
         player.addEventListener(
           'loadedmetadata',
           function () {
             applyPlaybackRate(player);
+            bindInnerEnded(player);
           },
           { once: true }
         );
       }
 
-      player.setAttribute('metadata-video-title', normalized.title);
+      if (typeof player.setAttribute === 'function') {
+        player.setAttribute('metadata-video-title', normalized.title);
+      }
       applyPlaybackRate(player);
 
       if (root.BurnfolderPlaybackPrefetch) {
@@ -560,8 +698,9 @@
       notify();
 
       if (recallAt) {
+        markTrackStarted();
         const seek = function () {
-          if ((player.getAttribute('playback-id') || '') !== normalized.playbackId) return;
+          if (currentPlaybackId(player) !== normalized.playbackId) return;
           try {
             player.currentTime = recallAt;
           } catch (e) {
@@ -581,8 +720,6 @@
         }
         notify({ playing: false });
       } else if (immediatePlay) {
-        // Foreground taps: play in this turn (iOS gesture window).
-        // Background handoffs: play now; watchdog recovers if Mux isn't ready yet.
         playMedia(player);
       }
 
@@ -606,7 +743,6 @@
     function primeTrack(song) {
       const normalized = normalizeSong(song);
       if (!normalized) return false;
-      // Prefer the prefetch pool. Never rewrite the live player on hover/touch-down.
       if (root.BurnfolderPlaybackPrefetch && root.BurnfolderPlaybackPrefetch.prefetch) {
         root.BurnfolderPlaybackPrefetch.prefetch(normalized.playbackId);
         if (normalized.coverArt && root.BurnfolderPlaybackPrefetch.warmArtwork) {
@@ -619,10 +755,12 @@
       if (activeSong && activeSong.playbackId && activeSong.playbackId !== normalized.playbackId) {
         return false;
       }
-      if (player.getAttribute('playback-id') === normalized.playbackId) return true;
-      player.setAttribute('preload', 'auto');
-      player.setAttribute('playback-id', normalized.playbackId);
-      player.setAttribute('metadata-video-title', normalized.title);
+      if (currentPlaybackId(player) === normalized.playbackId) return true;
+      if (typeof player.setAttribute === 'function') {
+        player.setAttribute('preload', 'auto');
+        player.setAttribute('metadata-video-title', normalized.title);
+      }
+      applySource(player, normalized.playbackId);
       return true;
     }
 
@@ -639,6 +777,10 @@
       if (!song) return false;
       const trackOpts = playbackOpts || {};
       if (trackOpts.immediatePlay == null) trackOpts.immediatePlay = true;
+      if (trackOpts.queueHandoff) {
+        advancePending = true;
+        trackStarted = false;
+      }
       return startPlayback(song, activeQueue, queueIdx, trackOpts);
     }
 
@@ -665,7 +807,7 @@
       const player = getPlayer();
       if (!player || !activeSong) return;
       if (playbackId && activeSong.playbackId !== playbackId) return;
-      if (playbackId && (player.getAttribute('playback-id') || '') !== playbackId) return;
+      if (playbackId && currentPlaybackId(player) !== playbackId) return;
       wantPlaying = true;
       if (player.paused) playMedia(player);
     }
@@ -743,10 +885,9 @@
       if (!Number.isFinite(next)) return playbackRate;
       playbackRate = Math.max(0, Math.min(2, next));
       applyPlaybackRate();
-      const player = getPlayer();
       notify({
         playbackRate: playbackRate,
-        playing: !!(activeSong && player && !player.paused && playbackRate > 0)
+        playing: !!(activeSong && wantPlaying && playbackRate > 0)
       });
       return playbackRate;
     }
@@ -762,6 +903,7 @@
       activeQueueIdx = 0;
       wantPlaying = false;
       advancePending = false;
+      trackStarted = false;
       lastWatchedTime = null;
       stallTicks = 0;
       stopWatchdog();
@@ -771,7 +913,18 @@
         } catch (e) {
           /* noop */
         }
-        player.removeAttribute('playback-id');
+        if (isAudioElement(player)) {
+          try {
+            player.removeAttribute('src');
+            player.src = '';
+          } catch (e) {
+            /* noop */
+          }
+        }
+        if (typeof player.removeAttribute === 'function') {
+          player.removeAttribute('playback-id');
+          player.removeAttribute('data-playback-id');
+        }
       }
       if (recallApi && opts.recall !== false) recallApi.clear();
       notify();
@@ -785,7 +938,7 @@
       if (!recall || !recall.song) return false;
       if (activeSong && activeSong.playbackId) return false;
       const player = getPlayer();
-      if (player && !player.paused && player.getAttribute('playback-id')) {
+      if (player && !player.paused && currentPlaybackId(player)) {
         return false;
       }
       const queue = recall.queue && recall.queue.length ? recall.queue : [recall.song];
@@ -823,6 +976,7 @@
       stop: stop,
       restoreRecall: restoreRecall,
       persistRecall: persistRecall,
+      getMediaElement: getPlayer,
       getActiveSong: function () {
         return activeSong;
       },
@@ -837,6 +991,7 @@
         return !!(
           activeSong &&
           activeSong.playbackId === id &&
+          wantPlaying &&
           player &&
           !player.paused
         );
@@ -849,6 +1004,9 @@
 
   root.BurnfolderMuxPlayback = {
     create: create,
-    normalizeSong: normalizeSong
+    normalizeSong: normalizeSong,
+    muxHlsUrl: muxHlsUrl,
+    nativeHlsAudioSupported: nativeHlsAudioSupported,
+    LIVE_AUDIO_ID: LIVE_AUDIO_ID
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
