@@ -19,6 +19,9 @@
   const notesEl = document.getElementById('designerNotes');
   const versionPickerEl = document.getElementById('designerVersionPicker');
   const versionMetaEl = document.getElementById('designerVersionMeta');
+  const keyRowEl = document.getElementById('designerKeyRow');
+  const keyBtnEl = document.getElementById('designerKeyBtn');
+  const keyMetaEl = document.getElementById('designerKeyMeta');
   const versionLyricsEl = document.getElementById('designerVersionLyrics');
   const versionNotesEl = document.getElementById('designerVersionNotes');
   const heroVideoEl = document.getElementById('designerHeroVideo');
@@ -383,6 +386,10 @@
 
   function pickDefaultVersionId(page, versions) {
     const list = versions || [];
+    const keyId = page ? String(page.keyPlaybackId || '').trim() : '';
+    if (keyId && list.some(function (s) { return s && s.playbackId === keyId; })) {
+      return keyId;
+    }
     for (let i = 0; i < list.length; i += 1) {
       const song = list[i];
       if (!song || !song.playbackId) continue;
@@ -402,6 +409,7 @@
         versionMetaEl.hidden = false;
         versionMetaEl.textContent = 'No catalog versions yet — upload mixes in music first.';
       }
+      if (keyRowEl) keyRowEl.hidden = true;
       return;
     }
 
@@ -410,6 +418,8 @@
     if (!activeVersionId || !versions.some(function (s) { return s.playbackId === activeVersionId; })) {
       activeVersionId = pickDefaultVersionId(currentPage, versions);
     }
+
+    const keyId = currentPage ? String(currentPage.keyPlaybackId || '').trim() : '';
 
     versions.forEach(function (song) {
       const chip = document.createElement('button');
@@ -426,6 +436,15 @@
       label.textContent = versionsApi.displayTitleForSong(song);
       chip.appendChild(label);
 
+      if (keyId && song.playbackId === keyId) {
+        const keyMark = document.createElement('span');
+        keyMark.className = 'studio-song-designer-version-chip-key';
+        keyMark.textContent = 'key';
+        keyMark.setAttribute('aria-label', 'key version');
+        chip.appendChild(keyMark);
+        chip.classList.add('is-key');
+      }
+
       const row = versionEntryForEditor(currentPage, song.playbackId);
       if (store.versionHasContent(row)) {
         const dot = document.createElement('span');
@@ -441,6 +460,52 @@
       versionPickerEl.appendChild(chip);
     });
     syncDesignerVersionPickerPlayback();
+    syncKeyVersionControls();
+  }
+
+  function syncKeyVersionControls() {
+    if (!keyRowEl || !keyBtnEl) return;
+    const versions = catalogVersionsForGroup(activeGroupKey);
+    if (!versions.length || !activeVersionId) {
+      keyRowEl.hidden = true;
+      return;
+    }
+    keyRowEl.hidden = false;
+    const keyId = currentPage ? String(currentPage.keyPlaybackId || '').trim() : '';
+    const isKey = !!(keyId && keyId === activeVersionId);
+    keyBtnEl.textContent = isKey ? 'clear key version' : 'set as key version';
+    keyBtnEl.classList.toggle('is-key-active', isKey);
+    if (keyMetaEl) {
+      if (!keyId) {
+        keyMetaEl.textContent = 'no key set — title clicks play the latest upload';
+      } else if (isKey) {
+        keyMetaEl.textContent = 'this mix plays when the song title is clicked';
+      } else {
+        const keySong = versions.find(function (s) {
+          return s.playbackId === keyId;
+        });
+        keyMetaEl.textContent = keySong
+          ? 'key: ' + versionsApi.displayTitleForSong(keySong)
+          : 'key version set (not in catalog)';
+      }
+    }
+  }
+
+  function setKeyVersion(playbackId) {
+    if (!currentPage || !activeGroupKey) return;
+    currentPage.keyPlaybackId = String(playbackId || '').trim();
+    renderDesignerVersionPicker();
+    debouncedSave();
+  }
+
+  function toggleKeyVersion() {
+    if (!currentPage || !activeVersionId) return;
+    const keyId = String(currentPage.keyPlaybackId || '').trim();
+    if (keyId && keyId === activeVersionId) {
+      setKeyVersion('');
+      return;
+    }
+    setKeyVersion(activeVersionId);
   }
 
   function fillVersionEditorFields(playbackId) {
@@ -538,6 +603,7 @@
       notes: notesEl ? notesEl.value : '',
       lyrics: '',
       versions: Object.assign({}, currentPage ? currentPage.versions || {} : {}),
+      keyPlaybackId: currentPage ? String(currentPage.keyPlaybackId || '').trim() : '',
       heroVideoPlaybackId: heroVideoEl ? heroVideoEl.value : '',
       coverArt: currentPage ? currentPage.coverArt || '' : '',
       coverAssetId: currentPage ? currentPage.coverAssetId || '' : '',
@@ -829,6 +895,12 @@
   bindAutosave(versionLyricsEl);
   bindAutosave(versionNotesEl);
   bindAutosave(heroVideoEl);
+
+  if (keyBtnEl) {
+    keyBtnEl.addEventListener('click', function () {
+      toggleKeyVersion();
+    });
+  }
 
   if (coverBtn && coverInput) {
     coverBtn.addEventListener('click', function () {

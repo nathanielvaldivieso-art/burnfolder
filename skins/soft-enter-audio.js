@@ -19,25 +19,38 @@
   var audioHtmlCache = null;
 
   // Same stack as audio.html — loaded only AFTER gate classes are gone.
+  // Paths without ?v= get BurnfolderSiteVersion stamped at load time so soft-enter
+  // never pin itself to a stale mux-playback / scripts build.
   var SCRIPT_CHAIN = [
     'entry-renderer.js',
     'shared/song-versions.js',
     'stripe-publishable.js',
-    'shared/media-session.js?v=20260709l',
-    'shared/playback-recall.js?v=20260709l',
-    'album-pages.js?v=20260709l',
-    'press-page.js?v=20260709l',
-    'shared/playback-prefetch.js?v=20260709l',
-    'shared/studio-tap.js?v=20260709l',
-    'shared/mux-playback.js?v=20260723lock1',
-    'shared/playback-context.js?v=20260709l',
-    'shared/version-picker.js?v=20260709l',
-    'shared/now-playing-bar.js?v=20260720play1',
-    'scripts.js?v=20260720play2',
-    'skins/home-music.js?v=20260720s',
+    'shared/media-session.js',
+    'shared/playback-recall.js',
+    'album-pages.js',
+    'press-page.js',
+    'shared/playback-prefetch.js',
+    'shared/studio-tap.js',
+    'shared/mux-playback.js',
+    'shared/playback-context.js',
+    'shared/version-picker.js',
+    'shared/now-playing-bar.js',
+    'scripts.js',
+    'skins/home-music.js',
     'shared/analytics-config.js',
     'shared/analytics-beacon.js'
   ];
+
+  function scriptSrc(path) {
+    var src = String(path || '');
+    if (!src || /[?&]v=/.test(src)) return src;
+    var v =
+      (typeof window !== 'undefined' && window.BurnfolderSiteVersion) ||
+      (typeof globalThis !== 'undefined' && globalThis.BurnfolderSiteVersion) ||
+      '';
+    if (!v) return src;
+    return src + (src.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(v);
+  }
 
   function softEnterEnabled() {
     try {
@@ -97,7 +110,7 @@
     var i = 0;
     function next() {
       if (i >= urls.length) return Promise.resolve();
-      var src = urls[i++];
+      var src = scriptSrc(urls[i++]);
       return loadScript(src).then(next);
     }
     return next();

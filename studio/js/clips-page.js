@@ -803,6 +803,37 @@
     return null;
   }
 
+  /** Newest playable mix for a stack track — same rule as the album page. */
+  function resolveCollectionPlaybackId(track, block) {
+    var fallback =
+      (track && track.playbackId) || (block && block.playbackId) || '';
+    var api = versionsApi();
+    if (!api || !fallback) return fallback;
+    var title =
+      (block && (block.title || block.filename || block.passthrough)) ||
+      (track && track.title) ||
+      '';
+    if (api.resolveNewestSongInCatalog) {
+      var newest = api.resolveNewestSongInCatalog(
+        clipsVersionCatalog(),
+        { title: title, playbackId: fallback },
+        function (song) {
+          return (song && song.title) || title;
+        }
+      );
+      if (newest && newest.playbackId) return newest.playbackId;
+    }
+    if (api.pickPreferredSong && api.collectVersionsByGroupKey && api.getTrackGroupKey) {
+      var key = api.getTrackGroupKey(title || fallback);
+      var preferred = api.pickPreferredSong(
+        api.collectVersionsByGroupKey(clipsVersionCatalog(), key),
+        key
+      );
+      if (preferred && preferred.playbackId) return preferred.playbackId;
+    }
+    return fallback;
+  }
+
   /** Unique songs in a collection, music-page collapse rules. */
   function songRowsForGroup(group) {
     if (!group) return [];
@@ -816,6 +847,8 @@
       var title = (block && blockDisplayTitle(block)) || track.title || 'untitled';
       var key =
         (api && api.getTrackGroupKey && api.getTrackGroupKey(title)) || track.playbackId;
+      var playbackId = resolveCollectionPlaybackId(track, block);
+      if (!playbackId) return;
       var versionCount = 1;
       if (api && api.collectVersionsByGroupKey) {
         versionCount = Math.max(
@@ -829,7 +862,7 @@
           track: track,
           block: block,
           title: api && api.stripTrailingDate ? api.stripTrailingDate(title) || title : title,
-          playbackId: (block && block.playbackId) || track.playbackId,
+          playbackId: playbackId,
           versionCount: versionCount
         };
         byKey.set(key, row);
@@ -838,11 +871,15 @@
       }
       var existing = byKey.get(key);
       existing.versionCount = Math.max(existing.versionCount, versionCount);
-      if (block && (!existing.block || block.playbackId !== existing.playbackId)) {
+      // Prefer the newest resolved mix when duplicate titles collapse.
+      if (playbackId && playbackId !== existing.playbackId) {
+        existing.track = track;
         existing.block = block || existing.block;
-        existing.playbackId = (block && block.playbackId) || existing.playbackId;
+        existing.playbackId = playbackId;
         existing.title =
           api && api.stripTrailingDate ? api.stripTrailingDate(title) || title : title;
+      } else if (block && !existing.block) {
+        existing.block = block;
       }
     });
     return rows;
@@ -1456,9 +1493,17 @@
     }
   }
 
-  function playCollectionFrom(index, startPlaybackId) {
-    var groupRows = collectionSongRows();
-    if (!groupRows.length) return;
+  /**
+   * One play path for every visible audio list (collection or folder).
+   * Always builds a continuous queue — never a one-song playItem — so
+   * ended → next is automatic.
+   */
+  function playAudioList(rows, startPlaybackId, opts) {
+    var list = (rows || []).filter(function (row) {
+      return row && row.playbackId;
+    });
+    if (!list.length) return;
+    var options = opts || {};
     var player = window.BurnfolderStreamPlayer;
     var shell = window.BurnfolderStudioPlaybackShell;
     if (shell) {
@@ -1469,11 +1514,12 @@
       setStatus('playback unavailable');
       return;
     }
+    var wantId = startPlaybackId || '';
     // Same active track → pause/resume (Space / re-activate), not restart.
     if (
-      startPlaybackId &&
+      wantId &&
       typeof player.isActivePlaybackId === 'function' &&
-      player.isActivePlaybackId(startPlaybackId) &&
+      player.isActivePlaybackId(wantId) &&
       typeof player.togglePause === 'function'
     ) {
       player.togglePause();
@@ -1481,40 +1527,94 @@
       releaseClipKeyboardFocus();
       return;
     }
-    var startIndexInGroup = typeof index === 'number' ? index : 0;
-    if (startPlaybackId) {
-      var groupById = groupRows.findIndex(function (row) {
-        return row.playbackId === startPlaybackId;
-      });
-      if (groupById >= 0) startIndexInGroup = groupById;
-    }
-    var started = groupRows[startIndexInGroup] || groupRows[0];
-    var queueRows = collectionQueueFromOpen();
-    var tracks = queueRows.map(function (row) {
+    var tracks = list.map(function (row) {
       return {
         title: row.title,
         displayTitle: row.title,
         playbackId: row.playbackId,
         kind: 'audio',
-        passthrough: row.title
+        passthrough: row.title || row.passthrough || ''
       };
     });
     var idx = 0;
-    if (started && started.playbackId) {
-      var inQueue = tracks.findIndex(function (t) {
-        return t.playbackId === started.playbackId;
+    if (wantId) {
+      var byId = tracks.findIndex(function (t) {
+        return t.playbackId === wantId;
       });
-      idx = inQueue >= 0 ? inQueue : 0;
-    } else {
-      idx = Math.min(startIndexInGroup, Math.max(0, tracks.length - 1));
+      if (byId >= 0) idx = byId;
+    } else if (typeof options.startIndex === 'number') {
+      idx = Math.min(Math.max(0, options.startIndex), tracks.length - 1);
     }
-    var meta = openCollectionMeta();
     player.playQueue(tracks, idx, {
-      coverArt: meta.coverArt || '',
-      startPlaybackId: (started && started.playbackId) || startPlaybackId || ''
+      coverArt: options.coverArt || '',
+      startPlaybackId: (tracks[idx] && tracks[idx].playbackId) || wantId || ''
     });
     syncPlayingBlocks();
     releaseClipKeyboardFocus();
+  }
+
+  function playCollectionFrom(index, startPlaybackId) {
+    var groupRows = collectionSongRows();
+    if (!groupRows.length) return;
+    var startIndexInGroup = typeof index === 'number' ? index : 0;
+    var wantId = startPlaybackId || '';
+    if (wantId) {
+      var groupById = groupRows.findIndex(function (row) {
+        return row.playbackId === wantId;
+      });
+      if (groupById >= 0) {
+        startIndexInGroup = groupById;
+        wantId = groupRows[groupById].playbackId;
+      } else {
+        // Tile may carry an older mix id — match by song key so the queue
+        // still starts on SOMETIMES rather than falling back to index 0.
+        var seedBlock =
+          store && state && store.findBlockByPlaybackId
+            ? store.findBlockByPlaybackId(state, startPlaybackId)
+            : null;
+        var wantKey = seedBlock ? groupKeyForBlock(seedBlock) : '';
+        if (wantKey) {
+          var byKey = groupRows.findIndex(function (row) {
+            return row.key === wantKey;
+          });
+          if (byKey >= 0) {
+            startIndexInGroup = byKey;
+            wantId = groupRows[byKey].playbackId;
+          }
+        }
+      }
+    }
+    var started = groupRows[startIndexInGroup] || groupRows[0];
+    var queueRows = collectionQueueFromOpen();
+    var meta = openCollectionMeta();
+    playAudioList(queueRows, (started && started.playbackId) || wantId, {
+      coverArt: meta.coverArt || '',
+      startIndex: startIndexInGroup
+    });
+  }
+
+  function folderAudioRows() {
+    if (!openFolderId || !state) return [];
+    var folder = findBlock(openFolderId);
+    if (!folder || folder.kind !== 'folder') return [];
+    var items = store.sortedFolderItems ? store.sortedFolderItems(folder) : folder.items || [];
+    var rows = [];
+    items.forEach(function (item) {
+      if (!item || !item.playbackId) return;
+      var asBlock = folderItemAsBlock(item);
+      var playKind = effectiveBlockKind(asBlock) || asBlock.kind;
+      if (playKind !== 'audio') return;
+      rows.push({
+        title: asBlock.title || asBlock.filename || 'track',
+        playbackId: item.playbackId,
+        passthrough: item.passthrough || item.filename || item.title || ''
+      });
+    });
+    return rows;
+  }
+
+  function playFolderFrom(startPlaybackId) {
+    playAudioList(folderAudioRows(), startPlaybackId || '');
   }
 
   function fileIntoOpenCollection(block) {
@@ -2962,6 +3062,8 @@
       case 'audio':
         if (openGroupId) {
           playCollectionFrom(0, block.playbackId);
+        } else if (openFolderId) {
+          playFolderFrom(block.playbackId);
         } else {
           playMuxBlock(block);
         }

@@ -44,6 +44,7 @@
     'js/mux-client.js',
     'js/studio-mux-lib.js',
     'js/cloud-store-kit.js',
+    'js/song-page-store.js',
     'js/journal-day-store.js',
     'js/journal-contributions.js',
     'js/cloud-state.js',
@@ -124,6 +125,8 @@
       'js/mux-client.js',
       'js/studio-mux-lib.js',
       'js/cloud-state.js',
+      'js/cloud-store-kit.js',
+      'js/song-page-store.js',
       'js/stream-shared.js',
       'js/studio-dnd.js',
       'js/stream-album-page.js'

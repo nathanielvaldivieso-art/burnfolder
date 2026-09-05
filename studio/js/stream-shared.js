@@ -616,11 +616,17 @@
   /**
    * When a newer mix is uploaded, swap matching collection tracks to the new playbackId
    * so albums/stacks don't keep playing the previous dated version.
+   * Skips songs that have a key version set (manual override stays).
    */
   function upgradeTracksBySongKey(groupKey, patch) {
     const key = String(groupKey || '').trim();
     const nextId = patch && patch.playbackId ? String(patch.playbackId).trim() : '';
     if (!key || !nextId) return false;
+
+    const sv = window.BurnfolderSongVersions;
+    const keyPlaybackId =
+      sv && typeof sv.lookupKeyPlaybackId === 'function' ? sv.lookupKeyPlaybackId(key) : '';
+    if (keyPlaybackId) return false;
 
     const groups = loadGroups();
     let changed = false;

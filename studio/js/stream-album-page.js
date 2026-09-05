@@ -153,7 +153,14 @@
     rows.forEach(function (row) {
       const catalogCount = versionCountForKey(row.key);
       row.versionCount = Math.max(row.members.length, catalogCount, 1);
-      if (versionsApi && versionsApi.pickNewestSong) {
+      if (versionsApi && versionsApi.pickPreferredSong) {
+        const versions = versionsApi.collectVersionsByGroupKey(songCatalog, row.key);
+        const preferred = versionsApi.pickPreferredSong(versions, row.key);
+        if (preferred && preferred.playbackId) {
+          const lib = shared.findInLibrary(libraryCache, preferred.playbackId);
+          if (lib) row.resolved = lib;
+        }
+      } else if (versionsApi && versionsApi.pickNewestSong) {
         const versions = versionsApi.collectVersionsByGroupKey(songCatalog, row.key);
         const newest = versionsApi.pickNewestSong(versions);
         if (newest && newest.playbackId) {

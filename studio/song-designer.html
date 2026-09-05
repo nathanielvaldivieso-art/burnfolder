@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://image.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css?v=20260815videopass2">
-  <link rel="stylesheet" href="css/studio.css?v=20260815videopass2">
+  <link rel="stylesheet" href="css/studio.css?v=20260904key1">
 </head>
 <body class="studio-page studio-song-designer-page">
 
@@ -40,8 +40,12 @@
       <section class="studio-song-designer-editor" aria-label="Song page editor">
         <section class="studio-song-designer-section">
           <h2 class="studio-song-designer-section-title">lyrics &amp; version notes</h2>
-          <p class="studio-song-designer-hint">Per-version — pick a mix, then write. These change with the selected version on the public page. Line breaks are preserved.</p>
+          <p class="studio-song-designer-hint">Per-version — pick a mix, then write. Mark one as the <strong>key version</strong> to play when someone clicks the song title (otherwise the latest upload plays). Line breaks are preserved.</p>
           <div id="designerVersionPicker" class="studio-song-designer-version-picker" role="tablist" aria-label="Versions"></div>
+          <div class="studio-song-designer-key-row" id="designerKeyRow" hidden>
+            <button type="button" class="icon-btn" id="designerKeyBtn">set as key version</button>
+            <p class="studio-song-designer-meta" id="designerKeyMeta">—</p>
+          </div>
           <p class="studio-song-designer-meta" id="designerVersionMeta" hidden>—</p>
           <label class="studio-song-designer-label" for="designerVersionLyrics">lyrics</label>
           <textarea id="designerVersionLyrics" class="studio-song-designer-textarea studio-song-designer-textarea--tall" rows="8" placeholder="lyrics for this version…" spellcheck="false"></textarea>
@@ -153,7 +157,7 @@
   <script src="js/studio-status.js?v=20260815videopass2"></script>
   <script src="../entries.js?v=20260815videopass2"></script>
   <script src="../songs.js?v=20260815videopass2"></script>
-  <script src="../shared/song-versions.js?v=20260818upload1"></script>
+  <script src="../shared/song-versions.js?v=20260904key1"></script>
   <script src="../shared/song-clip-naming.js?v=20260815videopass2"></script>
   <script src="../shared/song-page-render.js?v=20260815videopass2"></script>
   <script src="js/asset-cloud.js?v=20260815videopass2"></script>
@@ -164,7 +168,7 @@
   <script src="js/studio-auth.js?v=20260815videopass2"></script>
   <script src="js/cloud-state.js?v=20260815videopass2"></script>
   <script src="js/cloud-store-kit.js?v=20260815videopass2"></script>
-  <script src="js/song-page-store.js?v=20260815videopass2"></script>
+  <script src="js/song-page-store.js?v=20260904key1"></script>
   <script src="js/mux-client.js?v=20260815videopass2"></script>
   <script src="js/studio-mux-lib.js?v=20260815videopass2"></script>
   <script src="js/upload-queue.js?v=20260815videopass2"></script>
@@ -173,7 +177,7 @@
   <script src="../shared/playback-prefetch.js?v=20260815videopass2"></script>
   <script src="../shared/studio-tap.js?v=20260815videopass2"></script>
   <script src="../shared/playback-debug.js?v=20260815videopass2"></script>
-  <script src="../shared/mux-playback.js?v=20260818lock1"></script>
+  <script src="../shared/mux-playback.js?v=20260904autoplay1"></script>
   <script src="../shared/playback-context.js?v=20260815videopass2"></script>
   <script src="../shared/now-playing-bar.js?v=20260818lock1"></script>
   <script src="../shared/studio-playback-stack.js?v=20260815videopass2"></script>
@@ -183,7 +187,7 @@
   <script src="js/stream-shared.js?v=20260818lock1"></script>
   <script src="js/share-links.js?v=20260815videopass2"></script>
   <script src="../shared/share-hub-ui.js?v=20260815videopass2"></script>
-  <script src="js/song-designer-page.js?v=20260815videopass2"></script>
+  <script src="js/song-designer-page.js?v=20260904key1"></script>
   <script src="../shared/site-version.js"></script>
   <script src="../shared/register-sw.js"></script>
 </body>

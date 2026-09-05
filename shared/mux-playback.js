@@ -11,10 +11,12 @@
  *    never pause(). wantPlaying stays true until the queue is actually done.
  * 4. Media Session reports wantPlaying, not element.paused (source changes
  *    fire pause internally; telling iOS we paused kills lock-screen autoplay).
- * 5. Do not treat a track as finished until it has started. Leftover
- *    `ended === true` after a source swap must not skip the next song.
+ * 5. Finish detection is one function. A track cannot finish until its
+ *    playhead has left the first second. Leftover `ended === true` after a
+ *    source swap (mux-player) must not skip the next song — the advance gate
+ *    stays closed until currentTime >= 1.
  * 6. The watchdog only retries play() while we want to be playing, and only
- *    uses near-end as a backstop for a track that already started.
+ *    uses near-end as a backstop after the advance gate has opened.
  *
  * User taps play() the same turn as the gesture. Do not call .load() after
  * changing source — it extra-pauses the element and can drop the session.
@@ -340,7 +342,29 @@
 
     function markTrackStarted() {
       trackStarted = true;
-      advancePending = false;
+    }
+
+    /**
+     * Open the advance gate only after this generation has a real playhead.
+     * Clearing it on the first playing event at t≈0 lets sticky mux-player
+     * `ended` skip the song we just handed off to.
+     */
+    function releaseAdvanceGate(player) {
+      if (!advancePending) return;
+      const t = Number(player && player.currentTime);
+      if (Number.isFinite(t) && t >= 1) {
+        advancePending = false;
+      }
+    }
+
+    function notePlayhead(player) {
+      if (!player || !activeSong) return;
+      if (currentPlaybackId(player) && currentPlaybackId(player) !== activeSong.playbackId) {
+        return;
+      }
+      if (!clockIsInTrackBody(player)) return;
+      markTrackStarted();
+      releaseAdvanceGate(player);
     }
 
     /** True when the playhead is in this track, not parked at the previous ending. */
@@ -354,18 +378,15 @@
       return t < d - 0.5;
     }
 
-    function isNearEnd(player) {
+    /** Single finish check for ended / timeupdate / watchdog / lifecycle. */
+    function trackHasFinished(player) {
       if (!player || !activeSong || advancePending || !trackStarted) return false;
       if (currentPlaybackId(player) !== activeSong.playbackId) return false;
+      const current = Number(player.currentTime);
+      if (!Number.isFinite(current) || current < 1) return false;
       if (player.ended) return true;
       const duration = Number(player.duration);
-      const current = Number(player.currentTime);
-      if (!Number.isFinite(duration) || duration <= 1 || !Number.isFinite(current)) {
-        return false;
-      }
-      // A freshly swapped source can still carry the previous track's clock
-      // for a moment. Never treat the first second as "finished."
-      if (current < 1) return false;
+      if (!Number.isFinite(duration) || duration <= 1) return false;
       return current >= duration - END_SLACK_SECONDS;
     }
 
@@ -394,7 +415,9 @@
       const player = getPlayer();
       if (!player || !activeSong) return;
 
-      if (!advancePending && isNearEnd(player)) {
+      notePlayhead(player);
+
+      if (trackHasFinished(player)) {
         dbg('watchdog:near-end-advance', {
           id: activeSong.playbackId,
           currentTime: player.currentTime,
@@ -423,9 +446,6 @@
 
       const t = Number(player.currentTime);
       if (!Number.isFinite(t)) return;
-      if (clockIsInTrackBody(player) && currentPlaybackId(player) === activeSong.playbackId) {
-        markTrackStarted();
-      }
       if (lastWatchedTime !== null && t === lastWatchedTime) {
         stallTicks += 1;
         if (stallTicks >= STALL_TICKS_BEFORE_RETRY) {
@@ -455,7 +475,14 @@
     }
 
     function onEnded() {
-      dbg('event:ended', { id: activeSong && activeSong.playbackId });
+      const player = getPlayer();
+      dbg('event:ended', {
+        id: activeSong && activeSong.playbackId,
+        currentTime: player && player.currentTime,
+        advancePending: advancePending,
+        trackStarted: trackStarted
+      });
+      if (!trackHasFinished(player)) return;
       advanceAfterEnd();
     }
 
@@ -479,10 +506,7 @@
 
       player.addEventListener('playing', function () {
         if (!activeSong) return;
-        if (currentPlaybackId(player) && currentPlaybackId(player) !== activeSong.playbackId) {
-          return;
-        }
-        if (clockIsInTrackBody(player)) markTrackStarted();
+        notePlayhead(player);
         if (mediaSessionApi) mediaSessionApi.setPlaybackState(!!wantPlaying);
         notify();
       });
@@ -490,9 +514,9 @@
       player.addEventListener('timeupdate', function () {
         if (!activeSong) return;
         applyPlaybackRate(player);
-        if (clockIsInTrackBody(player)) markTrackStarted();
+        notePlayhead(player);
         bindInnerEnded(player);
-        if (!advancePending && isNearEnd(player)) {
+        if (trackHasFinished(player)) {
           dbg('timeupdate:near-end-advance', {
             id: activeSong.playbackId,
             currentTime: player.currentTime,
@@ -548,7 +572,8 @@
       function recover(source) {
         const live = getPlayer();
         if (!live || !activeSong) return;
-        if (live.ended || isNearEnd(live)) {
+        notePlayhead(live);
+        if (trackHasFinished(live)) {
           dbg('lifecycle:recover-advance', { source: source, id: activeSong.playbackId });
           advanceAfterEnd();
           return;
@@ -699,6 +724,7 @@
 
       if (recallAt) {
         markTrackStarted();
+        advancePending = false;
         const seek = function () {
           if (currentPlaybackId(player) !== normalized.playbackId) return;
           try {

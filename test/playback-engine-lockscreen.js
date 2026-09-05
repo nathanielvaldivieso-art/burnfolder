@@ -220,22 +220,25 @@ const queue = [
   assert.ok(live.src.indexOf('s1') !== -1);
   const pausesAfterStart = live.pauseCalls;
 
-  live.currentTime = 12;
-  live.ended = true;
-  live.fire('ended');
+  function finishCurrentTrack() {
+    // Open the advance gate (playhead past the first second), then end.
+    live.currentTime = 2;
+    live.fire('timeupdate');
+    live.currentTime = 12;
+    live.ended = true;
+    live.fire('ended');
+  }
+
+  finishCurrentTrack();
   assert.strictEqual(engine.getActiveSong().playbackId, 's2');
   assert.ok(live.src.indexOf('s2') !== -1, 'second track source applied');
   assert.strictEqual(live.pauseCalls, pausesAfterStart, 'handoff must not call pause()');
   assert.ok(live.playCalls >= 2, 'next track play() in the ended turn');
 
-  live.currentTime = 12;
-  live.ended = true;
-  live.fire('ended');
+  finishCurrentTrack();
   assert.strictEqual(engine.getActiveSong().playbackId, 's3');
 
-  live.currentTime = 12;
-  live.ended = true;
-  live.fire('ended');
+  finishCurrentTrack();
   assert.strictEqual(engine.getActiveSong().playbackId, 'idm1', 'crosses into the next collection/track');
   assert.ok(live.src.indexOf('idm1') !== -1);
 
@@ -274,6 +277,7 @@ const queue = [
     restoreRecall: false
   });
   engine.playTrackQueue(queue, 0, { immediatePlay: true });
+  player.currentTime = 2;
   player.fire('playing');
   player.ended = true;
   player.currentTime = 12;
@@ -281,7 +285,20 @@ const queue = [
   assert.strictEqual(engine.getActiveSong().playbackId, 's2');
   assert.strictEqual(player.getAttribute('playback-id'), 's2');
 
-  // mux-player can leave ended=true until the new source is actually playing.
+  // mux-player can leave ended=true with a cold playhead after the swap.
+  // Opening the gate on playing@t≈0 used to skip FIRE ESCAPE entirely.
+  player.ended = true;
+  player.currentTime = 0;
+  player.duration = 12;
+  player.paused = false;
+  player.fire('playing');
+  player.fire('timeupdate');
+  assert.strictEqual(
+    engine.getActiveSong().playbackId,
+    's2',
+    'sticky ended at t≈0 must not skip the handed-off track'
+  );
+
   player.ended = true;
   player.currentTime = 12;
   player.duration = 12;
@@ -290,7 +307,7 @@ const queue = [
   assert.strictEqual(
     engine.getActiveSong().playbackId,
     's2',
-    'sticky ended after swap must not skip the next track'
+    'sticky ended with inherited end clock must not skip either'
   );
   engine.stop();
 })();

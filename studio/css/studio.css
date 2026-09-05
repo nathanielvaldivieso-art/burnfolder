@@ -5296,6 +5296,38 @@ body.studio-song-designer-page .page-wrap {
   opacity: 0.85;
 }
 
+.studio-song-designer-version-chip-key {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  border: 1px solid currentColor;
+  padding: 1px 4px;
+  line-height: 1.2;
+  opacity: 0.85;
+}
+
+.studio-song-designer-version-chip.is-active .studio-song-designer-version-chip-key {
+  opacity: 1;
+}
+
+.studio-song-designer-key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 10px 0 14px;
+}
+
+.studio-song-designer-key-row .icon-btn.is-key-active {
+  background: #000;
+  color: #fff;
+}
+
+.studio-song-designer-key-row .studio-song-designer-meta {
+  margin: 0;
+}
+
 .studio-song-design-btn {
   border-color: #000;
   background: #000;

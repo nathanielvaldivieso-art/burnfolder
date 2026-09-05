@@ -416,7 +416,7 @@ function resolveSongFromCatalog(playbackId, title) {
   return { title: title || 'Track', playbackId, page: '' };
 }
 
-/** Music page album slots: newest catalog version per song name; entry pages keep frozen album data. */
+/** Music page album slots: key version when set, else newest catalog version per song name. */
 function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate, albumCoverArt) {
   if (!track || !track.playbackId) return null;
 
@@ -437,12 +437,16 @@ function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate, albumCov
     };
   }
 
-  const newest = [...candidates].sort((a, b) => compareSongsBySortMode(a, b, 'newest'))[0];
+  const sv = songVersionsApi();
+  const preferred =
+    sv && sv.pickPreferredSong
+      ? sv.pickPreferredSong(candidates, groupKey)
+      : [...candidates].sort((a, b) => compareSongsBySortMode(a, b, 'newest'))[0];
   return {
-    ...newest,
-    page: newest.page || entryDate,
+    ...preferred,
+    page: preferred.page || entryDate,
     album: albumTitle || undefined,
-    coverArt: newest.coverArt || albumCoverArt || ''
+    coverArt: preferred.coverArt || albumCoverArt || ''
   };
 }
 
@@ -465,7 +469,9 @@ function buildMusicFamilies(sortMode) {
   return Array.from(families.entries())
     .map(([key, versions]) => {
       const sorted = [...versions].sort((a, b) => compareSongsBySortMode(a, b, sortMode));
-      const canonical = sorted[0];
+      const sv = songVersionsApi();
+      const canonical =
+        sv && sv.pickPreferredSong ? sv.pickPreferredSong(sorted, key) || sorted[0] : sorted[0];
       return {
         key,
         baseTitle: stripTrailingDate(canonical.title),

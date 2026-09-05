@@ -8,6 +8,8 @@ alwaysApply: false
 
 One player system for all studio audio. **Do not fork per page.**
 
+**Persistent autoplay / lock-screen / skip bugs:** read `PLAYBACK-AUTOPLAY-INVESTIGATION.md` first (symptom catalog, discarded designs, branch history, debug checklist). Do not revive dual-player / ping-pong / `forceStartAtZero` approaches without new evidence.
+
 ## Modules (only these)
 
 | Role | Module |
@@ -61,8 +63,8 @@ IDs (global only — do not reuse in preview UIs):
 - Elsewhere, mux-player remains the element. Same handoff rules apply.
 - `wantPlaying` is the source of truth. Media Session reports that flag, not `element.paused` (source swaps fire pause internally).
 - Advance is one move: `ended` → set next source → `play()`, same turn, never `pause()`.
-- Do not treat a track as finished until it has started. Leftover `ended` after a swap must not skip the next song.
-- Watchdog only retries `play()` while intent is playing. Near-end slack is a backstop for a track that already started.
+- Finish detection is one function (`trackHasFinished`). A track cannot finish in its first second; leftover `ended` after a source swap must not skip the next song. The advance gate stays closed until `currentTime >= 1`.
+- Watchdog only retries `play()` while intent is playing. Near-end slack is a backstop after the advance gate has opened.
 - Media Session: play / pause / next / previous only — omit seek handlers (breaks iOS next/prev).
 
 Entry editor preview uses **separate** IDs inside `.studio-preview-player`: `previewMuxPlayer`, `previewBottomBar`, etc. Global dedupe must **never** steal preview nodes.

@@ -66,6 +66,7 @@ function normalizePages(input) {
             : '',
       lyrics: '',
       versions: pruneVersions(page.versions),
+      keyPlaybackId: String(page.keyPlaybackId || '').trim(),
       heroVideoPlaybackId: String(page.heroVideoPlaybackId || '').trim(),
       coverArt: String(page.coverArt || '').trim(),
       media: Array.isArray(page.media) ? page.media : [],

@@ -31,6 +31,7 @@
       notes: '',
       lyrics: '',
       versions: {},
+      keyPlaybackId: '',
       heroVideoPlaybackId: '',
       coverArt: '',
       coverAssetId: '',
@@ -106,6 +107,7 @@
       notes: resolveNotes(page),
       lyrics: legacyLyrics && !versionsHaveLyrics(versions) ? legacyLyrics : '',
       versions: versions,
+      keyPlaybackId: String(page.keyPlaybackId || '').trim(),
       heroVideoPlaybackId: String(page.heroVideoPlaybackId || '').trim(),
       coverArt: String(page.coverArt || '').trim(),
       coverAssetId: String(page.coverAssetId || '').trim(),
@@ -147,6 +149,7 @@
     const p = normalizePage('', page);
     if (p.notes.trim()) return true;
     if (p.lyrics.trim()) return true;
+    if (p.keyPlaybackId) return true;
     if (p.heroVideoPlaybackId) return true;
     if (p.coverArt) return true;
     if (
@@ -159,6 +162,25 @@
     return p.media.some(function (item) {
       return !!(item.title || item.playbackId || item.href || item.text || item.imageData);
     });
+  }
+
+  /** Sync lookup: studio store first, then published song-pages.js. */
+  function getKeyPlaybackId(groupKey) {
+    const key = String(groupKey || '')
+      .toLowerCase()
+      .trim();
+    if (!key) return '';
+    try {
+      const store = readStore();
+      const local = store && store.pages ? store.pages[key] : null;
+      const localId = local ? String(local.keyPlaybackId || '').trim() : '';
+      if (localId) return localId;
+    } catch (err) {
+      /* ignore */
+    }
+    const published = root.burnfolderSongPages || {};
+    const page = published[key];
+    return page ? String(page.keyPlaybackId || '').trim() : '';
   }
 
   function getPage(groupKey) {
@@ -251,6 +273,7 @@
         notes: page.notes,
         lyrics: '',
         versions: pruneVersions(page.versions),
+        keyPlaybackId: page.keyPlaybackId || '',
         heroVideoPlaybackId: page.heroVideoPlaybackId,
         coverArt: page.coverArt,
         coverAssetId: page.coverAssetId || '',
@@ -312,6 +335,7 @@
     reconcileVersionsToCatalog: reconcileVersionsToCatalog,
     versionHasContent: versionHasContent,
     hasContent: hasContent,
+    getKeyPlaybackId: getKeyPlaybackId,
     ensureHydrated: ensureHydrated,
     getPage: getPage,
     savePage: savePage,
