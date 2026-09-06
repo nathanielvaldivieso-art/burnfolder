@@ -222,6 +222,19 @@
       /* fall through */
     }
 
+    const softEnter = window.BurnfolderSoftEnterAudio;
+    if (
+      enteringIndexHome(href, link.href || window.location.href) &&
+      softEnter &&
+      softEnter.isEntered &&
+      softEnter.isEntered() &&
+      softEnter.returnToGate
+    ) {
+      e.preventDefault();
+      softEnter.returnToGate();
+      return;
+    }
+
     // Full document load so hub boot scripts actually run.
     if (shouldHardNavigate(href, link.href || window.location.href)) {
       return;
@@ -237,6 +250,17 @@
   function handlePopState(e) {
     const dest =
       window.location.pathname + window.location.search + window.location.hash;
+    const softEnter = window.BurnfolderSoftEnterAudio;
+    if (
+      enteringIndexHome(dest) &&
+      softEnter &&
+      softEnter.isEntered &&
+      softEnter.isEntered() &&
+      softEnter.returnToGate
+    ) {
+      softEnter.returnToGate(false);
+      return;
+    }
     if (shouldHardNavigate(dest)) {
       hardNavigate(dest);
       return;
@@ -542,23 +566,24 @@
       const entry = document.createElement('div');
       entry.className = 'video-entry';
 
+      const title = document.createElement('button');
+      title.type = 'button';
+      title.className = 'video-entry-title';
+      title.textContent = video.title || 'untitled';
+      title.setAttribute('aria-label', 'Play ' + (video.title || 'video'));
+
       const player = document.createElement('mux-player');
       player.setAttribute('playback-id', video.playbackId);
       player.setAttribute('metadata-video-title', video.title);
       player.setAttribute('playbackrates', '1 1.5 2');
       player.setAttribute('noairplay', '');
       player.classList.add('page-inline-video');
+      title.addEventListener('click', function () {
+        const playPromise = player.play();
+        if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(function () {});
+      });
+      entry.appendChild(title);
       entry.appendChild(player);
-
-      if (video.page && /^\d/.test(video.page)) {
-        const meta = document.createElement('div');
-        meta.className = 'song-date-link';
-        const link = document.createElement('a');
-        link.href = video.page + '.html';
-        link.textContent = video.page;
-        meta.appendChild(link);
-        entry.appendChild(meta);
-      }
 
       videoListEl.appendChild(entry);
     });

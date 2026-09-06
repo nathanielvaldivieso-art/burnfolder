@@ -283,6 +283,10 @@
       const pct = Math.min(100, Math.max(0, (player.currentTime / player.duration) * 100));
       progressFill.style.width = pct + '%';
       if (playheadEl) playheadEl.style.left = pct + '%';
+      if (progressBarArea) {
+        progressBarArea.setAttribute('aria-valuenow', String(Math.round(pct)));
+        progressBarArea.setAttribute('aria-valuetext', formatTimecode(player.currentTime) + ' of ' + formatTimecode(player.duration));
+      }
       updatePlaybackTime();
     }
 
@@ -693,6 +697,22 @@
     }
 
     if (progressBarArea) {
+      progressBarArea.tabIndex = 0;
+      progressBarArea.setAttribute('role', 'slider');
+      progressBarArea.setAttribute('aria-label', 'Seek');
+      progressBarArea.setAttribute('aria-valuemin', '0');
+      progressBarArea.setAttribute('aria-valuemax', '100');
+      progressBarArea.setAttribute('aria-valuenow', '0');
+      progressBarArea.addEventListener('keydown', function (event) {
+        if (!canSeek()) return;
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const player = resolveMuxPlayer();
+        if (event.key === 'Home') player.currentTime = 0;
+        else if (event.key === 'End') player.currentTime = player.duration;
+        else player.currentTime = Math.max(0, Math.min(player.duration, player.currentTime + (event.key === 'ArrowRight' ? 5 : -5)));
+        updateProgress();
+        event.preventDefault();
+      });
       progressBarArea.addEventListener('mousedown', function (event) {
         if (!canSeek()) return;
         isDragging = true;

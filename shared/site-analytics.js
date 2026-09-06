@@ -104,7 +104,7 @@
     if (file === 'music.html') return 'music';
     if (file === 'shop.html') return 'shop';
     if (file === 'press.html') return 'press';
-    if (file === 'content.html') return 'visual';
+    if (file === 'content.html') return 'video';
     if (file === 'cart.html') return 'cart';
     if (file === 'checkout.html') return 'checkout';
     if (file === 'success.html') return 'success';
@@ -181,16 +181,23 @@
     }
   }
 
-  function groupKeyForTitle(title) {
+  function groupKeyForSong(song) {
+    var title = song && song.title;
+    if (!title && song && song.playbackId && Array.isArray(root.allSongs)) {
+      var catalogItem = root.allSongs.find(function (item) {
+        return item && item.playbackId === song.playbackId;
+      });
+      title = catalogItem && catalogItem.title;
+    }
     var versions = root.BurnfolderSongVersions;
     if (versions && typeof versions.getTrackGroupKey === 'function') {
-      return versions.getTrackGroupKey(title) || 'unknown';
+      return versions.getTrackGroupKey(title) || String((song && song.playbackId) || 'unknown');
     }
     return String(title || '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, ' ')
       .trim()
-      .replace(/\s+/g, ' ') || 'unknown';
+      .replace(/\s+/g, ' ') || String((song && song.playbackId) || 'unknown');
   }
 
   function inferCut(song) {
@@ -442,7 +449,7 @@
     active = {
       playbackId: String(song.playbackId),
       title: String(song.title || 'untitled'),
-      groupKey: groupKeyForTitle(song.title),
+      groupKey: groupKeyForSong(song),
       cut: inferCut(song),
       startSeconds: startAt,
       reportedSeconds: startAt,

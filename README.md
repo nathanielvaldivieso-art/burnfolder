@@ -97,7 +97,7 @@ Constellation menu (`shared/site-menu.js`) on every public page:
 | Item        | Page           | Role                                               |
 | ----------- | -------------- | -------------------------------------------------- |
 | **audio**   | `audio.html`   | Featured listening surface (release constellation) |
-| **visual**  | `content.html` | All videos from the catalog                        |
+| **video**   | `content.html` | All videos from the catalog                        |
 | **archive** | `archive.html` | Chronological index of dated journal entries       |
 | **shop**    | `shop.html`    | Digital / retail catalog                           |
 | **about**   | `about.html`   | One-line identity                                  |
@@ -112,7 +112,7 @@ Brand mark in the menu returns to **home** (`index.html`).
 
 ### Home — `index.html`
 
-Landing **gate**: full-viewport Photonegative image (`IMAGES/TORNADO.jpeg`) with pixel-sampled hotspots that link into the site (album, audio, visual, archive, shop, and reserved spots). Scroll / soft-enter leaves the gate into listening without treating home as a dashboard.
+Landing **gate**: full-viewport Photonegative image (`IMAGES/TORNADO.jpeg`) with pixel-sampled hotspots that link into the site (album, audio, video, archive, shop, and reserved spots). Scroll / soft-enter leaves the gate into listening without treating home as a dashboard.
 
 Home is the link-in-bio. No Linktree.
 
@@ -130,7 +130,7 @@ Related catalog surface: `music.html` — portfolio-style list of all songs / fe
 
 
 
-### Visual — `content.html`
+### Video — `content.html`
 
 Collection of all videos tied to journal entries / catalog (`videosByPage` → `allVideos`). Inline Mux players; grayscale control branding. Same bottom audio bar for continuity when navigating away.
 

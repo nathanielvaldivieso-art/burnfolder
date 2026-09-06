@@ -683,7 +683,7 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
 
   const num = document.createElement('span');
   num.className = 'music-track-num';
-  num.textContent = String(trackNum);
+  num.textContent = String(trackNum).padStart(2, '0');
 
   const row = document.createElement('button');
   row.type = 'button';
@@ -698,23 +698,10 @@ function buildTracklistItem(song, trackNum, onPlay, displayTitle, options) {
 
   function syncRow() {
     const current = freezePlayback ? song : cycle ? cycle.getSelected(song) : song;
-    const label = freezePlayback
-      ? displayTitle != null
-        ? songVersionsApi()
-          ? songVersionsApi().normalizeTrackTitle(displayTitle)
-          : displayTitle
-        : songVersionsApi()
-          ? songVersionsApi().normalizeTrackTitle(song.title)
-          : song.title
-      : cycle
-        ? cycle.labelFor(song)
-        : displayTitle != null
-          ? songVersionsApi()
-            ? songVersionsApi().normalizeTrackTitle(displayTitle)
-            : displayTitle
-          : songVersionsApi()
-            ? songVersionsApi().normalizeTrackTitle(song.title)
-            : song.title;
+    const sourceTitle = displayTitle != null ? displayTitle : song.title;
+    const label = songVersionsApi()
+      ? songVersionsApi().getTrackGroupKey(sourceTitle)
+      : sourceTitle;
     const playbackId = current && current.playbackId ? current.playbackId : '';
     row.dataset.playbackId = playbackId;
     row.setAttribute('aria-label', 'Play ' + label);
@@ -1043,6 +1030,10 @@ function renderArchivePage() {
 
   const entries = window.journalEntries || [];
   root.innerHTML = '';
+  if (!entries.length) {
+    root.innerHTML = '<li class="music-portfolio-empty">no entries yet.</li>';
+    return;
+  }
   entries.forEach(function (date) {
     const li = document.createElement('li');
     const link = document.createElement('a');

@@ -4,7 +4,7 @@
 
   var NAV_ITEMS = [
     { id: 'audio', label: 'audio', href: 'audio.html' },
-    { id: 'visual', label: 'visual', href: 'content.html' },
+    { id: 'visual', label: 'video', href: 'content.html' },
     { id: 'archive', label: 'archive', href: 'archive.html' },
     { id: 'shop', label: 'shop', href: 'shop.html' },
     { id: 'about', label: 'about', href: 'about.html' },

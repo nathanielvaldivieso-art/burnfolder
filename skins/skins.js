@@ -214,6 +214,13 @@
     window.location.assign('audio.html');
   }
 
+  function openSiteMenuFromGate() {
+    var siteMenu = window.BurnfolderSiteMenu;
+    if (siteMenu && typeof siteMenu.setOpen === 'function') {
+      siteMenu.setOpen(true);
+    }
+  }
+
   var audioPrefetchStarted = false;
 
   function shouldSkipAudioPrefetch() {
@@ -372,11 +379,18 @@
       'wheel',
       function (e) {
         if (!onGate() || !gateArmed) return;
+        if (document.body.classList.contains('is-site-menu-open')) return;
         var dy = e.deltaY;
         if (Math.abs(dy) < 1 && Math.abs(e.deltaX) > Math.abs(dy)) dy = e.deltaX;
-        if (dy <= 0) return;
-        e.preventDefault();
-        goToAudioPage();
+        if (dy > 0) {
+          e.preventDefault();
+          goToAudioPage();
+          return;
+        }
+        if (dy < 0 && Math.abs(dy) >= 30 && gateScrollY() <= 2) {
+          e.preventDefault();
+          openSiteMenuFromGate();
+        }
       },
       { passive: false, capture: true }
     );
@@ -386,6 +400,9 @@
       if (e.key === 'ArrowDown' || e.key === 'PageDown' || (e.key === ' ' && !e.repeat)) {
         e.preventDefault();
         goToAudioPage();
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        openSiteMenuFromGate();
       }
     });
 
@@ -403,13 +420,23 @@
       'touchmove',
       function (e) {
         if (!onGate() || !gateArmed || touchStartY == null) return;
+        if (document.body.classList.contains('is-site-menu-open')) return;
         var touch = e.changedTouches && e.changedTouches[0];
         if (!touch) return;
+        var deltaY = touchStartY - touch.clientY;
         // Finger moves up = scroll down intent
-        if (touchStartY - touch.clientY < 40) return;
-        e.preventDefault();
-        touchStartY = null;
-        goToAudioPage();
+        if (deltaY >= 40) {
+          e.preventDefault();
+          touchStartY = null;
+          goToAudioPage();
+          return;
+        }
+        // Finger moves down = scroll up intent (open menu)
+        if (deltaY <= -40 && gateScrollY() <= 2) {
+          e.preventDefault();
+          touchStartY = null;
+          openSiteMenuFromGate();
+        }
       },
       { passive: false, capture: true }
     );

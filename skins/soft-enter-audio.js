@@ -210,8 +210,60 @@
     });
   }
 
+  function returnToGate(updateHistory) {
+    if (!entered || isIndexGate()) return false;
+    document.body.classList.remove('page-audio', 'bf-audio-booting');
+    document.body.classList.add('index-home', 'is-home-gate');
+
+    var gate = document.getElementById('skinMapPhotonegative');
+    if (gate) {
+      gate.hidden = false;
+      gate.setAttribute('aria-hidden', 'false');
+    }
+
+    var spa = document.getElementById('spa-content');
+    if (spa) spa.hidden = true;
+
+    var scrollRoom = document.querySelector('.skin-map__scroll-room');
+    if (!scrollRoom) {
+      scrollRoom = document.createElement('div');
+      scrollRoom.className = 'skin-map__scroll-room';
+      scrollRoom.setAttribute('aria-hidden', 'true');
+      if (gate && gate.parentNode) gate.parentNode.insertBefore(scrollRoom, gate.nextSibling);
+      else document.body.appendChild(scrollRoom);
+    }
+
+    if (updateHistory !== false) {
+      try {
+        history.pushState({ bfSoftGate: 1 }, '', 'index.html');
+      } catch (_) {}
+    }
+    document.title = 'burnfolder.com';
+    window.scrollTo(0, 0);
+    try {
+      window.dispatchEvent(
+        new CustomEvent('burnfolder-spa-navigated', {
+          detail: { url: 'index.html', softGate: true }
+        })
+      );
+    } catch (_) {}
+    return true;
+  }
+
   function enter() {
-    if (entered) return Promise.resolve(true);
+    if (entered) {
+      if (isIndexGate()) {
+        leaveGateMode();
+        var spa = document.getElementById('spa-content');
+        if (spa) spa.hidden = false;
+        try {
+          history.pushState({ bfSoftAudio: 1 }, '', AUDIO_URL);
+        } catch (_) {}
+        document.title = 'audio — burnfolder.com';
+        finishBoot();
+      }
+      return Promise.resolve(true);
+    }
     if (entering) return Promise.resolve(false);
 
     if (!softEnterEnabled()) {
@@ -270,8 +322,8 @@
       });
   }
 
-  // Back to index after soft enter: spa-router hard-navs (enteringIndexHome).
-  // Extra belt: if something soft-swaps into index URL without unload, force it.
+  // Back to index after soft enter restores the gate without unloading playback.
+  // Keep browser history aligned with the visible surface.
   window.addEventListener('popstate', function () {
     if (!entered) return;
     try {
@@ -279,15 +331,16 @@
       var base = path.split('/').pop() || '';
       var isIndex = !base || base === 'index' || base === 'index.html';
       if (isIndex) {
-        window.location.assign('index.html');
+        returnToGate(false);
       }
     } catch (_) {
-      window.location.assign('index.html');
+      returnToGate(false);
     }
   });
 
   window.BurnfolderSoftEnterAudio = {
     enter: enter,
+    returnToGate: returnToGate,
     warm: warm,
     isEntered: function () {
       return entered;

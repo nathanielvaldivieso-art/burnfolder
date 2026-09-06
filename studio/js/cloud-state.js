@@ -100,6 +100,8 @@
     );
   }
 
+  const remoteUpdatedAt = {};
+
   function get(key) {
     return whenReady().then(function () {
       begin();
@@ -119,6 +121,7 @@
         })
         .then(function (data) {
           settle(true);
+          remoteUpdatedAt[key] = data && data.updatedAt ? data.updatedAt : null;
           return data && 'value' in data ? data.value : null;
         })
         .catch(function (err) {
@@ -139,24 +142,32 @@
       return fetch(getApiBase({ forWrite: true }) + '/studio-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key, value: value }),
+        body: JSON.stringify({ key: key, value: value, expectedUpdatedAt: remoteUpdatedAt[key] || null }),
         keepalive: !!keepalive
       }).then(function (res) {
         if (!res.ok) {
           return res.text().then(function (txt) {
             logFailure('write', key, res, txt);
+            if (res.status === 409) {
+              window.dispatchEvent(new CustomEvent('burnfolder-cloud-conflict', { detail: { key: key } }));
+              const conflict = new Error('newer cloud copy found — reload before saving');
+              conflict.cloudConflict = true;
+              throw conflict;
+            }
             throw new Error('cloud write failed (' + res.status + ')');
           });
         }
         return res.json();
       }).then(function (data) {
         settle(true);
+        remoteUpdatedAt[key] = data && data.updatedAt ? data.updatedAt : remoteUpdatedAt[key];
         return data;
       }).catch(function (err) {
         if (!err || !/cloud write failed/.test(err.message || '')) {
           logFailure('write', key, null, err && err.message);
         }
-        settle(false);
+        if (err && err.cloudConflict) emitStatus('conflict');
+        else settle(false);
         throw err;
       });
     });
@@ -211,7 +222,8 @@
     idle: 'cloud',
     syncing: 'saving…',
     synced: 'synced',
-    offline: 'offline'
+    offline: 'offline',
+    conflict: 'reload'
   };
 
   function statusLabel(status) {

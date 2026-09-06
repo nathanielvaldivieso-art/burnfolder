@@ -200,6 +200,11 @@
   function goToGatePage() {
     if (returnLock || !isAudioPage()) return;
     returnLock = true;
+    var softEnter = window.BurnfolderSoftEnterAudio;
+    if (softEnter && softEnter.isEntered && softEnter.isEntered() && softEnter.returnToGate) {
+      softEnter.returnToGate();
+      return;
+    }
     window.location.assign('index.html');
   }
 

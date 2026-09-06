@@ -280,10 +280,11 @@
       }
 
       const confirmMsg =
-        'Publish "' +
-        payload.date +
-        '" to burnfolder.com?\n\n' +
-        'This commits to GitHub, deploys the site, and emails subscribers.';
+        'review gallery publish\n\n' +
+        payload.date + ' · ' + payload.blocks.length + ' block' + (payload.blocks.length === 1 ? '' : 's') + '\n' +
+        'destination · burnfolder.com\n' +
+        'effect · commit, deploy, notify subscribers\n\n' +
+        'publish now?'
 
       if (!window.confirm(confirmMsg)) return;
 

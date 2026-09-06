@@ -59,8 +59,9 @@ body.page-audio.playback-active .home-music {
   padding: 0;
   border: none;
   background: none;
-  color: var(--home-music-ink);
-  text-decoration: none;
+  color: var(--c-media-link, #000);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   white-space: nowrap;
   cursor: pointer;
   transition: opacity 0.2s ease;

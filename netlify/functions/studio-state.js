@@ -134,6 +134,17 @@ exports.handler = async function (event) {
 
     const updatedAt = new Date().toISOString();
     try {
+      if (typeof body.expectedUpdatedAt === 'string' && body.expectedUpdatedAt) {
+        const currentRecord = await readRecord(store, storageKey);
+        const currentUpdatedAt = currentRecord && currentRecord.updatedAt;
+        if (currentUpdatedAt && currentUpdatedAt !== body.expectedUpdatedAt) {
+          return {
+            statusCode: 409,
+            headers,
+            body: JSON.stringify({ message: 'A newer cloud copy exists.', updatedAt: currentUpdatedAt })
+          };
+        }
+      }
       let value = body.value;
       if (logicalKey === 'groups') {
         let fullRecord = await readRecord(store, storageKey);

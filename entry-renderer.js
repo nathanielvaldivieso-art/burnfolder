@@ -210,10 +210,14 @@
   function renderDataEntryPage(pageKey) {
     const key = pageKey || window.location.pathname.split('/').pop().replace('.html', '');
     const entry = window.entryDataByDate && window.entryDataByDate[key];
-    if (!entry) return false;
-
     const wrap = document.querySelector('.page-wrap');
     if (!wrap) return false;
+    if (!entry) {
+      if (/^\d{1,2}\.\d{1,2}\.\d{2}$/.test(key)) {
+        wrap.innerHTML = '<p class="page-id">entry not found.</p><p><a href="archive.html">archive</a></p>';
+      }
+      return false;
+    }
 
     document.title = entry.date;
     wrap.innerHTML = '';
@@ -224,6 +228,18 @@
     wrap.appendChild(id);
 
     (entry.blocks || []).forEach(block => renderBlock(block, entry, wrap));
+
+    const dates = Array.isArray(window.journalEntries) ? window.journalEntries : [];
+    const position = dates.indexOf(key);
+    const nav = document.createElement('nav');
+    nav.className = 'entry-neighbors';
+    nav.setAttribute('aria-label', 'Archive entries');
+    const newer = position > 0 ? dates[position - 1] : '';
+    const older = position > -1 && position < dates.length - 1 ? dates[position + 1] : '';
+    if (older) nav.innerHTML += '<a href="' + older + '.html">previous</a>';
+    nav.innerHTML += '<a href="archive.html">archive</a>';
+    if (newer) nav.innerHTML += '<a href="' + newer + '.html">next</a>';
+    wrap.appendChild(nav);
 
     const watermark = document.querySelector('.page-watermark');
     if (watermark) watermark.textContent = entry.date;

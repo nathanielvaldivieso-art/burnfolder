@@ -13,6 +13,7 @@
   let calendarGrid = document.getElementById('journalCalendarGrid');
   let monthLabel = document.getElementById('journalMonthLabel');
   let selectedLabel = document.getElementById('journalSelectedLabel');
+  let journalPlan = document.getElementById('journalPlan');
   let journalBody = document.getElementById('journalBody');
   let contributionsList = document.getElementById('journalContributionsList');
   let uploadRoot = document.getElementById('journalUpload');
@@ -212,6 +213,7 @@
   function persistJournalBody() {
     return store
       .saveDay(activeDate, {
+        plan: journalPlan ? journalPlan.value : '',
         journal: journalBody ? journalBody.value : ''
       })
       .then(function (saved) {
@@ -245,7 +247,8 @@
     }
     if (loadingDay || !currentDay) return Promise.resolve();
     const body = journalBody ? journalBody.value : '';
-    if (!hadTimer && body === (currentDay.journal || '')) return Promise.resolve();
+    const plan = journalPlan ? journalPlan.value : '';
+    if (!hadTimer && body === (currentDay.journal || '') && plan === (currentDay.plan || '')) return Promise.resolve();
     return persistJournalBody().catch(function () {});
   }
 
@@ -267,6 +270,7 @@
 
     return store.getDay(key).then(function (day) {
       currentDay = day;
+      if (journalPlan) journalPlan.value = day.plan || '';
       if (journalBody) journalBody.value = day.journal || '';
       if (dayHasJournal(day) || dayHasContributions(day)) markedDays.add(key);
       loadingDay = false;
@@ -307,9 +311,11 @@
   }
 
   function bindFields() {
-    if (!journalBody || journalBody.dataset.journalBound === '1') return;
-    journalBody.dataset.journalBound = '1';
-    journalBody.addEventListener('input', debouncedSave);
+    [journalPlan, journalBody].forEach(function (field) {
+      if (!field || field.dataset.journalBound === '1') return;
+      field.dataset.journalBound = '1';
+      field.addEventListener('input', debouncedSave);
+    });
   }
 
   function bindNav() {
@@ -348,6 +354,7 @@
     calendarGrid = document.getElementById('journalCalendarGrid');
     monthLabel = document.getElementById('journalMonthLabel');
     selectedLabel = document.getElementById('journalSelectedLabel');
+    journalPlan = document.getElementById('journalPlan');
     journalBody = document.getElementById('journalBody');
     contributionsList = document.getElementById('journalContributionsList');
     uploadRoot = document.getElementById('journalUpload');

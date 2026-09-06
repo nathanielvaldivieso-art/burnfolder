@@ -219,15 +219,13 @@
       name.textContent = row.title;
       rowBtn.appendChild(name);
 
+      let songLink = null;
       if (row.songHref && options.showSongLinks !== false) {
-        const link = document.createElement('a');
-        link.className = 'album-hub-track-song-link icon-btn';
-        link.href = row.songHref;
-        link.textContent = 'song';
-        link.addEventListener('click', function (event) {
-          event.stopPropagation();
-        });
-        rowBtn.appendChild(link);
+        songLink = document.createElement('a');
+        songLink.className = 'album-hub-track-song-link icon-btn';
+        songLink.href = row.songHref;
+        songLink.textContent = 'song';
+        songLink.setAttribute('aria-label', 'Open ' + row.title + ' song page');
       }
 
       const dur = document.createElement('span');
@@ -260,6 +258,7 @@
       }
 
       li.appendChild(rowBtn);
+      if (songLink) li.appendChild(songLink);
       ol.appendChild(li);
     });
 
@@ -514,6 +513,29 @@
       showSongLinks: opts.showSongLinks,
       songPageUrl: opts.songPageUrl
     });
+
+    const linksPanel = rootEl.querySelector('[data-album-panel="links"]');
+    const linksMount = rootEl.querySelector('[data-album-field="links"]');
+    const links = albumPage && Array.isArray(albumPage.links) ? albumPage.links : [];
+    if (linksMount) {
+      linksMount.innerHTML = '';
+      links.forEach(function (item) {
+        if (!item || !item.label) return;
+        const link = document.createElement(item.href ? 'a' : 'span');
+        link.className = 'icon-btn album-hub-link' + (item.pending ? ' album-hub-link--pending' : '');
+        link.textContent = item.label;
+        if (item.href) {
+          link.href = item.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        } else {
+          link.setAttribute('aria-disabled', 'true');
+        }
+        linksMount.appendChild(link);
+      });
+      if (linksMount.childNodes.length) panelVisible(linksPanel);
+      else panelHidden(linksPanel);
+    }
 
     renderCompiledLyrics(rootEl, rows);
     renderCompiledNotes(rootEl, rows);

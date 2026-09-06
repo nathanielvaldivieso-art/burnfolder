@@ -18,6 +18,14 @@ const stackSrc = fs.readFileSync(
   path.join(__dirname, '..', 'shared', 'studio-playback-stack.js'),
   'utf8'
 );
+const softEnterSrc = fs.readFileSync(
+  path.join(__dirname, '..', 'skins', 'soft-enter-audio.js'),
+  'utf8'
+);
+const homeMusicSrc = fs.readFileSync(
+  path.join(__dirname, '..', 'skins', 'home-music.js'),
+  'utf8'
+);
 
 function makeStorage() {
   const map = new Map();
@@ -79,6 +87,8 @@ assert.ok(muxSrc.includes('wantPlaying'), 'intentional play state present');
 assert.ok(muxSrc.includes('activeLiveAudio'), 'native live audio element for iOS HLS');
 assert.ok(muxSrc.includes('muxHlsUrl') || muxSrc.includes('stream.mux.com'), 'HLS source for native audio');
 assert.ok(muxSrc.includes('watchdogTick') || muxSrc.includes('startWatchdog'), 'watchdog present');
+assert.ok(softEnterSrc.includes('returnToGate: returnToGate'), 'soft gate return API mounted');
+assert.ok(homeMusicSrc.includes('softEnter.returnToGate()'), 'scroll-up gate return preserves the document');
 assert.ok(
   muxSrc.includes('never pause() during a live queue handoff'),
   'documents no-pause handoff'

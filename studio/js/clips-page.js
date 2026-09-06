@@ -1860,15 +1860,12 @@
         '"></div>'
       );
     }
-    if ((kind === 'video' || kind === 'audio') && block.playbackId) {
-      if (kind === 'video') {
-        return (
-          '<div class="clips-block-media clips-block-media--video" style="background-image:url(\'' +
-          escapeHtml(muxThumb(block.playbackId)) +
-          '\')"></div>'
-        );
-      }
-      return '<div class="clips-block-media clips-block-media--audio" aria-hidden="true">♪</div>';
+    if (kind === 'video' && block.playbackId) {
+      return (
+        '<div class="clips-block-media clips-block-media--video" style="background-image:url(\'' +
+        escapeHtml(muxThumb(block.playbackId)) +
+        '\')"></div>'
+      );
     }
     if (kind === 'album') {
       var coverMeta = albumCoverMeta(block);
@@ -1884,7 +1881,6 @@
           ' aria-hidden="true"></div>'
         );
       }
-      return '<div class="clips-block-media clips-block-media--album clips-block-media--empty">playlist</div>';
     }
     if (kind === 'folder') {
       var coverItem = firstFolderImage(block);
@@ -1895,35 +1891,8 @@
           '"></div>'
         );
       }
-      var count = (block.items && block.items.length) || 0;
-      return (
-        '<div class="clips-block-media clips-block-media--folder clips-block-media--empty">' +
-        escapeHtml(count ? count + ' files' : 'folder') +
-        '</div>'
-      );
     }
-    if (kind === 'tool') {
-      return '<div class="clips-block-media clips-block-media--tool">' + escapeHtml(block.title || 'tool') + '</div>';
-    }
-    if (kind === 'link') {
-      return (
-        '<div class="clips-block-body clips-block-body--link">' +
-        escapeHtml(block.href || block.title || 'link') +
-        '</div>'
-      );
-    }
-    if (kind === 'file') {
-      return (
-        '<div class="clips-block-body clips-block-body--file">' +
-        escapeHtml(block.filename || block.title || 'file') +
-        '</div>'
-      );
-    }
-    return (
-      '<div class="clips-block-body clips-block-body--text">' +
-      escapeHtml(block.text || block.title || 'note') +
-      '</div>'
-    );
+    return '<div class="clips-block-media clips-block-media--blank" aria-hidden="true"></div>';
   }
 
   /** Playback IDs + song keys already filed into any collection (stream group). */

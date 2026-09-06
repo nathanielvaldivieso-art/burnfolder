@@ -303,6 +303,7 @@
 <script src="shared/studio-tap.js?v=${version}"></script>
 <script src="shared/playback-debug.js?v=${version}"></script>
 <script src="shared/mux-playback.js?v=${version}"></script>
+<script src="shared/song-versions.js?v=${version}"></script>
 <script src="shared/playback-context.js?v=${version}"></script>
 <script src="shared/version-picker.js?v=${version}"></script>
 <script src="shared/now-playing-bar.js?v=${version}"></script>

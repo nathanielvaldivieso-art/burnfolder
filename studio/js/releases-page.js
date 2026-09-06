@@ -18,12 +18,11 @@
   let apiConfigured = false;
 
   function setStatus(msg, kind) {
-    if (!statusEl) return;
-    statusEl.textContent = msg || '';
-    statusEl.classList.remove('studio-status--error', 'studio-status--success', 'studio-status--working');
-    if (kind === 'error') statusEl.classList.add('studio-status--error');
-    if (kind === 'success') statusEl.classList.add('studio-status--success');
-    if (kind === 'working') statusEl.classList.add('studio-status--working');
+    if (window.BurnfolderStudioStatus) {
+      window.BurnfolderStudioStatus.set(statusEl, msg, kind);
+      return;
+    }
+    if (statusEl) statusEl.textContent = msg || '';
   }
 
   function getApiBase() {
@@ -600,7 +599,15 @@
       setStatus('select or create a release first', 'error');
       return;
     }
-    if (!window.confirm('Submit release #' + activeProviderReleaseId + ' to LabelGrid / DSPs?')) {
+    const check = window.BurnfolderReleaseChecklist.evaluate(currentDraft(), {
+      rightsName: getVal('prefRightsName') || getVal('releaseRightsName')
+    });
+    if (!check.ok) {
+      window.BurnfolderReleaseChecklist.renderList(checklistRoot, check);
+      setStatus('review the checklist before submitting', 'error');
+      return;
+    }
+    if (!window.confirm('review distribution\n\nrelease #' + activeProviderReleaseId + '\ndestination · LabelGrid / DSPs\n\nsubmit now?')) {
       return;
     }
     setStatus('submitting…', 'working');

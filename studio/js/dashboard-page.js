@@ -894,6 +894,22 @@
       });
   }
 
+  function renderNextAction() {
+    const section = document.getElementById('dashboardNextSection');
+    const link = document.getElementById('dashboardNextAction');
+    if (!section || !link) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem('burnfolderStudioJournalDays') || '{}');
+      const now = new Date();
+      const key = now.getMonth() + 1 + '.' + now.getDate() + '.' + String(now.getFullYear()).slice(-2);
+      const plan = stored.days && stored.days[key] && String(stored.days[key].plan || '').trim();
+      section.hidden = !plan;
+      if (plan) link.textContent = 'next · ' + plan;
+    } catch (e) {
+      section.hidden = true;
+    }
+  }
+
   function initDashboardPage() {
     const auth = window.BurnfolderStudioAuth;
     if (auth && auth.isMusicProjectOnly && auth.isMusicProjectOnly()) {
@@ -904,6 +920,7 @@
     currentListenSource = readStoredListenSource();
     bindPeriodNav();
     syncPeriodButtons();
+    renderNextAction();
     loadAnalytics(currentPeriod).then(function () {
       if (window.studioInitStudioAiPanel) window.studioInitStudioAiPanel();
     });
