@@ -2,7 +2,7 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v91-play1',
+  cacheName: 'burnfolder-stream-v20260907archive1',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',
@@ -10,7 +10,6 @@ self.createBurnfolderServiceWorker({
     '/shared/site-version.js',
     '/shared/share-hub-ui.js',
     '/studio/js/share-links.js',
-    '/studio/js/stream-song-page.js',
     '/studio/js/song-designer-page.js',
     '/shared/mux-playback.js',
     '/shared/playback-debug.js',

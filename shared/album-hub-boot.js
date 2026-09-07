@@ -77,7 +77,10 @@
       itemLabel: function (item) {
         return (item && item.title) || 'untitled';
       },
-      showSongLinks: false,
+      songPageUrl: function (item) {
+        return sv && sv.getSongHubHref ? sv.getSongHubHref(item, '') : '';
+      },
+      showSongLinks: true,
       onTrackSelect: function () {
         if (typeof global.__albumHubPlayTrack === 'function') {
           global.__albumHubPlayTrack.apply(null, arguments);

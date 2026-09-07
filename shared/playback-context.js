@@ -101,7 +101,7 @@
 
   function songHubHref(song) {
     const sv = globalRef.BurnfolderSongVersions;
-    if (!song) return isStudio() ? 'stream-song.html' : 'song.html';
+    if (!song) return isStudio() ? 'song-designer.html' : 'song.html';
     if (isStudio() && sv) return sv.getStreamSongHref(song, song.playbackId);
     if (sv) return sv.getSongHubHref(song, '');
     return 'song.html?song=' + encodeURIComponent(String(song.title || '').toLowerCase());

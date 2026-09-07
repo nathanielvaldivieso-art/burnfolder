@@ -312,6 +312,44 @@ const queue = [
   engine.stop();
 })();
 
+(function shortTrackAutoplayAdvances() {
+  // Regression: tracks shorter than 1.5s used to get stuck because the
+  // advance gate required currentTime >= 1 and the in-body check excluded
+  // the whole tail of a short song. This is the "sometimes → fire escape"
+  // family of failures.
+  const live = createFakeMedia('AUDIO');
+  live.canPlayType = function (type) {
+    return String(type || '').indexOf('mpegurl') !== -1 ? 'probably' : '';
+  };
+  const harness = loadEngine({ nodes: { activeLiveAudio: live } });
+  const engine = harness.create({
+    getPlayer: function () {
+      return live;
+    },
+    recall: false,
+    restoreRecall: false
+  });
+
+  assert.ok(engine.playTrackQueue(queue, 0, { immediatePlay: true }));
+
+  function finishByEnded(dur) {
+    live.duration = dur;
+    live.currentTime = dur;
+    live.ended = true;
+    live.fire('ended');
+  }
+
+  finishByEnded(1.1);
+  assert.strictEqual(engine.getActiveSong().playbackId, 's2', 'short track advances to next');
+  assert.ok(live.src.indexOf('s2') !== -1, 'second track source applied');
+
+  finishByEnded(1.1);
+  assert.strictEqual(engine.getActiveSong().playbackId, 's3', 'short track chain keeps advancing');
+  assert.ok(live.src.indexOf('s3') !== -1, 'third track source applied');
+
+  engine.stop();
+})();
+
 (function muxHlsUrlIsStable() {
   const harness = loadEngine();
   assert.strictEqual(

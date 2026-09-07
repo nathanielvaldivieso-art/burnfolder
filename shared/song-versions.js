@@ -321,9 +321,11 @@
 
   function getStreamSongHref(song, playbackId) {
     const key = song && song.title ? getTrackGroupKey(song.title) : '';
-    if (key) return 'stream-song.html?song=' + encodeURIComponent(key);
     const id = playbackId || (song && song.playbackId) || '';
-    return id ? 'stream-song.html?p=' + encodeURIComponent(id) : 'stream-song.html';
+    if (key) {
+      return 'song-designer.html?song=' + encodeURIComponent(key) + (id ? '&p=' + encodeURIComponent(id) : '');
+    }
+    return id ? 'song-designer.html?p=' + encodeURIComponent(id) : 'song-designer.html';
   }
 
   function compareSongsBySortMode(a, b, sortMode) {

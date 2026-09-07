@@ -170,7 +170,7 @@ These branches are **historical**; `main` is ahead of all of them after native-H
 ### Engine (`shared/mux-playback.js`)
 
 - `wantPlaying`, `advancePending`, `trackStarted`
-- `notePlayhead` / `releaseAdvanceGate` — gate opens only when `currentTime >= 1`
+- `notePlayhead` / `releaseAdvanceGate` — gate opens when the playhead is in the track body and `ended` has cleared (no fixed 1-second threshold)
 - `trackHasFinished` — shared by `ended`, `timeupdate`, watchdog, lifecycle recover
 - Native HLS when `audio.canPlayType` accepts MPEG-URL
 - `queueHandoff` / `seamlessAdvance` skip `pause()` before source change
@@ -238,7 +238,7 @@ These branches are **historical**; `main` is ahead of all of them after native-H
 ## 8. Open risks / likely next failures
 
 - **Chrome / desktop mux-player** still relies on sticky-ended discipline; native audio path doesn’t. Regressions often show on one browser only.
-- **Very short clips (&lt;1s)** cannot finish under the `currentTime >= 1` rule (not used for photonegative songs).
+- **Short clips** now finish when the playhead reaches `duration - END_SLACK_SECONDS` (no longer blocked by a 1-second floor).
 - **Multiple queue builders** (clips / stream / album / editor) can drift — long-term, one shared `buildQueueFromGroup(startId)` in `stream-shared` would reduce forks.
 - **Service worker** serving old `mux-playback.js` after a “fix” that only bumped HTML.
 - **Uncommitted Sep 4 clips/engine changes** — confirm they are committed and deployed before treating the SOMETIMES→FIRE ESCAPE fix as live in production.

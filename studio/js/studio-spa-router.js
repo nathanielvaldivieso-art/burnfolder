@@ -14,7 +14,6 @@
     'word-pull.html': 'word-pull',
     'releases.html': 'releases',
     // Song/album hubs must soft-nav so the live mux-player is never torn down.
-    'stream-song.html': 'stream-song',
     'stream-album.html': 'stream-album'
   };
 
@@ -94,25 +93,6 @@
       'js/cloud-state.js',
       'js/word-pull-bank.js',
       'js/word-pull-page.js'
-    ]),
-    'stream-song': PLAYBACK_CORE.concat([
-      '../entries.js',
-      '../songs.js',
-      '../shared/song-versions.js',
-      'js/asset-cloud.js',
-      '../shared/cover-art.js',
-      '../shared/mux-display-name.js',
-      'js/mux-naming.js',
-      'js/mux-client.js',
-      'js/studio-mux-lib.js',
-      'js/cloud-state.js',
-      '../shared/song-page-render.js',
-      'js/cloud-store-kit.js',
-      'js/song-page-store.js',
-      'js/stream-shared.js',
-      'js/share-links.js',
-      '../shared/share-hub-ui.js',
-      'js/stream-song-page.js'
     ]),
     'stream-album': PLAYBACK_CORE.concat([
       '../entries.js',
@@ -399,8 +379,6 @@
   function runPageInit(pageKey) {
     if (pageKey === 'clips' && typeof window.studioInitClipsPage === 'function') {
       window.studioInitClipsPage();
-    } else if (pageKey === 'stream-song' && typeof window.studioInitStreamSongPage === 'function') {
-      window.studioInitStreamSongPage();
     } else if (pageKey === 'stream-album' && typeof window.studioInitStreamAlbumPage === 'function') {
       window.studioInitStreamAlbumPage();
     } else if (pageKey === 'journal' && typeof window.studioInitJournalPage === 'function') {
@@ -416,7 +394,7 @@
       window.studioInitEditorWorkspace();
     }
     var navKey = pageKey;
-    if (pageKey === 'stream-song' || pageKey === 'stream-album' || pageKey === 'word-pull') {
+    if (pageKey === 'stream-album' || pageKey === 'word-pull') {
       navKey = 'clips';
     }
     markNav(navKey);

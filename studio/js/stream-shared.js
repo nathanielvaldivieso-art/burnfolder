@@ -818,8 +818,8 @@
       }
     }
     const id = item.playbackId || item.muxAssetId;
-    if (!id) return 'stream-song.html';
-    return 'stream-song.html?p=' + encodeURIComponent(id);
+    if (!id) return 'song-designer.html';
+    return 'song-designer.html?p=' + encodeURIComponent(id);
   }
 
   function albumPageUrl(albumId) {

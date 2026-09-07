@@ -47,7 +47,6 @@
     'stream.html': 'clips',
     'video.html': 'clips',
     'stream-album.html': 'clips',
-    'stream-song.html': 'clips',
     'stream-stack.html': 'clips',
     'song-designer.html': 'clips',
     'album-designer.html': 'clips',

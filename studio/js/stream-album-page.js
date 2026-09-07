@@ -439,7 +439,7 @@
     var href = shared.songPageUrl ? shared.songPageUrl(track) : '';
     if (!href) {
       var id = track && track.playbackId;
-      href = id ? 'stream-song.html?p=' + encodeURIComponent(id) : '#';
+      href = id ? 'song-designer.html?p=' + encodeURIComponent(id) : '#';
     }
     if (href.indexOf('/') !== 0 && href.indexOf('http') !== 0) {
       href = '/studio/' + href.replace(/^\.\//, '');

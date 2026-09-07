@@ -9,6 +9,7 @@ window.burnfolderSongPages = {
         "notes": ""
       }
     },
+    "keyPlaybackId": "4MY1eOPKNpR3492qFO4ihLM4rzhwsOZ4lThYRHZpz02U",
     "heroVideoPlaybackId": "",
     "coverArt": "",
     "media": [],
@@ -19,10 +20,11 @@ window.burnfolderSongPages = {
     "lyrics": "",
     "versions": {
       "u7dao7pbsgOZGdcVfPv6gFA8Jke3HhaKsoNwtAer013k": {
-        "lyrics": "i cant escape from it anymore\n\nits getting harder to close to door\n\ndont think I want to anymore\n\nand i dont know who i did it for\n\nis there a word for whats innocent\n\nand when it turns into ignorance?\n\ntryna solve for the difference\n\nand maybe not, but i think I get it now\n\n\n\nand i can't help but fantasize\n\nthinking bout if i did it right\n\ni been doing it my whole life\n\nliving out something out of time\n\nand i hope that youre doing fine\n\nI dont know cause its out of my\n\nmy control I been tryna focus on the light\n\nand its been slow but its worth it cause I think I get it now\n\n\n\n\n\n\n\n",
+        "lyrics": "i cant escape from it anymore\n\nits getting harder to close to door\n\ndont think I want to anymore\n\nand i dont know who i did it for\n\nis there a word for whats innocent\n\nand when it turns into ignorance?\n\ntryna solve for the difference\n\nand maybe not, but i think I get it now\n\n\n\nand i can't help but fantasize\n\nthinking bout if i did it right\n\ni been doing it my whole life\n\nliving out something out of time\n\nand i hope that youre doing fine\n\nI dont know cause its out of my\n\nmy control I been tryna focus on the light\n\nand its been slow but its worth it cause I think I get it now\n\n\n\n\n\n",
         "notes": "been working with the push more.. everything on this was played/sequenced"
       }
     },
+    "keyPlaybackId": "",
     "heroVideoPlaybackId": "",
     "coverArt": "",
     "media": [],
@@ -57,9 +59,30 @@ window.burnfolderSongPages = {
         "notes": ""
       }
     },
+    "keyPlaybackId": "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc",
     "heroVideoPlaybackId": "",
     "coverArt": "",
     "media": [],
     "updatedAt": "2026-07-14T11:41:11.083Z"
+  },
+  "photo negative": {
+    "notes": "",
+    "lyrics": "",
+    "versions": {},
+    "keyPlaybackId": "cLHw2U5QnTrJhn14E6ISMNF4eT602f02svbYCJPZZ02S3I",
+    "heroVideoPlaybackId": "",
+    "coverArt": "",
+    "media": [],
+    "updatedAt": "2026-09-07T00:00:00.000Z"
+  },
+  "it doesnt matter": {
+    "notes": "",
+    "lyrics": "",
+    "versions": {},
+    "keyPlaybackId": "hCls02k6rr2jI02Wy5Q7fcwK00RBT9QCkonzp00ipUMmDaY",
+    "heroVideoPlaybackId": "",
+    "coverArt": "",
+    "media": [],
+    "updatedAt": "2026-09-07T00:00:00.000Z"
   }
 };

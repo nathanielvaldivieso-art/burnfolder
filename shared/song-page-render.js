@@ -135,9 +135,11 @@
     const card = document.createElement('article');
     card.className = 'song-hub-content-card';
 
-    const title = document.createElement('h3');
-    title.textContent = item.title || 'Untitled';
-    card.appendChild(title);
+    if (item.title || item.kind !== 'text') {
+      const title = document.createElement('h3');
+      title.textContent = item.title || 'Untitled';
+      card.appendChild(title);
+    }
 
     if (item.kind === 'video' && item.playbackId) {
       const wrap = document.createElement('div');
@@ -170,6 +172,15 @@
       link.href = item.href;
       link.textContent = item.title || item.href;
       card.appendChild(link);
+    } else if (item.kind === 'audio' && item.playbackId) {
+      const wrap = document.createElement('div');
+      wrap.className = 'song-hub-media-audio';
+      const player = document.createElement('mux-player');
+      player.setAttribute('playback-id', item.playbackId);
+      player.setAttribute('stream-type', 'on-demand');
+      player.setAttribute('playsinline', '');
+      wrap.appendChild(player);
+      card.appendChild(wrap);
     } else if (item.text) {
       const body = document.createElement('p');
       body.innerHTML = textToHtml(item.text);

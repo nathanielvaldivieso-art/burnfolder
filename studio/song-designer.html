@@ -8,167 +8,111 @@
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>song page — burnfolder studio</title>
+  <title>clips — burnfolder studio</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://stream.mux.com" crossorigin>
   <link rel="preconnect" href="https://image.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css?v=20260815videopass2">
-  <link rel="stylesheet" href="css/studio.css?v=20260904key1">
+  <link rel="stylesheet" href="css/studio.css?v=20260907blocks4">
+  <link rel="stylesheet" href="../shared/song-hub-redesign.css?v=20260907ui2">
 </head>
 <body class="studio-page studio-song-designer-page">
 
   <main class="page-wrap studio-song-designer-layout">
     <div class="studio-song-designer-toolbar">
-      <p class="page-id">song page</p>
+      <div class="studio-song-designer-field">
+        <select id="designerSongPick" class="studio-song-designer-select"></select>
+      </div>
       <div class="studio-song-designer-toolbar-actions">
-        <a class="icon-btn" id="designerPreviewBtn" href="#" hidden>preview</a>
-        <a class="icon-btn" id="designerSiteBtn" href="#" hidden>site</a>
-        <button type="button" class="icon-btn studio-song-push-btn" id="designerPushBtn">push to site</button>
+        <button type="button" class="icon-btn" id="designerCopyIdBtn" hidden>copy id</button>
+        <button type="button" class="icon-btn" id="designerDeleteVersionBtn" hidden>delete</button>
+        <button type="button" class="icon-btn studio-song-push-btn" id="designerPushBtn">push</button>
       </div>
     </div>
 
-    <div class="studio-song-designer-pick">
-      <label class="studio-song-designer-field">
-        <span class="studio-song-designer-label">song</span>
-        <select id="designerSongPick" class="studio-song-designer-select"></select>
-      </label>
-      <p class="studio-song-designer-meta" id="designerSongMeta">—</p>
+    <header class="studio-song-designer-header">
+      <h1 class="studio-song-designer-title" id="designerSongMeta">song</h1>
+      <div class="studio-song-designer-cover-row">
+        <button type="button" class="icon-btn" id="designerCoverBtn">cover</button>
+        <button type="button" class="icon-btn" id="designerCoverClearBtn" hidden>remove</button>
+        <input type="file" id="designerCoverInput" accept="image/*" hidden>
+      </div>
+    </header>
+    <img id="designerCoverPreview" class="studio-song-designer-cover-preview" alt="" hidden>
+
+    <div id="designerVersionPicker" class="studio-song-designer-version-picker" role="tablist" aria-label="Versions"></div>
+
+    <div id="designerUploadQueue" class="studio-upload-queue-host"></div>
+    <input type="file" id="designerMediaInput" accept="image/*,audio/*,video/*,.mp3,.wav,.m4a,.mp4,.mov,.webm,.mkv,.jpg,.jpeg,.png,.webp,.gif" hidden>
+    <ul id="designerMediaList" class="studio-song-designer-media-list studio-song-designer-blocks"></ul>
+
+    <div class="studio-song-designer-blocks-actions">
+      <span class="studio-song-designer-pillar-label">Blocks</span>
+      <button type="button" class="icon-btn" id="designerAddTextBtn">text</button>
+      <button type="button" class="icon-btn" id="designerAddMediaBtn">media</button>
     </div>
 
-    <div class="studio-song-designer-split">
-      <section class="studio-song-designer-editor" aria-label="Song page editor">
-        <section class="studio-song-designer-section">
-          <h2 class="studio-song-designer-section-title">lyrics &amp; version notes</h2>
-          <p class="studio-song-designer-hint">Per-version — pick a mix, then write. Mark one as the <strong>key version</strong> to play when someone clicks the song title (otherwise the latest upload plays). Line breaks are preserved.</p>
-          <div id="designerVersionPicker" class="studio-song-designer-version-picker" role="tablist" aria-label="Versions"></div>
-          <div class="studio-song-designer-key-row" id="designerKeyRow" hidden>
-            <button type="button" class="icon-btn" id="designerKeyBtn">set as key version</button>
-            <p class="studio-song-designer-meta" id="designerKeyMeta">—</p>
-          </div>
-          <p class="studio-song-designer-meta" id="designerVersionMeta" hidden>—</p>
-          <label class="studio-song-designer-label" for="designerVersionLyrics">lyrics</label>
-          <textarea id="designerVersionLyrics" class="studio-song-designer-textarea studio-song-designer-textarea--tall" rows="8" placeholder="lyrics for this version…" spellcheck="false"></textarea>
-          <label class="studio-song-designer-label" for="designerVersionNotes">version notes</label>
-          <textarea id="designerVersionNotes" class="studio-song-designer-textarea" rows="4" placeholder="notes for this version (e.g. “add more bass to the intro pads”)…" spellcheck="false"></textarea>
-        </section>
+    <section class="studio-song-designer-share" aria-label="Share links">
+      <div class="studio-song-designer-pillar-head">
+        <span class="studio-song-designer-pillar-label">share</span>
+      </div>
+      <div id="designerShareMount"></div>
+    </section>
 
-        <section class="studio-song-designer-section">
-          <h2 class="studio-song-designer-section-title">video</h2>
-          <p class="studio-song-designer-hint">Optional music video shown on the song page.</p>
-          <label class="studio-song-designer-field">
-            <span class="studio-song-designer-label">from library</span>
-            <select id="designerHeroVideo" class="studio-song-designer-select">
-              <option value="">none</option>
-            </select>
-          </label>
-        </section>
+    <section class="studio-song-designer-preview-wrap" aria-label="Preview">
+      <div class="studio-song-designer-pillar-head">
+        <span class="studio-song-designer-pillar-label">preview</span>
+      </div>
+      <div class="studio-song-designer-preview song-hub-page" id="designerPreviewRoot">
+        <h2 class="song-hub-title" id="designerPreviewTitle">Song</h2>
+        <p class="song-hub-subtitle" id="designerPreviewSubtitle"></p>
 
-        <section class="studio-song-designer-section">
-          <div class="studio-song-designer-section-head">
-            <h2 class="studio-song-designer-section-title">clips</h2>
-            <div class="studio-song-designer-media-actions">
-              <button type="button" class="icon-btn" id="designerUploadClipBtn">+ upload clip</button>
-              <button type="button" class="icon-btn" id="designerPickVideoBtn">from library</button>
-              <button type="button" class="icon-btn" id="designerAddImageBtn">+ image</button>
-              <button type="button" class="icon-btn" id="designerAddNoteBtn">+ note</button>
-              <button type="button" class="icon-btn" id="designerAddLinkBtn">+ link</button>
-            </div>
-          </div>
-          <p class="studio-song-designer-hint">Video clips upload to your studio video library, grouped by song.</p>
-          <div id="designerUploadQueue" class="studio-upload-queue-host"></div>
-          <input type="file" id="designerClipInput" accept="video/*,.mp4,.mov,.webm,.mkv" hidden>
-          <ul id="designerMediaList" class="studio-song-designer-media-list"></ul>
-        </section>
-
-        <section class="studio-song-designer-section">
-          <h2 class="studio-song-designer-section-title">cover</h2>
-          <p class="studio-song-designer-hint">Optional page cover — separate from album art.</p>
-          <div class="studio-song-designer-cover-row">
-            <button type="button" class="icon-btn" id="designerCoverBtn">upload image</button>
-            <button type="button" class="icon-btn" id="designerCoverClearBtn" hidden>remove</button>
-            <input type="file" id="designerCoverInput" accept="image/*" hidden>
-          </div>
-          <img id="designerCoverPreview" class="studio-song-designer-cover-preview" alt="" hidden>
-        </section>
-
-        <section class="studio-song-designer-section song-hub-panel--share">
-          <h2 class="studio-song-designer-section-title">share</h2>
-          <p class="studio-song-designer-hint">Private listen links — revoke anytime, see play counts.</p>
-          <div id="designerShareMount"></div>
-        </section>
-
-        <section class="studio-song-designer-section">
-          <h2 class="studio-song-designer-section-title">song notes</h2>
-          <p class="studio-song-designer-hint">Shown on every version. For notes about one mix, use “version notes” above.</p>
-          <textarea id="designerNotes" class="studio-song-designer-textarea" rows="7" placeholder="notes shown across all versions…" spellcheck="false"></textarea>
-        </section>
-      </section>
-
-      <section class="studio-song-designer-preview-wrap" aria-label="Live preview">
-        <h2 class="studio-song-designer-section-title">live preview</h2>
-        <div class="studio-song-designer-preview song-hub-page" id="designerPreviewRoot">
-          <h2 class="song-hub-title" id="designerPreviewTitle">Song</h2>
-          <p class="song-hub-subtitle" id="designerPreviewSubtitle">—</p>
-
-          <div data-song-panel="cover" class="song-hub-cover-wrap" hidden>
-            <img data-song-field="cover" class="song-hub-cover-image" alt="">
-          </div>
-
-          <div data-song-panel="video" class="song-hub-panel" hidden>
-            <div data-song-field="video-hero" class="studio-song-video-hero"></div>
-          </div>
-
-          <div data-song-panel="lyrics" class="song-hub-panel" hidden>
-            <div class="song-hub-panel-top">
-              <p class="song-hub-label">Lyrics</p>
-            </div>
-            <div class="song-hub-lyrics song-hub-lyrics--open" data-song-field="version-lyrics"></div>
-          </div>
-
-          <div data-song-panel="version-notes" class="song-hub-panel" hidden>
-            <div class="song-hub-panel-top">
-              <p class="song-hub-label">Version notes</p>
-            </div>
-            <div class="song-hub-notes" data-song-field="version-notes"></div>
-          </div>
-
-          <div data-song-panel="clips" class="song-hub-panel" hidden>
-            <div class="song-hub-panel-top">
-              <p class="song-hub-label">Clips</p>
-            </div>
-            <div class="song-hub-content-grid" data-song-field="clips-grid"></div>
-          </div>
-
-          <div data-song-panel="notes" class="song-hub-panel" hidden>
-            <div class="song-hub-panel-top">
-              <p class="song-hub-label">Song notes</p>
-            </div>
-            <div class="song-hub-notes" data-song-field="notes"></div>
-          </div>
+        <div data-song-panel="cover" class="song-hub-cover-wrap" hidden>
+          <img data-song-field="cover" class="song-hub-cover-image" alt="">
         </div>
-      </section>
-    </div>
+
+        <div data-song-panel="video" class="song-hub-panel" hidden>
+          <div data-song-field="video-hero" class="studio-song-video-hero"></div>
+        </div>
+
+        <div data-song-panel="lyrics" class="song-hub-panel" hidden>
+          <div class="song-hub-lyrics song-hub-lyrics--open" data-song-field="version-lyrics"></div>
+        </div>
+
+        <div data-song-panel="version-notes" class="song-hub-panel" hidden>
+          <div class="song-hub-notes" data-song-field="version-notes"></div>
+        </div>
+
+        <div data-song-panel="clips" class="song-hub-panel" hidden>
+          <div class="song-hub-content-grid" data-song-field="clips-grid"></div>
+        </div>
+
+        <div data-song-panel="notes" class="song-hub-panel" hidden>
+          <div class="song-hub-notes" data-song-field="notes"></div>
+        </div>
+      </div>
+    </section>
 
     <p class="studio-song-designer-status" id="designerStatus" aria-live="polite"></p>
   </main>
 
-  <script src="js/studio-version.js?v=20260818lock1"></script>
+  <script src="js/studio-version.js?v=20260906play1"></script>
   <script src="js/studio-status.js?v=20260815videopass2"></script>
   <script src="../entries.js?v=20260815videopass2"></script>
   <script src="../songs.js?v=20260815videopass2"></script>
-  <script src="../shared/song-versions.js?v=20260904key1"></script>
+  <script src="../shared/song-versions.js?v=20260907archive1"></script>
   <script src="../shared/song-clip-naming.js?v=20260815videopass2"></script>
-  <script src="../shared/song-page-render.js?v=20260815videopass2"></script>
+  <script src="../shared/song-page-render.js?v=20260907blocks3"></script>
   <script src="js/asset-cloud.js?v=20260815videopass2"></script>
   <script src="../shared/cover-art.js?v=20260815videopass2"></script>
   <script src="../shared/mux-display-name.js?v=20260815videopass2"></script>
   <script src="js/mux-naming.js?v=20260815videopass2"></script>
-  <script src="js/studio-site-menu.js?v=20260815videopass2"></script>
+  <script src="js/studio-site-menu.js?v=20260907archive1"></script>
   <script src="js/studio-auth.js?v=20260815videopass2"></script>
   <script src="js/cloud-state.js?v=20260815videopass2"></script>
   <script src="js/cloud-store-kit.js?v=20260815videopass2"></script>
-  <script src="js/song-page-store.js?v=20260904key1"></script>
+  <script src="js/song-page-store.js?v=20260907shells1"></script>
   <script src="js/mux-client.js?v=20260815videopass2"></script>
   <script src="js/studio-mux-lib.js?v=20260815videopass2"></script>
   <script src="js/upload-queue.js?v=20260815videopass2"></script>
@@ -177,17 +121,17 @@
   <script src="../shared/playback-prefetch.js?v=20260815videopass2"></script>
   <script src="../shared/studio-tap.js?v=20260815videopass2"></script>
   <script src="../shared/playback-debug.js?v=20260815videopass2"></script>
-  <script src="../shared/mux-playback.js?v=20260904autoplay1"></script>
-  <script src="../shared/playback-context.js?v=20260815videopass2"></script>
+  <script src="../shared/mux-playback.js?v=20260906play1"></script>
+  <script src="../shared/playback-context.js?v=20260907archive1"></script>
   <script src="../shared/now-playing-bar.js?v=20260818lock1"></script>
   <script src="../shared/studio-playback-stack.js?v=20260815videopass2"></script>
   <script src="js/studio-playback-shell.js?v=20260818lock1"></script>
   <script src="js/stream-player.js?v=20260815videopass2"></script>
   <script src="js/stream-now-playing.js?v=20260815videopass2"></script>
-  <script src="js/stream-shared.js?v=20260818lock1"></script>
+  <script src="js/stream-shared.js?v=20260907archive1"></script>
   <script src="js/share-links.js?v=20260815videopass2"></script>
   <script src="../shared/share-hub-ui.js?v=20260815videopass2"></script>
-  <script src="js/song-designer-page.js?v=20260904key1"></script>
+  <script src="js/song-designer-page.js?v=20260907blocks4"></script>
   <script src="../shared/site-version.js"></script>
   <script src="../shared/register-sw.js"></script>
 </body>

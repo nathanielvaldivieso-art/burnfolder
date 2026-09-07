@@ -995,23 +995,12 @@
 
     var meta = openCollectionMeta();
     var rows = collectionSongRows();
-    var loose = unfiledAudioBlocks().map(function (block) {
-      return {
-        key: groupKeyForBlock(block),
-        track: { playbackId: block.playbackId, title: block.title },
-        block: block,
-        title: blockDisplayTitle(block),
-        playbackId: block.playbackId,
-        versionCount: versionCountForBlock(block)
-      };
-    });
 
     var html = collectionChromeHtml(meta);
     html +=
       '<div class="clips-collection-grid clips-collection-drop" id="clipsCollectionGrid" aria-label="Collection">';
     if (!rows.length) {
-      html +=
-        '<p class="clips-collection-empty">drop songs here from unfiled</p>';
+      html += '<p class="clips-collection-empty">no songs</p>';
     } else {
       html += rows
         .map(function (row) {
@@ -1020,21 +1009,6 @@
         .join('');
     }
     html += '</div>';
-
-    html +=
-      '<section class="clips-unfiled-shelf" id="clipsUnfiledShelf" aria-label="Unfiled clips">' +
-      '<p class="clips-unfiled-label">unfiled</p>' +
-      '<div class="clips-unfiled-grid">';
-    if (!loose.length) {
-      html += '<p class="clips-unfiled-empty">nothing loose</p>';
-    } else {
-      html += loose
-        .map(function (row) {
-          return songTileHtml(row, { unfiled: true });
-        })
-        .join('');
-    }
-    html += '</div></section>';
 
     board.innerHTML = html;
     board.classList.add('clips-board--collection');
@@ -1853,34 +1827,12 @@
 
   function blockPreview(block, playKind) {
     var kind = playKind || (block && block.kind) || '';
-    if (kind === 'image' && block.vaultKey) {
-      return (
-        '<div class="clips-block-media clips-block-media--image" data-vault-preview="' +
-        escapeHtml(block.vaultKey) +
-        '"></div>'
-      );
-    }
     if (kind === 'video' && block.playbackId) {
       return (
         '<div class="clips-block-media clips-block-media--video" style="background-image:url(\'' +
         escapeHtml(muxThumb(block.playbackId)) +
         '\')"></div>'
       );
-    }
-    if (kind === 'album') {
-      var coverMeta = albumCoverMeta(block);
-      if (coverMeta.coverArt || coverMeta.coverAssetId) {
-        var coverStyle = coverMeta.coverArt
-          ? ' style="background-image:url(\'' + escapeHtml(coverMeta.coverArt) + '\')"'
-          : '';
-        return (
-          '<div class="clips-block-media clips-block-media--album" data-album-cover="1" data-group-id="' +
-          escapeHtml(block.groupId || '') +
-          '"' +
-          coverStyle +
-          ' aria-hidden="true"></div>'
-        );
-      }
     }
     if (kind === 'folder') {
       var coverItem = firstFolderImage(block);

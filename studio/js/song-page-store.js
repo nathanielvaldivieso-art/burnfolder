@@ -50,11 +50,15 @@
 
   function normalizeVersionEntry(entry) {
     if (!entry || typeof entry !== 'object') {
-      return { lyrics: '', notes: '' };
+      return { lyrics: '', notes: '', media: [] };
     }
+    const media = Array.isArray(entry.media)
+      ? entry.media.map(normalizeMediaItem).filter(Boolean)
+      : [];
     return {
       lyrics: typeof entry.lyrics === 'string' ? entry.lyrics : '',
-      notes: typeof entry.notes === 'string' ? entry.notes : ''
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+      media: media
     };
   }
 
@@ -71,7 +75,10 @@
 
   function versionHasContent(entry) {
     const row = normalizeVersionEntry(entry);
-    return !!(row.lyrics.trim() || row.notes.trim());
+    const hasMedia = row.media && row.media.some(function (item) {
+      return !!(item.title || item.playbackId || item.href || item.text || item.imageData);
+    });
+    return !!(row.lyrics.trim() || row.notes.trim() || hasMedia);
   }
 
   function normalizeMediaItem(item) {
@@ -124,7 +131,11 @@
     Object.keys(versions || {}).forEach(function (id) {
       const row = normalizeVersionEntry(versions[id]);
       if (!versionHasContent(row)) return;
-      out[id] = row;
+      out[id] = {
+        lyrics: row.lyrics,
+        notes: row.notes,
+        media: row.media
+      };
     });
     return out;
   }

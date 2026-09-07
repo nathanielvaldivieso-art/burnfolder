@@ -20,17 +20,17 @@ window.burnfolderAlbumPages = {
       {
         "title": "FIRE ESCAPE",
         "playbackId": "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc",
-        "groupKey": "fire-escape"
+        "groupKey": "fire escape"
       },
       {
         "title": "PHOTO NEGATIVE",
         "playbackId": "cLHw2U5QnTrJhn14E6ISMNF4eT602f02svbYCJPZZ02S3I",
-        "groupKey": "photo-negative"
+        "groupKey": "photo negative"
       },
       {
         "title": "IT DOESNT MATTER",
         "playbackId": "hCls02k6rr2jI02Wy5Q7fcwK00RBT9QCkonzp00ipUMmDaY",
-        "groupKey": "it-doesnt-matter"
+        "groupKey": "it doesnt matter"
       }
     ],
     "heroVideoPlaybackId": "",

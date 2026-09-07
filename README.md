@@ -322,10 +322,11 @@ Auth: Supabase workspace login (owner / collaborator / guest) when configured; l
 ### Clips drill-ins
 
 
-| Page                | Role                                                  |
-| ------------------- | ----------------------------------------------------- |
-| `stream-song.html`  | Per-song studio view (versions, share, open designer) |
-| `stream-album.html` | Per-album/project studio view                         |
+| Page                 | Role                                                  |
+| -------------------- | ----------------------------------------------------- |
+| `song-designer.html` | Per-song studio view / editor / preview / share       |
+| `stream-song.html`   | Archived (see `archive/studio/`)                      |
+| `stream-album.html`  | Per-album/project studio view                         |
 | Share links UI      | Mint `listen` / `watch` tokens for collaborators      |
 
 

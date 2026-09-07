@@ -4,10 +4,11 @@
 
 | | |
 |--|--|
+| **Governing vision** | **§0A** art first → reliable full-time livelihood → SaaS remains tabled |
 | **Near-term** | **§0** PHOTONEGATIVE — arm → load → press → ride |
-| **Architecture** | **§1–16** Studio / gallery / multi-tenant vision |
-| **Analytics + desk** | **§9.5** listening intelligence + marketing consultant |
-| **Build money path** | **§17** Frugal tiers (after R12 unless it arms the button) |
+| **Architecture** | **§1–16** tabled Studio / gallery / multi-tenant context |
+| **Analytics + desk** | **§9.5** listening intelligence in service of the art practice |
+| **Tabled build path** | **§17** Frugal tiers retained for possible later use |
 | **Copilot cues** | *"implement platform step P#"* · *"implement dashboard marketing Phase A/B/C"* · *"Implement Tier N per STUDIO-MASTER-PLAN.md section 17"* |
 
 **Last updated:** July 24, 2026
@@ -34,6 +35,7 @@ Newest first. Paste updates here (or tell Copilot *"log status: …"* and it app
 
 | Date | Note |
 |------|------|
+| 2026-09-07 | P7 + P8 shipped: song page shells created for all four Photonegative tracks; album hub tracklist now links to each song page. Studio song designer preserves per-version lyrics/notes and is forward-compatible with per-version media. Publish button/pipeline remains intact. |
 | 2026-07-24 | Operator: enrich **lyrics + BTS clips on song pages** — a good amount of content per song for diggers. Added **D13** (all four tracks) + **D25** dig-clip set; **P9** slots must include lyrics + clips. Off-site YT fragment budget stays lean; dig depth lives on-site. |
 | 2026-07-23 | Operator has **2 hours** (non-music). Recommendation: birth hotline (**H1** decide + start **H2** MVP) — highest unique release blocker with zero progress. Alt: **P7–P8** song shells if hotline decisions aren’t ready. |
 | 2026-07-23 | Operator update: mixes mostly done; mastering engineer TBD (may skip). SOMETIMES video unshot. Clips/BTS sparse + unedited; unsure how much / how to break up. Clothes/merch tabled post-release (possible money/engagement left on table — accepted for now). Phone hotline wanted for release but not started. |
@@ -47,6 +49,7 @@ Newest first. Paste updates here (or tell Copilot *"log status: …"* and it app
 | § | Topic |
 |---|--------|
 | **Status log** | Where we are (update often) |
+| **0A** | Governing vision — art-led self-sufficiency; SaaS tabled |
 | **0** | PHOTONEGATIVE — red button (Arm / Load / Press / Ride) |
 | **1–4** | North star, gallery philosophy, studio vs gallery, hosting |
 | **5–8** | Multi-tenancy, data, song lifecycle, what exists today |
@@ -54,6 +57,212 @@ Newest first. Paste updates here (or tell Copilot *"log status: …"* and it app
 | **10–16** | Design, nav, conventions, phases, out of scope, decisions, risks |
 | **17** | Frugal tier plan (operator + Copilot checklists) |
 | **18–19** | Copilot global rules · next step |
+
+---
+
+## 0A. Governing vision — art first, livelihood first
+
+**Primary objective:** burnfolder must employ Nathaniel full-time, reliably, through the art. PHOTONEGATIVE and the bodies of work after it are not marketing for a software company. They are the work, the livelihood, and the proof that an artist-owned release practice can look and function this way.
+
+**SaaS is tabled.** Burnfolder Studio remains private infrastructure serving workspace #1. Multi-tenant development, open signup, billing, and software growth do not resume until the artistic practice demonstrates repeatable releases and meaningful earned income. The eventual product thesis must be earned by lived evidence: first build the smallest complete institution one artist can own; only later decide whether other artists should use it.
+
+### Definition of self-sufficiency
+
+Self-sufficiency does not mean one viral moment or one unusually large placement. It means:
+
+- Nathaniel can pay personal living costs, taxes, health/insurance, and artistic operating costs from a diversified art practice
+- income is measured on a rolling 12-month basis and is dependable enough to plan around
+- no single client, platform, placement, or revenue source supplies more than roughly 35% of annual art income
+- at least six months of personal and artistic operating expenses are held as reserve before declaring the practice reliably full-time
+- masters, compositions, visual work, customer relationships, and the archive remain owned or deliberately licensed rather than surrendered by default
+
+**Planning number:** determine the exact annual self-sufficiency target from real personal expenses. Until that is entered, use:
+
+```
+required gross art revenue = personal living costs
+                           + annual art operating costs
+                           + taxes and benefits reserve
+                           + replacement / contingency reserve
+```
+
+Track both **cash collected** and **rights/assets accumulated**. Gross revenue is not take-home pay; clothing, events, commissions, and physical editions must be evaluated on contribution margin after direct costs.
+
+### The art is the proof
+
+The proof is not that a website can be built. It is that the system helps produce a recognizable body of work, deepen its world, retain its rights, reach the right people, and support its maker economically.
+
+Before SaaS returns to the roadmap, demonstrate:
+
+1. **Body of work:** PHOTONEGATIVE is finished and presented as a complete music, image, object, performance, and archive world where appropriate.
+2. **Repeatability:** at least one subsequent release cycle runs through the same owned system with less scramble and better evidence.
+3. **Rights readiness:** every commercially active song has clear splits, metadata, registrations, instrumental/clean versions where useful, and organized masters/stems.
+4. **Revenue diversity:** several channels produce real receipts—not projections—including owned-record income, direct sales, placements/sync, performances/DJ work, clothing or objects, and licensable production assets such as stems where artistically appropriate.
+5. **Reliability:** rolling income and reserves support a credible transition to full-time art.
+
+### Revenue portfolio
+
+| Engine | What is sold/licensed | Role | Immediate operating requirement |
+|--------|--------------------------|------|---------------------------------|
+| **Owned records** | Master recordings, downloads, physical editions, neighboring-rights income | Long-lived catalog asset and discovery layer | Retain master ownership; maintain ISRCs, credits, masters, artwork, and distributor records |
+| **Publishing** | Composition performance and mechanical royalties | Collects value from songs separately from recordings | Confirm splits; affiliate/register with the appropriate PRO and mechanical collection path; register each work accurately |
+| **Sync and placements** | Composition sync license + master-use license for film, television, advertising, games, trailers, and other audiovisual work | Potentially meaningful episodic fees plus downstream performance income | One-stop clearance where possible; instrumental, clean, stems, metadata, contact, and fast approval process |
+| **Direct music sales** | Digital albums, tracks, deluxe files, limited editions | High-intent fan revenue and customer relationship | Day-0 shop/Bandcamp readiness; collect permissioned email; fulfill reliably |
+| **Clothing and objects** | Artist-made garments, samples, limited runs, editioned artifacts | Extends the world of the work and creates higher-value direct sales | Prototype in-house; know labor and materials; use preorder or tiny runs before inventory |
+| **Stems and production assets** | Stem editions, remix licenses, sample/production packs, educational breakdowns | Monetizes process without selling ownership of the underlying catalog | Clear contributor/sample rights; explicit license terms; exclude material that weakens the work or sync options |
+| **Performance and DJ work** | Artist performances, DJ sets, listening events, installations | Near-term cash flow, discovery, and relationship building | A bookable offer, rate floor, technical rider, documentation, contact path, and follow-up capture |
+| **Commissions and collaborations** | Original music, scoring, visual work, garment work, creative direction | Higher-ticket project income and network expansion | Defined scope, deposit, contract, revision limits, rights/licensing terms, and portfolio documentation |
+| **Grants, fellowships, residencies** | Funded time and project delivery | Non-dilutive development runway | Maintain narrative, work samples, inventory, project budget, calendar, and reporting capacity |
+
+### Real-world rights and revenue mechanics
+
+Use these facts to orient decisions; verify terms at the point of action:
+
+- A song normally contains **two separate copyrights**: the musical composition and the sound recording. Sync using an existing master generally requires permission for both. Owning or controlling both can make burnfolder a practical **one-stop** licensor. Source: [U.S. Copyright Office — What Musicians Should Know](https://copyright.gov/engage/musicians/) and [ASCAP licensing guidance](https://www.ascap.com/about/legislation/campaign-music-use.aspx).
+- In the United States, self-administered songwriters who retain administration rights can register works and collect eligible blanket mechanical royalties through The MLC; a publishing administrator may perform this role instead. Source: [The MLC — self-administered songwriters](https://www.themlc.com/self-administered-songwriters).
+- SoundExchange collects U.S. statutory digital-performance royalties from non-interactive services. Its statutory distribution is 45% to featured artists, 5% to the non-featured performer fund, and 50% to sound-recording rights owners. An artist who is both featured performer and master owner should ensure both capacities are registered. Source: [SoundExchange — digital performance royalties](https://www.soundexchange.com/digital-performance-royalties/).
+- Direct purchases have different economics from streaming. Bandcamp currently states that an average of 82% of a purchase reaches the artist/label after its revenue share and payment processing; verify current fees before pricing. Source: [Bandcamp for Artists](https://bandcamp.com/artists).
+- Streaming is a catalog/discovery and royalty layer, not a dependable salary forecast. Spotify reports large aggregate payouts, but it pays rights holders through streamshare rather than a fixed per-stream rate. Source: [Spotify for Artists — royalties guide](https://artists.spotify.com/royalties-guide). Never build a budget from a universal per-stream estimate.
+
+These sources explain mechanisms, not expected earnings. Forecast only from burnfolder's own contracts, conversion rates, margins, royalty statements, and cash receipts.
+
+### Decision filter for all future conversations
+
+Unless Nathaniel explicitly changes the objective, recommendations must be ranked in this order:
+
+1. Does this improve the art or complete the body of work?
+2. Does it increase reliable art income within 12–24 months?
+3. Does it preserve ownership, pricing power, audience access, or reusable rights?
+4. Does it create a durable asset, relationship, capability, or repeatable sales path?
+5. Can it be measured without distorting the work into disposable content?
+
+Prefer work that serves several outcomes at once: a finished song can support the record, direct sale, performance, sync, stems, archive, and future catalog income. Reject busywork that produces only impressions, software surface area, or speculative inventory.
+
+### Current operating emphasis
+
+1. Finish PHOTONEGATIVE at the standard required to prove the artistic point.
+2. Build the complete rights and licensing package around the finished catalog.
+3. Make every owned revenue door functional: direct record sales, placement contact, booking contact, clothing prototypes, and permissioned audience capture.
+4. Run the release, record actual economics, and improve the next cycle.
+5. Build reserve and recurring/forward-booked income until full-time transition criteria are met.
+6. Revisit SaaS only after the art practice—not outside employment or speculative funding—substantially supports the system.
+
+### First earned-income proof — $1,000 collected
+
+**Objective:** collect the first **$1,000 gross from burnfolder art activity**, then document where it came from, what it cost, how many hours it required, and whether it can repeat. This is a transaction proof, not yet proof of a career.
+
+**Clock:** eight operating weeks. Weeks are sequential gates, not fixed calendar dates; do not launch unfinished work to preserve the schedule. Assume focused nights/weekends around the 40-hour job. If less time is available, preserve the order and extend the week rather than cutting the art.
+
+**Count:** cleared cash from direct record/tip sales, Bandcamp, paid DJ/performance work, art/music commissions, sync/master licenses, and post-release clothing preorders. Track gross receipts, fees, direct costs, estimated tax reserve, net contribution, hours, buyer/source, and whether the buyer can be contacted again with permission.
+
+**Do not count:** projected royalties, unpaid invoices, free-product value, grants not awarded, press, streams, followers, playlist adds, or personal money moved into the project.
+
+**Thesis guardrails:** no SaaS work · no speculative clothing inventory · no stream farms or guaranteed-play schemes · no feed/content treadmill · no fake urgency · no cold spam · no discounting the work into worthlessness · no ads until an organic path produces a sale · artist writes all public language.
+
+**Target mix is a test, not a quota:**
+
+| Door | Working test | Why it belongs |
+|------|--------------|----------------|
+| **Owned record + tips** | $400 | PHOTONEGATIVE itself must prove direct commitment |
+| **DJ / performance / aligned commission** | $400 | Existing equipment and skill can create nearer-term cash without surrendering catalog |
+| **Post-release edition** | $200 | A garment/object preorder only if listeners demonstrate demand; otherwise close this amount through records or performance |
+
+Any honest mix reaching $1,000 counts. Sync and royalties are welcome upside but are not placed on an eight-week deadline.
+
+#### Week 1 — establish the money truth and remove the freeze decision
+
+**Outcome:** one ledger exists; one release decision is made; no new product is invented.
+
+- [x] Record current baseline: **$0 lifetime / last-12-month burnfolder earned revenue**
+- [x] Create the $1,000 ledger with: date · source · offer · gross · fees · direct cost · tax reserve · net · hours · new/repeat supporter — see `BURNFOLDER-REVENUE-LEDGER.md`
+- [x] Decide the master path: **self-master all four songs — 4 h/song, 16 h total**
+- [ ] Put the four 4-hour mastering blocks on the calendar; set the working release gate/date range from the final block + LabelGrid path
+- [x] Inventory composition/master ownership and contributor splits: **self-written/self-produced; Nathaniel is the sole creator and owner** *(confirm no samples or other pre-existing material require clearance before rights-ready)*
+- [x] Write a private list of 25 real people/rooms already connected to the work: listeners, collaborators, DJs, bookers, filmmakers, designers, press—not a blast list
+
+**Do not do this week:** clothes, ads, SaaS, new site surfaces, generalized posting, or speculative sync pitching with unfinished audio.
+
+#### Week 2 — freeze the commercial object
+
+**Outcome:** the record can be owned, sold, delivered, and licensed without ambiguity.
+
+- [ ] Approve/freeze the four release masters
+- [ ] Export and label full masters plus instrumental, clean, and performance versions where artistically/technically applicable
+- [ ] Confirm titles, writers, splits, master owner, featured performers, producers, explicit status, BPM, key, mood, contact, and filenames
+- [ ] Finish hi-res cover and credits
+- [ ] Place masters, instrumentals, stems, artwork, lyrics, credits, and split evidence in one backed-up release folder
+- [ ] Enter actual finishing costs in the ledger
+
+#### Week 3 — finish the world, not a campaign
+
+**Outcome:** PHOTONEGATIVE proves “art can look like this” when a serious listener digs.
+
+- [ ] Complete lyrics and the strongest BTS/clip set for all four song pages (D13/D25; P7–P9)
+- [ ] Resolve the SOMETIMES visual: shoot a necessary work or deliberately remove it as a blocker
+- [ ] Complete hi-res cover, press images, final album text, credits, and journal material
+- [ ] Finish the hotline MVP only if it remains essential to the artwork; otherwise make an explicit post-release decision
+- [ ] Remove placeholders and verify the album hub, song pages, press page, audio, and mobile playback
+
+#### Week 4 — open the owned doors before asking for attention
+
+**Outcome:** a person who cares can pay; a professional can book or license; every path is tested.
+
+- [ ] Add the final digital-album download and run a real low-dollar checkout/refund test on burnfolder shop
+- [ ] Prepare Bandcamp with matching masters, art, credits, honest price/PWYW, and release timing
+- [ ] Verify newsletter capture, purchase receipt, download delivery, analytics, UTMs, and commerce totals
+- [ ] Create one quiet booking offer: DJ set, listening event, live presentation, or aligned commission—with rate floor, location/range, technical needs, and contact
+- [ ] Create a private sync-ready folder/link with masters, instrumentals, metadata, ownership/contact, and no uncleared material
+- [ ] Draft the release note and individual outreach in Nathaniel's voice; no marketing copy generator
+
+#### Week 5 — press the release
+
+**Outcome:** the work is public, purchasable, and directly offered without violating its voice.
+
+- [ ] Execute L1–L11 in the existing press-day order
+- [ ] Send the owned newsletter to the album hub/shop
+- [ ] Send individual notes to 10–15 genuinely connected people for whom the work is relevant; ask for listening, purchase, coverage, booking, or introduction as appropriate—not all at once
+- [ ] Publish the five planned fragments as doors into the work, not disconnected content
+- [ ] Record every cleared sale and attributable source in the ledger within 24 hours
+- [ ] Personally thank buyers without automatically adding anyone to a list
+
+#### Week 6 — sell through relationships, not volume
+
+**Outcome:** direct-sale evidence plus a live/performance pipeline exists.
+
+- [ ] Follow up once with relevant Week 5 contacts; stop after one unanswered follow-up
+- [ ] Make 10 researched, individual approaches across local/aligned bookers, listening rooms, independent radio/DJs, filmmakers, music supervisors/libraries, or collaborators; each approach must have a specific reason
+- [ ] Ask existing buyers/listeners for one introduction where natural
+- [ ] Offer the defined DJ/performance/commission package to the best-fit contacts
+- [ ] Review shop funnel and direct feedback; fix only demonstrated checkout/delivery friction
+- [ ] Snapshot revenue: gross, net contribution, buyers, average order, hours, source
+
+#### Week 7 — test one higher-value edition only if earned
+
+**Outcome:** demand determines whether clothing enters; inventory does not determine demand.
+
+- [ ] If at least five people have explicitly asked about clothing/objects, make one sample, calculate full labor/material cost, photograph it with owned equipment, and open a capped preorder with a profitable price
+- [ ] If demand is absent, do **not** manufacture; use the week for a second booking/commission round or a small paid listening/DJ event
+- [ ] Keep the edition visually and materially inside the PHOTONEGATIVE world; no generic logo merch
+- [ ] Require deposits/prepayment sufficient to cover direct production
+- [ ] Record labor hours and contribution margin separately from gross sales
+
+#### Week 8 — close, learn, and choose the repeatable door
+
+**Outcome:** reach $1,000 honestly or leave with a measured gap and the next best experiment.
+
+- [ ] Re-approach only warm, relevant open opportunities with a concrete close/date
+- [ ] Fulfill all paid orders and deliver all contracted work before inventing another offer
+- [ ] Reconcile Stripe, Bandcamp, booking/commission income, refunds, fees, costs, tax reserve, and cash received
+- [ ] Complete the first-$1,000 report: revenue by door · net contribution · hours · effective return · supporter count · repeat buyers · best source · failed assumptions
+- [ ] Select one channel to repeat, one to improve, one to stop, and one next test
+- [ ] If below $1,000, carry the exact remaining dollar gap forward; do not manufacture a vanity win
+
+**Weekly review — 20 minutes, same day each week:**
+
+1. What finished artifact became more valuable?
+2. What money cleared?
+3. What opportunity moved to a dated next step?
+4. What did people actually respond to?
+5. What will be deliberately ignored next week?
 
 ---
 
@@ -335,11 +544,11 @@ Same calendar day the DSP gate clears (or as close as humanly possible):
 
 ---
 
-## 1. North star (Studio / platform)
+## 1. North star (Studio / platform — tabled)
 
-**Near-term north star = §0 red button.** Burnfolder Studio’s longer arc is a **multi-tenant artist OS**, but for PHOTONEGATIVE the only job is: arm → load → press → ride freshness. Architecture below is context for after **R12**, not a reason to delay P7–P11.
+**Governing north star = §0A art-led self-sufficiency. Near-term execution = §0 red button.** Burnfolder Studio currently serves Nathaniel's practice as private infrastructure. Multi-tenant SaaS is a possible later consequence of the proof, not the present goal, and it must not compete with releases, revenue work, rights administration, or protected creation time.
 
-**Burnfolder Studio** is a **multi-tenant artist OS** — a private control plane where artists run their entire practice on the go, then choose what goes public. §0 is how that OS proves itself on burnfolder.com *by shipping one real release under algorithmic pressure*.
+**Possible later thesis:** Burnfolder Studio could become a **multi-tenant artist OS** — a private control plane where artists run their practice, retain its memory and commercial readiness, then choose what goes public. That thesis is credible only after burnfolder proves it through a repeatable, economically sustaining personal art practice. The architecture below is preserved as tabled context, not an active build mandate after R12.
 
 | Layer | Role |
 |-------|------|

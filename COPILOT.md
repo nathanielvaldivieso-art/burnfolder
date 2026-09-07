@@ -488,8 +488,8 @@ order for studio: **intuitive → sleek → secure**, all while staying **mobile
 | video | `video.html` | Video Mux library |
 | journal | `journal.html` | Private day planner |
 
-Sub-pages (full navigation, not SPA): `song-designer.html`, `album-designer.html`,
-`stream-song.html`. Redirects: `editor.html` → `index.html`; `files.html`,
+Sub-pages (full navigation, not SPA): `song-designer.html`, `album-designer.html`.
+`stream-song.html` is archived in `archive/studio/`. Redirects: `editor.html` → `index.html`; `files.html`,
 `stream-stack.html` → `stream.html`.
 
 ### SPA router (`studio/js/studio-spa-router.js`)

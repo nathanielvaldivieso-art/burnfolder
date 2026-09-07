@@ -345,16 +345,14 @@
     }
 
     /**
-     * Open the advance gate only after this generation has a real playhead.
-     * Clearing it on the first playing event at t≈0 lets sticky mux-player
-     * `ended` skip the song we just handed off to.
+     * Open the advance gate once this generation has a real, moving playhead.
+     * The gate must stay closed while the player still reports `ended` from the
+     * previous source swap; otherwise sticky `ended` can skip the new song.
      */
     function releaseAdvanceGate(player) {
-      if (!advancePending) return;
-      const t = Number(player && player.currentTime);
-      if (Number.isFinite(t) && t >= 1) {
-        advancePending = false;
-      }
+      if (!advancePending || !trackStarted) return;
+      if (player.ended) return;
+      advancePending = false;
     }
 
     function notePlayhead(player) {
@@ -362,8 +360,7 @@
       if (currentPlaybackId(player) && currentPlaybackId(player) !== activeSong.playbackId) {
         return;
       }
-      if (!clockIsInTrackBody(player)) return;
-      markTrackStarted();
+      if (clockIsInTrackBody(player)) markTrackStarted();
       releaseAdvanceGate(player);
     }
 
@@ -373,6 +370,9 @@
       const t = Number(player.currentTime);
       const d = Number(player.duration);
       if (!Number.isFinite(t) || t < 0) return false;
+      // A sticky `ended` flag from a source swap is not a valid in-body position,
+      // especially when the duration is unknown or we are sitting at the old end.
+      if (player.ended && (!Number.isFinite(d) || t >= d - 0.5)) return false;
       if (t < 1) return true;
       if (!Number.isFinite(d) || d <= 1) return t > 0.15;
       return t < d - 0.5;
@@ -383,11 +383,16 @@
       if (!player || !activeSong || advancePending || !trackStarted) return false;
       if (currentPlaybackId(player) !== activeSong.playbackId) return false;
       const current = Number(player.currentTime);
-      if (!Number.isFinite(current) || current < 1) return false;
-      if (player.ended) return true;
+      if (!Number.isFinite(current) || current < 0) return false;
       const duration = Number(player.duration);
-      if (!Number.isFinite(duration) || duration <= 1) return false;
-      return current >= duration - END_SLACK_SECONDS;
+      // A track is finished when the playhead is near the end. Never trust the
+      // `ended` flag alone; a stale `ended` after a source swap must not skip.
+      if (Number.isFinite(duration) && duration > 0) {
+        return current >= Math.max(0.15, duration - END_SLACK_SECONDS);
+      }
+      // Unknown duration (live/HLS): only `ended` can finish, and only after
+      // the playhead has left the startup window.
+      return !!player.ended && current >= 1;
     }
 
     function advanceAfterEnd() {
