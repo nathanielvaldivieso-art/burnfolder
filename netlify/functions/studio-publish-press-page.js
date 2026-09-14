@@ -3,6 +3,7 @@ const github = require('./lib/github-commit');
 
 const MAX_BODY_BYTES = 6 * 1024 * 1024;
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+const MAX_ASSET_BYTES = 4 * 1024 * 1024;
 
 function corsHeaders() {
   return studioCorsHeaders('POST, OPTIONS');
@@ -20,11 +21,13 @@ function normalizeLinkRow(item) {
   if (!item || typeof item !== 'object') return null;
   const label = String(item.label || '').trim();
   if (!label) return null;
-  return {
+  const row = {
     label: label,
     href: String(item.href || '').trim(),
     pending: !!item.pending
   };
+  if (item.id) row.id = String(item.id).trim();
+  return row;
 }
 
 function normalizeAssetRow(item) {
@@ -36,6 +39,7 @@ function normalizeAssetRow(item) {
     href: String(item.href || '').trim(),
     pending: !!item.pending
   };
+  if (item.id) row.id = String(item.id).trim();
   if (item.download) row.download = true;
   return row;
 }
@@ -74,6 +78,24 @@ function normalizePhotoAsset(asset) {
   const approxBytes = Math.floor((base64.length * 3) / 4);
   if (approxBytes > MAX_PHOTO_BYTES) return null;
   return { path: path, content: base64, encoding: 'base64' };
+}
+
+function normalizeAssetFiles(items) {
+  if (!Array.isArray(items)) return [];
+  const allowedExt = /\.(png|jpe?g|webp|gif|pdf|zip)$/i;
+  const allowedPath = /^IMAGES\/[A-Za-z0-9._-]+$/;
+  const files = [];
+  items.forEach(function (item) {
+    if (!item || typeof item !== 'object') return;
+    const path = String(item.path || '').trim();
+    const base64 = String(item.base64 || '').trim();
+    if (!path || !base64 || !allowedPath.test(path)) return;
+    if (!allowedExt.test(path)) return;
+    const approxBytes = Math.floor((base64.length * 3) / 4);
+    if (approxBytes > MAX_ASSET_BYTES) return;
+    files.push({ path: path, content: base64, encoding: 'base64' });
+  });
+  return files;
 }
 
 function buildPressPageJs(page) {
@@ -137,6 +159,12 @@ exports.handler = async function (event) {
     const commitFiles = [{ path: 'press-page.js', content: buildPressPageJs(page) }];
     const photo = normalizePhotoAsset(body.photoAsset);
     if (photo) commitFiles.push(photo);
+    const assetFiles = normalizeAssetFiles(body.assetFiles);
+    if (assetFiles && assetFiles.length) {
+      assetFiles.forEach(function (file) {
+        commitFiles.push(file);
+      });
+    }
 
     const commit = await github.commitFiles('Publish press page from studio', commitFiles);
 
@@ -148,8 +176,8 @@ exports.handler = async function (event) {
         commitSha: commit.sha,
         commitUrl: commit.url,
         publishUrl: 'https://burnfolder.com/press.html',
-        message: photo
-          ? 'Pushed press page + photo to burnfolder.com. Netlify will deploy shortly.'
+        message: (photo || assetFiles.length)
+          ? 'Pushed press page + assets to burnfolder.com. Netlify will deploy shortly.'
           : 'Pushed press page to burnfolder.com. Netlify will deploy shortly.'
       })
     };

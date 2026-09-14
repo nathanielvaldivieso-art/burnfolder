@@ -478,7 +478,11 @@
     return streamVideoEl;
   }
 
-  function loadStack() {
+  function loadStack(groupId) {
+    if (groupId) {
+      const group = findGroupById(groupId);
+      return group ? group.tracks.slice() : [];
+    }
     const first = loadGroups()[0];
     return first ? first.tracks.slice() : [];
   }

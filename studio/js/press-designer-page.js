@@ -35,14 +35,33 @@
   }
 
   function readEditorState() {
+    function collectRows(listEl) {
+      const rows = [];
+      if (!listEl) return rows;
+      listEl.querySelectorAll(':scope > li.studio-press-row').forEach(function (li) {
+        const label = li.querySelector('[data-field="label"]');
+        const href = li.querySelector('[data-field="href"]');
+        const pending = li.querySelector('[data-field="pending"]');
+        const download = li.querySelector('[data-field="download"]');
+        const row = {
+          id: li.getAttribute('data-row-id') || '',
+          label: label ? label.value : '',
+          href: href ? href.value : '',
+          pending: pending ? pending.checked : false
+        };
+        if (download) row.download = download.checked;
+        rows.push(row);
+      });
+      return rows;
+    }
     return {
       pressPhoto: pressPhotoEl ? pressPhotoEl.value : '',
       bio: bioEl ? bioEl.value : '',
       releaseLine: releaseLineEl ? releaseLineEl.value : '',
       pullQuote: pullQuoteEl ? pullQuoteEl.value : '',
       contactEmail: contactEmailEl ? contactEmailEl.value : '',
-      links: (currentPage.links || []).slice(),
-      assets: (currentPage.assets || []).slice()
+      links: collectRows(linksList),
+      assets: collectRows(assetsList)
     };
   }
 
@@ -104,6 +123,7 @@
     items.forEach(function (row) {
       const li = document.createElement('li');
       li.className = 'studio-press-row';
+      li.setAttribute('data-row-id', row.id || '');
 
       const head = document.createElement('div');
       head.className = 'studio-press-row-head';
@@ -114,6 +134,9 @@
       remove.textContent = 'remove';
       remove.addEventListener('click', function () {
         if (kind === 'asset') {
+          if (store && store.setPendingAsset) {
+            store.setPendingAsset(row.id, null).catch(function () {});
+          }
           currentPage.assets = (currentPage.assets || []).filter(function (item) {
             return item.id !== row.id;
           });
@@ -131,6 +154,7 @@
       const labelInput = document.createElement('input');
       labelInput.type = 'text';
       labelInput.className = 'studio-song-designer-input';
+      labelInput.setAttribute('data-field', 'label');
       labelInput.value = row.label || '';
       labelInput.placeholder = 'label';
       labelInput.addEventListener('input', function () {
@@ -142,6 +166,7 @@
       const hrefInput = document.createElement('input');
       hrefInput.type = 'text';
       hrefInput.className = 'studio-song-designer-input';
+      hrefInput.setAttribute('data-field', 'href');
       hrefInput.value = row.href || '';
       hrefInput.placeholder = kind === 'asset' ? 'path or url' : 'href';
       hrefInput.addEventListener('input', function () {
@@ -157,6 +182,7 @@
       pendingLabel.className = 'studio-press-row-flag';
       const pendingInput = document.createElement('input');
       pendingInput.type = 'checkbox';
+      pendingInput.setAttribute('data-field', 'pending');
       pendingInput.checked = !!row.pending;
       pendingInput.addEventListener('change', function () {
         row.pending = pendingInput.checked;
@@ -171,6 +197,7 @@
         downloadLabel.className = 'studio-press-row-flag';
         const downloadInput = document.createElement('input');
         downloadInput.type = 'checkbox';
+        downloadInput.setAttribute('data-field', 'download');
         downloadInput.checked = !!row.download;
         downloadInput.addEventListener('change', function () {
           row.download = downloadInput.checked;
@@ -182,6 +209,71 @@
       }
 
       li.appendChild(flags);
+
+      if (kind === 'asset') {
+        const fileWrap = document.createElement('div');
+        fileWrap.className = 'studio-press-row-file';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.className = 'studio-press-row-file-input';
+        fileInput.hidden = true;
+
+        const uploadBtn = document.createElement('button');
+        uploadBtn.type = 'button';
+        uploadBtn.className = 'icon-btn studio-press-row-upload';
+        uploadBtn.textContent = row.href && String(row.href).indexOf('IMAGES/PRESS-ASSET-') === 0 ? 'swap' : 'upload';
+        uploadBtn.addEventListener('click', function () {
+          fileInput.click();
+        });
+
+        const fileStatus = document.createElement('span');
+        fileStatus.className = 'studio-press-row-file-status';
+        fileStatus.textContent = row.href && String(row.href).indexOf('IMAGES/PRESS-ASSET-') === 0 ? 'file set' : '';
+
+        fileInput.addEventListener('change', function () {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          const ext = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!/^(png|jpe?g|webp|gif)$/i.test(ext)) {
+            setStatus('asset must be png/jpg/webp/gif', 'error');
+            return;
+          }
+          if (file.size > 4 * 1024 * 1024) {
+            setStatus('asset must be under 4MB', 'error');
+            return;
+          }
+          const path = 'IMAGES/PRESS-ASSET-' + row.id + '.' + (ext || 'jpg');
+          setStatus('reading asset…');
+          store
+            .fileToBase64(file)
+            .then(function (base64) {
+              row.href = path;
+              row.download = true;
+              row.pending = false;
+              hrefInput.value = path;
+              downloadInput.checked = true;
+              pendingInput.checked = false;
+              uploadBtn.textContent = 'swap';
+              fileStatus.textContent = file.name + ' → ' + path;
+              return store.setPendingAsset(row.id, { path: path, base64: base64, name: file.name });
+            })
+            .then(function () {
+              scheduleSave();
+              setStatus('asset ready — push to upload', 'success');
+            })
+            .catch(function (err) {
+              setStatus(err.message || 'asset read failed', 'error');
+            });
+        });
+
+        fileWrap.appendChild(uploadBtn);
+        fileWrap.appendChild(fileInput);
+        fileWrap.appendChild(fileStatus);
+        li.appendChild(fileWrap);
+      }
+
       listEl.appendChild(li);
     });
   }

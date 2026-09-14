@@ -61,6 +61,10 @@ This repo has automated newsletter functionality. Here's how to complete the set
 
 Test the signup form on your live Netlify site. You should receive a welcome email within 1-2 minutes.
 
+## Sending a manual blast
+
+Use the Studio page at `/studio/send-email.html` to compose a simple subject + plain-text message and send it to the full subscriber list. It sends through the same SendGrid key as the automated welcome and new-entry emails.
+
 ## Customizing Email Content
 
 Edit the email templates in:

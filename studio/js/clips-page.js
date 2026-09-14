@@ -1844,6 +1844,13 @@
         );
       }
     }
+    if (kind === 'album' && block.groupId) {
+      return (
+        '<div class="clips-block-media clips-block-media--album" data-album-cover="1" data-group-id="' +
+        escapeHtml(block.groupId) +
+        '"></div>'
+      );
+    }
     return '<div class="clips-block-media clips-block-media--blank" aria-hidden="true"></div>';
   }
 

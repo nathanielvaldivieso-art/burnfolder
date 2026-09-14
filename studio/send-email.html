@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="../shared/studio-pwa-viewport.js?v=20260815dnd1"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>email — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css?v=20260815dnd1">
+  <link rel="stylesheet" href="css/studio.css?v=20260815dnd1">
+</head>
+<body class="studio-page studio-song-designer-page studio-send-email-page">
+
+  <main class="page-wrap studio-song-designer-layout">
+    <div class="studio-song-designer-toolbar">
+      <p class="page-id">email / list</p>
+    </div>
+
+    <p class="studio-song-designer-meta" id="sendEmailMeta">Send a simple plain-text message to the newsletter list. It goes out as text + HTML to every subscriber.</p>
+
+    <section class="studio-song-designer-section">
+      <h2 class="studio-song-designer-section-title">list</h2>
+      <p id="sendEmailSubscriberCount">loading…</p>
+    </section>
+
+    <section class="studio-song-designer-section">
+      <h2 class="studio-song-designer-section-title">compose</h2>
+
+      <label class="studio-song-designer-label" for="sendEmailSubject">subject</label>
+      <input id="sendEmailSubject" class="studio-song-designer-input" type="text" spellcheck="false" autocomplete="off">
+
+      <label class="studio-song-designer-label" for="sendEmailText">message</label>
+      <textarea id="sendEmailText" class="studio-song-designer-textarea studio-song-designer-textarea--tall" rows="14" spellcheck="false" placeholder="type the email body here..."></textarea>
+      <p class="studio-song-designer-hint">plain text only. links work. no attachments for now — many inboxes reject them.</p>
+
+      <button type="button" class="icon-btn studio-song-push-btn" id="sendEmailSendBtn">send to list</button>
+    </section>
+  </main>
+
+  <p class="studio-song-designer-status" id="sendEmailStatus" aria-live="polite"></p>
+
+  <script src="js/studio-version.js?v=20260906play1"></script>
+  <script src="js/studio-status.js?v=20260815dnd1"></script>
+  <script src="js/studio-site-menu.js?v=20260815dnd1"></script>
+  <script src="js/studio-auth.js?v=20260815dnd1"></script>
+  <script src="js/cloud-store-kit.js?v=20260815dnd1"></script>
+  <script src="js/send-email-page.js?v=20260907email1"></script>
+</body>
+</html>

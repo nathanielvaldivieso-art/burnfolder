@@ -18,10 +18,12 @@
   const albumMeta = document.getElementById('albumDesignerMeta');
   const notesEl = document.getElementById('albumDesignerNotes');
   const heroVideoEl = document.getElementById('albumDesignerHeroVideo');
+  const coverBtn = document.getElementById('albumDesignerCoverBtn');
+  const coverClearBtn = document.getElementById('albumDesignerCoverClearBtn');
+  const coverInput = document.getElementById('albumDesignerCoverInput');
+  const coverPreview = document.getElementById('albumDesignerCoverPreview');
   const mediaList = document.getElementById('albumDesignerMediaList');
   const previewRoot = document.getElementById('albumDesignerPreviewRoot');
-  const previewTitle = document.getElementById('albumDesignerPreviewTitle');
-  const previewSubtitle = document.getElementById('albumDesignerPreviewSubtitle');
   const statusEl = document.getElementById('albumDesignerStatus');
   const previewBtn = document.getElementById('albumDesignerPreviewBtn');
   const pushBtn = document.getElementById('albumDesignerPushBtn');
@@ -287,6 +289,24 @@
     syncAlbumPickLabel(activeAlbumId);
   }
 
+  function paintCoverPreview(meta) {
+    if (!coverPreview) return;
+    const coverApi = window.BurnfolderCoverArt;
+    if (!meta || !(meta.coverArt || meta.coverAssetId)) {
+      coverPreview.hidden = true;
+      coverPreview.removeAttribute('src');
+      if (coverClearBtn) coverClearBtn.hidden = true;
+      return;
+    }
+    coverPreview.hidden = false;
+    if (coverClearBtn) coverClearBtn.hidden = false;
+    if (coverApi && coverApi.applyCoverImage) {
+      coverApi.applyCoverImage(coverPreview, meta);
+      return;
+    }
+    coverPreview.src = meta.coverArt;
+  }
+
   function saveAlbumTitle(title) {
     if (!activeAlbumId || syncingTitle) return;
     const meta = shared.loadStackMeta(activeAlbumId);
@@ -313,12 +333,6 @@
     const meta = shared.loadStackMeta(activeAlbumId);
     const tracks = albumTracks(group);
 
-    if (previewTitle) previewTitle.textContent = meta.title || 'Album';
-    if (previewSubtitle) {
-      previewSubtitle.textContent =
-        tracks.length + ' track' + (tracks.length === 1 ? '' : 's');
-    }
-
     loadSongPagesForTracks(tracks).then(function (songPages) {
       albumRender.apply(previewRoot, {
         albumPage: currentPage,
@@ -330,7 +344,12 @@
         library: libraryCache,
         shared: shared,
         itemLabel: itemLabel,
-        showSongLinks: false
+        songPageUrl: function (item) {
+          return versionsApi && versionsApi.getSongHubHref
+            ? versionsApi.getSongHubHref(item, '')
+            : '';
+        },
+        showSongLinks: true
       });
     });
   }
@@ -346,6 +365,7 @@
 
       const group = shared.findGroupById(albumId);
       paintAlbumChrome();
+      paintCoverPreview(shared.loadStackMeta(albumId));
       if (previewBtn) {
         previewBtn.href = shared.albumPageUrl(albumId);
         previewBtn.hidden = !group;
@@ -412,8 +432,56 @@
   window.addEventListener('burnfolder-stack-meta-changed', function () {
     if (!activeAlbumId || syncingTitle) return;
     paintAlbumChrome();
+    paintCoverPreview(shared.loadStackMeta(activeAlbumId));
     paintPreview();
   });
+
+  if (coverBtn && coverInput) {
+    coverBtn.addEventListener('click', function () {
+      coverInput.click();
+    });
+    coverInput.addEventListener('change', function () {
+      const file = coverInput.files && coverInput.files[0];
+      coverInput.value = '';
+      if (!file || !activeAlbumId) return;
+      const coverApi = window.BurnfolderCoverArt;
+      if (!coverApi || !coverApi.registerCoverFromFile) {
+        setStatus('image storage unavailable', 'error');
+        return;
+      }
+      const meta = shared.loadStackMeta(activeAlbumId);
+      coverApi
+        .registerCoverFromFile(file, meta.title || activeAlbumId || file.name || 'album')
+        .then(function (result) {
+          coverApi.patchFromCoverResult(meta, result);
+          meta.coverAlt = meta.title ? meta.title + ' cover' : 'album cover';
+          shared.saveStackMeta(meta, activeAlbumId);
+          paintCoverPreview(meta);
+          paintPreview();
+          setStatus('cover → ' + meta.coverArt + ' (saved to downloads — move to site IMAGES/)', 'success');
+        })
+        .catch(function (err) {
+          setStatus(err.message || 'could not add cover', 'error');
+        });
+    });
+  }
+
+  if (coverClearBtn) {
+    coverClearBtn.addEventListener('click', function () {
+      if (!activeAlbumId) return;
+      const meta = shared.loadStackMeta(activeAlbumId);
+      const coverApi = window.BurnfolderCoverArt;
+      if (coverApi && coverApi.clearCoverMeta) coverApi.clearCoverMeta(meta);
+      else {
+        meta.coverArt = '';
+        meta.coverAssetId = '';
+      }
+      shared.saveStackMeta(meta, activeAlbumId);
+      paintCoverPreview(meta);
+      paintPreview();
+      setStatus('cover removed');
+    });
+  }
 
   if (notesEl) notesEl.addEventListener('input', scheduleSave);
   if (heroVideoEl) heroVideoEl.addEventListener('change', scheduleSave);

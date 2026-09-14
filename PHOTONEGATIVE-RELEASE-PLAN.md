@@ -49,12 +49,73 @@ Order matters. Do the legal/rights setup first because it takes days to propagat
 11. **~~P8~~** — Album hub tracklist → song page links — *done; tracklist now links each song to its song page.*
 12. **P9** — Slots for lyrics, BTS clips, 30s preview, and press photos per song. Lyrics/process notes are per-version; clips live at the song level and can be titled by version.
 13. **P11** — Press download paths that survive hi-res swaps.
-14. **P20** — UTM scheme + pitch sheet skeleton + newsletter draft shell.
+14. **~~P20~~** — UTM scheme + pitch sheet skeleton + newsletter draft shell. *done; written in the P20 section below.*
 15. **Hotline decision** — build the MVP if it stays essential to the artwork; explicitly defer if not.
 
 ### Studio / Load decision
 
 16. **Decide the master path** — self-master or hire engineer — and put the final blocks on the calendar so a release date range can be set.
+
+## P20 — Ride prep (paper / notes only)
+
+No new SaaS. These three working documents live here so gate-wait and press-day work is ready before the DSP unlock.
+
+### 1. UTM scheme
+
+Every off-site CTA points to the album hub (`https://burnfolder.com/album.html`) and carries these parameters:
+
+- `utm_source` — the door: `youtube`, `ig`, `email`, `pitch`
+- `utm_medium` — the format: `fragment`, `story`, `post`, `dm`, `bio`, `newsletter`
+- `utm_campaign=photonegative`
+- `utm_content` — the specific fragment, track, or pitch id, e.g. `sometimes-clip-1`, `pitch-sun-010`, `fire-escape-lyrics`
+- `utm_term` — optional, for paid/keyword tests only; leave empty unless running ads
+
+Rules:
+- Lowercase kebab-case, no spaces.
+- Always land on the album hub; song-page links use `song.html?song=<key>` as the base.
+- Match the `utm_content` tag exactly to the pitch spreadsheet row so you can trace which fragment/pitch drove a land. The dashboard currently groups by source/medium/campaign; per-content scoring is tabled until traffic makes it worthwhile.
+
+Examples:
+
+| Door | URL |
+|------|-----|
+| YouTube short — SOMETIMES clip 1 | `https://burnfolder.com/album.html?utm_source=youtube&utm_medium=fragment&utm_campaign=photonegative&utm_content=sometimes-clip-1` |
+| Instagram story swipe | `https://burnfolder.com/album.html?utm_source=ig&utm_medium=story&utm_campaign=photonegative&utm_content=hub-story-010` |
+| Newsletter blast | `https://burnfolder.com/album.html?utm_source=email&utm_medium=newsletter&utm_campaign=photonegative&utm_content=blast-010` |
+| Pitch to blog "Sun" | `https://burnfolder.com/album.html?utm_source=pitch&utm_medium=email&utm_campaign=photonegative&utm_content=pitch-sun-010` |
+
+### 2. Pitch spreadsheet skeleton
+
+Use a CSV or spreadsheet with these columns:
+
+| target | contact | angle | date_sent | reply | outcome | utm_content | notes |
+|--------|---------|-------|-----------|-------|---------|-------------|-------|
+| Sun blog | editor@sunblog.com | Slow-built single, fits late-night writing column | | | | pitch-sun-010 | Submitted via form |
+| Gray playlist | gray@spotify.com | Bedroom production, vocal-forward | | | | pitch-gray-011 | Follow-up after press day |
+
+Outcomes: `playlist`, `blog`, `ignore`, `pending`, `follow-up`.
+
+Starter leads and a how-to-find-more guide live in [`PHOTONEGATIVE-PITCH-LEADS.md`](PHOTONEGATIVE-PITCH-LEADS.md).
+
+### 3. Newsletter draft shell
+
+```
+Subject: PHOTONEGATIVE — [gate date or "out now"]
+From: nathaniel@burnfolder.com
+List: burnfolder newsletter
+Hub link: https://burnfolder.com/album.html?utm_source=email&utm_medium=newsletter&utm_campaign=photonegative&utm_content=blast-010
+
+[Body written during gate wait]
+
+- one opening line
+- one line on the picture
+- album hub link
+- press page link
+- shop / PWYW link
+- sign-off
+```
+
+Do not say “OUT NOW” until the gate has actually cleared.
 
 ### Do not do this week
 

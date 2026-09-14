@@ -101,6 +101,26 @@
       }, 2400);
     }
 
+    function isSiteCoverPath(value) {
+      const coverApi = window.BurnfolderCoverArt;
+      if (coverApi && typeof coverApi.isSiteCoverPath === 'function') {
+        return coverApi.isSiteCoverPath(value);
+      }
+      return /^IMAGES\//i.test(String(value || '').trim());
+    }
+
+    function validateBlockCovers(blocks) {
+      const bad = [];
+      (blocks || []).forEach(function (block) {
+        if ((block.type === 'album' || block.type === 'playlist') && block.coverArt) {
+          if (!isSiteCoverPath(block.coverArt)) bad.push(block.coverArt);
+        }
+      });
+      if (bad.length) {
+        setStatus('cover path must be an IMAGES/ file — move to repo IMAGES/ before publishing: ' + bad.join(', '));
+      }
+    }
+
     function normalizeTextSize(size) {
       return size === 'sm' || size === 'lg' ? size : 'md';
     }
@@ -2559,8 +2579,9 @@ ${tracks.join(',\n')}
           if (stackDrop) {
             const shared = window.BurnfolderStreamShared;
             if (!shared) return;
-            const tracks = shared.loadStack();
-            const meta = shared.loadStackMeta();
+            const groupId = String(stackDrop).trim();
+            const tracks = shared.loadStack(groupId);
+            const meta = shared.loadStackMeta(groupId);
             tracks.forEach(function (track) {
               appendTrackToPlaylist(shell.dataset.blockId, {
                 title: track.title || '',
@@ -3041,6 +3062,7 @@ ${tracks.join(',\n')}
       syncEntryOutputs(entry);
       renderPreview(entry);
       renderEditorBlocks();
+      validateBlockCovers(entry.blocks);
     }
 
     async function copyText(value) {

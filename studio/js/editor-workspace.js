@@ -93,15 +93,16 @@
     if (menu) menu.value = '';
   }
 
-  function insertStackToEntry() {
+  function insertStackToEntry(groupId) {
     const shared = window.BurnfolderStreamShared;
     if (!shared) return;
-    const tracks = shared.loadStack();
+    const id = String(groupId || '');
+    const tracks = shared.loadStack(id);
     if (!tracks.length) {
       setStatus('group is empty', 'error');
       return;
     }
-    const meta = shared.loadStackMeta();
+    const meta = shared.loadStackMeta(id);
     whenEditorReady(function (api) {
       if (typeof api.insertStackPlaylist === 'function') {
         api.insertStackPlaylist({
@@ -149,7 +150,9 @@
           return muxLibraryCache;
         },
         labelForItem: muxFileLabel,
-        onInsertStack: insertStackToEntry,
+        onInsertStack: function (groupId) {
+          insertStackToEntry(groupId);
+        },
         onInsertTrack: insertMuxItem,
         onDropToEntry: function (item, result) {
           whenEditorReady(function (api) {
@@ -674,7 +677,7 @@
 
       whenEditorReady(function (api) {
         if (stackDrop) {
-          insertStackToEntry();
+          insertStackToEntry(stackDrop);
           return;
         }
 

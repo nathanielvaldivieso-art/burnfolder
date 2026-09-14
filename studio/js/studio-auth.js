@@ -555,6 +555,10 @@
   }
 
   function boot() {
+    // Login disabled for this local dev session.
+    markReady();
+    return;
+
     showBooting();
     ready = false;
 

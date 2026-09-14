@@ -517,13 +517,26 @@
       head.appendChild(info);
       head.appendChild(actions);
 
+      const addToEntryBtn = document.createElement('button');
+      addToEntryBtn.type = 'button';
+      addToEntryBtn.className = 'studio-stream-album-action studio-stream-album-add-entry';
+      addToEntryBtn.setAttribute('aria-label', 'Add album to entry');
+      addToEntryBtn.title = 'add album to entry';
+      addToEntryBtn.textContent = '+ entry';
+      addToEntryBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (typeof onInsertStack === 'function') {
+          onInsertStack(groupId);
+        }
+      });
+
       head.draggable = true;
       head.addEventListener('dragstart', function (event) {
         if (event.target.closest('button, input')) {
           event.preventDefault();
           return;
         }
-        event.dataTransfer.setData(STACK_ALBUM_MIME, '1');
+        event.dataTransfer.setData(STACK_ALBUM_MIME, groupId);
         event.dataTransfer.setData('text/plain', meta.title || '');
         event.dataTransfer.effectAllowed = 'copy';
         head.classList.add('is-dragging');
@@ -531,6 +544,8 @@
       head.addEventListener('dragend', function () {
         head.classList.remove('is-dragging');
       });
+
+      actions.appendChild(addToEntryBtn);
 
       const ol = document.createElement('ol');
       ol.className = 'music-tracklist entry-audio-list studio-stream-album-tracks';

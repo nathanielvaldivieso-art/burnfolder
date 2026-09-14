@@ -2245,6 +2245,10 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   text-underline-offset: 2px;
 }
 
+.studio-stream-album-add-entry {
+  white-space: nowrap;
+}
+
 .studio-stream-album-play {
   flex-shrink: 0;
   width: 30px;
@@ -8268,15 +8272,15 @@ body.clips-clip-dragging .clips-block {
 
 .clips-collection-chrome {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: 16px 20px;
   align-items: end;
-  max-width: 520px;
+  max-width: 600px;
 }
 
 .clips-collection-cover {
-  width: 112px;
-  height: 112px;
+  width: 180px;
+  height: 180px;
   border: 1px solid #000;
   background: #fff center / cover no-repeat;
   cursor: pointer;
@@ -8396,12 +8400,12 @@ body.clips-clip-dragging .clips-block {
 
 @media (max-width: 640px) {
   .clips-collection-chrome {
-    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-columns: 140px minmax(0, 1fr);
   }
 
   .clips-collection-cover {
-    width: 88px;
-    height: 88px;
+    width: 140px;
+    height: 140px;
   }
 
   .clips-collection-name {

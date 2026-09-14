@@ -35,6 +35,7 @@ Newest first. Paste updates here (or tell Copilot *"log status: …"* and it app
 
 | Date | Note |
 |------|------|
+| 2026-09-07 | P11 shipped: press asset upload uses stable `IMAGES/PRESS-ASSET-{id}.{ext}` paths that overwrite on re-upload, so download URLs survive hi-res swaps. P20 ride-prep docs added to `PHOTONEGATIVE-RELEASE-PLAN.md`: UTM scheme, pitch spreadsheet skeleton, newsletter draft shell, Bandcamp checklist. |
 | 2026-09-07 | P7 + P8 shipped: song page shells created for all four Photonegative tracks; album hub tracklist now links to each song page. Studio song designer preserves per-version lyrics/notes and is forward-compatible with per-version media. Publish button/pipeline remains intact. |
 | 2026-07-24 | Operator: enrich **lyrics + BTS clips on song pages** — a good amount of content per song for diggers. Added **D13** (all four tracks) + **D25** dig-clip set; **P9** slots must include lyrics + clips. Off-site YT fragment budget stays lean; dig depth lives on-site. |
 | 2026-07-23 | Operator has **2 hours** (non-music). Recommendation: birth hotline (**H1** decide + start **H2** MVP) — highest unique release blocker with zero progress. Alt: **P7–P8** song shells if hotline decisions aren’t ready. |
@@ -338,11 +339,11 @@ Button is **armed** when all of these are true *before* D9 freeze:
 - [x] **P16–P19** listening + UTM + outbound DSP clicks + commerce on dashboard
 - [ ] **P7–P8** song page shells + hub → song links (four tracks)
 - [ ] **P9** empty slots ready for thoughts / visuals / press photos / 30s preview / **lyrics + clips dig layer**
-- [ ] **P11** press download paths survive hi-res swaps
+- [x] **P11** press download paths survive hi-res swaps
 - [ ] Drop-in checklist known: **P12–P15** + **D13 / D25** dig content can land in one session
 - [ ] Launch runbook known: **L1–L11** + first YT fragment batch same calendar day as DSP unlock
 - [ ] Spotify for Artists / Apple Music for Artists claim steps written (post-gate)
-- [ ] **P20** UTM scheme + pitch sheet skeleton + newsletter draft shell known (muscle memory — not SaaS)
+- [x] **P20** UTM scheme + pitch sheet skeleton + newsletter draft shell known (muscle memory — not SaaS)
 
 Button is **pressed** when gate clears and **L1–L11** execute without waiting on unfinished laptop work.
 
@@ -414,7 +415,7 @@ For listeners who want to dig: each of the four song pages should feel like a sm
 - [ ] **P7** Song page shells (all 4 tracks)
 - [ ] **P8** Album hub tracklist → song page links
 - [ ] **P9** Empty slots: thoughts, visuals, press photos, 30s preview, **lyrics panel + clips/BTS grid** (ready for D13 / D25 drop-in)
-- [ ] **P11** Press download paths that survive hi-res swaps
+- [x] **P11** Press download paths that survive hi-res swaps
 
 #### Optional before press (does not block)
 
@@ -422,7 +423,7 @@ For listeners who want to dig: each of the four song pages should feel like a sm
 
 #### Ride prep — arm muscle memory (P20; does not block P12–P15 code)
 
-- [ ] **P20** No new SaaS — paper / Studio notes only:
+- [x] **P20** No new SaaS — paper / Studio notes only:
   - UTM scheme for every fragment & pitch: `utm_source` (youtube / ig / email / pitch) + `utm_campaign=photonegative` + `utm_content` (track or clip id) → album hub so **P18** can score doors
   - Pitch spreadsheet skeleton: columns for target, contact, angle, date sent, reply, outcome (playlist / blog / ignore)
   - Newsletter draft shell (subject + hub link placeholder — you write the body during gate wait)

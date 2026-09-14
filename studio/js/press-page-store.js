@@ -6,7 +6,7 @@
     storageKey: 'burnfolderStudioPressPage',
     cloudKey: 'pressPage',
     emptyState: function () {
-      return { version: 1, page: null };
+      return { version: 1, page: null, pendingAssets: {} };
     },
     isValidCloudValue: function (value) {
       return !!(value.page && typeof value.page === 'object');
@@ -19,7 +19,8 @@
       return {
         version: store.version || 1,
         page: store.page,
-        pendingPhoto: null
+        pendingPhoto: null,
+        pendingAssets: null
       };
     }
   });
@@ -166,6 +167,7 @@
       contactEmail: page.contactEmail,
       links: page.links.map(function (row) {
         return {
+          id: row.id,
           label: row.label,
           href: row.href,
           pending: row.pending
@@ -173,6 +175,7 @@
       }),
       assets: page.assets.map(function (row) {
         return {
+          id: row.id,
           label: row.label,
           href: row.href,
           pending: row.pending,
@@ -202,6 +205,32 @@
     return setPendingPhoto(null);
   }
 
+  function setPendingAsset(id, asset) {
+    return ensureHydrated().then(function () {
+      const store = readStore();
+      store.pendingAssets = store.pendingAssets || {};
+      if (!id) {
+        store.pendingAssets = {};
+      } else if (!asset) {
+        delete store.pendingAssets[id];
+      } else {
+        store.pendingAssets[id] = asset;
+      }
+      writeStore(store);
+      return store.pendingAssets;
+    });
+  }
+
+  function getPendingAssets() {
+    return ensureHydrated().then(function () {
+      return readStore().pendingAssets || {};
+    });
+  }
+
+  function clearPendingAssets() {
+    return setPendingAsset(null, null);
+  }
+
   function pushToSite() {
     return ensureHydrated().then(function () {
       const page = getPublishedPayload();
@@ -216,15 +245,27 @@
 
       return authReady
         .then(function () {
-          return getPendingPhoto();
+          return Promise.all([getPendingPhoto(), getPendingAssets()]);
         })
-        .then(function (pendingPhoto) {
+        .then(function (results) {
+          const pendingPhoto = results[0];
+          const pendingAssets = results[1];
           const body = { page: page };
           if (pendingPhoto && pendingPhoto.path && pendingPhoto.base64) {
             body.photoAsset = {
               path: pendingPhoto.path,
               base64: pendingPhoto.base64
             };
+          }
+          const assetFiles = [];
+          Object.keys(pendingAssets || {}).forEach(function (id) {
+            const a = pendingAssets[id];
+            if (a && a.path && a.base64) {
+              assetFiles.push({ path: a.path, base64: a.base64 });
+            }
+          });
+          if (assetFiles.length) {
+            body.assetFiles = assetFiles;
           }
           return root.fetch(getFunctionsBase() + '/studio-publish-press-page', {
             method: 'POST',
@@ -244,7 +285,7 @@
                 return Promise.reject(new Error(msg));
               }
               root.burnfolderPressPage = page;
-              return clearPendingPhoto().then(function () {
+              return clearPendingPhoto().then(clearPendingAssets).then(function () {
                 return data;
               });
             });
@@ -268,6 +309,9 @@
     setPendingPhoto: setPendingPhoto,
     getPendingPhoto: getPendingPhoto,
     clearPendingPhoto: clearPendingPhoto,
+    setPendingAsset: setPendingAsset,
+    getPendingAssets: getPendingAssets,
+    clearPendingAssets: clearPendingAssets,
     fileToBase64: fileToBase64,
     pushToSite: pushToSite
   };

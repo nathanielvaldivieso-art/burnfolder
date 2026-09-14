@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="../style.css?v=20260815dnd1">
+  <link rel="stylesheet" href="../shared/song-hub-redesign.css?v=20260907ui2">
   <link rel="stylesheet" href="css/studio.css?v=20260815dnd1">
 </head>
 <body class="studio-page studio-song-designer-page studio-album-designer-page">
@@ -47,6 +48,16 @@
     <div class="studio-song-designer-split">
       <section class="studio-song-designer-editor" aria-label="Album page editor">
         <section class="studio-song-designer-section">
+          <h2 class="studio-song-designer-section-title">cover art</h2>
+          <div class="studio-song-designer-cover-row">
+            <button type="button" class="icon-btn" id="albumDesignerCoverBtn">choose cover</button>
+            <button type="button" class="icon-btn" id="albumDesignerCoverClearBtn" hidden>remove</button>
+            <input type="file" id="albumDesignerCoverInput" accept="image/*" hidden>
+          </div>
+          <img id="albumDesignerCoverPreview" class="studio-song-designer-cover-preview" alt="" hidden>
+        </section>
+
+        <section class="studio-song-designer-section">
           <h2 class="studio-song-designer-section-title">thoughts</h2>
           <p class="studio-song-designer-hint">Album-level notes shown on the album hub. Song lyrics and notes compile automatically from each song page.</p>
           <textarea id="albumDesignerNotes" class="studio-song-designer-textarea studio-song-designer-textarea--tall" rows="8" placeholder="thoughts about this album…" spellcheck="false"></textarea>
@@ -77,20 +88,42 @@
         </section>
       </section>
 
-      <aside class="studio-song-designer-preview" aria-label="Album hub preview">
+      <aside class="studio-song-designer-preview-wrap" aria-label="Album hub preview">
         <p class="studio-song-designer-preview-label">preview</p>
-        <div class="studio-album-designer-preview-wrap song-hub-page" id="albumDesignerPreviewRoot">
-          <h2 class="song-hub-title" id="albumDesignerPreviewTitle">Album</h2>
-          <p class="song-hub-subtitle" id="albumDesignerPreviewSubtitle">—</p>
-          <div data-album-field="tracklist"></div>
-          <div data-album-panel="thoughts" hidden>
-            <div data-album-field="thoughts"></div>
+        <div class="studio-song-designer-preview song-hub-page" id="albumDesignerPreviewRoot">
+          <div class="song-hub-header">
+            <div class="song-hub-header-text">
+              <h2 class="song-hub-title" data-album-field="title">Album</h2>
+              <p class="song-hub-subtitle" data-album-field="subtitle">—</p>
+              <p class="song-hub-meta" data-album-field="track-meta" hidden></p>
+            </div>
           </div>
-          <div data-album-panel="compiled-lyrics" hidden>
-            <div data-album-field="compiled-lyrics"></div>
+          <div class="song-hub-cover-row">
+            <div data-album-panel="cover" class="song-hub-cover-wrap" hidden>
+              <img data-album-field="cover" class="song-hub-cover-image" alt="">
+            </div>
+            <button type="button" class="bottom-play-pause-btn song-hub-play" hidden aria-label="Play album"></button>
           </div>
-          <div data-album-panel="visuals" hidden>
-            <div data-album-field="visuals-grid"></div>
+          <div data-album-panel="video" class="song-hub-panel" hidden>
+            <div data-album-field="video-hero" class="song-hub-video-hero"></div>
+          </div>
+          <div data-album-panel="links" class="song-hub-panel" hidden>
+            <nav class="album-hub-links" data-album-field="links" aria-label="Album links"></nav>
+          </div>
+          <div class="song-hub-panel">
+            <div data-album-field="tracklist"></div>
+          </div>
+          <div data-album-panel="thoughts" class="song-hub-panel" hidden>
+            <div class="song-hub-panel-top"><p class="song-hub-label">Thoughts</p></div>
+            <div class="song-hub-notes" data-album-field="thoughts"></div>
+          </div>
+          <div data-album-panel="compiled-notes" class="song-hub-panel" hidden>
+            <div class="song-hub-panel-top"><p class="song-hub-label">Notes</p></div>
+            <div data-album-field="compiled-notes"></div>
+          </div>
+          <div data-album-panel="visuals" class="song-hub-panel" hidden>
+            <div class="song-hub-panel-top"><p class="song-hub-label">Visuals</p></div>
+            <div class="song-hub-content-grid" data-album-field="visuals-grid"></div>
           </div>
         </div>
       </aside>
@@ -105,6 +138,7 @@
   <script src="../songs.js?v=20260815dnd1"></script>
   <script src="../shared/song-versions.js?v=20260904key1"></script>
   <script src="js/asset-cloud.js?v=20260815dnd1"></script>
+  <script src="../shared/cover-art.js?v=20260815dnd1"></script>
   <script src="../shared/mux-display-name.js?v=20260815dnd1"></script>
   <script src="js/mux-naming.js?v=20260815dnd1"></script>
   <script src="js/studio-site-menu.js?v=20260815dnd1"></script>

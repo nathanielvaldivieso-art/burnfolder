@@ -151,6 +151,22 @@
       return Array.from(new Set(matches));
     }
 
+    function collectBadCoverPaths(bundle) {
+      const text = [
+        bundle.entryHtml,
+        bundle.entriesJsSnippet,
+        bundle.songsJsSnippet
+      ].join('\n');
+      const paths = [];
+      const re = /"coverArt"\s*:\s*"([^"]+)"/g;
+      let match;
+      while ((match = re.exec(text))) {
+        const path = match[1];
+        if (path && !/^IMAGES\//i.test(path)) paths.push(path);
+      }
+      return Array.from(new Set(paths));
+    }
+
     function downloadCloudAssetsForPaths() {
       return Promise.resolve(0);
     }
@@ -161,6 +177,7 @@
       if (!bundle || !bundle.date) return;
 
       const imagePaths = collectImagePaths(bundle);
+      const badCovers = collectBadCoverPaths(bundle);
       const readme = [
         'burnfolder publish bundle (v0 — manual git commit)',
         '',
@@ -171,7 +188,11 @@
         '',
         imagePaths.length
           ? 'image paths in this entry — copy files into repo:\n' + imagePaths.map(function (p) { return '  ' + p; }).join('\n')
-          : 'no IMAGES/ paths detected in this entry.'
+          : 'no IMAGES/ paths detected in this entry.',
+        '',
+        badCovers.length
+          ? 'BROKEN cover paths — move these files to IMAGES/ and update the entry:\n' + badCovers.map(function (p) { return '  ' + p; }).join('\n')
+          : 'all cover paths look like IMAGES/ files.'
       ].join('\n');
 
       downloadFile('README-publish.txt', readme, 'text/plain');
