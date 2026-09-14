@@ -9,6 +9,7 @@
     'clips.html': 'clips',
     'stream.html': 'clips',
     'video.html': 'clips',
+    'menus.html': 'menus',
     'journal.html': 'journal',
     'ideas.html': 'clips',
     'word-pull.html': 'word-pull',
@@ -71,6 +72,7 @@
       'js/journal-page.js'
     ]),
     dashboard: PLAYBACK_CORE.concat(['js/dashboard-page.js', 'js/studio-ai-panel.js']),
+    menus: PLAYBACK_CORE.concat(['js/cloud-state.js', 'js/menus-page.js']),
     entry: PLAYBACK_CORE.concat([
       'js/studio-dnd.js',
       'js/cloud-store-kit.js',
@@ -387,6 +389,8 @@
       window.studioInitWordPullPage();
     } else if (pageKey === 'dashboard' && typeof window.studioInitDashboardPage === 'function') {
       window.studioInitDashboardPage();
+    } else if (pageKey === 'menus' && typeof window.studioInitMenusPage === 'function') {
+      window.studioInitMenusPage();
     } else if (pageKey === 'entry' && typeof window.studioInitEntryHub === 'function') {
       window.studioInitEntryHub();
     }

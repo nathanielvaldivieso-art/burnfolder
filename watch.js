@@ -59,7 +59,7 @@
 
   function syncTracklist() {
     if (!tracklistEl) return;
-    var rows = tracklistEl.querySelectorAll('.watch-track-row');
+    var rows = tracklistEl.querySelectorAll('.video-clips-card');
     for (var i = 0; i < rows.length; i += 1) {
       rows[i].classList.toggle('is-active', i === activeIdx);
     }
@@ -106,8 +106,19 @@
     tracks.forEach(function (track, idx) {
       var row = document.createElement('button');
       row.type = 'button';
-      row.className = 'watch-track-row';
-      row.textContent = track.title || 'clip ' + (idx + 1);
+      row.className = 'video-clips-card';
+      row.setAttribute('aria-label', 'Play ' + (track.title || 'clip ' + (idx + 1)));
+      var media = document.createElement('span');
+      media.className = 'video-clips-card-media';
+      media.style.backgroundImage =
+        "url('https://image.mux.com/" +
+        encodeURIComponent(track.playbackId) +
+        "/thumbnail.jpg?time=1&width=640')";
+      var title = document.createElement('span');
+      title.className = 'video-clips-card-title';
+      title.textContent = track.title || 'clip ' + (idx + 1);
+      row.appendChild(media);
+      row.appendChild(title);
       row.addEventListener('click', function () {
         loadTrack(idx, { autoplay: true });
       });

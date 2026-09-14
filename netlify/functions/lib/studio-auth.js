@@ -9,9 +9,15 @@ function studioCorsHeaders(methods) {
   };
 }
 
+function isLocalDevelopment() {
+  return process.env.NETLIFY_DEV === 'true';
+}
+
 function requireStudioAccess(event) {
   const secret = process.env.STUDIO_API_SECRET;
   const isProduction = process.env.CONTEXT === 'production';
+
+  if (isLocalDevelopment()) return { ok: true, devBypass: true };
 
   if (!secret) {
     if (isProduction) {
@@ -42,5 +48,6 @@ function requireStudioAccess(event) {
 
 module.exports = {
   studioCorsHeaders: studioCorsHeaders,
-  requireStudioAccess: requireStudioAccess
+  requireStudioAccess: requireStudioAccess,
+  isLocalDevelopment: isLocalDevelopment
 };

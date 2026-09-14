@@ -141,7 +141,12 @@
       begin();
       return fetch(getApiBase({ forWrite: true }) + '/studio-state', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          window.BurnfolderStudioAuth && window.BurnfolderStudioAuth.authHeaders
+            ? window.BurnfolderStudioAuth.authHeaders()
+            : {}
+        ),
         body: JSON.stringify({ key: key, value: value, expectedUpdatedAt: remoteUpdatedAt[key] || null }),
         keepalive: !!keepalive
       }).then(function (res) {

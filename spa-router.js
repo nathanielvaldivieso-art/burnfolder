@@ -561,31 +561,66 @@
   function updateVideoListForPage() {
     const videoListEl = document.getElementById('videoList');
     if (!videoListEl || !window.allVideos) return;
-    videoListEl.innerHTML = '';
-    window.allVideos.forEach(function(video) {
-      const entry = document.createElement('div');
-      entry.className = 'video-entry';
+    const stageWrap = document.getElementById('videoStageWrap');
+    const stage = document.getElementById('videoStage');
+    const stageTitle = document.getElementById('videoStageTitle');
+    const stageClose = document.getElementById('videoStageClose');
+    let player = null;
 
-      const title = document.createElement('button');
-      title.type = 'button';
-      title.className = 'video-entry-title';
-      title.textContent = video.title || 'untitled';
-      title.setAttribute('aria-label', 'Play ' + (video.title || 'video'));
-
-      const player = document.createElement('mux-player');
-      player.setAttribute('playback-id', video.playbackId);
-      player.setAttribute('metadata-video-title', video.title);
-      player.setAttribute('playbackrates', '1 1.5 2');
-      player.setAttribute('noairplay', '');
-      player.classList.add('page-inline-video');
-      title.addEventListener('click', function () {
-        const playPromise = player.play();
-        if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(function () {});
+    function closeVideo() {
+      if (player && typeof player.pause === 'function') player.pause();
+      if (stageWrap) stageWrap.hidden = true;
+      videoListEl.querySelectorAll('.video-clips-card').forEach(function(card) {
+        card.classList.remove('is-active');
       });
-      entry.appendChild(title);
-      entry.appendChild(player);
+    }
 
-      videoListEl.appendChild(entry);
+    function openVideo(video, card) {
+      if (!stage || !stageWrap) return;
+      if (!player) {
+        player = document.createElement('mux-player');
+        player.setAttribute('playsinline', '');
+        player.setAttribute('stream-type', 'on-demand');
+        player.setAttribute('playbackrates', '1 1.5 2');
+        player.setAttribute('noairplay', '');
+        player.className = 'page-inline-video video-clips-player';
+        stage.appendChild(player);
+      }
+      player.setAttribute('playback-id', video.playbackId);
+      player.setAttribute('metadata-video-title', video.title || 'video');
+      if (stageTitle) stageTitle.textContent = video.title || 'untitled';
+      stageWrap.hidden = false;
+      videoListEl.querySelectorAll('.video-clips-card').forEach(function(item) {
+        item.classList.toggle('is-active', item === card);
+      });
+      stageWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const playPromise = player.play();
+      if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(function () {});
+    }
+
+    videoListEl.innerHTML = '';
+    if (stage) stage.innerHTML = '';
+    if (stageWrap) stageWrap.hidden = true;
+    if (stageClose) stageClose.onclick = closeVideo;
+    window.allVideos.forEach(function(video) {
+      if (!video || !video.playbackId) return;
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'video-clips-card';
+      card.setAttribute('aria-label', 'Play ' + (video.title || 'video'));
+
+      const thumb = document.createElement('span');
+      thumb.className = 'video-clips-card-media';
+      thumb.style.backgroundImage = "url('https://image.mux.com/" + encodeURIComponent(video.playbackId) + "/thumbnail.jpg?time=1&width=640')";
+      const title = document.createElement('span');
+      title.className = 'video-clips-card-title';
+      title.textContent = video.title || 'untitled';
+      card.appendChild(thumb);
+      card.appendChild(title);
+      card.addEventListener('click', function () {
+        openVideo(video, card);
+      });
+      videoListEl.appendChild(card);
     });
   }
 

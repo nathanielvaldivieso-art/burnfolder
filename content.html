@@ -9,15 +9,22 @@
   <link rel="preconnect" href="https://image.mux.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260914clips2">
   <script src="shared/site-menu.js?v=20260815dnd1" defer></script>
 </head>
-<body>
+<body class="page-video">
   <div id="siteMenu"></div>
 <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
 
-<div class="page-wrap">
-<div id="videoList" class="video-list"></div>
+<div class="page-wrap video-clips-page">
+  <div class="video-clips-stage-wrap" id="videoStageWrap" hidden>
+    <div class="video-clips-stage-chrome">
+      <p class="video-clips-stage-title" id="videoStageTitle"></p>
+      <button type="button" class="video-clips-stage-close" id="videoStageClose">close</button>
+    </div>
+    <div class="video-clips-stage" id="videoStage"></div>
+  </div>
+  <div id="videoList" class="video-list video-clips-board"></div>
   </div>
 
   <div class="page-watermark">video</div>
@@ -43,7 +50,7 @@
 <script src="entry-renderer.js"></script>
 <script src="songs.js"></script>
   <script src="stripe-publishable.js"></script>
-<script src="spa-router.js?v=20260815dnd1"></script>
+<script src="spa-router.js?v=20260914clips2"></script>
   <script src="shared/studio-tap.js?v=20260815dnd1"></script>
   <script src="shared/playback-context.js?v=20260815dnd1"></script>
   <script src="shared/version-picker.js?v=20260815dnd1"></script>

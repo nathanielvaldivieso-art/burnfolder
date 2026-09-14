@@ -555,16 +555,19 @@
   }
 
   function boot() {
-    // Login disabled for this local dev session.
-    markReady();
-    return;
-
     showBooting();
     ready = false;
 
     fetchPublicConfig().then(function (config) {
       authMode = config.authMode === 'supabase' ? 'supabase' : 'legacy';
       supabaseConfig = config;
+
+      if (config.devBypass === true) {
+        authMode = 'legacy';
+        session = null;
+        markReady();
+        return;
+      }
 
       if (authMode === 'supabase') {
         const existing = loadSession();

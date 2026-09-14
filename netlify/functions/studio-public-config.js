@@ -1,6 +1,7 @@
 'use strict';
 
 const { studioCorsHeaders } = require('./lib/workspace-auth');
+const { isLocalDevelopment } = require('./lib/studio-auth');
 
 exports.handler = async function (event) {
   const headers = studioCorsHeaders('GET, OPTIONS');
@@ -22,7 +23,8 @@ exports.handler = async function (event) {
     body: JSON.stringify({
       supabaseUrl: supabaseUrl,
       supabaseAnonKey: supabaseAnonKey,
-      authMode: supabaseUrl && supabaseAnonKey ? 'supabase' : 'legacy'
+      authMode: supabaseUrl && supabaseAnonKey ? 'supabase' : 'legacy',
+      devBypass: isLocalDevelopment()
     })
   };
 };

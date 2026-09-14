@@ -30,7 +30,8 @@ const MIGRATABLE_KEYS = [
   'notes',
   'clips',
   'releaseDates',
-  'trackPipeline'
+  'trackPipeline',
+  'siteMenuDesigns'
 ];
 
 async function readRecord(store, storageKey) {

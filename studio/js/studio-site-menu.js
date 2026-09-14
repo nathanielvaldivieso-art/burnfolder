@@ -35,6 +35,7 @@
     { id: 'dashboard', label: 'dashboard', href: '/studio/dashboard.html' },
     { id: 'entry', label: 'entry', href: '/studio/index.html' },
     { id: 'clips', label: 'clips', href: '/studio/clips.html' },
+    { id: 'menus', label: 'menus', href: '/studio/menus.html' },
     { id: 'journal', label: 'journal', href: '/studio/journal.html' },
     { id: 'releases', label: 'releases', href: '/studio/releases.html' }
   ];
@@ -52,6 +53,7 @@
     'album-designer.html': 'clips',
     'press-designer.html': 'clips',
     'shop-designer.html': 'clips',
+    'menus.html': 'menus',
     'journal.html': 'journal',
     'ideas.html': 'clips',
     'word-pull.html': 'clips',

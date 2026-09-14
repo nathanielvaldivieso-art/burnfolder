@@ -1,6 +1,6 @@
 'use strict';
 
-const { requireStudioAccess, studioCorsHeaders } = require('./studio-auth');
+const { requireStudioAccess, studioCorsHeaders, isLocalDevelopment } = require('./studio-auth');
 const { supabaseConfigured, verifyUserJwt, restGet, restPost } = require('./supabase-rest');
 
 const LOGICAL_KEY_PATTERN = /^[a-z][a-zA-Z0-9_-]{0,48}$/;
@@ -27,7 +27,8 @@ const OWNER_ONLY_KEYS = [
   'releaseDates',
   'trackPipeline',
   'pendingStack',
-  'distroPreferences'
+  'distroPreferences',
+  'siteMenuDesigns'
 ];
 
 function scopedBlobKey(workspaceId, logicalKey) {
@@ -309,6 +310,21 @@ async function requireWorkspaceAccess(event, options) {
   const opts = options || {};
   const needPublish = opts.requirePublish === true;
   const logicalKey = opts.logicalKey || '';
+
+  if (isLocalDevelopment()) {
+    return {
+      ok: true,
+      legacy: true,
+      devBypass: true,
+      workspaceId: 'legacy',
+      userId: null,
+      role: 'owner',
+      accessMode: 'owner',
+      isOwner: true,
+      projects: null,
+      email: null
+    };
+  }
 
   if (!supabaseConfigured()) {
     const legacy = requireStudioAccess(event);
