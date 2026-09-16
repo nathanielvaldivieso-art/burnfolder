@@ -26,10 +26,19 @@
   var uploadRowIds = new WeakMap();
   var UPLOAD_CONCURRENCY = 2;
 
+  var songFocus = null;
+  var albumFocus = null;
+
   var IMAGE_RE = /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i;
   var AUDIO_RE = /\.(mp3|wav|flac|aiff|aif|m4a|ogg|aac)(\?.*)?$/i;
   var VIDEO_RE = /\.(mp4|mov|m4v|webm|mkv|avi|mpeg|mpg)(\?.*)?$/i;
   var CAMERA_VIDEO_STEM_RE = /(?:^|[^a-z0-9])(mvi|mov)_\d+/i;
+
+  function normalizeAlbumKey(raw) {
+    return String(raw || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
+  }
 
   function el(id) {
     return document.getElementById(id);
@@ -679,10 +688,15 @@
       ? '<button type="button" class="clips-block-menu-item" data-share="1" role="menuitem">Share (7d)</button>' +
         '<button type="button" class="clips-block-menu-item" data-share-once="1" role="menuitem">Share once</button>'
       : '';
+    var pageItem = '';
+    if (block && (block.kind === 'audio' || block.kind === 'album')) {
+      pageItem = '<button type="button" class="clips-block-menu-item" data-page="1" role="menuitem">Page</button>';
+    }
     return (
       '<div class="clips-block-menu">' +
       '<button type="button" class="clips-block-more" data-clip-more="1" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" title="more">⋯</button>' +
       '<div class="clips-block-menu-panel" role="menu" hidden>' +
+      pageItem +
       shareItem +
       downloadItem +
       '<button type="button" class="clips-block-menu-item" ' +
@@ -943,6 +957,7 @@
       '" />' +
       '<div class="clips-collection-actions">' +
       '<button type="button" class="clips-collection-play" id="clipsCollectionPlay" aria-label="Play">▶</button>' +
+      '<button type="button" class="clips-collection-page" id="clipsCollectionPage" aria-label="Edit album page">page</button>' +
       (meta.coverArt
         ? '<button type="button" class="clips-collection-cover-clear" id="clipsCollectionCoverClear" aria-label="Remove cover">×</button>'
         : '') +
@@ -986,8 +1001,14 @@
     if (!board || !state) return;
     var shared = window.BurnfolderStreamShared;
     var group = shared && shared.findGroupById ? shared.findGroupById(openGroupId) : null;
+    var allGroups = shared && shared.loadGroups ? shared.loadGroups() : [];
+    console.log('[clips debug] renderCollectionBoard openGroupId=' + openGroupId + ' group=' + (group ? 'found' : 'null') + ' groupCount=' + allGroups.length + ' groupIds=' + allGroups.map(function (g) { return g.id; }).join(','));
     if (!group) {
-      setStatus('collection not found');
+      console.log('[clips debug] renderCollectionBoard bailing — group not found');
+      setStatus(
+        'collection not found — this album link may be stale in the current environment. try refreshing with live data (?cloud=live)',
+        { sticky: true }
+      );
       openGroupId = null;
       renderBoard();
       return;
@@ -1413,6 +1434,16 @@
         if (playBtn.blur) playBtn.blur();
       });
     }
+
+    var pageBtn = el('clipsCollectionPage');
+    if (pageBtn && pageBtn.dataset.bound !== '1') {
+      pageBtn.dataset.bound = '1';
+      pageBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        var block = state ? store.findAlbumBlock(state, openGroupId) : null;
+        openAlbumFocus(block || openGroupId);
+      });
+    }
   }
 
   function ensureCoverFileInput() {
@@ -1788,7 +1819,7 @@
               event &&
               event.target &&
               event.target.closest(
-                '[data-folder-item-remove], [data-download], [data-share], [data-share-once], [data-clip-more], .clips-block-menu'
+                '[data-folder-item-remove], [data-download], [data-share], [data-share-once], [data-page], [data-clip-more], .clips-block-menu'
               )
             );
           }
@@ -1797,7 +1828,7 @@
         node.addEventListener('click', function (event) {
           if (
             event.target.closest(
-              '[data-folder-item-remove], [data-download], [data-share], [data-share-once], [data-clip-more], .clips-block-menu'
+              '[data-folder-item-remove], [data-download], [data-share], [data-share-once], [data-page], [data-clip-more], .clips-block-menu'
             )
           ) {
             return;
@@ -2035,7 +2066,11 @@
       if (node.dataset.tapBound === '1') return;
       node.dataset.tapBound = '1';
       function onActivate(event) {
-        if (node.dataset.studioJustDragged === '1') return;
+        console.log('[clips debug] onActivate blockId=' + node.getAttribute('data-block-id') + ' kind=' + node.getAttribute('data-kind'));
+        if (node.dataset.studioJustDragged === '1') {
+          console.log('[clips debug] skipped — just dragged');
+          return;
+        }
         if (event) {
           if (event.metaKey || event.ctrlKey || event.shiftKey) {
             event.preventDefault();
@@ -2779,12 +2814,34 @@
   }
 
   function openAlbum(block) {
-    if (!block.groupId) {
-      setStatus('album missing project link');
+    console.log('[clips debug] openAlbum groupId=' + (block && block.groupId) + ' block=' + (block && block.id));
+    if (!block) return;
+    var shared = window.BurnfolderStreamShared;
+    var groupId = block.groupId || '';
+    // The album block may have a stale groupId; fall back to matching by title.
+    if (!groupId || !(shared && shared.findGroupById(groupId))) {
+      var title = String(block.title || '').trim();
+      if (title && shared && shared.loadGroups) {
+        var key = normalizeAlbumKey(title);
+        var match = shared.loadGroups().find(function (g) {
+          var meta = shared.loadStackMeta(g && g.id);
+          return g && g.id && (normalizeAlbumKey(g.id) === key || normalizeAlbumKey(meta.title || '') === key || normalizeAlbumKey(g.title || '') === key);
+        });
+        if (match) {
+          console.log('[clips debug] openAlbum matched group by title: ' + match.id);
+          groupId = match.id;
+        }
+      }
+    }
+    if (!groupId) {
+      console.log('[clips debug] openAlbum bailing — missing groupId');
+      setStatus('album missing project link', { sticky: true });
       return;
     }
+    // Open the collection interior inline in Clips, matching the live-site wiring.
     openFolderId = null;
-    openGroupId = block.groupId;
+    openGroupId = groupId;
+    console.log('[clips debug] openAlbum set openGroupId=' + openGroupId + ', calling render');
     render();
   }
 
@@ -2979,9 +3036,112 @@
     });
   }
 
+  function getFocusPane() {
+    return el('clipsFocusPane');
+  }
+
+  function destroyFocus() {
+    if (songFocus) {
+      songFocus.destroy();
+      songFocus = null;
+    }
+    if (albumFocus) {
+      albumFocus.destroy();
+      albumFocus = null;
+    }
+  }
+
+  function closeFocus() {
+    destroyFocus();
+    var pane = getFocusPane();
+    if (pane) pane.hidden = true;
+    document.body.classList.remove('clips-focus-open');
+    var url = new URL(window.location.href);
+    url.searchParams.delete('song');
+    url.searchParams.delete('album');
+    window.history.replaceState({}, '', url.pathname + url.search);
+    setStatus('');
+  }
+
+  function syncFocusUrl(kind, value) {
+    var url = new URL(window.location.href);
+    url.searchParams.delete('song');
+    url.searchParams.delete('album');
+    if (kind && value) url.searchParams.set(kind, value);
+    window.history.replaceState({}, '', url.pathname + url.search);
+  }
+
+  function openSongFocus(blockOrKey) {
+    var key = '';
+    if (typeof blockOrKey === 'string') {
+      key = blockOrKey;
+    } else if (blockOrKey && blockOrKey.kind === 'audio') {
+      key = groupKeyForBlock(blockOrKey);
+    }
+    if (!key) {
+      setStatus('song missing project link', { sticky: true });
+      return;
+    }
+    var pane = getFocusPane();
+    if (!pane) return;
+    if (!window.BurnfolderSongFocus) {
+      setStatus('song editor unavailable', { sticky: true });
+      return;
+    }
+    destroyFocus();
+    pane.hidden = false;
+    document.body.classList.add('clips-focus-open');
+    songFocus = window.BurnfolderSongFocus.mount(pane, key, {});
+    songFocus.onClose = closeFocus;
+    syncFocusUrl('song', key);
+  }
+
+  function openAlbumFocus(blockOrId) {
+    var id = '';
+    var block = null;
+    if (typeof blockOrId === 'string') {
+      id = blockOrId;
+    } else if (blockOrId && (blockOrId.kind === 'album' || blockOrId.groupId)) {
+      block = blockOrId;
+      id = blockOrId.groupId;
+    }
+    if (!id) {
+      setStatus('album missing project link', { sticky: true });
+      return;
+    }
+    var pane = getFocusPane();
+    if (!pane) return;
+    if (!window.BurnfolderAlbumFocus) {
+      setStatus('album editor unavailable', { sticky: true });
+      return;
+    }
+    destroyFocus();
+    pane.hidden = false;
+    document.body.classList.add('clips-focus-open');
+    albumFocus = window.BurnfolderAlbumFocus.mount(pane, id, { block: block });
+    albumFocus.onClose = closeFocus;
+    syncFocusUrl('album', id);
+  }
+
+  function focusFromUrl() {
+    var params = new URLSearchParams(window.location.search);
+    var songKey = (params.get('song') || '').toLowerCase().trim();
+    var albumId = (params.get('album') || '').trim();
+    if (songKey) {
+      openSongFocus(songKey);
+      return true;
+    }
+    if (albumId) {
+      openAlbumFocus(albumId);
+      return true;
+    }
+    return false;
+  }
+
   function activateBlock(block) {
     if (!block) return;
     var playKind = effectiveBlockKind(block) || block.kind;
+    console.log('[clips debug] activateBlock id=' + block.id + ' kind=' + block.kind + ' playKind=' + playKind);
     if (selectMode && playKind === 'video') {
       toggleBlockSelected(block.id);
       return;
@@ -3913,6 +4073,22 @@
         renderBoard();
         return;
       }
+      var pageBtn = event.target.closest('[data-page]');
+      if (pageBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeAllClipMenus();
+        var pageBlockEl = pageBtn.closest('.clips-block');
+        if (!pageBlockEl) return;
+        var pageBlock = findBlock(pageBlockEl.getAttribute('data-block-id'));
+        if (!pageBlock) return;
+        if (pageBlock.kind === 'audio') {
+          openSongFocus(pageBlock);
+        } else if (pageBlock.kind === 'album') {
+          openAlbumFocus(pageBlock);
+        }
+        return;
+      }
       var removeBtn = event.target.closest('[data-remove]');
       if (removeBtn) {
         event.preventDefault();
@@ -3988,6 +4164,14 @@
 
     root.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
+        if (document.body.classList.contains('clips-focus-open')) {
+          var focusTag = event.target && event.target.tagName;
+          if (focusTag !== 'INPUT' && focusTag !== 'TEXTAREA' && focusTag !== 'SELECT') {
+            event.preventDefault();
+            closeFocus();
+            return;
+          }
+        }
         var openMenu = root.querySelector('.clips-block-menu.is-open');
         if (openMenu) {
           event.preventDefault();
@@ -4276,6 +4460,7 @@
       .then(function () {
         if (initId !== initGeneration) return null;
         setStatus('');
+        focusFromUrl();
         return importMuxLibrary(initId);
       })
       .catch(function (err) {

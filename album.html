@@ -8,62 +8,16 @@
   <link rel="preconnect" href="https://stream.mux.com" crossorigin>
   <link rel="preconnect" href="https://image.mux.com" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="style.css?v=20260815dnd1">
+  <link rel="stylesheet" href="style.css?v=20260915album1">
   <link rel="stylesheet" href="shared/song-hub-redesign.css?v=20260907ui2">
-  <script src="shared/site-menu.js?v=20260815dnd1" defer></script>
+  <script src="shared/site-menu.js?v=20260915album1" defer></script>
 </head>
 <body>
   <div id="siteMenu"></div>
 <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
 
-<div class="page-wrap" id="albumHubPage">
-    <div class="song-hub-header">
-      <div class="song-hub-header-text">
-        <h2 class="song-hub-title" data-album-field="title">Album</h2>
-        <p class="song-hub-subtitle" data-album-field="subtitle">—</p>
-        <p class="song-hub-meta" data-album-field="track-meta" hidden></p>
-      </div>
-    </div>
-
-    <div class="song-hub-cover-row">
-      <div data-album-panel="cover" class="song-hub-cover-wrap" hidden>
-        <img data-album-field="cover" class="song-hub-cover-image" alt="">
-      </div>
-      <button type="button" class="bottom-play-pause-btn song-hub-play" id="albumHubPlay" hidden aria-label="Play album"></button>
-    </div>
-
-    <div data-album-panel="video" class="song-hub-panel" hidden>
-      <div data-album-field="video-hero" class="song-hub-video-hero"></div>
-    </div>
-
-    <div data-album-panel="links" class="song-hub-panel" hidden>
-      <nav class="album-hub-links" data-album-field="links" aria-label="Album links"></nav>
-    </div>
-
-    <div class="song-hub-panel">
-      <div data-album-field="tracklist"></div>
-    </div>
-
-    <div data-album-panel="thoughts" class="song-hub-panel" hidden>
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">Thoughts</p>
-      </div>
-      <div class="song-hub-notes" data-album-field="thoughts"></div>
-    </div>
-
-    <div data-album-panel="compiled-notes" class="song-hub-panel" hidden>
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">Notes</p>
-      </div>
-      <div data-album-field="compiled-notes"></div>
-    </div>
-
-    <div data-album-panel="visuals" class="song-hub-panel" hidden>
-      <div class="song-hub-panel-top">
-        <p class="song-hub-label">Visuals</p>
-      </div>
-      <div class="song-hub-content-grid" data-album-field="visuals-grid"></div>
-    </div>
+<div class="page-wrap album-page-wrap">
+    <div id="albumHubPage"></div>
   </div>
 
   <div id="audioList" style="display: none;"></div>
@@ -85,14 +39,15 @@
     </div>
   </div>
 
-  <script src="album-pages.js?v=20260907shells1"></script>
+  <script src="album-pages.js?v=20260915album1"></script>
   <script src="song-pages.js?v=20260907shells1"></script>
   <script src="shared/song-versions.js?v=20260907shells1"></script>
   <script src="shared/song-page-render.js?v=20260907shells1"></script>
   <script src="shared/album-page-render.js?v=20260907shells1"></script>
+  <script src="shared/album-hub-render.js?v=20260915album1"></script>
   <script src="shared/playback-prefetch.js?v=20260907shells1"></script>
   <script src="shared/studio-tap.js?v=20260907shells1"></script>
-  <script src="shared/album-hub-boot.js?v=20260907shells1"></script>
+  <script src="shared/album-hub-boot.js?v=20260915album1"></script>
   <script src="entries.js?v=20260815dnd1" defer></script>
   <script src="songs.js?v=20260815dnd1" defer></script>
   <script src="shared/playback-debug.js?v=20260815dnd1"></script>

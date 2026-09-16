@@ -1,12 +1,38 @@
 /**
- * Menus design archive — save and toggle design versions per public site section.
+ * Menu version archive — simple backup / revert for the site menu design.
+ *
+ * Each public section (home, audio, archive, video, shop, about, contact) can
+ * have any number of saved versions. One version per section may be active. The
+ * UI is intentionally minimal: simple blobs, preview, and an active indicator.
  *
  * Cloud key: siteMenuDesigns
- * Model:
+ * Data model (agent-readable):
  * {
- *   sections: { home: [...], audio: [...], archive: [...], video: [...], shop: [...], about: [...], contact: [...] },
- *   active: { home: id|null, audio: id|null, ... },
- *   updatedAt: ISO string
+ *   sections: {
+ *     home: [Version, ...],
+ *     audio: [Version, ...],
+ *     ...
+ *   },
+ *   active: {
+ *     home: versionId|null,
+ *     audio: versionId|null,
+ *     ...
+ *   },
+ *   updatedAt: ISO-8601 string
+ * }
+ *
+ * Version object:
+ * {
+ *   id: string,
+ *   name: string,        // e.g. "home version 1"
+ *   section: string,
+ *   data: {
+ *     notes: string,
+ *     cssOverrides: string,
+ *     config: object
+ *   },
+ *   createdAt: ISO-8601,
+ *   updatedAt: ISO-8601
  * }
  */
 (function () {
@@ -23,9 +49,18 @@
     { id: 'contact', label: 'contact' }
   ];
 
+  var SECTION_URLS = {
+    home: 'index.html',
+    audio: 'audio.html',
+    archive: 'archive.html',
+    video: 'content.html',
+    shop: 'shop.html',
+    about: 'about.html',
+    contact: 'contact.html'
+  };
+
   var state = null;
   var currentSection = 'home';
-  var currentDesignId = null;
   var statusTimer = null;
   var initDone = false;
   var loadPromise = null;
@@ -94,7 +129,7 @@
       .catch(function (err) {
         ensureState();
         setStatus('Could not load archive.');
-        console.warn('[menus] load failed', err);
+        console.warn('[menu] load failed', err);
         return state;
       })
       .finally(function () {
@@ -118,76 +153,100 @@
       })
       .catch(function (err) {
         setStatus('save failed');
-        console.warn('[menus] save failed', err);
+        console.warn('[menu] save failed', err);
       });
   }
 
-  function escapeHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  function designName(sectionId, index) {
-    var label = sectionId + ' design ' + (index + 1);
-    return label;
-  }
-
-  function nextDesignName(sectionId) {
-    var designs = ensureState().sections[sectionId] || [];
-    var base = sectionId + ' design ';
+  function nextVersionName(sectionId) {
+    var versions = ensureState().sections[sectionId] || [];
+    var base = sectionId + ' version ';
     var max = 0;
-    designs.forEach(function (d) {
+    versions.forEach(function (d) {
       var m = String(d.name || '').match(new RegExp('^' + base.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '(\\d+)$', 'i'));
       if (m) max = Math.max(max, parseInt(m[1], 10));
     });
     return base + (max + 1);
   }
 
-  function findDesign(sectionId, designId) {
+  function activeVersionId(sectionId) {
+    return ensureState().active[sectionId] || null;
+  }
+
+  function activeVersion(sectionId) {
+    var id = activeVersionId(sectionId);
+    if (!id) return null;
     var list = ensureState().sections[sectionId] || [];
     for (var i = 0; i < list.length; i++) {
-      if (list[i].id === designId) return list[i];
+      if (list[i].id === id) return list[i];
     }
     return null;
   }
 
-  function activeDesignId(sectionId) {
-    return ensureState().active[sectionId] || null;
+  function setActive(sectionId, versionId) {
+    ensureState().active[sectionId] = versionId || null;
   }
 
-  function setActive(sectionId, designId) {
-    ensureState().active[sectionId] = designId || null;
-  }
-
-  function createDesign(sectionId) {
+  function createVersion(sectionId) {
+    var active = activeVersion(sectionId);
     var now = isoNow();
-    return {
+    var version = {
       id: makeId(),
-      name: nextDesignName(sectionId),
+      name: nextVersionName(sectionId),
       section: sectionId,
       data: { notes: '', cssOverrides: '', config: {} },
       createdAt: now,
       updatedAt: now
     };
+    // Snapshot the currently active version's data if one exists.
+    if (active && active.data) {
+      version.data = {
+        notes: active.data.notes || '',
+        cssOverrides: active.data.cssOverrides || '',
+        config: JSON.parse(JSON.stringify(active.data.config || {}))
+      };
+    }
+    return version;
   }
 
-  function updateDesignFromEditor(design) {
-    design.name = String(el('menusDesignName').value || '').trim() || design.name;
-    design.data.notes = el('menusDesignNotes').value || '';
-    design.data.cssOverrides = el('menusDesignCss').value || '';
-    var rawConfig = el('menusDesignConfig').value || '';
-    try {
-      design.data.config = rawConfig ? JSON.parse(rawConfig) : {};
-      el('menusDesignConfig').classList.remove('is-invalid');
-    } catch (e) {
-      design.data.config = {};
-      el('menusDesignConfig').classList.add('is-invalid');
-      setStatus('Config JSON is invalid; saved as empty object.');
+  function deleteVersion(version) {
+    if (!version) return;
+    if (!window.confirm('Delete “' + (version.name || 'this version') + '”?')) return;
+    var list = ensureState().sections[currentSection];
+    ensureState().sections[currentSection] = list.filter(function (d) {
+      return d.id !== version.id;
+    });
+    if (activeVersionId(currentSection) === version.id) {
+      setActive(currentSection, null);
     }
-    design.updatedAt = isoNow();
+    saveToCloud().then(function () {
+      renderSection();
+      setStatus('Version deleted');
+    });
+  }
+
+  function previewUrl(version) {
+    var page = SECTION_URLS[version.section] || 'index.html';
+    var base = window.location.protocol + '//' + window.location.host + '/' + page;
+    var params = new URLSearchParams();
+    params.set('__menu_preview', '1');
+    params.set('__menu_section', version.section);
+    if (version.data && version.data.cssOverrides) {
+      params.set('__menu_css', version.data.cssOverrides);
+    }
+    if (version.data && version.data.config) {
+      try {
+        params.set('__menu_config', JSON.stringify(version.data.config));
+      } catch (e) {}
+    }
+    return base + '?' + params.toString();
+  }
+
+  function previewVersion(version) {
+    var url = previewUrl(version);
+    var name = 'menuPreview-' + version.id;
+    var features = 'width=1000,height=700,scrollbars=yes,resizable=yes';
+    var win = window.open(url, name, features);
+    if (!win) setStatus('Popup blocked — allow popups to preview.');
   }
 
   function renderTabs() {
@@ -203,10 +262,8 @@
       btn.setAttribute('aria-selected', s.id === currentSection ? 'true' : 'false');
       btn.addEventListener('click', function () {
         currentSection = s.id;
-        currentDesignId = null;
         renderTabs();
         renderSection();
-        hideEditor();
       });
       root.appendChild(btn);
     });
@@ -214,7 +271,7 @@
 
   function renderSection() {
     var title = el('menusSectionTitle');
-    if (title) title.textContent = currentSection + ' archive';
+    if (title) title.textContent = currentSection + ' versions';
 
     var list = ensureState().sections[currentSection] || [];
     var root = el('menusDesignsList');
@@ -224,171 +281,72 @@
     if (!list.length) {
       var empty = document.createElement('p');
       empty.className = 'studio-menus-empty';
-      empty.textContent = 'No saved designs yet. Click “new design” to archive the first ' + currentSection + ' idea.';
+      empty.textContent = 'No saved versions yet. Click “new version” to save the first ' + currentSection + ' backup.';
       root.appendChild(empty);
       return;
     }
 
-    var activeId = activeDesignId(currentSection);
-    list.forEach(function (design) {
-      var row = document.createElement('div');
-      row.className = 'studio-menus-row' + (design.id === currentDesignId ? ' is-selected' : '');
+    var activeId = activeVersionId(currentSection);
+    list.forEach(function (version) {
+      var isActive = version.id === activeId;
 
-      var name = document.createElement('button');
-      name.type = 'button';
-      name.className = 'studio-menus-row-name';
-      name.textContent = design.name || '(unnamed)';
-      name.addEventListener('click', function () {
-        currentDesignId = design.id;
-        renderSection();
-        openEditor(design);
+      var blob = document.createElement('div');
+      blob.className = 'studio-menus-blob' + (isActive ? ' is-active' : '');
+      blob.setAttribute('data-version-id', version.id);
+
+      var name = document.createElement('div');
+      name.className = 'studio-menus-blob-name';
+      name.textContent = version.name || '(unnamed)';
+      blob.appendChild(name);
+
+      var actions = document.createElement('div');
+      actions.className = 'studio-menus-blob-actions';
+
+      var previewBtn = document.createElement('button');
+      previewBtn.type = 'button';
+      previewBtn.className = 'icon-btn';
+      previewBtn.textContent = 'preview';
+      previewBtn.addEventListener('click', function () {
+        previewVersion(version);
       });
-      row.appendChild(name);
-
-      var meta = document.createElement('span');
-      meta.className = 'studio-menus-row-meta';
-      meta.textContent = new Date(design.updatedAt || design.createdAt).toLocaleString();
-      row.appendChild(meta);
-
-      var actions = document.createElement('span');
-      actions.className = 'studio-menus-row-actions';
+      actions.appendChild(previewBtn);
 
       var activateBtn = document.createElement('button');
       activateBtn.type = 'button';
-      activateBtn.className = 'icon-btn studio-menus-activate' + (design.id === activeId ? ' is-active' : '');
-      activateBtn.textContent = design.id === activeId ? 'active' : 'activate';
-      activateBtn.title = design.id === activeId ? 'Active design for ' + currentSection : 'Make this the active ' + currentSection + ' design';
+      activateBtn.className = 'icon-btn studio-menus-activate' + (isActive ? ' is-active' : '');
+      activateBtn.textContent = isActive ? '● active' : '○';
+      activateBtn.title = isActive ? 'Active version' : 'Activate this version';
       activateBtn.addEventListener('click', function () {
-        setActive(currentSection, design.id === activeId ? null : design.id);
+        setActive(currentSection, isActive ? null : version.id);
         saveToCloud().then(renderSection);
       });
       actions.appendChild(activateBtn);
 
-      var editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'icon-btn';
-      editBtn.textContent = 'edit';
-      editBtn.addEventListener('click', function () {
-        currentDesignId = design.id;
-        renderSection();
-        openEditor(design);
+      var deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'icon-btn studio-menus-blob-delete';
+      deleteBtn.textContent = '×';
+      deleteBtn.title = 'Delete this version';
+      deleteBtn.addEventListener('click', function () {
+        deleteVersion(version);
       });
-      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
 
-      row.appendChild(actions);
-      root.appendChild(row);
+      blob.appendChild(actions);
+      root.appendChild(blob);
     });
-  }
-
-  function showEditor() {
-    var editor = el('menusEditor');
-    if (editor) editor.hidden = false;
-  }
-
-  function hideEditor() {
-    var editor = el('menusEditor');
-    if (editor) editor.hidden = true;
-    currentDesignId = null;
-    if (el('menusDesignName')) el('menusDesignName').value = '';
-    if (el('menusDesignNotes')) el('menusDesignNotes').value = '';
-    if (el('menusDesignCss')) el('menusDesignCss').value = '';
-    if (el('menusDesignConfig')) {
-      el('menusDesignConfig').value = '';
-      el('menusDesignConfig').classList.remove('is-invalid');
-    }
-  }
-
-  function openEditor(design) {
-    showEditor();
-    el('menusDesignName').value = design.name || '';
-    el('menusDesignNotes').value = design.data && design.data.notes ? design.data.notes : '';
-    el('menusDesignCss').value = design.data && design.data.cssOverrides ? design.data.cssOverrides : '';
-    var cfg = design.data && design.data.config ? design.data.config : {};
-    try {
-      el('menusDesignConfig').value = JSON.stringify(cfg, null, 2);
-      el('menusDesignConfig').classList.remove('is-invalid');
-    } catch (e) {
-      el('menusDesignConfig').value = '{}';
-    }
   }
 
   function bindActions() {
     var newBtn = el('menusNewDesignBtn');
     if (newBtn) {
       newBtn.addEventListener('click', function () {
-        var design = createDesign(currentSection);
-        ensureState().sections[currentSection].unshift(design);
-        currentDesignId = design.id;
+        var version = createVersion(currentSection);
+        ensureState().sections[currentSection].push(version);
         saveToCloud().then(function () {
           renderSection();
-          openEditor(design);
-          setStatus('New design created');
+          setStatus('New version saved');
         });
-      });
-    }
-
-    var saveBtn = el('menusSaveDesignBtn');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', function () {
-        if (!currentDesignId) return;
-        var design = findDesign(currentSection, currentDesignId);
-        if (!design) return;
-        updateDesignFromEditor(design);
-        saveToCloud().then(function () {
-          renderSection();
-          setStatus('Design saved');
-        });
-      });
-    }
-
-    var duplicateBtn = el('menusDuplicateDesignBtn');
-    if (duplicateBtn) {
-      duplicateBtn.addEventListener('click', function () {
-        if (!currentDesignId) return;
-        var design = findDesign(currentSection, currentDesignId);
-        if (!design) return;
-        var copy = JSON.parse(JSON.stringify(design));
-        copy.id = makeId();
-        copy.name = design.name + ' copy';
-        copy.createdAt = isoNow();
-        copy.updatedAt = isoNow();
-        ensureState().sections[currentSection].unshift(copy);
-        currentDesignId = copy.id;
-        saveToCloud().then(function () {
-          renderSection();
-          openEditor(copy);
-          setStatus('Design duplicated');
-        });
-      });
-    }
-
-    var deleteBtn = el('menusDeleteDesignBtn');
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', function () {
-        if (!currentDesignId) return;
-        var design = findDesign(currentSection, currentDesignId);
-        var label = design ? '“' + design.name + '”' : 'this design';
-        if (!window.confirm('Delete ' + label + '? This cannot be undone.')) return;
-        var list = ensureState().sections[currentSection];
-        ensureState().sections[currentSection] = list.filter(function (d) {
-          return d.id !== currentDesignId;
-        });
-        if (activeDesignId(currentSection) === currentDesignId) {
-          setActive(currentSection, null);
-        }
-        hideEditor();
-        saveToCloud().then(function () {
-          renderSection();
-          setStatus('Design deleted');
-        });
-      });
-    }
-
-    var closeBtn = el('menusCloseEditorBtn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', function () {
-        hideEditor();
-        renderSection();
       });
     }
   }
@@ -410,7 +368,6 @@
 
     renderTabs();
     bindActions();
-    hideEditor();
 
     loadFromCloud().then(function () {
       renderSection();

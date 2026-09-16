@@ -8,17 +8,16 @@
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="menus">
+  <meta name="apple-mobile-web-app-title" content="menu">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>menus — burnfolder studio</title>
-  <link rel="stylesheet" href="../style.css?v=20260815dnd1">
-  <link rel="stylesheet" href="css/studio.css?v=20260815dnd1">
+  <title>menu — burnfolder studio</title>
+  <link rel="stylesheet" href="../style.css?v=20260915menus1">
+  <link rel="stylesheet" href="css/studio.css?v=20260915menus1">
 </head>
 <body class="studio-page studio-menus-page">
 
   <main class="page-wrap studio-menus-layout">
-    <p class="page-id">menus</p>
-    <p class="studio-lede">Save and toggle design versions for each public site menu. Use this as an archive of ideas without changing the live pages until you activate a design.</p>
+    <p class="page-id">menu</p>
 
     <nav class="studio-menus-tabs" aria-label="Site menu sections">
       <div class="studio-menus-tab-list" id="menusTabList" role="tablist"></div>
@@ -27,37 +26,10 @@
     <section class="studio-menus-section" aria-labelledby="menusSectionTitle">
       <div class="studio-menus-section-head">
         <h2 class="studio-menus-section-title" id="menusSectionTitle">—</h2>
-        <button type="button" class="icon-btn" id="menusNewDesignBtn">new design</button>
+        <button type="button" class="icon-btn" id="menusNewDesignBtn">new version</button>
       </div>
 
       <div id="menusDesignsList" class="studio-menus-list" aria-live="polite"></div>
-
-      <div id="menusEditor" class="studio-menus-editor" hidden>
-        <div class="studio-menus-editor-fields">
-          <label class="studio-menus-field">
-            <span class="studio-menus-label">name</span>
-            <input id="menusDesignName" type="text" class="studio-menus-input" spellcheck="false">
-          </label>
-          <label class="studio-menus-field">
-            <span class="studio-menus-label">notes</span>
-            <textarea id="menusDesignNotes" class="studio-menus-textarea" rows="4" placeholder="Describe the design idea…" spellcheck="false"></textarea>
-          </label>
-          <label class="studio-menus-field">
-            <span class="studio-menus-label">css overrides</span>
-            <textarea id="menusDesignCss" class="studio-menus-textarea studio-menus-code" rows="6" placeholder="/* CSS injected on the public page when this design is active */" spellcheck="false"></textarea>
-          </label>
-          <label class="studio-menus-field">
-            <span class="studio-menus-label">config (JSON)</span>
-            <textarea id="menusDesignConfig" class="studio-menus-textarea studio-menus-code" rows="6" placeholder='{"colors": {}, "layout": ""}' spellcheck="false"></textarea>
-          </label>
-        </div>
-        <div class="studio-menus-editor-actions">
-          <button type="button" class="icon-btn" id="menusSaveDesignBtn">save</button>
-          <button type="button" class="icon-btn" id="menusDuplicateDesignBtn">duplicate</button>
-          <button type="button" class="icon-btn studio-menus-danger" id="menusDeleteDesignBtn">delete</button>
-          <button type="button" class="icon-btn" id="menusCloseEditorBtn">close</button>
-        </div>
-      </div>
     </section>
 
     <p class="studio-menus-status" id="menusStatus" aria-live="polite"></p>
@@ -68,8 +40,8 @@
   <script src="js/studio-site-menu.js?v=20260815dnd1"></script>
   <script src="js/studio-spa-router.js?v=20260815dnd1"></script>
   <script src="js/studio-auth.js?v=20260815dnd2"></script>
-  <script src="js/cloud-state.js?v=20260815dnd1"></script>
-  <script src="js/menus-page.js?v=20260914menus1"></script>
+  <script src="js/cloud-state.js?v=20260915live1"></script>
+  <script src="js/menus-page.js?v=20260915menus1"></script>
   <script src="../shared/site-version.js"></script>
   <script src="../shared/register-sw.js"></script>
 </body>

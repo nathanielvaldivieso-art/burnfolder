@@ -13,7 +13,7 @@
     return !!(
       global.document.getElementById('albumHubPage') &&
       global.burnfolderAlbumPages &&
-      global.BurnfolderAlbumPageRender
+      (global.BurnfolderAlbumHubRender || global.BurnfolderAlbumPageRender)
     );
   }
 
@@ -38,17 +38,15 @@
 
   function renderAlbumHubEarly() {
     const hubRoot = global.document.getElementById('albumHubPage');
-    const renderApi = global.BurnfolderAlbumPageRender;
-    if (!hubRoot || !renderApi) return false;
+    const newRenderApi = global.BurnfolderAlbumHubRender;
+    const fallbackRenderApi = global.BurnfolderAlbumPageRender;
+    if (!hubRoot || (!newRenderApi && !fallbackRenderApi)) return false;
 
     const albumId = albumIdFromLocation();
     const published = (global.burnfolderAlbumPages || {})[albumId];
-    const titleEl = hubRoot.querySelector('[data-album-field="title"]');
-    const subtitleEl = hubRoot.querySelector('[data-album-field="subtitle"]');
 
     if (!albumId || !published) {
-      if (titleEl) titleEl.textContent = 'Album';
-      if (subtitleEl) subtitleEl.textContent = 'Album not found.';
+      hubRoot.innerHTML = '<p class="page-annotation">Album not found.</p>';
       return false;
     }
 
@@ -63,75 +61,43 @@
       global.currentSongs = tracks.slice();
     }
 
-    renderApi.apply(hubRoot, {
-      albumPage: published,
-      meta: {
-        title: published.title || 'Album',
-        coverArt: published.coverArt || '',
-        tagline: published.subtitle || ''
-      },
-      tracks: tracks,
-      songPages: songPages,
-      songCatalog: catalog,
-      versionsApi: sv,
-      itemLabel: function (item) {
-        return (item && item.title) || 'untitled';
-      },
-      songPageUrl: function (item) {
-        return sv && sv.getSongHubHref ? sv.getSongHubHref(item, '') : '';
-      },
-      showSongLinks: true,
-      onTrackSelect: function () {
-        if (typeof global.__albumHubPlayTrack === 'function') {
-          global.__albumHubPlayTrack.apply(null, arguments);
+    if (newRenderApi) {
+      newRenderApi.apply(hubRoot, {
+        albumPage: published,
+        tracks: tracks,
+        songPages: songPages,
+        songCatalog: catalog,
+        versionsApi: sv,
+        songPageUrl: function (item) {
+          return sv && sv.getSongHubHref ? sv.getSongHubHref(item, '') : '';
         }
-      },
-      onRendered: function () {
-        const tagline = String(published.subtitle || '').trim();
-        const metaEl = hubRoot.querySelector('[data-album-field="track-meta"]');
-        if (tagline && subtitleEl) {
-          subtitleEl.textContent = tagline;
-        }
-        // Only show track-meta when a custom subtitle is set; otherwise the
-        // auto subtitle already carries track count + duration.
-        if (!tagline) {
-          if (metaEl) metaEl.hidden = true;
-          return;
-        }
-        if (metaEl && renderApi.compileTrackRows) {
-          const summaryRows = renderApi.compileTrackRows({
-            tracks: tracks,
-            songPages: songPages,
-            songCatalog: catalog,
-            versionsApi: sv,
-            itemLabel: function (item) {
-              return (item && item.title) || 'untitled';
-            }
-          });
-          const shared = global.BurnfolderStreamShared;
-          const items = summaryRows.map(function (row) {
-            return {
-              playbackId: row.playbackId,
-              duration: row.item && row.item.duration
-            };
-          });
-          let metaText = '';
-          if (shared && shared.sumTrackDurations && shared.albumTrackCountMeta) {
-            const sum = shared.sumTrackDurations(items);
-            metaText = shared.albumTrackCountMeta(
-              items.length,
-              sum.complete ? sum.total : 0
-            );
-          } else if (items.length) {
-            metaText = items.length + ' track' + (items.length === 1 ? '' : 's');
-          }
-          if (metaText) {
-            metaEl.textContent = metaText;
-            metaEl.hidden = false;
+      });
+    } else {
+      fallbackRenderApi.apply(hubRoot, {
+        albumPage: published,
+        meta: {
+          title: published.title || 'Album',
+          coverArt: published.coverArt || '',
+          tagline: published.subtitle || ''
+        },
+        tracks: tracks,
+        songPages: songPages,
+        songCatalog: catalog,
+        versionsApi: sv,
+        itemLabel: function (item) {
+          return (item && item.title) || 'untitled';
+        },
+        songPageUrl: function (item) {
+          return sv && sv.getSongHubHref ? sv.getSongHubHref(item, '') : '';
+        },
+        showSongLinks: true,
+        onTrackSelect: function () {
+          if (typeof global.__albumHubPlayTrack === 'function') {
+            global.__albumHubPlayTrack.apply(null, arguments);
           }
         }
-      }
-    });
+      });
+    }
 
     if (published.title) {
       global.document.title = published.title + ' — burnfolder.com';

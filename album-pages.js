@@ -1,60 +1,11 @@
 // Album page content — published from burnfolder studio
 window.burnfolderAlbumPages = {
   "photonegative": {
-    "title": "PHOTO NEGATIVE",
-    "subtitle": "",
-    "coverArt": "IMAGES/PHOTO-NEGATIVE-COVER.png",
-    "notes": "",
-    "credits": "burnfolder — writing, production, performance, design",
-    "links": [
-      {
-        "label": "spotify",
-        "href": "",
-        "pending": true
-      },
-      {
-        "label": "apple music",
-        "href": "",
-        "pending": true
-      },
-      {
-        "label": "tidal",
-        "href": "",
-        "pending": true
-      }
-    ],
-    "tracks": [
-      {
-        "title": "SOMETIMES",
-        "playbackId": "4MY1eOPKNpR3492qFO4ihLM4rzhwsOZ4lThYRHZpz02U",
-        "groupKey": "sometimes"
-      },
-      {
-        "title": "FIRE ESCAPE",
-        "playbackId": "cllmgZolsMRmP00YSKm02wXgLJ1DfUzfQtCuSjSdx6Mmc",
-        "groupKey": "fire escape"
-      },
-      {
-        "title": "PHOTO NEGATIVE",
-        "playbackId": "cLHw2U5QnTrJhn14E6ISMNF4eT602f02svbYCJPZZ02S3I",
-        "groupKey": "photo negative"
-      },
-      {
-        "title": "IT DOESNT MATTER",
-        "playbackId": "hCls02k6rr2jI02Wy5Q7fcwK00RBT9QCkonzp00ipUMmDaY",
-        "groupKey": "it doesnt matter"
-      }
-    ],
-    "heroVideoPlaybackId": "",
-    "media": [],
-    "updatedAt": "2026-07-09T00:00:00.000Z"
-  },
-  "g_mrw3exiu_kw7ebw": {
-    "notes": "",
-    "heroVideoPlaybackId": "",
-    "media": [],
     "title": "photonegative",
     "coverArt": "IMAGES/PHOTONEGATIVE-COVER.jpg",
+    "notes": "",
+    "credits": "burnfolder — writing, production, performance, design",
+    "links": [],
     "tracks": [
       {
         "title": "SOMETIMES 9.6.26",
@@ -77,7 +28,9 @@ window.burnfolderAlbumPages = {
         "groupKey": "it doesnt matter"
       }
     ],
-    "updatedAt": "2026-09-14T21:39:37.133Z"
+    "heroVideoPlaybackId": "",
+    "media": [],
+    "updatedAt": "2026-09-15T00:00:00.000Z"
   },
   "g_mslo7m8r_a32d1n": {
     "notes": "",

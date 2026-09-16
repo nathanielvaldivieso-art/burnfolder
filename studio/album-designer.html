@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script src="../shared/studio-pwa-viewport.js?v=20260815dnd1"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var album = (params.get('album') || '').trim();
+      var url = new URL('/studio/clips.html', window.location.href);
+      if (album) url.searchParams.set('album', album);
+      window.location.replace(url.pathname + url.search + window.location.hash);
+    })();
+  </script>
   <title>album page — burnfolder studio</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
@@ -143,7 +152,7 @@
   <script src="js/mux-naming.js?v=20260815dnd1"></script>
   <script src="js/studio-site-menu.js?v=20260815dnd1"></script>
   <script src="js/studio-auth.js?v=20260815dnd1"></script>
-  <script src="js/cloud-state.js?v=20260815dnd1"></script>
+  <script src="js/cloud-state.js?v=20260915live1"></script>
   <script src="js/mux-client.js?v=20260815dnd1"></script>
   <script src="js/studio-mux-lib.js?v=20260815dnd1"></script>
   <script src="../shared/song-page-render.js?v=20260815dnd1"></script>

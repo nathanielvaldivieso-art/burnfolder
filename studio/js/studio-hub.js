@@ -82,6 +82,9 @@
     }
 
     items.forEach(function (draft) {
+      const row = document.createElement('div');
+      row.className = 'studio-draft-row';
+
       const link = document.createElement('a');
       link.className = 'studio-draft-link';
       link.href = 'index.html?id=' + encodeURIComponent(draft.id);
@@ -99,8 +102,37 @@
         link.appendChild(tag);
       }
 
-      listRoot.appendChild(link);
+      row.appendChild(link);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'studio-draft-delete';
+      deleteBtn.textContent = '\u00d7';
+      deleteBtn.title = 'Delete entry';
+      deleteBtn.setAttribute('aria-label', 'Delete ' + (draft.date_key || 'entry'));
+      deleteBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        deleteDraft(draft.id, draft.date_key);
+      });
+      row.appendChild(deleteBtn);
+
+      listRoot.appendChild(row);
     });
+  }
+
+  function deleteDraft(id, dateKey) {
+    if (!window.BurnfolderDrafts) return;
+    var label = dateKey || 'this entry';
+    if (!window.confirm('Delete ' + label + '?')) return;
+    setStatus('deleting…', 'working');
+    window.BurnfolderDrafts.deleteDraft(id)
+      .then(function () {
+        setStatus('deleted');
+        refreshDraftList();
+      })
+      .catch(function (err) {
+        setStatus(err.message || 'could not delete', 'error');
+      });
   }
 
   function refreshDraftList() {

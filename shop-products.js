@@ -11,8 +11,8 @@ window.burnfolderShopProducts = {
       "minAmount": 1,
       "suggestedAmounts": [5, 10, 15],
       "maxAmount": 500,
-      "active": true,
-      "updatedAt": "2026-07-09T00:00:00.000Z"
+      "active": false,
+      "updatedAt": "2026-09-15T00:00:00.000Z"
     }
   ],
   "updatedAt": "2026-07-09T00:00:00.000Z"

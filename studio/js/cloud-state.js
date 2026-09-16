@@ -6,10 +6,15 @@
  * Model: last-write-wins. Each key holds one JSON document. Reads return the
  * stored value (or null); writes are debounced per key.
  *
- * Local testing against live board data:
- *   /studio/clips.html?cloud=live
- * Reads studio-state from burnfolder.com; writes stay on local netlify blobs
- * so a local experiment cannot overwrite production.
+ * Dev mode (localhost / 127.0.0.1) reads from the local Netlify Dev blobs by
+ * default. This keeps the dev environment self-contained: edits in dev stay
+ * in dev, and there is no risk of overwriting production. Add
+ *   ?cloud=local
+ * to any studio URL to force local-only reads, or
+ *   ?cloud=live
+ * to attempt reading directly from the production cloud (requires a signed-in
+ * session on burnfolder.com). Writes always stay on the local Netlify
+ * dev blobs so a local experiment cannot overwrite production.
  */
 (function () {
   'use strict';
@@ -32,10 +37,13 @@
         return true;
       }
       if (q === 'local' || q === '0') {
-        localStorage.removeItem(MIRROR_KEY);
+        localStorage.setItem(MIRROR_KEY, 'local');
         return false;
       }
-      return localStorage.getItem(MIRROR_KEY) === 'live';
+      const stored = localStorage.getItem(MIRROR_KEY);
+      if (stored === 'local') return false;
+      if (stored === 'live') return true;
+      return false; // dev defaults to local self-contained mirror
     } catch (e) {
       return false;
     }
@@ -235,17 +243,18 @@
     if (isLiveMirror()) {
       if (status === 'synced') return 'live mirror';
       if (status === 'syncing') return 'live…';
-      if (status === 'offline') return 'live offline';
+      if (status === 'offline') return 'live offline — click to sync';
       return 'live mirror';
     }
+    if (status === 'offline') return 'offline — click to sync';
     return STATUS_LABELS[status] || STATUS_LABELS.idle;
   }
 
   function statusTitle(status) {
     if (isLiveMirror()) {
-      return 'reading live studio cloud (writes stay local)';
+      return 'reading live studio cloud (writes stay local). click to return to local dev mirror.';
     }
-    return 'personal cloud: ' + (STATUS_LABELS[status] || STATUS_LABELS.idle);
+    return 'local dev mirror: ' + (STATUS_LABELS[status] || STATUS_LABELS.idle) + '. click to reload.';
   }
 
   // Small "cloud" indicator in the studio header so you can trust your data is
@@ -273,7 +282,8 @@
     if (!tools) return;
     if (tools.querySelector('.studio-sync')) return;
 
-    const el = document.createElement('span');
+    const el = document.createElement('button');
+    el.type = 'button';
     el.className = 'studio-sync is-idle';
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
@@ -290,6 +300,15 @@
       if (label) label.textContent = statusLabel(known);
       el.setAttribute('title', statusTitle(known));
     }
+
+    el.addEventListener('click', function () {
+      try {
+        localStorage.setItem(MIRROR_KEY, 'local');
+      } catch (e) {}
+      const url = new URL(window.location.href);
+      url.searchParams.delete('cloud');
+      window.location.assign(url.pathname + url.search + window.location.hash);
+    });
 
     if (!syncListenerBound) {
       syncListenerBound = true;

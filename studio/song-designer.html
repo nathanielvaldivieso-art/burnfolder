@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script src="../shared/studio-pwa-viewport.js?v=20260815videopass2"></script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var song = (params.get('song') || '').trim();
+      var url = new URL('/studio/clips.html', window.location.href);
+      if (song) url.searchParams.set('song', song);
+      var p = params.get('p');
+      if (p) url.searchParams.set('p', p);
+      window.location.replace(url.pathname + url.search + window.location.hash);
+    })();
+  </script>
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -110,7 +121,7 @@
   <script src="js/mux-naming.js?v=20260815videopass2"></script>
   <script src="js/studio-site-menu.js?v=20260907archive1"></script>
   <script src="js/studio-auth.js?v=20260815videopass2"></script>
-  <script src="js/cloud-state.js?v=20260815videopass2"></script>
+  <script src="js/cloud-state.js?v=20260915live1"></script>
   <script src="js/cloud-store-kit.js?v=20260815videopass2"></script>
   <script src="js/song-page-store.js?v=20260907shells1"></script>
   <script src="js/mux-client.js?v=20260815videopass2"></script>

@@ -108,10 +108,7 @@
 
     const products = getActiveProducts();
     if (!products.length) {
-      const empty = document.createElement('p');
-      empty.className = 'page-annotation';
-      empty.textContent = 'nothing for sale yet.';
-      rootEl.appendChild(empty);
+      // Keep the page blank when no products are active.
       return;
     }
 
@@ -120,12 +117,50 @@
     });
   }
 
+  function promptCustomAmount(product) {
+    const bounds = {
+      min: Number(product.minAmount) || 1,
+      max: Number(product.maxAmount) || 500
+    };
+    const raw = root.prompt(
+      'amount ($' + bounds.min + '–$' + bounds.max + ')',
+      String(product.suggestedAmounts && product.suggestedAmounts[0] ? product.suggestedAmounts[0] : bounds.min)
+    );
+    if (raw == null) return;
+    if (typeof root.openDigitalCheckout === 'function') {
+      root.openDigitalCheckout(product, raw);
+    }
+  }
+
+  function mountShopProducts() {
+    const rootEl = root.document && root.document.getElementById('shopProductsRoot');
+    if (!rootEl) return;
+    apply(rootEl, {
+      onBuy: function (product, amount) {
+        if (typeof root.openDigitalCheckout === 'function') {
+          root.openDigitalCheckout(product, amount);
+        }
+      },
+      onCustom: promptCustomAmount
+    });
+  }
+
+  if (typeof root.document !== 'undefined') {
+    if (root.document.readyState !== 'loading') {
+      mountShopProducts();
+    } else {
+      root.document.addEventListener('DOMContentLoaded', mountShopProducts);
+    }
+    root.addEventListener('burnfolder-spa-navigated', mountShopProducts);
+  }
+
   root.BurnfolderShopProductsRender = {
     getCatalog: getCatalog,
     getActiveProducts: getActiveProducts,
     getProductById: getProductById,
     formatMoney: formatMoney,
     renderProductCard: renderProductCard,
-    apply: apply
+    apply: apply,
+    init: mountShopProducts
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -442,6 +442,14 @@
     ) {
       window.BurnfolderAlbumHubBoot.schedule();
     }
+
+    // Re-render shop products when present
+    if (
+      window.BurnfolderShopProductsRender &&
+      typeof window.BurnfolderShopProductsRender.init === 'function'
+    ) {
+      window.BurnfolderShopProductsRender.init();
+    }
   }
 
   function updateAudioListForPage() {

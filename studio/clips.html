@@ -16,8 +16,8 @@
   <link rel="preconnect" href="https://image.mux.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
-  <link rel="stylesheet" href="../style.css?v=20260815videopass2">
-  <link rel="stylesheet" href="css/studio.css?v=20260905cliptiles1">
+  <link rel="stylesheet" href="../style.css?v=20260915focus2">
+  <link rel="stylesheet" href="css/studio.css?v=20260915focus2">
 </head>
 <body class="studio-page studio-clips-page">
 
@@ -41,6 +41,8 @@
     <p class="clips-status" id="clipsStatus" aria-live="polite"></p>
   </main>
 
+  <div id="clipsFocusPane" class="clips-focus-pane" hidden aria-label="Focus"></div>
+
   <div id="clipsLightbox" class="clips-lightbox" hidden>
     <button type="button" class="clips-lightbox-close" id="clipsLightboxClose" aria-label="Close">×</button>
     <img id="clipsLightboxImg" class="clips-lightbox-img" alt="">
@@ -61,11 +63,15 @@
   <script src="js/studio-site-menu.js?v=20260815videopass2"></script>
   <script src="js/studio-auth.js?v=20260815videopass2"></script>
   <script src="js/share-links.js?v=20260815videopass2"></script>
-  <script src="js/cloud-state.js?v=20260815videopass2"></script>
+  <script src="js/cloud-state.js?v=20260915sync2"></script>
   <script src="js/mux-client.js?v=20260815videopass2"></script>
   <script src="js/studio-mux-lib.js?v=20260818upload1"></script>
   <script src="js/cloud-store-kit.js?v=20260815videopass2"></script>
   <script src="js/song-page-store.js?v=20260904key1"></script>
+  <script src="js/album-page-store.js?v=20260915focus1"></script>
+  <script src="../shared/song-page-render.js?v=20260915focus1"></script>
+  <script src="../shared/album-page-render.js?v=20260915focus1"></script>
+  <script src="../shared/share-hub-ui.js?v=20260815videopass2"></script>
   <script src="js/journal-day-store.js?v=20260815videopass2"></script>
   <script src="js/journal-contributions.js?v=20260815videopass2"></script>
   <script src="../shared/playback-prefetch.js?v=20260815videopass2"></script>
@@ -86,7 +92,9 @@
   <script src="js/stream-now-playing.js?v=20260815videopass2"></script>
   <script src="js/clips-store.js?v=20260818upload1"></script>
   <script src="js/video-compress.js?v=20260815videopass2"></script>
-  <script src="js/clips-page.js?v=20260905clipsminimal1"></script>
+  <script src="js/song-focus.js?v=20260915focus2"></script>
+  <script src="js/album-focus.js?v=20260915focus2"></script>
+  <script src="js/clips-page.js?v=20260915sync3"></script>
   <script src="../shared/site-version.js"></script>
   <script src="../shared/register-sw.js"></script>
 </body>

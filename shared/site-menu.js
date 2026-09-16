@@ -199,11 +199,27 @@
     root.appendChild(panel);
   }
 
+  function applyDesignPreview() {
+    var params = new URLSearchParams(window.location.search);
+    if (!params.get('__menu_preview')) return;
+    var css = params.get('__menu_css') || '';
+    var section = params.get('__menu_section') || '';
+    if (!css) return;
+    var style = document.getElementById('siteMenuPreviewCss');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'siteMenuPreviewCss';
+      document.head.appendChild(style);
+    }
+    style.textContent = '/* menu design preview: ' + section + ' */\n' + css;
+  }
+
   function mountSiteMenu() {
     removeLegacyNav();
     var root = ensureSiteMenuRoot();
     renderMenu(root);
     bindHandlers();
+    applyDesignPreview();
   }
 
   window.mountSiteMenu = mountSiteMenu;
