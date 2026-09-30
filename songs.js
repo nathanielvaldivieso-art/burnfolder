@@ -20,6 +20,17 @@ function getSongsFromEntry(entry) {
         }));
     }
 
+    if (block.type === 'playlist' && Array.isArray(block.tracks)) {
+      return block.tracks
+        .filter(track => track.title && track.playbackId)
+        .map(track => ({
+          title: track.title,
+          playbackId: track.playbackId,
+          playlist: block.playlistId || block.id || undefined,
+          coverArt: block.coverArt || undefined
+        }));
+    }
+
     return [];
   });
 }

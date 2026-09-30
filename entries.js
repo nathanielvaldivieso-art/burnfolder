@@ -26,7 +26,7 @@ window.entryDataByDate = {
         "type": "playlist",
         "playlistId": "block-1790804349830-3fcdaa925e0a58",
         "title": "photonegative",
-        "coverArt": "IMAGES/PHOTONEGATIVE-COVER.jpg",
+        "coverArt": "IMAGES/TORNADO.jpeg",
         "coverAlt": "photonegative",
         "tracks": [
           {
@@ -61,7 +61,7 @@ window.entryDataByDate = {
         "type": "playlist",
         "playlistId": "block-1789155400253-70214863bc39e8",
         "title": "photonegative",
-        "coverArt": "IMAGES/PHOTONEGATIVE-COVER.jpg",
+        "coverArt": "IMAGES/TORNADO.jpeg",
         "coverAlt": "photonegative",
         "tracks": [
           {
