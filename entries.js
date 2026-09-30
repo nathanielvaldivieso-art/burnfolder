@@ -4,6 +4,51 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "9.30.26": {
+    "date": "9.30.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "been a min\n\ngonna start doing monthly vlogs. seems like a mentally healthy way for me to sort memories, makes me happy. ",
+        "textSize": "md"
+      },
+      {
+        "type": "video",
+        "title": "9.26",
+        "playbackId": "MPPK6h95dfQ6M7zwGIGd8cFUMN1701WgWNxmOZi1G8TM"
+      },
+      {
+        "type": "text",
+        "text": "also photonegative is done.. awaiting mastering",
+        "textSize": "md"
+      },
+      {
+        "type": "playlist",
+        "playlistId": "block-1790804349830-3fcdaa925e0a58",
+        "title": "photonegative",
+        "coverArt": "IMAGES/PHOTONEGATIVE-COVER.jpg",
+        "coverAlt": "photonegative",
+        "tracks": [
+          {
+            "title": "SOMETIMES 9.6.26",
+            "playbackId": "rP8HXJ6BLDKWRpKkWCMNnydS9SWbIt02Kylb2dfjokpg"
+          },
+          {
+            "title": "FIRE ESCAPE 9.6.26",
+            "playbackId": "701NOK2h01LSiUD9vyyJ6zmG3MhaQdBkaUI9sFSzpaPJg"
+          },
+          {
+            "title": "PHOTO NEGATIVE 9.7.26",
+            "playbackId": "5nhQCQ6dPFJepx00V01ab3TlfA02bt00Cc7bvV2zq9o4kjk"
+          },
+          {
+            "title": "IT DOESNT MATTER 9.6.26",
+            "playbackId": "00Ng5j32ra02L7SYdQ1YsZVcpcxN5heBNxJYnMZzIIY0100"
+          }
+        ]
+      }
+    ]
+  },
   "9.11.26": {
     "date": "9.11.26",
     "blocks": [
@@ -309,7 +354,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["9.11.26","8.14.26","7.24.26","7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["9.30.26","9.11.26","8.14.26","7.24.26","7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
