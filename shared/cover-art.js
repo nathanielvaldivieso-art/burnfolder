@@ -73,6 +73,7 @@
   function applyCoverImage(imgEl, meta) {
     if (!imgEl) return Promise.resolve();
     const path = String((meta && meta.coverArt) || '').trim();
+    const hasSource = !!(path || String((meta && meta.coverAssetId) || '').trim());
 
     const prevUrl = imgEl.dataset.blobUrl;
     if (prevUrl) {
@@ -80,7 +81,7 @@
       delete imgEl.dataset.blobUrl;
     }
 
-    if (!path) {
+    if (!hasSource) {
       imgEl.removeAttribute('src');
       imgEl.hidden = true;
       return Promise.resolve();

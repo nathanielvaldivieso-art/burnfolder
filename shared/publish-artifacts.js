@@ -194,14 +194,15 @@
     }
     if (block.type === 'video' && block.playbackId && String(block.playbackId).trim()) {
       const title = (block.title && String(block.title).trim()) || 'video';
-      return `  <mux-player
+      const titleHtml = title ? `  <span class="page-inline-video-title">${escapeHtml(title)}</span>\n` : '';
+      return `  <div class="page-inline-video-wrap">\n${titleHtml}  <mux-player
     playback-id="${escapeHtml(String(block.playbackId).trim())}"
     metadata-video-title="${escapeHtml(title)}"
     playbackrates="1 1.5 2"
     noairplay
     class="page-inline-video"
-    style="width:100%;margin-bottom:24px;"
-  ></mux-player>`;
+    style="width:100%;margin-bottom:0;"
+  ></mux-player>\n  </div>`;
     }
     if (block.type === 'audio' && block.playbackId && String(block.playbackId).trim()) {
       return `  <div class="entry-audio-list" data-playback-id="${escapeHtml(String(block.playbackId).trim())}"></div>`;

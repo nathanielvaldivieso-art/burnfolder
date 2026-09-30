@@ -64,7 +64,10 @@ exports.handler = async function (event) {
       const assetRes = await muxGet('/video/v1/assets/' + encodeURIComponent(upload.asset_id), auth);
       if (assetRes.ok && assetRes.data.data) {
         const asset = assetRes.data.data;
-        out.playbackId = publicPlaybackId(asset);
+        // Mux assigns playback_ids as soon as the asset exists, while it is
+        // still "preparing". Only return the id once ready so the client keeps
+        // polling instead of saving a playback id that 404s in the player.
+        out.playbackId = asset.status === 'ready' ? publicPlaybackId(asset) : null;
         out.assetStatus = asset.status;
         out.passthrough = uploadPassthrough || asset.passthrough || null;
 

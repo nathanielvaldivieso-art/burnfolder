@@ -195,6 +195,9 @@
     }
 
     if (block.type === 'video' && block.playbackId) {
+      const playerWrap = document.createElement('div');
+      playerWrap.className = 'page-inline-video-wrap';
+
       const player = document.createElement('mux-player');
       player.setAttribute('playback-id', block.playbackId);
       player.setAttribute('metadata-video-title', block.title || entry.date);
@@ -202,8 +205,17 @@
       player.setAttribute('noairplay', '');
       player.className = 'page-inline-video';
       player.style.width = '100%';
-      player.style.marginBottom = '24px';
-      wrap.appendChild(player);
+      player.style.marginBottom = '0';
+
+      if (block.title) {
+        const title = document.createElement('span');
+        title.className = 'page-inline-video-title';
+        title.textContent = block.title;
+        playerWrap.appendChild(title);
+      }
+
+      playerWrap.appendChild(player);
+      wrap.appendChild(playerWrap);
     }
   }
 

@@ -1567,6 +1567,50 @@ body.stream-playback-active.studio-song-page .studio-song-hub {
   max-height: min(56vh, 420px);
 }
 
+.stream-video-notice {
+  aspect-ratio: 16 / 9;
+  border: 1px solid #000;
+  background: #111;
+  color: #eee;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  text-align: center;
+  font-family: inherit;
+}
+
+.stream-video-notice-title {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.stream-video-notice-detail {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.85em;
+  max-width: 42ch;
+}
+
+.stream-video-notice-retry {
+  margin-top: 8px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid currentColor;
+  padding: 4px 14px;
+  cursor: pointer;
+}
+
+.stream-video-notice-retry:hover,
+.stream-video-notice-retry:focus-visible {
+  background: #eee;
+  color: #111;
+}
+
 /* video rows — same clean list row as audio, just a subtle ▶ flag */
 
 .studio-stream-video-flag {
@@ -3555,24 +3599,6 @@ body.stream-playback-active.has-stream-stack .stream-stack-dock.has-tracks {
 .studio-preview-bubble .music-tracklist-item.studio-playlist-track-item {
   position: relative;
   cursor: grab;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-}
-
-.studio-preview-bubble .studio-playlist-track-delete {
-  align-self: center;
-  flex-shrink: 0;
-  min-width: 28px;
-  padding: 2px 6px;
-  font-size: 14px;
-  line-height: 1;
-  opacity: 0;
-}
-
-.studio-preview-bubble .music-tracklist-item.studio-playlist-track-item:hover .studio-playlist-track-delete,
-.studio-preview-bubble .music-tracklist-item.studio-playlist-track-item:focus-within .studio-playlist-track-delete,
-.studio-preview-bubble .studio-playlist-track-delete:hover,
-.studio-preview-bubble .studio-playlist-track-delete:focus-visible {
-  opacity: 1;
 }
 
 .studio-preview-bubble .music-tracklist-item.studio-playlist-track-item.is-dragging {

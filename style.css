@@ -965,6 +965,12 @@ p, h1, .song-title, .page-annotation {
   max-width: 360px;
 }
 
+/* Playlist tracks read as one compact release — tighter than loose song rows. */
+.entry-playlist .music-track-row {
+  min-height: 0;
+  padding: 3px 0;
+}
+
 .entry-playlist-cover {
   display: block;
   width: 100%;
@@ -3057,6 +3063,35 @@ h1 { display: none; }
 
 /* ── mux video player ─────────────────────────────────────────────────── */
 
+.page-inline-video-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 468px;
+  margin-bottom: 8px;
+}
+
+.page-inline-video-title {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  overflow: hidden;
+  background: rgba(245, 245, 245, 0.92);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: lowercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .page-wrap mux-player,
 mux-player.page-inline-video {
   --media-accent-color: #c8c8c8;
@@ -3069,7 +3104,7 @@ mux-player.page-inline-video {
   width: 100%;
   max-width: 468px;
   aspect-ratio: 16/9;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   border: 1px solid #000;
 }
 
@@ -3899,59 +3934,39 @@ body:not(.studio-page) .album-hub-link--pending {
 
 /* ── public album hub ── */
 
-.page-wrap.album-page-wrap {
-  max-width: 920px;
-  width: calc(100% - 98px);
-  margin-left: 49px;
+body.page-album .page-wrap.album-page-wrap {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
 }
 
-.album-hub {
-  padding: 12px 0 96px;
-}
-
-.album-hub__site {
-  margin: 0 0 24px;
-  font-family: var(--font-site);
-  font-size: 0.72em;
-  letter-spacing: 0.14em;
-  text-transform: lowercase;
-  opacity: 0.45;
-}
-
-.album-hub__site-name,
-.album-hub__site-sep,
-.album-hub__site-title {
-  display: inline;
-}
-
-.album-hub__site-sep {
-  margin: 0 0.35em;
+body.page-album #albumHubPage.album-hub {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 80px 32px 96px;
 }
 
 .album-hub__chrome {
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 24px;
-  align-items: end;
-  margin-bottom: 36px;
+  display: flex;
+  align-items: flex-end;
+  gap: 36px;
+  margin-left: 28px;
 }
 
 .album-hub__cover {
   width: 180px;
   height: 180px;
-  padding: 0;
-  border: 1px solid #000;
-  border-radius: 0;
-  background: #f5f5f5;
-  color: inherit;
-  font: inherit;
-  cursor: default;
+  flex: 0 0 auto;
+  background: #000;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.28);
   overflow: hidden;
 }
 
 .album-hub__cover.is-empty {
-  border-style: dashed;
-  border-color: rgba(0, 0, 0, 0.35);
+  background: #000;
 }
 
 .album-hub__cover-img {
@@ -3961,93 +3976,58 @@ body:not(.studio-page) .album-hub-link--pending {
   object-fit: cover;
 }
 
-.album-hub__meta {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
 .album-hub__title {
-  margin: 0;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #000;
-  font-size: 1.8em;
-  font-weight: normal;
-  letter-spacing: 0.02em;
+  margin: 0 0 24px;
+  font-size: 22px;
+  font-weight: 400;
   line-height: 1.15;
   text-transform: lowercase;
 }
 
-.album-hub__credits {
-  margin: 8px 0 0;
-  font-family: var(--font-site);
-  font-size: 0.72em;
-  letter-spacing: 0.04em;
-  opacity: 0.6;
-}
-
-.album-hub__actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.album-hub__play {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 0 0 3px;
-  font-size: 1.1em;
-}
-
 .album-hub__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 16px 0 0 70px;
 }
 
 .album-hub__tile {
-  position: relative;
-  aspect-ratio: 1;
-  padding: 0;
+  min-height: 44px;
+  padding: 0 2px;
   border: 0;
   border-radius: 0;
-  background: #f5f5f5;
+  background: transparent;
   color: #000;
   font: inherit;
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.08s ease, background 0.08s ease;
 }
 
-.album-hub__tile:active {
-  transform: scale(0.985);
+.album-hub__tile:nth-child(2) {
+  margin-left: 72px;
 }
 
-.album-hub__tile:focus-visible,
-.album-hub__tile:hover {
-  outline: 2px solid #000;
-  outline-offset: -2px;
+.album-hub__tile:nth-child(3) {
+  margin-left: 146px;
+}
+
+.album-hub__tile:nth-child(4) {
+  margin-left: 214px;
+}
+
+.album-hub__tile:focus-visible .album-hub__tile-title,
+.album-hub__tile:hover .album-hub__tile-title {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .album-hub__tile-title {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 8px 10px;
-  background: rgba(245, 245, 245, 0.92);
   font-size: 11px;
   font-weight: 400;
-  line-height: 1.3;
-  letter-spacing: 0.04em;
+  line-height: 1.2;
   text-transform: lowercase;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .album-hub__panel-mount:empty {
@@ -4119,26 +4099,48 @@ body:not(.studio-page) .album-hub-link--pending {
 }
 
 @media (max-width: 640px) {
-  .page-wrap.album-page-wrap {
-    width: calc(100% - 24px);
-    margin-left: 12px;
+  body.page-album #albumHubPage.album-hub {
+    padding: 72px 20px;
   }
 
   .album-hub__chrome {
-    grid-template-columns: 140px minmax(0, 1fr);
-    gap: 16px;
+    align-items: center;
+    gap: 22px;
+    margin-left: 12px;
   }
 
   .album-hub__cover {
-    width: 140px;
-    height: 140px;
+    width: 44vw;
+    max-width: 180px;
+    height: auto;
+    aspect-ratio: 1;
   }
 
   .album-hub__title {
-    font-size: 1.45em;
+    margin-bottom: 0;
+    font-size: 18px;
   }
 
-  .album-hub__grid,
+  .album-hub__tile-title {
+    font-size: 11px;
+  }
+
+  .album-hub__grid {
+    margin-left: 34px;
+  }
+
+  .album-hub__tile:nth-child(2) {
+    margin-left: 36px;
+  }
+
+  .album-hub__tile:nth-child(3) {
+    margin-left: 72px;
+  }
+
+  .album-hub__tile:nth-child(4) {
+    margin-left: 108px;
+  }
+
   .album-hub__media-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;

@@ -1,2 +1,2 @@
 /** Bump when studio JS/CSS changes — referenced by HTML ?v= and SPA script loader. */
-window.BurnfolderStudioVersion = '20260906play1';
+window.BurnfolderStudioVersion = '20260930pause1';

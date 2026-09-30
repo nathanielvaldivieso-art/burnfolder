@@ -64,7 +64,10 @@ function refreshPlaybackChromeRefs() {
   songTitleEl = document.getElementById('songTitle');
   closeBtn = document.getElementById('closeBtn');
   loadingSpinner = document.getElementById('loadingSpinner');
-  activeMuxPlayer = document.getElementById('activeMuxPlayer');
+  // Prefer the studio shell's player when it exists — a duplicate
+  // #activeMuxPlayer (injected site bar) resolves unpredictably by DOM order.
+  const shellPlayer = document.querySelector('#studioGlobalPlayback #activeMuxPlayer');
+  activeMuxPlayer = shellPlayer || document.getElementById('activeMuxPlayer');
   const live = liveMediaElement();
   if (window.globalMuxPlayer !== live) {
     window.globalMuxPlayer = live;
@@ -1309,6 +1312,7 @@ function renderAlbumHubPage() {
 
   const params = new URLSearchParams(window.location.search);
   const albumId = (params.get('album') || '').trim();
+  if (window.__albumHubEarlyRendered === albumId) return;
   const published = (window.burnfolderAlbumPages || {})[albumId];
 
   const titleEl = hubRoot.querySelector('[data-album-field="title"]');
@@ -2470,7 +2474,49 @@ function syncPlaybackChromeState() {
 
 window.syncPlaybackChromeState = syncPlaybackChromeState;
 
+// When the studio shell engine owns playback, mirror its state changes into the
+// legacy trackers so previews/tracklists stay in sync (site engine's own
+// onStateChange is bypassed in that mode).
+window.addEventListener('burnfolder-stream-playback', (event) => {
+  if (!isStudioPlaybackPage()) return;
+  const detail = (event && event.detail) || {};
+  if (Array.isArray(detail.queue)) {
+    activeQueue = detail.queue.slice();
+    activeQueueIdx = typeof detail.queueIdx === 'number' ? detail.queueIdx : activeQueueIdx;
+  }
+  if (detail.song) {
+    activeSongOverride = detail.song;
+    const idx = (window.currentSongs || []).findIndex(
+      (item) => item.playbackId === detail.song.playbackId
+    );
+    activeIdx = idx >= 0 ? idx : null;
+  }
+  updateUI();
+  syncTracklistPlayback();
+});
+
+// Studio pages run one canonical engine via BurnfolderStudioPlaybackShell —
+// route playback through it so the shell's now-playing bar (pause/close) and
+// spacebar toggle control the same playback session the entry preview starts.
+// A second engine here left the bar toggling a different wantPlaying state,
+// which made started tracks impossible to pause.
+function isStudioPlaybackPage() {
+  return !!(
+    document.body &&
+    document.body.classList.contains('studio-page') &&
+    window.BurnfolderStudioPlaybackShell &&
+    typeof window.BurnfolderStudioPlaybackShell.getEngine === 'function'
+  );
+}
+
 function getSiteMuxPlayback() {
+  if (isStudioPlaybackPage()) {
+    const shellEngine = window.BurnfolderStudioPlaybackShell.getEngine();
+    if (shellEngine) {
+      siteMuxPlayback = shellEngine;
+      return shellEngine;
+    }
+  }
   if (!siteMuxPlayback && window.BurnfolderMuxPlayback) {
     siteMuxPlayback = window.BurnfolderMuxPlayback.create({
       getPlayer: () => liveMediaElement() || activeMuxPlayer,

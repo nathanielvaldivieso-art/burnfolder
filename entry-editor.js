@@ -470,6 +470,7 @@
           title: payload.title || '',
           coverArt: payload.coverArt || '',
           coverAlt: payload.coverAlt || '',
+          coverAssetId: payload.coverAssetId || '',
           tracks: tracks
         })
       );
@@ -1582,23 +1583,6 @@ ${tracks.join(',\n')}
           item.dataset.trackId = track.id;
           item.classList.add('studio-playlist-track-item');
 
-          if (!item.querySelector('.studio-playlist-track-delete')) {
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'icon-btn studio-playlist-track-delete';
-            deleteBtn.textContent = '×';
-            deleteBtn.setAttribute('aria-label', 'Remove track from playlist');
-            deleteBtn.addEventListener('mousedown', function (event) {
-              event.stopPropagation();
-            });
-            deleteBtn.addEventListener('click', function (event) {
-              event.stopPropagation();
-              event.preventDefault();
-              removeBlockTrack(block.id, track.id);
-            });
-            item.appendChild(deleteBtn);
-          }
-
           if (!wirePointerPlaylistTrackReorder(item, block, container)) {
             item.draggable = true;
             item.addEventListener('dragstart', function (event) {
@@ -1942,10 +1926,15 @@ ${tracks.join(',\n')}
       if (flags.hasCover) {
         const cover = document.createElement('img');
         cover.className = 'entry-playlist-cover';
-        cover.src = String(block.coverArt).trim();
         cover.alt =
           (block.coverAlt && String(block.coverAlt).trim()) ||
           (flags.hasTitle ? block.title.trim() : 'cover art');
+        const coverApi = window.BurnfolderCoverArt;
+        if (coverApi && coverApi.applyCoverImage) {
+          coverApi.applyCoverImage(cover, block);
+        } else {
+          cover.src = String(block.coverArt).trim();
+        }
         parent.appendChild(cover);
       }
       if (flags.hasTitle) {
@@ -2912,6 +2901,37 @@ ${tracks.join(',\n')}
             node.classList.add('studio-preview-text-empty');
           }
           updateAll();
+        });
+
+        node.addEventListener('dragover', function (event) {
+          const types = event.dataTransfer && event.dataTransfer.types;
+          if (!types) return;
+          const list = Array.from(types);
+          if (
+            list.indexOf(STUDIO_ALBUM_STACK_MIME) >= 0 ||
+            list.indexOf(STUDIO_ALBUM_TRACK_MIME) >= 0 ||
+            list.indexOf(STUDIO_MUX_PLAYBACK_MIME) >= 0 ||
+            (window.BurnfolderStreamShared &&
+              list.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0)
+          ) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+          }
+        });
+
+        node.addEventListener('drop', function (event) {
+          const types = event.dataTransfer && event.dataTransfer.types;
+          if (!types) return;
+          const list = Array.from(types);
+          if (
+            list.indexOf(STUDIO_ALBUM_STACK_MIME) >= 0 ||
+            list.indexOf(STUDIO_ALBUM_TRACK_MIME) >= 0 ||
+            list.indexOf(STUDIO_MUX_PLAYBACK_MIME) >= 0 ||
+            (window.BurnfolderStreamShared &&
+              list.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0)
+          ) {
+            event.preventDefault();
+          }
         });
       });
     }

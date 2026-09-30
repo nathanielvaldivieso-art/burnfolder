@@ -109,6 +109,7 @@
           title: meta.title || '',
           coverArt: meta.coverArt || '',
           coverAlt: meta.coverAlt || '',
+          coverAssetId: meta.coverAssetId || '',
           tracks: tracks.map(function (track) {
             return {
               title: track.title || '',
@@ -121,6 +122,7 @@
           title: meta.title || '',
           coverArt: meta.coverArt || '',
           coverAlt: meta.coverAlt || '',
+          coverAssetId: meta.coverAssetId || '',
           tracks: tracks.map(function (track) {
             return {
               title: track.title || '',
@@ -480,6 +482,7 @@
             title: payload.title || '',
             coverArt: payload.coverArt || '',
             coverAlt: payload.coverAlt || '',
+            coverAssetId: payload.coverAssetId || '',
             tracks: payload.tracks.map(function (track) {
               return {
                 title: track.title || '',
@@ -492,6 +495,7 @@
             title: payload.title || '',
             coverArt: payload.coverArt || '',
             coverAlt: payload.coverAlt || '',
+            coverAssetId: payload.coverAssetId || '',
             tracks: payload.tracks.map(function (track) {
               return {
                 title: track.title || '',
@@ -578,14 +582,21 @@
     const types = event.dataTransfer && event.dataTransfer.types;
     if (!types) return false;
     const typeList = Array.from(types);
-    return (
+    if (
       typeList.indexOf('Files') >= 0 ||
       typeList.indexOf(MUX_PLAYBACK_MIME) >= 0 ||
       typeList.indexOf(STACK_ALBUM_MIME) >= 0 ||
       typeList.indexOf(ALBUM_TRACK_MIME) >= 0 ||
       (window.BurnfolderStreamShared &&
         typeList.indexOf(window.BurnfolderStreamShared.MUX_MIME) >= 0)
-    );
+    ) {
+      return true;
+    }
+    if (typeList.indexOf('text/plain') >= 0) {
+      const text = event.dataTransfer.getData('text/plain') || '';
+      if (findStackGroupIdByTitle(text)) return true;
+    }
+    return false;
   }
 
   function insertUploadedFiles(fileList) {
@@ -634,6 +645,21 @@
     runUpload();
   }
 
+  function findStackGroupIdByTitle(title) {
+    const shared = window.BurnfolderStreamShared;
+    if (!shared || !title) return '';
+    const groups = shared.loadGroups ? shared.loadGroups() : [];
+    const needle = String(title).trim().toLowerCase();
+    for (let i = 0; i < groups.length; i += 1) {
+      const group = groups[i];
+      if (!group || !group.id) continue;
+      const meta = shared.loadStackMeta ? shared.loadStackMeta(group.id) : group.meta;
+      const groupTitle = (meta && meta.title) || (group.meta && group.meta.title) || '';
+      if (String(groupTitle).trim().toLowerCase() === needle) return group.id;
+    }
+    return '';
+  }
+
   function mountPreviewDrop() {
     const preview = document.getElementById('entryPreview');
     if (!preview || preview.dataset.previewDropBound === '1') return;
@@ -662,7 +688,7 @@
         return;
       }
 
-      const stackDrop = event.dataTransfer.getData(STACK_ALBUM_MIME);
+      let stackDrop = event.dataTransfer.getData(STACK_ALBUM_MIME);
       const albumTrackId = event.dataTransfer.getData(ALBUM_TRACK_MIME);
       const playbackId =
         event.dataTransfer.getData(MUX_PLAYBACK_MIME) ||
@@ -670,7 +696,17 @@
           ? event.dataTransfer.getData(window.BurnfolderStreamShared.MUX_MIME)
           : '') ||
         albumTrackId;
-      if (!stackDrop && !playbackId) return;
+
+      if (!stackDrop && !playbackId && typeList.indexOf('text/plain') >= 0) {
+        const textLabel = event.dataTransfer.getData('text/plain') || '';
+        const groupId = findStackGroupIdByTitle(textLabel);
+        if (groupId) stackDrop = groupId;
+      }
+
+      if (!stackDrop && !playbackId) {
+        preview.classList.remove('is-drop-target');
+        return;
+      }
 
       event.preventDefault();
       preview.classList.remove('is-drop-target');

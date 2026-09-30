@@ -176,52 +176,21 @@
     rootEl.innerHTML = '';
     rootEl.className = 'album-hub';
 
-    const header = createElement('header', 'album-hub__site');
-    header.innerHTML =
-      '<span class="album-hub__site-name">burnfolder</span>' +
-      '<span class="album-hub__site-sep" aria-hidden="true">—</span>' +
-      '<span class="album-hub__site-title">' + escapeHtml(title) + '</span>';
-    rootEl.appendChild(header);
-
     const chrome = createElement('div', 'album-hub__chrome');
 
-    const cover = createElement('button', 'album-hub__cover' + (coverArt ? '' : ' is-empty'));
-    cover.type = 'button';
-    cover.setAttribute('aria-label', title + ' cover');
+    const cover = createElement('div', 'album-hub__cover' + (coverArt ? '' : ' is-empty'));
     if (coverArt) {
       const img = createElement('img', 'album-hub__cover-img');
       img.src = coverArt;
-      img.alt = title + ' cover';
+      img.alt = title;
       cover.appendChild(img);
-    } else {
-      cover.textContent = 'cover';
     }
     chrome.appendChild(cover);
 
-    const meta = createElement('div', 'album-hub__meta');
-    const titleEl = createElement('h1', 'album-hub__title', title);
-    meta.appendChild(titleEl);
-
-    if (albumPage.credits) {
-      meta.appendChild(createElement('p', 'album-hub__credits', albumPage.credits));
-    }
-
-    const actions = createElement('div', 'album-hub__actions');
-    const playBtn = createElement('button', 'icon-btn album-hub__play', '▶');
-    playBtn.type = 'button';
-    playBtn.setAttribute('aria-label', 'Play ' + title);
-    playBtn.addEventListener('click', function () {
-      if (typeof root.playTrack === 'function') {
-        root.playTrack(0);
-      } else if (typeof root.playTrackQueue === 'function') {
-        root.playTrackQueue(tracks, 0);
-      } else if (typeof root.playTrackBySong === 'function' && tracks[0]) {
-        root.playTrackBySong(tracks[0]);
-      }
-    });
-    actions.appendChild(playBtn);
-    meta.appendChild(actions);
-    chrome.appendChild(meta);
+    const titleEl = createElement('div', 'album-hub__title', title);
+    titleEl.setAttribute('role', 'heading');
+    titleEl.setAttribute('aria-level', '1');
+    chrome.appendChild(titleEl);
     rootEl.appendChild(chrome);
 
     const grid = createElement('div', 'album-hub__grid');
@@ -236,7 +205,14 @@
       tile.setAttribute('role', 'listitem');
       tile.setAttribute('aria-label', row.title);
 
-      const tileTitle = createElement('span', 'album-hub__tile-title', row.title);
+      const trackLabel = (row.item.groupKey || row.title)
+        .replace(/\s+\d{1,2}\.\d{1,2}\.\d{2,4}\s*$/, '')
+        .toLowerCase();
+      const tileTitle = createElement(
+        'span',
+        'album-hub__tile-title',
+        trackLabel.replace(/\s+/g, '') === title.toLowerCase().replace(/\s+/g, '') ? title : trackLabel
+      );
       tile.appendChild(tileTitle);
 
       tile.addEventListener('click', function () {

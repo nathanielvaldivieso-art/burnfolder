@@ -2,7 +2,7 @@
 window.burnfolderAlbumPages = {
   "photonegative": {
     "title": "photonegative",
-    "coverArt": "IMAGES/PHOTONEGATIVE-COVER.jpg",
+    "coverArt": "IMAGES/TORNADO.jpeg",
     "notes": "",
     "credits": "burnfolder — writing, production, performance, design",
     "links": [],

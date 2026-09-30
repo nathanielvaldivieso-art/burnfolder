@@ -428,6 +428,106 @@
     return player;
   }
 
+  // A Mux playback id exists as soon as the asset is created, but playback
+  // (and thumbnails) 404 until the asset finishes preparing. Probe the public
+  // thumbnail with an Image — plain fetch is blocked by CORS on image.mux.com.
+  function probeMuxReady(playbackId) {
+    return new Promise(function (resolve) {
+      if (!playbackId) {
+        resolve(false);
+        return;
+      }
+      const img = new Image();
+      img.onload = function () {
+        resolve(true);
+      };
+      img.onerror = function () {
+        resolve(false);
+      };
+      img.src =
+        'https://image.mux.com/' +
+        encodeURIComponent(playbackId) +
+        '/thumbnail.webp?time=1&width=64';
+    });
+  }
+
+  function showStreamVideoNotice(mountEl, title, detail, onRetry) {
+    let notice = mountEl.querySelector('.stream-video-notice');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.className = 'stream-video-notice';
+      mountEl.appendChild(notice);
+    }
+    notice.innerHTML = '';
+    const heading = document.createElement('p');
+    heading.className = 'stream-video-notice-title';
+    heading.textContent = title;
+    notice.appendChild(heading);
+    if (detail) {
+      const p = document.createElement('p');
+      p.className = 'stream-video-notice-detail';
+      p.textContent = detail;
+      notice.appendChild(p);
+    }
+    if (onRetry) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'stream-video-notice-retry';
+      btn.textContent = 'retry now';
+      btn.addEventListener('click', onRetry);
+      notice.appendChild(btn);
+    }
+  }
+
+  function remountStreamVideo(item, mountEl, options) {
+    streamVideoEl = null;
+    streamVideoPlaybackId = null;
+    mountEl.innerHTML = '';
+    mountStreamVideo(item, mountEl, options);
+  }
+
+  // When the mux-player hits a fatal error on a freshly uploaded asset it is
+  // almost always "asset still preparing" — swap the cryptic Mux dialog for a
+  // plain-language notice and auto-retry until the asset is ready.
+  function handleStreamVideoError(item, mountEl, options, player) {
+    if (!mountEl || streamVideoEl !== player) return;
+    player.style.visibility = 'hidden';
+    const label = muxFileLabel(item);
+    let tries = 0;
+
+    showStreamVideoNotice(
+      mountEl,
+      'video still processing',
+      '"' + label + '" was just uploaded — mux is finishing it. retrying automatically…'
+    );
+
+    function attempt() {
+      if (streamVideoEl !== player || !mountEl.isConnected) return;
+      tries += 1;
+      probeMuxReady(item.playbackId).then(function (ready) {
+        if (streamVideoEl !== player || !mountEl.isConnected) return;
+        if (ready) {
+          remountStreamVideo(item, mountEl, options);
+          return;
+        }
+        if (tries >= 24) {
+          showStreamVideoNotice(
+            mountEl,
+            'video still processing',
+            '"' + label + '" is taking longer than usual — try again in a moment.',
+            function () {
+              remountStreamVideo(item, mountEl, options);
+            }
+          );
+          return;
+        }
+        window.setTimeout(attempt, 5000);
+      });
+    }
+
+    window.setTimeout(attempt, 4000);
+  }
+
   function playStreamVideo(player) {
     if (!player || typeof player.play !== 'function') return;
     const start = function () {
@@ -471,6 +571,9 @@
     clearStreamVideo(mountEl);
     streamVideoEl = createMuxVideoPlayer(item);
     streamVideoPlaybackId = item.playbackId;
+    streamVideoEl.addEventListener('error', function () {
+      handleStreamVideoError(item, mountEl, options, streamVideoEl);
+    });
     mountEl.appendChild(streamVideoEl);
     mountEl.hidden = false;
     if (wrap) wrap.hidden = false;
@@ -887,6 +990,7 @@
       title: m.title || '',
       coverArt: m.coverArt || '',
       coverAlt: m.coverAlt || '',
+      coverAssetId: m.coverAssetId || '',
       tracks: stack.map(function (t) {
         return { title: t.title, playbackId: t.playbackId };
       })
