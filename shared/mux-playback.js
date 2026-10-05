@@ -312,6 +312,13 @@
                     name: err && err.name,
                     message: err && err.message
                   });
+                  if (err && err.name === 'NotAllowedError') {
+                    wantPlaying = false;
+                    notify({ playing: false });
+                  }
+                  if (typeof opts.onPlayBlocked === 'function') {
+                    opts.onPlayBlocked(player, activeSong);
+                  }
                 }
               );
             }
@@ -332,6 +339,10 @@
               name: err && err.name,
               message: err && err.message
             });
+            if (err && err.name === 'NotAllowedError') {
+              wantPlaying = false;
+              notify({ playing: false });
+            }
             if (typeof opts.onPlayBlocked === 'function') {
               opts.onPlayBlocked(player, activeSong);
             }

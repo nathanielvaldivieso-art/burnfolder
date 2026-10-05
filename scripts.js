@@ -2518,12 +2518,24 @@ function getSiteMuxPlayback() {
     }
   }
   if (!siteMuxPlayback && window.BurnfolderMuxPlayback) {
-    siteMuxPlayback = window.BurnfolderMuxPlayback.create({
+    const engine = window.BurnfolderMuxPlayback.create({
       getPlayer: () => liveMediaElement() || activeMuxPlayer,
       recall: true,
       restoreRecall: true,
       artist: 'burnfolder',
       album: 'burnfolder.com',
+      onPlayBlocked: (player, song) => {
+        if (engine && typeof engine.togglePlayPause === 'function') {
+          engine.togglePlayPause(false);
+        }
+        updateUI();
+        if (window.BurnfolderPlaybackDebug) {
+          window.BurnfolderPlaybackDebug.log('ui:play-blocked', {
+            id: song && song.playbackId,
+            paused: player && player.paused
+          });
+        }
+      },
       onStateChange: (detail) => {
         if (Array.isArray(detail.queue)) {
           activeQueue = detail.queue.slice();
@@ -2544,6 +2556,7 @@ function getSiteMuxPlayback() {
         if (bottomPlayBtn) focusPlayControl();
       }
     });
+    siteMuxPlayback = engine;
   }
   return siteMuxPlayback;
 }
