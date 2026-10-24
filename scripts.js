@@ -419,7 +419,7 @@ function resolveSongFromCatalog(playbackId, title) {
   return { title: title || 'Track', playbackId, page: '' };
 }
 
-/** Music page album slots: key version when set, else newest catalog version per song name. */
+/** Music page album slots: newest catalog version per song name (by date). */
 function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate, albumCoverArt) {
   if (!track || !track.playbackId) return null;
 
@@ -442,8 +442,8 @@ function resolveNewestVersionForAlbumSlot(track, albumTitle, entryDate, albumCov
 
   const sv = songVersionsApi();
   const preferred =
-    sv && sv.pickPreferredSong
-      ? sv.pickPreferredSong(candidates, groupKey)
+    sv && sv.pickNewestSong
+      ? sv.pickNewestSong(candidates)
       : [...candidates].sort((a, b) => compareSongsBySortMode(a, b, 'newest'))[0];
   return {
     ...preferred,
