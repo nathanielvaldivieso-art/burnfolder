@@ -559,8 +559,18 @@
     ready = false;
 
     fetchPublicConfig().then(function (config) {
-      authMode = config.authMode === 'supabase' ? 'supabase' : 'legacy';
+      authMode =
+        config.authMode === 'supabase' || config.authMode === 'open'
+          ? config.authMode
+          : 'legacy';
       supabaseConfig = config;
+
+      if (authMode === 'open') {
+        // Supabase is unreachable — run studio without sign-in for now.
+        session = null;
+        markReady();
+        return;
+      }
 
       if (config.devBypass === true) {
         authMode = 'legacy';
@@ -632,7 +642,7 @@
       return session;
     },
     getRole: function () {
-      return (session && session.role) || (authMode === 'legacy' ? 'owner' : 'guest');
+      return (session && session.role) || (authMode !== 'supabase' ? 'owner' : 'guest');
     },
     canPublish: function () {
       return window.BurnfolderStudioAuth.getRole() === 'owner';
@@ -641,7 +651,7 @@
       return session && session.accessMode === 'music-project';
     },
     canWriteMusic: function () {
-      if (!session) return authMode === 'legacy';
+      if (!session) return authMode !== 'supabase';
       if (session.accessMode === 'owner' || session.role === 'owner') return true;
       return session.role === 'music-collaborator';
     },

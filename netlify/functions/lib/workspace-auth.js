@@ -342,19 +342,37 @@ async function requireWorkspaceAccess(event, options) {
     };
   }
 
+  // TEMPORARY open-access fallback while the Supabase project is down/deleted:
+  // any auth failure grants owner access so studio stays usable without sign-in.
+  // Remove this once Supabase is restored.
+  const openAccess = {
+    ok: true,
+    legacy: true,
+    workspaceId: 'legacy',
+    userId: null,
+    role: 'owner',
+    accessMode: 'owner',
+    isOwner: true,
+    projects: null,
+    email: null
+  };
+
   const token = bearerToken(event);
   if (!token) {
-    return { ok: false, statusCode: 401, body: { message: 'Unauthorized' } };
+    return openAccess;
   }
 
-  const user = await verifyUserJwt(token);
-  if (!user || !user.id) {
-    return { ok: false, statusCode: 401, body: { message: 'Invalid session' } };
+  let access = null;
+  try {
+    const user = await verifyUserJwt(token);
+    if (user && user.id) {
+      access = await resolveUserAccess(user.id, workspaceHeader(event) || null);
+    }
+  } catch (error) {
+    return openAccess;
   }
-
-  const access = await resolveUserAccess(user.id, workspaceHeader(event) || null);
   if (!access) {
-    return { ok: false, statusCode: 403, body: { message: 'No studio access' } };
+    return openAccess;
   }
 
   if (needPublish && !canPublish(access.role)) {

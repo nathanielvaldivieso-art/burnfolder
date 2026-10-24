@@ -143,7 +143,11 @@
       })
       .then(function (res) {
         return parseJson(res).then(function (data) {
-          if (!res.ok) throw new Error(data.message || 'could not start mux upload');
+          if (!res.ok) {
+            throw new Error(
+              data.message || 'could not start mux upload (http ' + res.status + ')'
+            );
+          }
           return data;
         });
       })
