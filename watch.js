@@ -9,7 +9,6 @@
   var titleEl = document.getElementById('watchTitle');
   var subtitleEl = document.getElementById('watchSubtitle');
   var stageEl = document.getElementById('watchStage');
-  var downloadBtn = document.getElementById('watchDownloadBtn');
   var tracklistEl = document.getElementById('watchTracklist');
 
   var api = window.BurnfolderShareLinks;
@@ -42,19 +41,6 @@
     });
     stageEl.appendChild(playerEl);
     return playerEl;
-  }
-
-  function updateDownloadBtn(track) {
-    if (!downloadBtn) return;
-    if (!track || !track.downloadUrl) {
-      downloadBtn.hidden = true;
-      return;
-    }
-    downloadBtn.hidden = false;
-    downloadBtn.href = track.downloadUrl;
-    // No download attribute: the server names the file so its extension always
-    // matches the rendition it actually serves.
-    downloadBtn.removeAttribute('download');
   }
 
   function syncTracklist() {
@@ -90,7 +76,6 @@
     if (track.posterUrl) player.setAttribute('poster', track.posterUrl);
     else player.removeAttribute('poster');
     player.setAttribute('playback-id', track.playbackId);
-    updateDownloadBtn(track);
     syncTracklist();
     if (options.autoplay) playActivePlayer(player);
   }
@@ -126,13 +111,6 @@
     });
   }
 
-  function bindDownloadTracking() {
-    if (!downloadBtn) return;
-    downloadBtn.addEventListener('click', function () {
-      if (token && api) api.trackPlay(token, 'download');
-    });
-  }
-
   function boot(share) {
     tracks = (share.tracks || []).filter(function (t) {
       return t && t.playbackId;
@@ -162,7 +140,6 @@
     }
 
     renderTracklist();
-    bindDownloadTracking();
     loadTrack(0, { autoplay: false });
     if (mainEl) mainEl.hidden = false;
     setState('');

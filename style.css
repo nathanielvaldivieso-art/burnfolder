@@ -3497,21 +3497,6 @@ mux-player.watch-video {
   margin: 0;
 }
 
-.watch-actions {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-start;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.watch-download-btn {
-  text-decoration: none;
-  min-height: 44px;
-  min-width: 44px;
-  touch-action: manipulation;
-}
-
 .watch-tracklist {
   margin-top: 32px;
   text-align: left;
