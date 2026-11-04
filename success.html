@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Success - burnfolder.com</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261104hours1">
   <script src="shared/site-menu.js?v=20261104about1" defer></script>
 </head>
 <body>
@@ -53,7 +53,20 @@
       };
     }
 
-    if (isTip) {
+    if (params.get('type') === 'offer') {
+      if (params.get('session_id')) {
+        fetch('/.netlify/functions/notify-offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: params.get('session_id') })
+        }).catch(function () {});
+      }
+      document.getElementById('successTitle').textContent = 'sent';
+      document.getElementById('successMessage').textContent = '';
+      document.getElementById('successThanks').textContent = '';
+      document.getElementById('successLink').setAttribute('href', 'shop.html');
+      document.getElementById('successLink').textContent = 'Back to Shop';
+    } else if (isTip) {
       document.getElementById('successTitle').textContent = 'Tip Confirmed';
       document.getElementById('successMessage').textContent = 'payment successful. thank you for supporting burnfolder.';
       document.getElementById('successThanks').textContent = 'your support keeps this work moving.';

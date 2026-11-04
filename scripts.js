@@ -97,6 +97,43 @@ let checkoutPaymentRequestButton = null;
 let checkoutMode = 'cart';
 let checkoutTipAmount = 1;
 let checkoutDigitalProduct = null;
+let checkoutBookingOffer = null;
+
+const BOOKING_MIN_OFFER = 0.5;
+const BOOKING_MAX_OFFER = 999999.99;
+
+function parseBookingOffer(rawValue) {
+  const amount = Math.round(Number(String(rawValue == null ? '' : rawValue).replace(/[^0-9.]/g, '')) * 100) / 100;
+  if (!Number.isFinite(amount) || amount < BOOKING_MIN_OFFER || amount > BOOKING_MAX_OFFER) return null;
+  return amount;
+}
+
+function getBookingDetails(fallback) {
+  fallback = fallback || {};
+  const offer = checkoutBookingOffer || {};
+  const form = document.getElementById('purchaseForm');
+  const field = (name) => (form && form.elements[name] ? String(form.elements[name].value || '').trim() : '');
+  return {
+    amount: checkoutTipAmount,
+    pitch: offer.pitch || '',
+    links: offer.links || '',
+    name: field('booking_name') || fallback.name || '',
+    email: field('booking_email') || fallback.email || ''
+  };
+}
+
+function bookingSuccessUrl(amount) {
+  return 'success.html?type=offer&amount=' + encodeURIComponent(String(amount || ''));
+}
+
+function notifyOffer(paymentIntent) {
+  if (!paymentIntent || !paymentIntent.id) return Promise.resolve();
+  return fetch('/.netlify/functions/notify-offer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paymentIntentId: paymentIntent.id })
+  }).catch(() => {});
+}
 
 function getDigitalProductBounds(product) {
   const minAmount = Math.max(1, Number(product && product.minAmount) || 1);
@@ -1481,7 +1518,7 @@ function createCheckoutPopup() {
       <div class="checkout-popup-body">
         <div id="purchaseSummary" class="checkout-summary"></div>
         <form id="purchaseForm" class="checkout-form minimal-checkout" autocomplete="on">
-          <div id="purchaseShippingFields">
+          <fieldset id="purchaseShippingFields" class="checkout-fieldset">
             <label class="checkout-label">Name
               <input class="checkout-input" type="text" name="name" required>
             </label>
@@ -1505,7 +1542,15 @@ function createCheckoutPopup() {
             <label class="checkout-label">ZIP
               <input class="checkout-input" type="text" name="zip" required maxlength="10" placeholder="10001">
             </label>
-          </div>
+          </fieldset>
+          <fieldset id="purchaseBookingFields" class="checkout-fieldset" style="display:none;" disabled>
+            <label class="checkout-label">Name
+              <input class="checkout-input" type="text" name="booking_name" autocomplete="name" required>
+            </label>
+            <label class="checkout-label">Email
+              <input class="checkout-input" type="email" name="booking_email" autocomplete="email" required>
+            </label>
+          </fieldset>
           <div id="purchaseWalletWrap" class="checkout-wallet-wrap" style="display:none;">
             <div id="purchaseApplePayElement" class="checkout-wallet-button"></div>
             <div class="checkout-wallet-divider">or pay with card</div>
@@ -1603,6 +1648,15 @@ function renderCheckoutSummary() {
 
   if (!summary || !shippingFields) return;
 
+  // Disabled fieldsets skip HTML validation, so hidden required inputs don't block submit.
+  const bookingFields = document.getElementById('purchaseBookingFields');
+  shippingFields.disabled = checkoutMode !== 'cart';
+  if (bookingFields) {
+    const wantsContact = checkoutMode === 'booking' || checkoutMode === 'pitch';
+    bookingFields.disabled = !wantsContact;
+    bookingFields.style.display = wantsContact ? 'flex' : 'none';
+  }
+
   if (checkoutMode === 'tip') {
     summary.innerHTML = `
       <p class="checkout-popup-title">Support Burnfolder</p>
@@ -1615,6 +1669,14 @@ function renderCheckoutSummary() {
       <p class="checkout-popup-title">${title}</p>
       <p class="checkout-popup-line">Amount: $${formatTipAmount(checkoutTipAmount)}</p>
     `;
+    shippingFields.style.display = 'none';
+  } else if (checkoutMode === 'booking') {
+    summary.innerHTML = `
+      <p class="checkout-popup-line">card held, only charged if i accept.</p>
+    `;
+    shippingFields.style.display = 'none';
+  } else if (checkoutMode === 'pitch') {
+    summary.innerHTML = '';
     shippingFields.style.display = 'none';
   } else {
     const cart = getCartItems();
@@ -1660,8 +1722,8 @@ function renderCheckoutSummary() {
 }
 
 function getCheckoutAmountCents() {
-  if (checkoutMode === 'tip' || checkoutMode === 'digital') {
-    return Math.max(0, Number(checkoutTipAmount) * 100);
+  if (checkoutMode === 'tip' || checkoutMode === 'digital' || checkoutMode === 'booking') {
+    return Math.max(0, Math.round(Number(checkoutTipAmount) * 100));
   }
 
   const cart = getCartItems();
@@ -1728,6 +1790,9 @@ async function startHostedWalletCheckout() {
         minAmount: bounds.minAmount,
         maxAmount: bounds.maxAmount
       };
+    } else if (checkoutMode === 'booking') {
+      endpoint = '/.netlify/functions/create-booking-checkout-session';
+      payload = getBookingDetails();
     } else {
       const cart = getCartItems();
       if (cart.length === 0) throw new Error('Your cart is empty.');
@@ -1810,7 +1875,9 @@ async function mountCheckoutWalletButton() {
       ? 'Burnfolder Tip'
       : checkoutMode === 'digital'
         ? (checkoutDigitalProduct && checkoutDigitalProduct.title) || 'Digital album'
-        : 'Burnfolder Order';
+        : checkoutMode === 'booking'
+          ? 'hours of my time (offer)'
+          : 'Burnfolder Order';
 
   checkoutPaymentRequest = stripeClient.paymentRequest({
     country: 'US',
@@ -1911,6 +1978,24 @@ async function mountCheckoutWalletButton() {
           payment_method: ev.paymentMethod.id,
           receipt_email: ev.payerEmail || undefined
         };
+      } else if (checkoutMode === 'booking') {
+        const booking = getBookingDetails({ name: ev.payerName, email: ev.payerEmail });
+        const res = await fetch('/.netlify/functions/create-booking-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(booking)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.clientSecret) {
+          ev.complete('fail');
+          throw new Error(data.error || 'Could not create booking payment intent.');
+        }
+
+        clientSecret = data.clientSecret;
+        confirmOpts = {
+          payment_method: ev.paymentMethod.id,
+          receipt_email: booking.email || undefined
+        };
       } else {
         const cart = getCartItems();
         if (cart.length === 0) {
@@ -1970,6 +2055,12 @@ async function mountCheckoutWalletButton() {
         setTimeout(() => {
           closeCheckoutPopup();
         }, 1200);
+      } else if (checkoutMode === 'booking') {
+        if (status) status.textContent = 'sent.';
+        await notifyOffer(initial.paymentIntent);
+        setTimeout(() => {
+          window.location.href = bookingSuccessUrl(checkoutTipAmount);
+        }, 700);
       } else if (checkoutMode === 'digital') {
         rememberDigitalPurchase(checkoutDigitalProduct);
         if (status) status.textContent = 'Payment successful. Preparing download…';
@@ -2024,6 +2115,7 @@ async function openCheckoutPopup(mode, amount, product) {
   checkoutMode = mode;
   checkoutTipAmount = amount || 1;
   checkoutDigitalProduct = mode === 'digital' ? product || null : null;
+  checkoutBookingOffer = mode === 'booking' || mode === 'pitch' ? product || null : null;
 
   const overlay = document.getElementById('purchaseOverlay');
   const title = document.getElementById('purchaseTitle');
@@ -2039,17 +2131,30 @@ async function openCheckoutPopup(mode, amount, product) {
   } else if (mode === 'digital') {
     title.textContent = (checkoutDigitalProduct && checkoutDigitalProduct.title) || 'Digital album';
     payBtn.textContent = `Pay $${formatTipAmount(checkoutTipAmount)}`;
+  } else if (mode === 'booking') {
+    title.textContent = 'hours of my time';
+    payBtn.textContent = `$${formatTipAmount(checkoutTipAmount)}`;
+  } else if (mode === 'pitch') {
+    title.textContent = 'hours of my time';
+    payBtn.textContent = '\u2192';
   } else {
     title.textContent = 'Checkout';
     payBtn.textContent = 'Pay';
   }
   status.textContent = '';
   errors.textContent = '';
+  payBtn.disabled = false;
+
+  const cardEl = document.getElementById('purchaseCardElement');
+  if (cardEl) cardEl.style.display = mode === 'pitch' ? 'none' : '';
 
   renderCheckoutSummary();
 
   overlay.classList.add('open');
   document.body.classList.add('checkout-open');
+
+  // No money offered: nothing to authorize, so skip card and wallet setup.
+  if (mode === 'pitch') return;
 
   try {
     await ensureCheckoutCardMounted();
@@ -2068,6 +2173,23 @@ function openDigitalCheckout(product, amount) {
 
 window.openDigitalCheckout = openDigitalCheckout;
 
+function openBookingCheckout(offer) {
+  offer = offer || {};
+  const pitch = String(offer.pitch || '').trim();
+  if (!pitch) return false;
+  const details = { pitch, links: String(offer.links || '').trim() };
+  if (String(offer.amount == null ? '' : offer.amount).trim() === '') {
+    openCheckoutPopup('pitch', 0, details);
+    return true;
+  }
+  const amount = parseBookingOffer(offer.amount);
+  if (!amount) return false;
+  openCheckoutPopup('booking', amount, details);
+  return true;
+}
+
+window.openBookingCheckout = openBookingCheckout;
+
 function closeCheckoutPopup() {
   const overlay = document.getElementById('purchaseOverlay');
   if (!overlay) return;
@@ -2085,6 +2207,30 @@ async function handlePopupCheckoutSubmit(e) {
   const status = document.getElementById('purchaseStatus');
   const errors = document.getElementById('purchaseCardErrors');
   const payBtn = document.getElementById('purchasePayBtn');
+
+  if (checkoutMode === 'pitch') {
+    if (!status || !payBtn) return;
+    payBtn.disabled = true;
+    status.textContent = '';
+    try {
+      const { amount, ...details } = getBookingDetails();
+      const res = await fetch('/.netlify/functions/send-pitch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(details)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send.');
+      status.textContent = 'sent.';
+      setTimeout(() => {
+        window.location.href = bookingSuccessUrl('');
+      }, 1200);
+    } catch (err) {
+      status.textContent = err.message || 'Could not send.';
+      payBtn.disabled = false;
+    }
+    return;
+  }
 
   if (!status || !errors || !payBtn || !checkoutCard) return;
 
@@ -2132,6 +2278,26 @@ async function handlePopupCheckoutSubmit(e) {
 
       clientSecret = data.clientSecret;
       confirmOpts = { payment_method: { card: checkoutCard } };
+    } else if (checkoutMode === 'booking') {
+      const booking = getBookingDetails();
+      const res = await fetch('/.netlify/functions/create-booking-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(booking)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.clientSecret) {
+        throw new Error(data.error || 'Could not create booking payment intent.');
+      }
+
+      clientSecret = data.clientSecret;
+      confirmOpts = {
+        payment_method: {
+          card: checkoutCard,
+          billing_details: { name: booking.name, email: booking.email }
+        },
+        receipt_email: booking.email || undefined
+      };
     } else {
       const cart = getCartItems();
       if (cart.length === 0) throw new Error('Your cart is empty.');
@@ -2194,6 +2360,12 @@ async function handlePopupCheckoutSubmit(e) {
       setTimeout(() => {
         closeCheckoutPopup();
       }, 1200);
+    } else if (checkoutMode === 'booking') {
+      status.textContent = 'sent.';
+      await notifyOffer(result.paymentIntent);
+      setTimeout(() => {
+        window.location.href = bookingSuccessUrl(checkoutTipAmount);
+      }, 700);
     } else if (checkoutMode === 'digital') {
       rememberDigitalPurchase(checkoutDigitalProduct);
       status.textContent = 'Payment successful. Preparing download…';

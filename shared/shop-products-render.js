@@ -101,6 +101,112 @@
     return article;
   }
 
+  var MIN_OFFER = 0.5;
+  var MAX_OFFER = 999999.99;
+
+  function labeled(text, control) {
+    var label = document.createElement('label');
+    label.className = 'checkout-label';
+    label.appendChild(document.createTextNode(text));
+    label.appendChild(control);
+    return label;
+  }
+
+  function renderHoursCard(opts) {
+    opts = opts || {};
+    var onBook = typeof opts.onBook === 'function' ? opts.onBook : function () {};
+    var article = document.createElement('div');
+    article.className = 'shop-board-item shop-hours';
+    article.dataset.productId = 'hours';
+
+    var tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'shop-hours-block';
+    tile.setAttribute('aria-expanded', 'false');
+    var tileTitle = document.createElement('span');
+    tileTitle.className = 'shop-hours-block-title';
+    tileTitle.textContent = 'hours of my time';
+    tile.appendChild(tileTitle);
+    article.appendChild(tile);
+
+    var panel = document.createElement('form');
+    panel.className = 'shop-hours-panel';
+    panel.id = 'shopHoursPanel';
+    panel.hidden = true;
+    panel.noValidate = true;
+    tile.setAttribute('aria-controls', panel.id);
+    tile.addEventListener('click', function () {
+      panel.hidden = !panel.hidden;
+      tile.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+      article.classList.toggle('is-open', !panel.hidden);
+    });
+
+    var pitch = document.createElement('textarea');
+    pitch.className = 'checkout-input';
+    pitch.name = 'pitch';
+    pitch.rows = 5;
+    pitch.maxLength = 1500;
+    panel.appendChild(labeled('pitch', pitch));
+
+    var links = document.createElement('textarea');
+    links.className = 'checkout-input';
+    links.name = 'links';
+    links.rows = 3;
+    links.maxLength = 1000;
+    panel.appendChild(labeled('links', links));
+
+    var offer = document.createElement('input');
+    offer.className = 'checkout-input';
+    offer.type = 'number';
+    offer.name = 'offer';
+    offer.min = String(MIN_OFFER);
+    offer.step = '0.01';
+    offer.inputMode = 'decimal';
+    offer.placeholder = '$ (if applicable)';
+    offer.setAttribute('aria-label', 'offer');
+    panel.appendChild(offer);
+
+    var submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.className = 'icon-btn shop-amount-btn';
+    submit.setAttribute('aria-label', 'send');
+    submit.textContent = '\u2192';
+    panel.appendChild(submit);
+
+    function flag(field) {
+      field.setAttribute('aria-invalid', 'true');
+      field.focus();
+    }
+
+    panel.addEventListener('input', function (e) {
+      e.target.removeAttribute('aria-invalid');
+    });
+
+    panel.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var raw = String(offer.value || '').trim();
+      var amount = raw === '' ? null : Number(raw);
+      if (!pitch.value.trim()) {
+        flag(pitch);
+        return;
+      }
+      if (amount !== null && (!Number.isFinite(amount) || amount < MIN_OFFER || amount > MAX_OFFER)) {
+        flag(offer);
+        return;
+      }
+      onBook({ amount: amount === null ? '' : Math.round(amount * 100) / 100, pitch: pitch.value.trim(), links: links.value.trim() });
+    });
+
+    article.appendChild(panel);
+    return article;
+  }
+
+  function bookHours(offer) {
+    if (typeof root.openBookingCheckout === 'function') {
+      root.openBookingCheckout(offer);
+    }
+  }
+
   function apply(rootEl, opts) {
     if (!rootEl) return;
     opts = opts || {};
@@ -143,6 +249,10 @@
       },
       onCustom: promptCustomAmount
     });
+    var board = root.document.createElement('div');
+    board.className = 'shop-board';
+    board.appendChild(renderHoursCard({ onBook: bookHours }));
+    rootEl.appendChild(board);
   }
 
   if (typeof root.document !== 'undefined') {
@@ -160,6 +270,7 @@
     getProductById: getProductById,
     formatMoney: formatMoney,
     renderProductCard: renderProductCard,
+    renderHoursCard: renderHoursCard,
     apply: apply,
     init: mountShopProducts
   };
