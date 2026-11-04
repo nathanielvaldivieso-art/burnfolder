@@ -31,6 +31,10 @@
   const getFunctionsBase = kit.getFunctionsBase;
   const fileToBase64 = kit.fileToBase64;
 
+  // Picked files stay in memory: base64 images overflow the ~5MB localStorage quota.
+  let pendingPhoto = null;
+  let pendingAssets = {};
+
   function normalizeLinkRow(item) {
     if (!item || typeof item !== 'object') return null;
     return {
@@ -187,18 +191,12 @@
   }
 
   function setPendingPhoto(asset) {
-    return ensureHydrated().then(function () {
-      const store = readStore();
-      store.pendingPhoto = asset || null;
-      writeStore(store);
-      return store.pendingPhoto;
-    });
+    pendingPhoto = asset || null;
+    return Promise.resolve(pendingPhoto);
   }
 
   function getPendingPhoto() {
-    return ensureHydrated().then(function () {
-      return readStore().pendingPhoto || null;
-    });
+    return Promise.resolve(pendingPhoto);
   }
 
   function clearPendingPhoto() {
@@ -206,25 +204,18 @@
   }
 
   function setPendingAsset(id, asset) {
-    return ensureHydrated().then(function () {
-      const store = readStore();
-      store.pendingAssets = store.pendingAssets || {};
-      if (!id) {
-        store.pendingAssets = {};
-      } else if (!asset) {
-        delete store.pendingAssets[id];
-      } else {
-        store.pendingAssets[id] = asset;
-      }
-      writeStore(store);
-      return store.pendingAssets;
-    });
+    if (!id) {
+      pendingAssets = {};
+    } else if (!asset) {
+      delete pendingAssets[id];
+    } else {
+      pendingAssets[id] = asset;
+    }
+    return Promise.resolve(pendingAssets);
   }
 
   function getPendingAssets() {
-    return ensureHydrated().then(function () {
-      return readStore().pendingAssets || {};
-    });
+    return Promise.resolve(pendingAssets);
   }
 
   function clearPendingAssets() {

@@ -248,7 +248,7 @@
             setStatus('asset must be under 4MB', 'error');
             return;
           }
-          const path = 'IMAGES/PRESS-ASSET-' + row.id + '.' + (ext || 'jpg');
+          const path = 'IMAGES/PRESS-ASSET-' + row.id + '-' + Date.now() + '.' + (ext || 'jpg');
           setStatus('reading asset…');
           store
             .fileToBase64(file)
@@ -359,7 +359,7 @@
       }
 
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const path = 'IMAGES/PRESS-PHOTO.' + (ext || 'jpg');
+      const path = 'IMAGES/PRESS-PHOTO-' + Date.now() + '.' + (ext || 'jpg');
 
       setStatus('reading photo…');
       store
