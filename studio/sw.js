@@ -2,10 +2,11 @@
 importScripts('/shared/sw-core.js');
 
 self.createBurnfolderServiceWorker({
-  cacheName: 'burnfolder-stream-v20261024open1',
+  cacheName: 'burnfolder-stream-v20261104press1',
   includeRoot: false,
   freshSuffixes: [
     '/entries.js',
+    '/press-page.js',
     '/studio/js/studio-auth.js',
     '/studio/js/mux-client.js',
     '/songs.js',

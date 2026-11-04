@@ -171,6 +171,10 @@
       hrefInput.placeholder = kind === 'asset' ? 'path or url' : 'href';
       hrefInput.addEventListener('input', function () {
         row.href = hrefInput.value;
+        if (row.pending && row.href.trim()) {
+          row.pending = false;
+          pendingInput.checked = false;
+        }
         scheduleSave();
       });
       li.appendChild(hrefInput);

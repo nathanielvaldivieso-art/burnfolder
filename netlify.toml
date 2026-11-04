@@ -127,6 +127,11 @@
   [headers.values]
     Cache-Control = "public, max-age=60, must-revalidate"
 
+[[headers]]
+  for = "/press-page.js"
+  [headers.values]
+    Cache-Control = "public, max-age=60, must-revalidate"
+
 # Service workers must update quickly when you deploy
 [[headers]]
   for = "/sw.js"
