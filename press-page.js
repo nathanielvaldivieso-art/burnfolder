@@ -20,5 +20,5 @@ window.burnfolderPressPage = {
     }
   ],
   "assets": [],
-  "updatedAt": "2026-11-04T19:33:19.376Z"
+  "updatedAt": "2026-11-04T19:40:29.403Z"
 };
