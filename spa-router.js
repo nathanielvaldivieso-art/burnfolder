@@ -188,6 +188,14 @@
     return !!(window.burnfolderSongPages && window.BurnfolderSongPageRender);
   }
 
+  function pressPageCanRender() {
+    return !!(
+      window.burnfolderPressPage &&
+      window.BurnfolderPressPageRender &&
+      typeof window.renderPressPage === 'function'
+    );
+  }
+
   function handleLinkClick(e) {
     if (e.defaultPrevented) return;
     const link = e.target.closest('a');
@@ -351,6 +359,10 @@
         hardNavigate(url);
         return;
       }
+      if (document.getElementById('pressPage') && !pressPageCanRender()) {
+        hardNavigate(url);
+        return;
+      }
 
       // Re-initialize any page-specific scripts
       if (typeof window.mountSiteMenu === 'function') {
@@ -441,6 +453,10 @@
       typeof window.BurnfolderAlbumHubBoot.schedule === 'function'
     ) {
       window.BurnfolderAlbumHubBoot.schedule();
+    }
+
+    if (typeof window.renderPressPage === 'function') {
+      window.renderPressPage();
     }
 
     // Re-render shop products when present
