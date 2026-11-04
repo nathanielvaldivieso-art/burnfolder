@@ -1,6 +1,6 @@
 // Press / EPK content — published from burnfolder studio
 window.burnfolderPressPage = {
-  "pressPhoto": "",
+  "pressPhoto": "IMAGES/PRESS-PHOTO-20261104.jpg",
   "bio": "burnfolder is a creative project by nathaniel a valdivieso",
   "releaseLine": "",
   "pullQuote": "",
