@@ -7,8 +7,7 @@
     { id: 'visual', label: 'video', href: 'content.html' },
     { id: 'archive', label: 'archive', href: 'archive.html' },
     { id: 'shop', label: 'shop', href: 'shop.html' },
-    { id: 'about', label: 'about', href: 'about.html' },
-    { id: 'contact', label: 'contact', href: 'contact.html' }
+    { id: 'about', label: 'about', href: 'about.html' }
   ];
 
   var handlersBound = false;
@@ -57,7 +56,6 @@
     if (key === 'archive') return 'archive';
     if (key === 'shop') return 'shop';
     if (key === 'about') return 'about';
-    if (key === 'contact') return 'contact';
     return null;
   }
 

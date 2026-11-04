@@ -1,7 +1,7 @@
 /**
  * Menu version archive — simple backup / revert for the site menu design.
  *
- * Each public section (home, audio, archive, video, shop, about, contact) can
+ * Each public section (home, audio, archive, video, shop, about) can
  * have any number of saved versions. One version per section may be active. The
  * UI is intentionally minimal: simple blobs, preview, and an active indicator.
  *
@@ -45,8 +45,7 @@
     { id: 'archive', label: 'archive' },
     { id: 'video', label: 'video' },
     { id: 'shop', label: 'shop' },
-    { id: 'about', label: 'about' },
-    { id: 'contact', label: 'contact' }
+    { id: 'about', label: 'about' }
   ];
 
   var SECTION_URLS = {
@@ -55,8 +54,7 @@
     archive: 'archive.html',
     video: 'content.html',
     shop: 'shop.html',
-    about: 'about.html',
-    contact: 'contact.html'
+    about: 'about.html'
   };
 
   var state = null;

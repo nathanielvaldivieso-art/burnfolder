@@ -73,6 +73,27 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
+# Press and contact merged into about
+[[redirects]]
+  from = "/press.html"
+  to = "/about.html"
+  status = 301
+
+[[redirects]]
+  from = "/press"
+  to = "/about.html"
+  status = 301
+
+[[redirects]]
+  from = "/contact.html"
+  to = "/about.html"
+  status = 301
+
+[[redirects]]
+  from = "/contact"
+  to = "/about.html"
+  status = 301
+
 # ── HTML: always revalidate (content changes on publish) ──
 [[headers]]
   for = "/*.html"

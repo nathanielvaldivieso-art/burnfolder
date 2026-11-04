@@ -175,7 +175,7 @@ exports.handler = async function (event) {
         ok: true,
         commitSha: commit.sha,
         commitUrl: commit.url,
-        publishUrl: 'https://burnfolder.com/press.html',
+        publishUrl: 'https://burnfolder.com/about.html',
         message: (photo || assetFiles.length)
           ? 'Pushed press page + assets to burnfolder.com. Netlify will deploy shortly.'
           : 'Pushed press page to burnfolder.com. Netlify will deploy shortly.'

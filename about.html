@@ -10,16 +10,18 @@
   <link rel="dns-prefetch" href="https://www.mux.com">
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
   <link rel="stylesheet" href="style.css">
-  <script src="shared/site-menu.js?v=20260815dnd1" defer></script>
+  <script src="shared/site-menu.js?v=20261104about1" defer></script>
 </head>
-<body class="page-about">
+<body class="page-press">
   <div id="siteMenu"></div>
   <a href="cart.html" class="icon-btn site-cart-btn site-cart-btn--hidden" id="cartFloat" title="View cart">cart</a>
 
-  <div class="page-wrap">
-    <p class="about-identity">burnfolder is a creative project by nathaniel a valdivieso</p>
+  <div class="page-wrap" id="pressPage">
+    <div data-press-field="body"></div>
   </div>
   <div id="audioList" style="display:none"></div>
+
+  <div class="page-watermark">about</div>
 
   <div class="bottom-progress-bar" id="bottomBar">
     <div class="close-btn" id="closeBtn" aria-label="Close Now Playing">✕</div>
@@ -38,9 +40,9 @@
   </div>
 
   <script src="entries.js"></script>
-  <script src="entry-renderer.js"></script>
   <script src="songs.js"></script>
-  <script src="stripe-publishable.js"></script>
+  <script src="press-page.js?v=20261104press2"></script>
+  <script src="shared/press-page-render.js?v=20260815dnd1"></script>
   <script src="spa-router.js?v=20260815dnd1"></script>
   <script src="shared/studio-tap.js?v=20260815dnd1"></script>
   <script src="shared/playback-debug.js?v=20260815dnd1"></script>
