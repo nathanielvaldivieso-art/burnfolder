@@ -9,16 +9,16 @@ window.burnfolderPressPage = {
     {
       "label": "instagram",
       "href": "https://www.instagram.com/burnfolder/",
-      "pending": true,
+      "pending": false,
       "id": "link-1793820416810-1b6f31"
     },
     {
       "label": "youtube",
       "href": "https://www.youtube.com/@burnfolder",
-      "pending": true,
+      "pending": false,
       "id": "link-1793820463242-c64302"
     }
   ],
   "assets": [],
-  "updatedAt": "2026-11-04T19:40:29.403Z"
+  "updatedAt": "2026-11-04T19:41:06.455Z"
 };
