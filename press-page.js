@@ -1,14 +1,24 @@
 // Press / EPK content — published from burnfolder studio
 window.burnfolderPressPage = {
   "pressPhoto": "",
-  "bio": "",
+  "bio": "burnfolder is a creative project by nathaniel a valdivieso",
+  "releaseLine": "",
+  "pullQuote": "",
   "contactEmail": "nathaniel@burnfolder.com",
   "links": [
-    { "label": "spotify", "href": "", "pending": true },
-    { "label": "apple music", "href": "", "pending": true },
-    { "label": "youtube", "href": "https://www.youtube.com/@burnfolder" },
-    { "label": "instagram", "href": "https://www.instagram.com/burnfolder/" }
+    {
+      "label": "instagram",
+      "href": "https://www.instagram.com/burnfolder/",
+      "pending": true,
+      "id": "link-1793820416810-1b6f31"
+    },
+    {
+      "label": "youtube",
+      "href": "https://www.youtube.com/@burnfolder",
+      "pending": true,
+      "id": "link-1793820463242-c64302"
+    }
   ],
   "assets": [],
-  "updatedAt": "2026-07-10T00:00:00.000Z"
+  "updatedAt": "2026-11-04T19:32:10.428Z"
 };
