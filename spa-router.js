@@ -188,6 +188,10 @@
     return !!(window.burnfolderSongPages && window.BurnfolderSongPageRender);
   }
 
+  function shopPageCanRender() {
+    return !!(window.burnfolderShopProducts && window.BurnfolderShopProductsRender);
+  }
+
   function pressPageCanRender() {
     return !!(
       window.burnfolderPressPage &&
@@ -360,6 +364,10 @@
         return;
       }
       if (document.getElementById('pressPage') && !pressPageCanRender()) {
+        hardNavigate(url);
+        return;
+      }
+      if (document.getElementById('shopProductsRoot') && !shopPageCanRender()) {
         hardNavigate(url);
         return;
       }
