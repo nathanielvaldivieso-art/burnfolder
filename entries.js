@@ -4,6 +4,16 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 window.entryDataByDate = {
+  "11.6.26": {
+    "date": "11.6.26",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "burnfolder the musical project by nathaniel a valdivieso. burnfolder computer music inc 2003 rights reserved. burnfolder nylon unlimited copyright 2928. burnfolder the inventor of sliced bread. burnfolder the whisperer. burnfolder photonegative rbg all rights reserved trademarked. burnfolder 61 key live set. burnfolder computer music. burnfolder large square ice cube zero c02 bubbles. burnfolder non-euclidean space. burnfolder 3.8 g.p.a 3 j.o.b and im spiderman in my down time. burnfolder me and my grocer have a personal relationship. burnfolder eat your vegtables. burnfolder support small buisness. burnfolder dop san marsano tomatos. burnfolder xlr cable. burnfolder the seamstress. burnfolder krk rockit 5. burnfolder.\n\n",
+        "textSize": "md"
+      }
+    ]
+  },
   "9.30.26": {
     "date": "9.30.26",
     "blocks": [
@@ -354,7 +364,7 @@ window.entryDataByDate = {
   },
 };
 
-window.entryOrder = ["9.30.26","9.11.26","8.14.26","7.24.26","7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
+window.entryOrder = ["11.6.26","9.30.26","9.11.26","8.14.26","7.24.26","7.21.26","7.15.26","7.11.26","7.8.26","7.1.26","6.24.26","6.5.26","6.4.26","6.1.26","5.29.26","5.17.26"];
 
 // Featured on music.html — track order/cover from this album; playback picks newest
 // version of each song sitewide (e.g. singles from later entries). Entry pages keep
